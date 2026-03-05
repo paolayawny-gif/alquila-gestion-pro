@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -13,7 +14,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  User
+  User,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -27,14 +29,14 @@ import { LegalView } from '@/components/dashboard/legal-view';
 import { LiquidationsView } from '@/components/dashboard/liquidations-view';
 import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
 
-type Tab = 'Resumen' | 'Propiedades' | 'Inquilinos' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Asistente IA';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Contratos' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Asistente IA';
 
 const MENU_ITEMS = [
   { id: 'Resumen', icon: LayoutDashboard, label: 'Resumen' },
   { id: 'Propiedades', icon: Building, label: 'Propiedades' },
-  { id: 'Inquilinos', icon: Users, label: 'Inquilinos y Contratos' },
+  { id: 'Personas', icon: Users, label: 'Personas y Contratos' },
   { id: 'Facturas', icon: FileSpreadsheet, label: 'Facturas y Servicios' },
-  { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento' },
+  { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento / Reclamos' },
   { id: 'Legales', icon: Scale, label: 'Legales y Mediaciones' },
   { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
   { id: 'Asistente IA', icon: MessageSquareCode, label: 'Asistente IA' },
@@ -48,13 +50,13 @@ export default function AppClient() {
     switch (activeTab) {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case 'Propiedades': return <PropertiesView />;
-      case 'Inquilinos': return <TenantsView />;
+      case 'Personas': return <TenantsView />;
       case 'Facturas': return <InvoicesView />;
       case 'Mantenimiento': return <MaintenanceView />;
       case 'Legales': return <LegalView />;
       case 'Liquidaciones': return <LiquidationsView />;
       case 'Asistente IA': return <AIAssistantView />;
-      default: return <SummaryView onNavigate={setActiveTab} />;
+      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
     }
   };
 
@@ -63,21 +65,21 @@ export default function AppClient() {
       {/* Sidebar */}
       <aside 
         className={cn(
-          "bg-white border-r flex flex-col transition-all duration-300 relative",
+          "bg-white border-r flex flex-col transition-all duration-300 relative z-20",
           isSidebarCollapsed ? "w-20" : "w-64"
         )}
       >
         <div className="p-6 h-20 flex items-center justify-between">
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-2 overflow-hidden">
-              <Building className="text-primary h-6 w-6 flex-shrink-0" />
+              <ShieldCheck className="text-primary h-6 w-6 flex-shrink-0" />
               <span className="font-bold text-lg text-primary truncate">AlquilaGestión Pro</span>
             </div>
           )}
-          {isSidebarCollapsed && <Building className="text-primary h-8 w-8 mx-auto" />}
+          {isSidebarCollapsed && <ShieldCheck className="text-primary h-8 w-8 mx-auto" />}
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 mt-4">
+        <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
           {MENU_ITEMS.map((item) => (
             <button
               key={item.id}
@@ -95,7 +97,7 @@ export default function AppClient() {
           ))}
         </nav>
 
-        <div className="p-4 border-t">
+        <div className="p-4 border-t space-y-1">
            <button 
             className={cn(
               "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
@@ -136,7 +138,7 @@ export default function AppClient() {
             </div>
           </div>
         </header>
-        <div className="p-8 max-w-7xl mx-auto h-[calc(100vh-5rem)]">
+        <div className="p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">
           {renderContent()}
         </div>
       </main>

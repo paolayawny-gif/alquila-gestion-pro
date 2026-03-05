@@ -7,10 +7,12 @@ export type Currency = 'ARS' | 'USD';
 export type PersonType = 'Inquilino' | 'Propietario' | 'Garante';
 
 export interface DocumentInfo {
+  id: string;
   name: string;
   url: string;
-  type: string;
-  date?: string;
+  type: string; // 'DNI' | 'Escritura' | 'Recibo' | 'Seguro'
+  status: 'Pendiente' | 'Validado' | 'Rechazado';
+  date: string;
 }
 
 export interface BankDetails {
@@ -71,45 +73,46 @@ export interface Contract {
   adjustmentFrequencyMonths: number;
   lastAdjustmentDate?: string;
   nextAdjustmentDate?: string;
+  lateFeePercentage?: number; // Punitorios por día o mes
   status: 'Active' | 'Overdue' | 'InLegal' | 'Terminated';
   ownerId: string;
 }
 
+export interface MaintenanceTask {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  tenantId?: string;
+  tenantName?: string;
+  concept: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+  priority: 'Baja' | 'Media' | 'Alta' | 'Crítica';
+  status: 'Pendiente' | 'Presupuestado' | 'En curso' | 'Completado';
+  hasFile: boolean;
+}
+
 export interface Invoice {
   id: string;
+  contractId: string;
   concept: string;
   amount: number;
   currency: Currency;
   dueDate: string;
   status: 'Pendiente' | 'Pagado' | 'Vencido';
   hasFile: boolean;
-}
-
-export interface MaintenanceTask {
-  id: string;
-  concept: string;
-  amount: number;
-  dueDate: string;
-  status: 'Pendiente' | 'En curso' | 'Completado';
-  hasFile: boolean;
-}
-
-export interface LegalCase {
-  id: string;
-  type: string;
-  propertyName: string;
-  startDate: string;
-  attorney: string;
-  status: string;
-  hasFile: boolean;
+  cae?: string; // Para AFIP futura
 }
 
 export interface Liquidation {
   id: string;
+  propertyId: string;
   propertyName: string;
   rentAmount: number;
   adminFee: number;
   maintenanceDeductions: number;
   netAmount: number;
   period: string;
+  dateCreated: string;
 }
