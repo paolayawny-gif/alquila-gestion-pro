@@ -41,7 +41,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Property, Person, Contract, RentalApplication, Invoice, MaintenanceTask } from '@/lib/types';
+import { Property, Person, Contract, RentalApplication, Invoice, MaintenanceTask, LegalCase, Liquidation } from '@/lib/types';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
@@ -64,7 +64,7 @@ export default function AppClient() {
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // ESTADO GLOBAL CENTRALIZADO PARA PERSISTENCIA ENTRE TABS
+  // ESTADO GLOBAL CENTRALIZADO
   const [properties, setProperties] = useState<Property[]>([
     { 
       id: '1', 
@@ -94,6 +94,17 @@ export default function AppClient() {
       address: 'Av. Corrientes 1500, CABA',
       documents: [],
       bankDetails: { bank: 'Galicia', cbu: '0070123456', alias: 'CARLOS.SOSA.PAGO' },
+      ownerId: 'user1'
+    },
+    {
+      id: 'p1',
+      type: 'Propietario',
+      fullName: 'Juan Pérez',
+      taxId: '20-12345678-9',
+      email: 'juan.perez@email.com',
+      phone: '11 9988-7766',
+      documents: [],
+      bankDetails: { bank: 'Santander', cbu: '0720123456', alias: 'JUAN.P.PROPIEDAD' },
       ownerId: 'user1'
     }
   ]);
@@ -128,8 +139,48 @@ export default function AppClient() {
   ]);
 
   const [applications, setApplications] = useState<RentalApplication[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([
+    { 
+      id: '1', 
+      contractId: 'c1',
+      tenantName: 'Carlos Sosa',
+      propertyName: 'Las Heras 4B',
+      period: 'Marzo 2024',
+      charges: [
+        { id: 'ch1', type: 'Alquiler', description: 'Alquiler mensual', amount: 185000, imputedTo: 'Inquilino', isPaid: true },
+        { id: 'ch2', type: 'Expensa Ordinaria', description: 'Expensas Marzo', amount: 45000, imputedTo: 'Inquilino', isPaid: true },
+      ],
+      lateFees: 0,
+      totalAmount: 230000,
+      currency: 'ARS',
+      dueDate: '2024-03-10', 
+      status: 'Pagado', 
+      paymentDate: '2024-03-08',
+      paymentMethod: 'Transferencia',
+      hasFile: true 
+    }
+  ]);
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+  const [legalCases, setLegalCases] = useState<LegalCase[]>([
+    { id: '1', type: 'Desalojo por Falta de Pago', propertyId: '1', propertyName: 'Las Heras 4B', startDate: '2024-01-10', attorney: 'Dr. Ricardo Darín', status: 'En proceso', hasFile: true, ownerId: 'user1' }
+  ]);
+  const [liquidations, setLiquidations] = useState<Liquidation[]>([
+    { 
+      id: '1', 
+      propertyId: '1',
+      propertyName: 'Las Heras 4B', 
+      ownerId: 'p1',
+      ownerName: 'Juan Pérez',
+      rentIncome: 185000, 
+      adminFeeDeduction: 9250, 
+      maintenanceDeductions: 0, 
+      expenseDeductions: 12000, 
+      netAmount: 163750, 
+      period: 'Abril 2024',
+      status: 'Pendiente',
+      dateCreated: '2024-04-15'
+    }
+  ]);
 
   const renderContent = () => {
     if (activeRole === 'Inquilino') return <TenantPortalView />;
@@ -150,8 +201,8 @@ export default function AppClient() {
       case 'Onboarding': return <OnboardingView applications={applications} setApplications={setApplications} properties={properties} />;
       case 'Facturas': return <InvoicesView invoices={invoices} setInvoices={setInvoices} contracts={contracts} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} setTasks={setTasks} properties={properties} people={people} />;
-      case 'Legales': return <LegalView />;
-      case 'Liquidaciones': return <LiquidationsView />;
+      case 'Legales': return <LegalView legalCases={legalCases} setLegalCases={setLegalCases} properties={properties} />;
+      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} setLiquidations={setLiquidations} properties={properties} people={people} />;
       case 'Reportes': return <ReportsView />;
       case 'Asistente IA': return <AIAssistantView />;
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;

@@ -25,6 +25,8 @@ export interface BankDetails {
   alias: string;
 }
 
+export type PersonType = 'Inquilino' | 'Propietario' | 'Garante' | 'Proveedor';
+
 export interface Person {
   id: string;
   type: PersonType;
@@ -198,4 +200,16 @@ export interface AppAlert {
   severity: 'low' | 'medium' | 'high';
   date: string;
   linkTab?: string;
+}
+
+export interface LegalCase {
+  id: string;
+  type: string;
+  propertyId: string;
+  propertyName: string;
+  startDate: string;
+  attorney: string;
+  status: 'En proceso' | 'Acuerdo firmado' | 'Cerrado' | 'Resuelto';
+  hasFile: boolean;
+  ownerId: string;
 }

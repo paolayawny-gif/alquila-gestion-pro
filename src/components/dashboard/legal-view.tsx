@@ -1,20 +1,84 @@
+
 "use client";
 
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Scale, Edit2, Trash2, FileCheck, Upload, Search, UserCheck } from 'lucide-react';
+import { Scale, Edit2, Trash2, FileCheck, Upload, Search, UserCheck, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LegalCase } from '@/lib/types';
+import { LegalCase, Property } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from '@/hooks/use-toast';
 
-export function LegalView() {
-  const [cases] = useState<LegalCase[]>([
-    { id: '1', type: 'Desalojo por Falta de Pago', propertyName: 'Quinta del Sol', startDate: '10/01/2024', attorney: 'Dr. Ricardo Darín', status: 'En proceso', hasFile: true },
-    { id: '2', type: 'Mediación por Daños', propertyName: 'Edificio Las Heras 4B', startDate: '05/03/2024', attorney: 'Dra. Elena Rogers', status: 'Acuerdo firmado', hasFile: true },
-  ]);
+interface LegalViewProps {
+  legalCases: LegalCase[];
+  setLegalCases: React.Dispatch<React.SetStateAction<LegalCase[]>>;
+  properties: Property[];
+}
+
+export function LegalView({ legalCases, setLegalCases, properties }: LegalViewProps) {
+  const { toast } = useToast();
+  const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
+  const [newCase, setNewCase] = useState<Partial<LegalCase>>({
+    type: '',
+    propertyId: '',
+    startDate: new Date().toISOString().split('T')[0],
+    attorney: '',
+    status: 'En proceso'
+  });
+
+  const handleCreateCase = () => {
+    if (!newCase.type || !newCase.propertyId || !newCase.attorney) {
+      toast({
+        title: "Error",
+        description: "Complete todos los campos obligatorios.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const property = properties.find(p => p.id === newCase.propertyId);
+    
+    const caseData: LegalCase = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: newCase.type!,
+      propertyId: newCase.propertyId!,
+      propertyName: property?.name || 'Propiedad no encontrada',
+      startDate: newCase.startDate!,
+      attorney: newCase.attorney!,
+      status: (newCase.status as any) || 'En proceso',
+      hasFile: false,
+      ownerId: 'user1'
+    };
+
+    setLegalCases([caseData, ...legalCases]);
+    setIsNewCaseOpen(false);
+    setNewCase({
+      type: '',
+      propertyId: '',
+      startDate: new Date().toISOString().split('T')[0],
+      attorney: '',
+      status: 'En proceso'
+    });
+
+    toast({
+      title: "Trámite Registrado",
+      description: `Se ha iniciado el trámite legal para ${caseData.propertyName}.`
+    });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -23,10 +87,88 @@ export function LegalView() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar trámite..." className="pl-9 bg-white" />
         </div>
-        <Button className="bg-accent hover:bg-accent/90 text-white gap-2">
-          <Scale className="h-4 w-4" />
-          Nuevo Trámite
-        </Button>
+        
+        <Dialog open={isNewCaseOpen} onOpenChange={setIsNewCaseOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-accent hover:bg-accent/90 text-white gap-2">
+              <Scale className="h-4 w-4" />
+              Nuevo Trámite
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Iniciar Nuevo Trámite Legal</DialogTitle>
+              <DialogDescription>Registre mediaciones, desalojos o reclamos judiciales.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Tipo de Proceso</Label>
+                <Select 
+                  value={newCase.type} 
+                  onValueChange={(v) => setNewCase({...newCase, type: v})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Seleccione tipo..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Desalojo por Falta de Pago">Desalojo por Falta de Pago</SelectItem>
+                    <SelectItem value="Mediación por Daños">Mediación por Daños</SelectItem>
+                    <SelectItem value="Ejecución de Garantía">Ejecución de Garantía</SelectItem>
+                    <SelectItem value="Reclamo de Expensas">Reclamo de Expensas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Propiedad Vinculada</Label>
+                <Select 
+                  value={newCase.propertyId} 
+                  onValueChange={(v) => setNewCase({...newCase, propertyId: v})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Seleccione propiedad..." /></SelectTrigger>
+                  <SelectContent>
+                    {properties.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Abogado / Estudio Jurídico</Label>
+                <Input 
+                  placeholder="Ej: Dr. Pérez" 
+                  value={newCase.attorney}
+                  onChange={(e) => setNewCase({...newCase, attorney: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Fecha Inicio</Label>
+                  <Input 
+                    type="date" 
+                    value={newCase.startDate}
+                    onChange={(e) => setNewCase({...newCase, startDate: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado Inicial</Label>
+                  <Select 
+                    value={newCase.status} 
+                    onValueChange={(v: any) => setNewCase({...newCase, status: v})}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="En proceso">En proceso</SelectItem>
+                      <SelectItem value="Acuerdo firmado">Acuerdo firmado</SelectItem>
+                      <SelectItem value="Resuelto">Resuelto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={() => setIsNewCaseOpen(false)}>Cancelar</Button>
+              <Button className="bg-accent text-white" onClick={handleCreateCase}>Registrar Trámite</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
@@ -43,7 +185,7 @@ export function LegalView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cases.map((c) => (
+            {legalCases.length > 0 ? legalCases.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium text-foreground">{c.type}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{c.propertyName}</TableCell>
@@ -57,7 +199,7 @@ export function LegalView() {
                 <TableCell>
                   <Badge className={cn(
                     "border-none",
-                    c.status === 'Acuerdo firmado' ? "bg-green-100 text-green-700 hover:bg-green-100" : 
+                    c.status === 'Acuerdo firmado' || c.status === 'Resuelto' ? "bg-green-100 text-green-700 hover:bg-green-100" : 
                     c.status === 'En proceso' ? "bg-orange-100 text-orange-700 hover:bg-orange-100" : "bg-muted text-muted-foreground"
                   )}>
                     {c.status}
@@ -79,13 +221,22 @@ export function LegalView() {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => setLegalCases(legalCases.filter(lc => lc.id !== c.id))}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay trámites legales registrados.</TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>

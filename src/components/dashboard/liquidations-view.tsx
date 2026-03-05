@@ -12,50 +12,100 @@ import {
   MoreVertical,
   ArrowUpRight,
   TrendingDown,
-  FileCheck
+  FileCheck,
+  Plus
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Liquidation } from '@/lib/types';
+import { Liquidation, Property, Person } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from '@/hooks/use-toast';
 
-const MOCK_LIQUIDATIONS: Liquidation[] = [
-  { 
-    id: '1', 
-    propertyId: 'p1',
-    propertyName: 'Las Heras 4B', 
-    ownerId: 'o1',
-    ownerName: 'Juan Pérez',
-    rentIncome: 185000, 
-    adminFeeDeduction: 9250, 
-    maintenanceDeductions: 0, 
-    expenseDeductions: 12000, // Expensas Extraordinarias a cargo del dueño
-    netAmount: 163750, 
-    period: 'Abril 2024',
-    status: 'Pendiente',
-    dateCreated: '2024-04-15'
-  },
-  { 
-    id: '2', 
-    propertyId: 'p2',
-    propertyName: 'Quinta del Sol', 
-    ownerId: 'o2',
-    ownerName: 'Marta Rodriguez',
-    rentIncome: 250000, 
-    adminFeeDeduction: 12500, 
-    maintenanceDeductions: 85000, 
+interface LiquidationsViewProps {
+  liquidations: Liquidation[];
+  setLiquidations: React.Dispatch<React.SetStateAction<Liquidation[]>>;
+  properties: Property[];
+  people: Person[];
+}
+
+export function LiquidationsView({ liquidations, setLiquidations, properties, people }: LiquidationsViewProps) {
+  const { toast } = useToast();
+  const [isNewLiqOpen, setIsNewLiqOpen] = useState(false);
+  const [newLiq, setNewLiq] = useState<Partial<Liquidation>>({
+    propertyId: '',
+    period: 'Mayo 2024',
+    rentIncome: 0,
+    adminFeeDeduction: 0,
+    maintenanceDeductions: 0,
     expenseDeductions: 0,
-    netAmount: 152500, 
-    period: 'Marzo 2024',
-    status: 'Pagada',
-    dateCreated: '2024-03-15',
-    paymentReference: 'TRANSF-GALICIA-221'
-  },
-];
+    status: 'Pendiente'
+  });
 
-export function LiquidationsView() {
-  const [liquidations] = useState<Liquidation[]>(MOCK_LIQUIDATIONS);
+  const handleCreateLiq = () => {
+    if (!newLiq.propertyId || !newLiq.rentIncome) {
+      toast({
+        title: "Error",
+        description: "Complete la propiedad y el monto bruto.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const property = properties.find(p => p.id === newLiq.propertyId);
+    const owner = people.find(p => p.id === property?.owners[0]?.ownerId);
+
+    const net = (newLiq.rentIncome || 0) - (newLiq.adminFeeDeduction || 0) - (newLiq.maintenanceDeductions || 0) - (newLiq.expenseDeductions || 0);
+
+    const liqData: Liquidation = {
+      id: Math.random().toString(36).substr(2, 9),
+      propertyId: newLiq.propertyId!,
+      propertyName: property?.name || 'Propiedad desconocida',
+      ownerId: owner?.id || property?.owners[0]?.ownerId || 'unknown',
+      ownerName: owner?.fullName || property?.owners[0]?.name || 'Propietario no encontrado',
+      period: newLiq.period!,
+      rentIncome: newLiq.rentIncome!,
+      adminFeeDeduction: newLiq.adminFeeDeduction || 0,
+      maintenanceDeductions: newLiq.maintenanceDeductions || 0,
+      expenseDeductions: newLiq.expenseDeductions || 0,
+      netAmount: net,
+      status: 'Pendiente',
+      dateCreated: new Date().toISOString().split('T')[0]
+    };
+
+    setLiquidations([liqData, ...liquidations]);
+    setIsNewLiqOpen(false);
+    setNewLiq({
+      propertyId: '',
+      period: 'Mayo 2024',
+      rentIncome: 0,
+      adminFeeDeduction: 0,
+      maintenanceDeductions: 0,
+      expenseDeductions: 0,
+      status: 'Pendiente'
+    });
+
+    toast({
+      title: "Liquidación Generada",
+      description: `Se ha procesado el pago para ${liqData.ownerName}.`
+    });
+  };
+
+  const calculateAutoFees = (amount: number) => {
+    // Simular 5% de comisión de administración
+    setNewLiq(prev => ({ ...prev, rentIncome: amount, adminFeeDeduction: amount * 0.05 }));
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -66,31 +116,107 @@ export function LiquidationsView() {
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
            <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" /> Exportar Reporte Mensual
+            <Download className="h-4 w-4" /> Exportar Reporte
           </Button>
-          <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
-            <Calculator className="h-4 w-4" />
-            Nueva Liquidación
-          </Button>
+          
+          <Dialog open={isNewLiqOpen} onOpenChange={setIsNewLiqOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
+                <Plus className="h-4 w-4" />
+                Nueva Liquidación
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Nueva Liquidación a Propietario</DialogTitle>
+                <DialogDescription>Calcule el neto a transferir deduciendo comisiones y gastos.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Unidad a Liquidar</Label>
+                  <Select 
+                    value={newLiq.propertyId} 
+                    onValueChange={(v) => setNewLiq({...newLiq, propertyId: v})}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                    <SelectContent>
+                      {properties.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Periodo</Label>
+                    <Input 
+                      placeholder="Ej: Mayo 2024" 
+                      value={newLiq.period}
+                      onChange={(e) => setNewLiq({...newLiq, period: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Alquiler Bruto ($)</Label>
+                    <Input 
+                      type="number" 
+                      placeholder="0" 
+                      value={newLiq.rentIncome}
+                      onChange={(e) => calculateAutoFees(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-2 text-primary">
+                    <Label>Comisión Adm. ($)</Label>
+                    <Input 
+                      type="number" 
+                      value={newLiq.adminFeeDeduction}
+                      onChange={(e) => setNewLiq({...newLiq, adminFeeDeduction: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div className="space-y-2 text-red-600">
+                    <Label>Mantenimiento ($)</Label>
+                    <Input 
+                      type="number" 
+                      value={newLiq.maintenanceDeductions}
+                      onChange={(e) => setNewLiq({...newLiq, maintenanceDeductions: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-green-700 uppercase">Neto Final a Pagar</span>
+                    <span className="text-lg font-black text-green-800">
+                      $ {((newLiq.rentIncome || 0) - (newLiq.adminFeeDeduction || 0) - (newLiq.maintenanceDeductions || 0)).toLocaleString('es-AR')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="mt-6">
+                <Button variant="outline" onClick={() => setIsNewLiqOpen(false)}>Cancelar</Button>
+                <Button className="bg-primary text-white" onClick={handleCreateLiq}>Generar y Notificar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-muted-foreground block">Recaudado (Bruto)</span>
-          <span className="text-xl font-black">$ 435.000</span>
+          <span className="text-xl font-black">$ {liquidations.reduce((acc, l) => acc + l.rentIncome, 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-primary block">Comisiones Adm.</span>
-          <span className="text-xl font-black text-primary">$ 21.750</span>
+          <span className="text-xl font-black text-primary">$ {liquidations.reduce((acc, l) => acc + l.adminFeeDeduction, 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
-          <span className="text-[10px] uppercase font-bold text-red-600 block">Deducciones (Gastos/Exp)</span>
-          <span className="text-xl font-black text-red-600">$ 97.000</span>
+          <span className="text-[10px] uppercase font-bold text-red-600 block">Deducciones</span>
+          <span className="text-xl font-black text-red-600">$ {liquidations.reduce((acc, l) => acc + l.maintenanceDeductions + l.expenseDeductions, 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4 border-l-4 border-l-green-500">
           <span className="text-[10px] uppercase font-bold text-green-700 block">Total a Liquidar</span>
-          <span className="text-xl font-black text-green-700">$ 316.250</span>
+          <span className="text-xl font-black text-green-700">$ {liquidations.reduce((acc, l) => acc + l.netAmount, 0).toLocaleString('es-AR')}</span>
         </Card>
       </div>
 
@@ -108,7 +234,7 @@ export function LiquidationsView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {liquidations.map((l) => (
+            {liquidations.length > 0 ? liquidations.map((l) => (
               <TableRow key={l.id} className="hover:bg-muted/30 transition-colors">
                 <TableCell>
                   <div className="flex flex-col">
@@ -121,11 +247,8 @@ export function LiquidationsView() {
                 <TableCell className="text-right">
                   <div className="flex flex-col items-end text-[10px]">
                     <span className="text-primary">Adm: - $ {l.adminFeeDeduction.toLocaleString('es-AR')}</span>
-                    {l.maintenanceDeductions > 0 && (
-                      <span className="text-red-600">Reparaciones: - $ {l.maintenanceDeductions.toLocaleString('es-AR')}</span>
-                    )}
-                    {l.expenseDeductions > 0 && (
-                      <span className="text-orange-600 font-bold">Exp. Extraord: - $ {l.expenseDeductions.toLocaleString('es-AR')}</span>
+                    {(l.maintenanceDeductions > 0 || l.expenseDeductions > 0) && (
+                      <span className="text-red-600">Gasto: - $ {(l.maintenanceDeductions + l.expenseDeductions).toLocaleString('es-AR')}</span>
                     )}
                   </div>
                 </TableCell>
@@ -151,13 +274,17 @@ export function LiquidationsView() {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-green-700">
                       <FileCheck className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                      <MoreVertical className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setLiquidations(liquidations.filter(liq => liq.id !== l.id))}>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay liquidaciones generadas.</TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
