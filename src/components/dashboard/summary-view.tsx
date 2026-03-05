@@ -1,26 +1,60 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
   TrendingUp, 
-  Users, 
   AlertTriangle, 
   CheckCircle2, 
   Scale,
   Wrench,
   DollarSign,
   ArrowRight,
-  Clock
+  Clock,
+  CalendarDays,
+  BellRing
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { AppAlert } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const [dolarMep, setDolarMep] = useState<number | null>(null);
+  
+  // Mock de alertas de automatización
+  const [alerts] = useState<AppAlert[]>([
+    { 
+      id: 'a1', 
+      type: 'contract_expiry', 
+      title: 'Contrato Próximo a Vencer', 
+      description: 'El contrato de Carlos Sosa (Heras 4B) vence en 45 días.', 
+      severity: 'high', 
+      date: '2024-04-05',
+      linkTab: 'Personas'
+    },
+    { 
+      id: 'a2', 
+      type: 'overdue_debt', 
+      title: 'Mora Superior a 30 días', 
+      description: 'Jorge Paez adeuda 2 meses de alquiler en Local Florida.', 
+      severity: 'high', 
+      date: '2024-04-04',
+      linkTab: 'Facturas'
+    },
+    { 
+      id: 'a3', 
+      type: 'maintenance_delay', 
+      title: 'Reclamo sin gestionar', 
+      description: 'Ticket #9923 (Filtración) lleva 72hs sin proveedor asignado.', 
+      severity: 'medium', 
+      date: '2024-04-03',
+      linkTab: 'Mantenimiento'
+    }
+  ]);
 
   useEffect(() => {
-    // Simulación de cotización MEP (vía API en prod)
     setDolarMep(1185);
   }, []);
 
@@ -33,12 +67,12 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
 
   const upcomingAdjustments = [
     { id: '1', tenant: 'Carlos Sosa', property: 'Heras 4B', date: '15 Abr', index: 'ICL', old: '$120k', new: '$185k' },
-    { id: '2', tenant: 'Jorge Paez', property: 'Florida Local', date: '20 Abr', index: 'IPC', old: '$300k', new: 'Calc...' },
+    { id: '2', tenant: 'Jorge Paez', property: 'Florida Local', date: '20 Abr', index: 'IPC', old: '$300k', new: 'Calculando...' },
   ];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Indicadores de Mercado (Vital para Argentina) */}
+      {/* Indicadores de Mercado */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-blue-50 border-l-4 border-l-blue-500">
           <CardContent className="p-4 flex items-center gap-3">
@@ -46,7 +80,7 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
               <DollarSign className="h-4 w-4 text-blue-600" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-black text-blue-600">Dólar MEP (Hoy)</p>
+              <p className="text-[10px] uppercase font-black text-blue-600">Dólar MEP (Referencia)</p>
               <p className="text-xl font-black text-blue-900">${dolarMep || '...'}</p>
             </div>
           </CardContent>
@@ -68,7 +102,7 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
               <Scale className="h-4 w-4 text-green-600" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-black text-green-600">Tasa de Mora</p>
+              <p className="text-[10px] uppercase font-black text-green-600">Tasa de Mora Global</p>
               <p className="text-xl font-black text-green-900">4.2%</p>
             </div>
           </CardContent>
@@ -93,30 +127,47 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Centro de Alertas Críticas (Automatización) */}
         <Card className="lg:col-span-8 shadow-sm border-none bg-white">
-          <CardHeader>
-            <CardTitle>Próximos Ajustes de Alquiler</CardTitle>
-            <CardDescription>Basado en los mecanismos ICL/IPC pactados en contrato.</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BellRing className="h-5 w-5 text-primary" />
+                Alertas de Gestión Inteligente
+              </CardTitle>
+              <CardDescription>Monitoreo automático de contratos, deudas y plazos.</CardDescription>
+            </div>
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+              {alerts.length} Notificaciones
+            </Badge>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {upcomingAdjustments.map((adj) => (
-                <div key={adj.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border border-transparent hover:border-primary/20 transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-xs">
-                      {adj.date}
+            <div className="space-y-3">
+              {alerts.map((alert) => (
+                <div key={alert.id} className={cn(
+                  "flex items-start justify-between p-4 rounded-lg border transition-all",
+                  alert.severity === 'high' ? "bg-red-50/50 border-red-100" : "bg-muted/30 border-transparent"
+                )}>
+                  <div className="flex gap-3">
+                    <div className={cn(
+                      "mt-1 p-2 rounded-full",
+                      alert.severity === 'high' ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
+                    )}>
+                      {alert.type === 'contract_expiry' ? <CalendarDays className="h-4 w-4" /> : 
+                       alert.type === 'overdue_debt' ? <AlertTriangle className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
                     </div>
                     <div>
-                      <p className="font-bold text-sm">{adj.tenant}</p>
-                      <p className="text-[10px] text-muted-foreground">{adj.property} • {adj.index}</p>
+                      <p className="font-bold text-sm text-foreground">{alert.title}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{alert.description}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground line-through">{adj.old}</p>
-                    <p className="font-black text-primary">{adj.new}</p>
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-8">
-                    Notificar <ArrowRight className="h-3 w-3 ml-1" />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs hover:bg-white"
+                    onClick={() => alert.linkTab && onNavigate(alert.linkTab)}
+                  >
+                    Gestionar <ArrowRight className="h-3 w-3 ml-1" />
                   </Button>
                 </div>
               ))}
@@ -124,25 +175,37 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4 shadow-sm border-none bg-white h-fit">
+        {/* Próximos Ajustes Programados */}
+        <Card className="lg:col-span-4 shadow-sm border-none bg-white">
           <CardHeader>
-            <CardTitle className="text-base">Tareas Críticas</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+              Indexación ICL/IPC
+            </CardTitle>
+            <CardDescription>Aumentos programados para este mes.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-3 bg-red-50 rounded-lg border border-red-100">
-              <p className="text-xs font-bold text-red-600 flex items-center gap-1 uppercase mb-1">
-                <AlertTriangle className="h-3 w-3" /> Mediación Pendiente
-              </p>
-              <p className="text-sm">Expediente Sosa vs Inmobiliaria requiere carga de pruebas hoy.</p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-              <p className="text-xs font-bold text-blue-600 flex items-center gap-1 uppercase mb-1">
-                <Wrench className="h-3 w-3" /> Mantenimiento
-              </p>
-              <p className="text-sm">3 presupuestos pendientes de aprobación por el propietario.</p>
-            </div>
-            <Button onClick={() => onNavigate('Legales')} variant="outline" className="w-full text-xs">
-              Ver todo el flujo legal
+            {upcomingAdjustments.map((adj) => (
+              <div key={adj.id} className="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-black text-blue-700">{adj.index}</span>
+                  <span className="text-[10px] text-muted-foreground font-bold">{adj.date}</span>
+                </div>
+                <p className="text-sm font-bold">{adj.tenant}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[10px] text-muted-foreground uppercase">{adj.property}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground line-through">{adj.old}</span>
+                    <span className="text-xs font-black text-primary">{adj.new}</span>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="w-full mt-3 h-8 text-[10px] uppercase font-black bg-white">
+                  Notificar Inquilino
+                </Button>
+              </div>
+            ))}
+            <Button onClick={() => onNavigate('Facturas')} variant="link" className="w-full text-xs">
+              Ver calendario de aumentos anual
             </Button>
           </CardContent>
         </Card>

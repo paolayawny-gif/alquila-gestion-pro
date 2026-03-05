@@ -4,7 +4,6 @@ export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industri
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
 export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
 export type Currency = 'ARS' | 'USD';
-export type PersonType = 'Inquilino' | 'Propietario' | 'Garante' | 'Proveedor';
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
 export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Otros';
 export type ChargePayer = 'Inquilino' | 'Propietario';
@@ -149,6 +148,7 @@ export interface Invoice {
   reference?: string; 
   status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
   hasFile: boolean;
+  isAutomated?: boolean;
 }
 
 export interface Liquidation {
@@ -188,4 +188,14 @@ export interface MaintenanceTask {
   updatedAt: string;
   closedAt?: string;
   hasFile: boolean;
+}
+
+export interface AppAlert {
+  id: string;
+  type: 'contract_expiry' | 'overdue_debt' | 'maintenance_delay' | 'rent_adjustment';
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+  date: string;
+  linkTab?: string;
 }
