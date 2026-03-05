@@ -6,6 +6,8 @@ export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
 export type Currency = 'ARS' | 'USD';
 export type PersonType = 'Inquilino' | 'Propietario' | 'Garante';
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
+export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Otros';
+export type ChargePayer = 'Inquilino' | 'Propietario';
 
 export interface DocumentInfo {
   id: string;
@@ -89,7 +91,7 @@ export interface Contract {
   
   depositAmount: number;
   depositCurrency: Currency;
-  commissionAmount: number; // Porcentaje o monto fijo de administración
+  commissionAmount: number; 
   
   lateFeeType: 'DailyPercentage' | 'MonthlyPercentage' | 'Fixed';
   lateFeeValue: number;
@@ -106,6 +108,50 @@ export interface Contract {
   ownerId: string;
 }
 
+export interface ChargeItem {
+  id: string;
+  type: ChargeType;
+  description: string;
+  amount: number;
+  imputedTo: ChargePayer;
+  isPaid: boolean;
+}
+
+export interface Invoice {
+  id: string;
+  contractId: string;
+  tenantName: string;
+  propertyName: string;
+  period: string; // Ej: "04/2024"
+  charges: ChargeItem[];
+  lateFees: number;
+  totalAmount: number;
+  currency: Currency;
+  dueDate: string;
+  paymentDate?: string;
+  paymentMethod?: PaymentMethod;
+  reference?: string; 
+  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
+  hasFile: boolean;
+}
+
+export interface Liquidation {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  ownerId: string;
+  ownerName: string;
+  period: string; 
+  rentIncome: number;
+  adminFeeDeduction: number;
+  maintenanceDeductions: number;
+  expenseDeductions: number; // Expensas a cargo del propietario
+  netAmount: number;
+  status: 'Pendiente' | 'Pagada';
+  dateCreated: string;
+  paymentReference?: string;
+}
+
 export interface MaintenanceTask {
   id: string;
   propertyId: string;
@@ -119,39 +165,4 @@ export interface MaintenanceTask {
   priority: 'Baja' | 'Media' | 'Alta' | 'Crítica';
   status: 'Pendiente' | 'Presupuestado' | 'En curso' | 'Completado';
   hasFile: boolean;
-}
-
-export interface Invoice {
-  id: string;
-  contractId: string;
-  tenantName: string;
-  propertyName: string;
-  concept: string; // Ej: "Alquiler Abril 2024"
-  baseAmount: number;
-  lateFees: number;
-  totalAmount: number;
-  currency: Currency;
-  dueDate: string;
-  paymentDate?: string;
-  paymentMethod?: PaymentMethod;
-  reference?: string; // Número de operación / CBU
-  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
-  hasFile: boolean;
-  cae?: string;
-}
-
-export interface Liquidation {
-  id: string;
-  propertyId: string;
-  propertyName: string;
-  ownerId: string;
-  ownerName: string;
-  period: string; // Ej: "04/2024"
-  rentIncome: number;
-  adminFeeDeduction: number;
-  maintenanceDeductions: number;
-  netAmount: number;
-  status: 'Pendiente' | 'Pagada';
-  dateCreated: string;
-  paymentReference?: string;
 }
