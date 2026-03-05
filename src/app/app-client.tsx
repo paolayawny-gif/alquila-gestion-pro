@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -40,6 +41,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import { Property, Person, Contract, RentalApplication, Invoice, MaintenanceTask } from '@/lib/types';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
@@ -62,17 +64,92 @@ export default function AppClient() {
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // ESTADO GLOBAL CENTRALIZADO PARA PERSISTENCIA ENTRE TABS
+  const [properties, setProperties] = useState<Property[]>([
+    { 
+      id: '1', 
+      name: 'Edificio Las Heras 4B', 
+      address: 'Las Heras 1234', 
+      unit: '4B', 
+      type: 'Departamento',
+      usage: 'Vivienda',
+      status: 'Alquilada',
+      squareMeters: 55,
+      rooms: 2,
+      amenities: ['Seguridad 24hs', 'SUM'],
+      owners: [{ ownerId: 'p1', name: 'Juan Pérez', percentage: 100 }],
+      photos: [],
+      ownerId: 'user1'
+    }
+  ]);
+
+  const [people, setPeople] = useState<Person[]>([
+    {
+      id: '1',
+      type: 'Inquilino',
+      fullName: 'Carlos Sosa',
+      taxId: '20-34567890-9',
+      email: 'carlos.sosa@email.com',
+      phone: '11 4455-6677',
+      address: 'Av. Corrientes 1500, CABA',
+      documents: [],
+      bankDetails: { bank: 'Galicia', cbu: '0070123456', alias: 'CARLOS.SOSA.PAGO' },
+      ownerId: 'user1'
+    }
+  ]);
+
+  const [contracts, setContracts] = useState<Contract[]>([
+    { 
+      id: 'c1', 
+      tenantId: '1', 
+      tenantName: 'Carlos Sosa',
+      propertyId: '1', 
+      propertyName: 'Edificio Las Heras 4B',
+      guarantorIds: [],
+      ownerIds: ['p1'],
+      startDate: '2023-05-15',
+      endDate: '2025-05-15',
+      paymentPeriodDays: 30,
+      baseRentAmount: 120000,
+      currentRentAmount: 185000,
+      currency: 'ARS',
+      adjustmentType: 'Index',
+      adjustmentMechanism: 'ICL',
+      adjustmentFrequencyMonths: 4,
+      depositAmount: 120000,
+      depositCurrency: 'ARS',
+      commissionAmount: 60000,
+      lateFeeType: 'DailyPercentage',
+      lateFeeValue: 0.5,
+      status: 'Vigente',
+      documents: { mainContractUrl: '', versions: [], annexes: [] },
+      ownerId: 'user1'
+    }
+  ]);
+
+  const [applications, setApplications] = useState<RentalApplication[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+
   const renderContent = () => {
     if (activeRole === 'Inquilino') return <TenantPortalView />;
     if (activeRole === 'Propietario') return <OwnerPortalView />;
 
     switch (activeTab) {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
-      case 'Propiedades': return <PropertiesView />;
-      case 'Personas': return <TenantsView />;
-      case 'Onboarding': return <OnboardingView />;
-      case 'Facturas': return <InvoicesView />;
-      case 'Mantenimiento': return <MaintenanceView />;
+      case 'Propiedades': return <PropertiesView properties={properties} setProperties={setProperties} />;
+      case 'Personas': return (
+        <TenantsView 
+          people={people} 
+          setPeople={setPeople} 
+          contracts={contracts} 
+          setContracts={setContracts} 
+          properties={properties} 
+        />
+      );
+      case 'Onboarding': return <OnboardingView applications={applications} setApplications={setApplications} properties={properties} />;
+      case 'Facturas': return <InvoicesView invoices={invoices} setInvoices={setInvoices} contracts={contracts} />;
+      case 'Mantenimiento': return <MaintenanceView tasks={tasks} setTasks={setTasks} properties={properties} people={people} />;
       case 'Legales': return <LegalView />;
       case 'Liquidaciones': return <LiquidationsView />;
       case 'Reportes': return <ReportsView />;

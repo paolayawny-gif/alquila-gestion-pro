@@ -9,30 +9,20 @@ import {
   Edit2, 
   Trash2, 
   Search, 
-  Calendar, 
   TrendingUp, 
-  DollarSign, 
   User, 
-  FileText, 
   Phone, 
   Mail, 
-  History, 
   ShieldCheck,
   Upload,
   CreditCard,
-  ExternalLink,
-  Users,
-  Building,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
   Plus,
   FileDown,
-  Info
+  AlertCircle
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Contract, Person, PersonType } from '@/lib/types';
+import { Contract, Person, Property } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -49,63 +39,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
-const MOCK_PEOPLE: Person[] = [
-  {
-    id: '1',
-    type: 'Inquilino',
-    fullName: 'Carlos Sosa',
-    taxId: '20-34567890-9',
-    email: 'carlos.sosa@email.com',
-    phone: '11 4455-6677',
-    address: 'Av. Corrientes 1500, CABA',
-    documents: [
-      { id: 'd1', name: 'DNI_Frente.jpg', url: '#', type: 'DNI', status: 'Validado', date: '10/01/2024' }
-    ],
-    bankDetails: { bank: 'Galicia', cbu: '0070123...456', alias: 'CARLOS.SOSA.PAGO' },
-    ownerId: 'user1'
-  }
-];
+interface TenantsViewProps {
+  people: Person[];
+  setPeople: React.Dispatch<React.SetStateAction<Person[]>>;
+  contracts: Contract[];
+  setContracts: React.Dispatch<React.SetStateAction<Contract[]>>;
+  properties: Property[];
+}
 
-const MOCK_CONTRACTS: Contract[] = [
-  { 
-    id: 'c1', 
-    tenantId: '1', 
-    tenantName: 'Carlos Sosa',
-    propertyId: '1', 
-    propertyName: 'Edificio Las Heras 4B',
-    guarantorIds: ['g1'],
-    ownerIds: ['p1'],
-    startDate: '2023-05-15',
-    endDate: '2025-05-15',
-    paymentPeriodDays: 30,
-    baseRentAmount: 120000,
-    currentRentAmount: 185000,
-    currency: 'ARS',
-    adjustmentType: 'Index',
-    adjustmentMechanism: 'ICL',
-    adjustmentFrequencyMonths: 4,
-    depositAmount: 120000,
-    depositCurrency: 'ARS',
-    commissionAmount: 60000,
-    lateFeeType: 'DailyPercentage',
-    lateFeeValue: 0.5,
-    lateFeeCapPercentage: 15,
-    status: 'Vigente',
-    documents: {
-      mainContractUrl: '#',
-      versions: [
-        { id: 'v1', name: 'Contrato Original.pdf', url: '#', type: 'Contrato', status: 'Validado', date: '15/05/2023', version: 1 }
-      ],
-      annexes: []
-    },
-    ownerId: 'user1'
-  }
-];
-
-export function TenantsView() {
-  const [contracts] = useState<Contract[]>(MOCK_CONTRACTS);
-  const [people] = useState<Person[]>(MOCK_PEOPLE);
-  const [searchTerm, setSearchTerm] = useState('');
+export function TenantsView({ people, setPeople, contracts, setContracts, properties }: TenantsViewProps) {
   const [activeTab, setActiveTab] = useState<'contracts' | 'people'>('contracts');
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -146,27 +88,41 @@ export function TenantsView() {
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Alta de Contrato de Locación</DialogTitle>
-                  <DialogDescription>Configure las cláusulas económicas y legales de la locación.</DialogDescription>
+                  <DialogTitle>Alta de Contrato</DialogTitle>
+                  <DialogDescription>Configure los términos de la locación.</DialogDescription>
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="mt-4">
                   <TabsList className="grid w-full grid-cols-4 bg-muted/50">
                     <TabsTrigger value="general">General</TabsTrigger>
-                    <TabsTrigger value="economic">Cláusulas Econ.</TabsTrigger>
+                    <TabsTrigger value="economic">Económico</TabsTrigger>
                     <TabsTrigger value="guarantors">Garantías</TabsTrigger>
-                    <TabsTrigger value="docs">Documentos</TabsTrigger>
+                    <TabsTrigger value="docs">Docs</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="general" className="space-y-4 pt-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Propiedad</Label>
-                        <Select><SelectTrigger><SelectValue placeholder="Seleccione unidad..." /></SelectTrigger><SelectContent><SelectItem value="1">Las Heras 4B</SelectItem></SelectContent></Select>
+                        <Select>
+                          <SelectTrigger><SelectValue placeholder="Seleccione unidad..." /></SelectTrigger>
+                          <SelectContent>
+                            {properties.map(p => (
+                              <SelectItem key={p.id} value={p.id}>{p.name} ({p.address})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>Inquilino Principal</Label>
-                        <Select><SelectTrigger><SelectValue placeholder="Seleccione persona..." /></SelectTrigger><SelectContent><SelectItem value="1">Carlos Sosa</SelectItem></SelectContent></Select>
+                        <Select>
+                          <SelectTrigger><SelectValue placeholder="Seleccione persona..." /></SelectTrigger>
+                          <SelectContent>
+                            {people.filter(p => p.type === 'Inquilino').map(p => (
+                              <SelectItem key={p.id} value={p.id}>{p.fullName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>Fecha Inicio</Label>
@@ -191,37 +147,20 @@ export function TenantsView() {
                       </div>
                       <div className="space-y-2">
                         <Label>Regla de Ajuste</Label>
-                        <Select defaultValue="Index"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Index">Por Índice (ICL/IPC)</SelectItem><SelectItem value="Percentage">Porcentaje Fijo</SelectItem><SelectItem value="Scale">Escala Escalonada</SelectItem></SelectContent></Select>
+                        <Select defaultValue="Index"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Index">ICL/IPC</SelectItem><SelectItem value="Percentage">% Fijo</SelectItem></SelectContent></Select>
                       </div>
                     </div>
                     <Separator />
                     <div className="p-4 bg-muted/20 rounded-lg space-y-4">
-                      <h4 className="text-sm font-bold flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Configuración de Ajuste</h4>
+                      <h4 className="text-sm font-bold flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Ajustes</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Frecuencia de Ajuste (Meses)</Label>
+                          <Label>Frecuencia (Meses)</Label>
                           <Input type="number" defaultValue="4" />
                         </div>
                         <div className="space-y-2">
-                          <Label>Índice de Referencia</Label>
-                          <Select defaultValue="ICL"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ICL">ICL (Vivienda)</SelectItem><SelectItem value="IPC">IPC (Comercial)</SelectItem><SelectItem value="CasaPropia">Casa Propia</SelectItem></SelectContent></Select>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-red-50/50 rounded-lg space-y-4 border border-red-100">
-                      <h4 className="text-sm font-bold text-red-700 flex items-center gap-2"><AlertCircle className="h-4 w-4" /> Punitorios por Mora</h4>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>Tipo</Label>
-                          <Select defaultValue="DailyPercentage"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="DailyPercentage">% Diario</SelectItem><SelectItem value="MonthlyPercentage">% Mensual</SelectItem><SelectItem value="Fixed">Monto Fijo</SelectItem></SelectContent></Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Valor</Label>
-                          <Input placeholder="0.5" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Tope (%)</Label>
-                          <Input placeholder="15" />
+                          <Label>Índice</Label>
+                          <Select defaultValue="ICL"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ICL">ICL</SelectItem><SelectItem value="IPC">IPC</SelectItem></SelectContent></Select>
                         </div>
                       </div>
                     </div>
@@ -230,17 +169,13 @@ export function TenantsView() {
                   <TabsContent value="guarantors" className="space-y-4 pt-4">
                      <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Depósito de Garantía</Label>
+                        <Label>Depósito</Label>
                         <Input placeholder="Monto" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Moneda Depósito</Label>
-                        <Select defaultValue="USD"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select>
                       </div>
                       <div className="col-span-2 space-y-2">
                         <Label>Seguro de Caución / Garantes</Label>
-                        <div className="p-4 border-2 border-dashed rounded-lg text-center text-muted-foreground text-sm">
-                          Seleccione garantes personales o cargue póliza de caución...
+                        <div className="p-4 border-2 border-dashed rounded-lg text-center text-muted-foreground text-xs">
+                          Arrastra aquí la póliza o selecciona garantes...
                         </div>
                       </div>
                     </div>
@@ -249,10 +184,7 @@ export function TenantsView() {
                   <TabsContent value="docs" className="space-y-4 pt-4">
                     <div className="border rounded-lg p-6 text-center space-y-4">
                       <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
-                      <div>
-                        <p className="font-bold">Cargar Contrato Escaneado</p>
-                        <p className="text-xs text-muted-foreground">PDF, DOCX o Imágenes hasta 10MB</p>
-                      </div>
+                      <p className="font-bold">Cargar Contrato Escaneado</p>
                       <Button variant="outline">Seleccionar Archivo</Button>
                     </div>
                   </TabsContent>
@@ -260,7 +192,7 @@ export function TenantsView() {
 
                 <DialogFooter className="mt-6">
                   <Button variant="outline" onClick={() => setIsContractDialogOpen(false)}>Cancelar</Button>
-                  <Button className="bg-primary">Guardar y Activar Contrato</Button>
+                  <Button className="bg-primary">Guardar Contrato</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -280,59 +212,44 @@ export function TenantsView() {
                 <TableHead>Contrato e Inquilino</TableHead>
                 <TableHead>Propiedad</TableHead>
                 <TableHead>Vigencia</TableHead>
-                <TableHead>Ajuste Económico</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Alquiler Actual</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contracts.map((c) => (
+              {contracts.length > 0 ? contracts.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-bold">{c.tenantName}</span>
                       <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" /> Garante: Finaer S.A.
+                        <ShieldCheck className="h-3 w-3" /> Con Garantía
                       </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm font-medium">{c.propertyName}</TableCell>
                   <TableCell>
-                    <div className="flex flex-col text-xs">
-                      <span>Inicia: {c.startDate}</span>
-                      <span className="text-muted-foreground">Vence: {c.endDate}</span>
+                    <div className="flex flex-col text-xs text-muted-foreground">
+                      <span>Desde: {c.startDate}</span>
+                      <span>Hasta: {c.endDate}</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="flex flex-col items-start gap-1 p-2 h-auto bg-blue-50/50 border-blue-100">
-                      <div className="flex items-center gap-1 text-[10px] font-black text-blue-700">
-                        <TrendingUp className="h-3 w-3" /> {c.adjustmentMechanism} ({c.adjustmentFrequencyMonths}m)
-                      </div>
-                      <span className="text-[9px] text-blue-600">Ajuste cada {c.adjustmentFrequencyMonths} meses</span>
-                    </Badge>
                   </TableCell>
                   <TableCell>{getStatusBadge(c.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex flex-col items-end">
-                      <span className="font-black text-primary text-lg">
-                        {c.currency} {c.currentRentAmount.toLocaleString('es-AR')}
-                      </span>
-                      <span className="text-[10px] text-red-600 font-bold">Punitorio: {c.lateFeeValue}%/día</span>
-                    </div>
+                  <TableCell className="text-right font-black text-primary">
+                    {c.currency} {c.currentRentAmount.toLocaleString('es-AR')}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                        <FileDown className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                      <FileDown className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay contratos registrados.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </Card>
@@ -342,9 +259,8 @@ export function TenantsView() {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead>Nombre y CUIT</TableHead>
-                <TableHead>Rol Principal</TableHead>
+                <TableHead>Rol</TableHead>
                 <TableHead>Contacto</TableHead>
-                <TableHead>Finanzas</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -360,36 +276,19 @@ export function TenantsView() {
                   <TableCell>
                     <Badge className={cn(
                       "border-none",
-                      p.type === 'Inquilino' ? "bg-blue-100 text-blue-700" :
-                      p.type === 'Propietario' ? "bg-orange-100 text-orange-700" : "bg-purple-100 text-purple-700"
+                      p.type === 'Inquilino' ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"
                     )}>{p.type}</Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {p.phone}</span>
-                      <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {p.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <CreditCard className="h-3 w-3" />
-                      <span>{p.bankDetails?.bank || '-'}</span>
+                  <TableCell className="text-xs text-muted-foreground">
+                    <div className="flex flex-col">
+                      <span>{p.phone}</span>
+                      <span>{p.email}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-muted-foreground hover:text-primary"
-                        onClick={() => {
-                          setSelectedPerson(p);
-                          setIsDetailOpen(true);
-                        }}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => { setSelectedPerson(p); setIsDetailOpen(true); }}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -407,65 +306,45 @@ export function TenantsView() {
               </div>
               <div>
                 <DialogTitle className="text-2xl font-bold">{selectedPerson?.fullName}</DialogTitle>
-                <DialogDescription className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline">{selectedPerson?.taxId}</Badge>
-                  <span className="text-muted-foreground text-sm">• {selectedPerson?.type}</span>
+                <DialogDescription>
+                  {selectedPerson?.type} • {selectedPerson?.taxId}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1">
+          <Tabs defaultValue="general">
+            <TabsList className="grid w-full grid-cols-3 bg-muted/50">
               <TabsTrigger value="general">Contacto</TabsTrigger>
-              <TabsTrigger value="financial">Bancario / Pagos</TabsTrigger>
+              <TabsTrigger value="financial">Banco</TabsTrigger>
               <TabsTrigger value="docs">Documentos</TabsTrigger>
-              <TabsTrigger value="history">Historial</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="general" className="space-y-4 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="border-none bg-muted/20">
-                  <CardContent className="p-4 space-y-3">
-                    <h4 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
-                      <Phone className="h-3 w-3" /> Datos de Localización
-                    </h4>
-                    <div className="space-y-2">
-                      <p className="text-sm"><strong>Teléfono:</strong> {selectedPerson?.phone}</p>
-                      <p className="text-sm"><strong>Email:</strong> {selectedPerson?.email}</p>
-                      <p className="text-sm"><strong>Dirección:</strong> {selectedPerson?.address || 'No informada'}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="general" className="pt-4">
+              <Card className="border-none bg-muted/10">
+                <CardHeader>
+                  <CardTitle className="text-sm">Datos de contacto</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm"><strong>Email:</strong> {selectedPerson?.email}</p>
+                  <p className="text-sm"><strong>Teléfono:</strong> {selectedPerson?.phone}</p>
+                  <p className="text-sm"><strong>Dirección:</strong> {selectedPerson?.address || 'No informada'}</p>
+                </CardContent>
+              </Card>
             </TabsContent>
-
             <TabsContent value="financial" className="pt-4">
-              <Card className="border-none bg-muted/20">
-                <CardContent className="p-4 space-y-4">
-                  <h4 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
-                    <CreditCard className="h-3 w-3" /> Datos para Conciliación / Liquidación
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Banco</Label>
-                      <p className="text-sm font-bold">{selectedPerson?.bankDetails?.bank || 'Sin cargar'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">CBU</Label>
-                      <p className="text-xs font-mono">{selectedPerson?.bankDetails?.cbu || 'Sin cargar'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Alias</Label>
-                      <p className="text-sm font-bold uppercase">{selectedPerson?.bankDetails?.alias || 'Sin cargar'}</p>
-                    </div>
-                  </div>
+              <Card className="border-none bg-muted/10">
+                <CardHeader>
+                  <CardTitle className="text-sm text-primary">Información Bancaria</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-3 gap-4">
+                  <div><Label className="text-[10px]">Banco</Label><p className="font-bold">{selectedPerson?.bankDetails?.bank || '-'}</p></div>
+                  <div><Label className="text-[10px]">CBU</Label><p className="font-xs font-mono">{selectedPerson?.bankDetails?.cbu || '-'}</p></div>
+                  <div><Label className="text-[10px]">Alias</Label><p className="font-bold">{selectedPerson?.bankDetails?.alias || '-'}</p></div>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
-
-          <DialogFooter className="mt-8 border-t pt-4">
+          <DialogFooter className="mt-6 border-t pt-4">
             <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>

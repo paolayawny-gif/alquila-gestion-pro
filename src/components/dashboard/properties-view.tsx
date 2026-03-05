@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Edit2, Trash2, Search, Landmark, CreditCard, X, PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Property, PropertyStatus, PropertyOwner, PropertyType, PropertyUsage } from '@/lib/types';
+import { Property, PropertyStatus, PropertyOwner, PropertyType } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -17,7 +17,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,32 +24,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 
-const INITIAL_PROPERTIES: Property[] = [
-  { 
-    id: '1', 
-    name: 'Edificio Las Heras 4B', 
-    address: 'Las Heras 1234', 
-    unit: '4B', 
-    type: 'Departamento',
-    usage: 'Vivienda',
-    status: 'Alquilada',
-    squareMeters: 55,
-    rooms: 2,
-    amenities: ['Seguridad 24hs', 'SUM'],
-    owners: [{ ownerId: 'p1', name: 'Juan Pérez', percentage: 100 }],
-    photos: [],
-    ownerId: 'user1'
-  },
-];
+interface PropertiesViewProps {
+  properties: Property[];
+  setProperties: React.Dispatch<React.SetStateAction<Property[]>>;
+}
 
-export function PropertiesView() {
+export function PropertiesView({ properties, setProperties }: PropertiesViewProps) {
   const { toast } = useToast();
-  const [properties, setProperties] = useState<Property[]>(INITIAL_PROPERTIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   
-  // Estado temporal para el formulario
   const [formData, setFormData] = useState<Partial<Property>>({
     name: '',
     address: '',
@@ -129,7 +113,7 @@ export function PropertiesView() {
 
     if (editingProperty) {
       setProperties(properties.map(p => p.id === editingProperty.id ? { ...formData, id: p.id } as Property : p));
-      toast({ title: "Propiedad actualizada", description: `${formData.name} ha sido modificada correctamente.` });
+      toast({ title: "Propiedad actualizada", description: `${formData.name} ha sido modificada.` });
     } else {
       const newProperty: Property = {
         ...formData,
@@ -147,7 +131,7 @@ export function PropertiesView() {
 
   const handleDelete = (id: string) => {
     setProperties(properties.filter(p => p.id !== id));
-    toast({ title: "Propiedad eliminada", description: "La unidad ha sido removida del sistema." });
+    toast({ title: "Propiedad eliminada", description: "La unidad ha sido removida." });
   };
 
   return (
@@ -163,148 +147,146 @@ export function PropertiesView() {
           />
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4" />
-            Nueva Propiedad
-          </Button>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingProperty ? 'Editar Propiedad' : 'Alta de Propiedad'}</DialogTitle>
-              <DialogDescription>Gestión integral técnica y legal de la unidad.</DialogDescription>
-            </DialogHeader>
+        <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenDialog()}>
+          <Plus className="h-4 w-4" />
+          Nueva Propiedad
+        </Button>
+      </div>
 
-            <Tabs defaultValue="specs" className="mt-4">
-              <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-6">
-                <TabsTrigger value="specs" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Datos Técnicos</TabsTrigger>
-                <TabsTrigger value="owners" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Propietarios</TabsTrigger>
-                <TabsTrigger value="extra" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Notas y Docs</TabsTrigger>
-              </TabsList>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingProperty ? 'Editar Propiedad' : 'Alta de Propiedad'}</DialogTitle>
+            <DialogDescription>Gestión técnica y legal de la unidad.</DialogDescription>
+          </DialogHeader>
 
-              <TabsContent value="specs" className="space-y-6 pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nombre Referencia</Label>
-                    <Input 
-                      placeholder="Ej: Las Heras 4B" 
-                      value={formData.name} 
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Dirección</Label>
-                    <Input 
-                      placeholder="Calle y número" 
-                      value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label>Superficie m²</Label>
-                    <Input 
-                      type="number" 
-                      value={formData.squareMeters}
-                      onChange={(e) => setFormData({...formData, squareMeters: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ambientes</Label>
-                    <Input 
-                      type="number" 
-                      value={formData.rooms}
-                      onChange={(e) => setFormData({...formData, rooms: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select 
-                      value={formData.type} 
-                      onValueChange={(v: PropertyType) => setFormData({...formData, type: v})}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Departamento">Departamento</SelectItem>
-                        <SelectItem value="Casa">Casa</SelectItem>
-                        <SelectItem value="Local">Local</SelectItem>
-                        <SelectItem value="Cochera">Cochera</SelectItem>
-                        <SelectItem value="Oficina">Oficina</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Estado</Label>
-                    <Select 
-                      value={formData.status} 
-                      onValueChange={(v: PropertyStatus) => setFormData({...formData, status: v})}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Disponible">Disponible</SelectItem>
-                        <SelectItem value="Reservada">Reservada</SelectItem>
-                        <SelectItem value="Alquilada">Alquilada</SelectItem>
-                        <SelectItem value="En Mantenimiento">En Mantenimiento</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </TabsContent>
+          <Tabs defaultValue="specs" className="mt-4">
+            <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-6">
+              <TabsTrigger value="specs" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Datos Técnicos</TabsTrigger>
+              <TabsTrigger value="owners" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Propietarios</TabsTrigger>
+              <TabsTrigger value="extra" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Notas</TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="owners" className="space-y-6 pt-6">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-sm font-bold flex items-center gap-2"><Landmark className="h-4 w-4" /> Propietarios Registrados</h4>
-                  <Button type="button" variant="outline" size="sm" onClick={addOwner}><PlusCircle className="h-3 w-3 mr-1" /> Añadir Dueño</Button>
-                </div>
-                {(formData.owners || []).map((owner, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-muted/20 rounded-lg">
-                    <div className="md:col-span-6 space-y-1">
-                      <Label className="text-[10px]">Dueño (Persona)</Label>
-                      <Input 
-                        value={owner.name} 
-                        onChange={(e) => updateOwner(index, 'name', e.target.value)} 
-                        placeholder="Nombre o Razón Social" 
-                        className="h-8" 
-                      />
-                    </div>
-                    <div className="md:col-span-3 space-y-1">
-                      <Label className="text-[10px]">% Part.</Label>
-                      <Input 
-                        type="number" 
-                        value={owner.percentage} 
-                        onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value) || 0)} 
-                        className="h-8" 
-                      />
-                    </div>
-                    <div className="md:col-span-2 flex gap-1">
-                       <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-primary"><CreditCard className="h-4 w-4" /></Button>
-                       <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeOwner(index)}><X className="h-4 w-4" /></Button>
-                    </div>
-                  </div>
-                ))}
-              </TabsContent>
-
-              <TabsContent value="extra" className="space-y-4 pt-6">
+            <TabsContent value="specs" className="space-y-6 pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Notas Internas (Llaves, Portería, etc.)</Label>
-                  <Textarea 
-                    className="min-h-[100px]" 
-                    value={formData.internalNotes}
-                    onChange={(e) => setFormData({...formData, internalNotes: e.target.value})}
+                  <Label>Nombre Referencia</Label>
+                  <Input 
+                    placeholder="Ej: Las Heras 4B" 
+                    value={formData.name} 
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
                   />
                 </div>
-              </TabsContent>
-            </Tabs>
+                <div className="space-y-2">
+                  <Label>Dirección</Label>
+                  <Input 
+                    placeholder="Calle y número" 
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Superficie m²</Label>
+                  <Input 
+                    type="number" 
+                    value={formData.squareMeters}
+                    onChange={(e) => setFormData({...formData, squareMeters: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ambientes</Label>
+                  <Input 
+                    type="number" 
+                    value={formData.rooms}
+                    onChange={(e) => setFormData({...formData, rooms: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select 
+                    value={formData.type} 
+                    onValueChange={(v: PropertyType) => setFormData({...formData, type: v})}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Departamento">Departamento</SelectItem>
+                      <SelectItem value="Casa">Casa</SelectItem>
+                      <SelectItem value="Local">Local</SelectItem>
+                      <SelectItem value="Cochera">Cochera</SelectItem>
+                      <SelectItem value="Oficina">Oficina</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Select 
+                    value={formData.status} 
+                    onValueChange={(v: PropertyStatus) => setFormData({...formData, status: v})}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Disponible">Disponible</SelectItem>
+                      <SelectItem value="Reservada">Reservada</SelectItem>
+                      <SelectItem value="Alquilada">Alquilada</SelectItem>
+                      <SelectItem value="En Mantenimiento">En Mantenimiento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </TabsContent>
 
-            <DialogFooter className="mt-8 border-t pt-4">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleSave}>
-                {editingProperty ? 'Actualizar Cambios' : 'Guardar Propiedad'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <TabsContent value="owners" className="space-y-6 pt-6">
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-bold flex items-center gap-2"><Landmark className="h-4 w-4" /> Propietarios</h4>
+                <Button type="button" variant="outline" size="sm" onClick={addOwner}><PlusCircle className="h-3 w-3 mr-1" /> Añadir</Button>
+              </div>
+              {(formData.owners || []).map((owner, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-muted/20 rounded-lg">
+                  <div className="md:col-span-6 space-y-1">
+                    <Label className="text-[10px]">Dueño</Label>
+                    <Input 
+                      value={owner.name} 
+                      onChange={(e) => updateOwner(index, 'name', e.target.value)} 
+                      placeholder="Nombre" 
+                      className="h-8" 
+                    />
+                  </div>
+                  <div className="md:col-span-3 space-y-1">
+                    <Label className="text-[10px]">% Part.</Label>
+                    <Input 
+                      type="number" 
+                      value={owner.percentage} 
+                      onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value) || 0)} 
+                      className="h-8" 
+                    />
+                  </div>
+                  <div className="md:col-span-2 flex gap-1">
+                     <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeOwner(index)}><X className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="extra" className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label>Notas Internas</Label>
+                <Textarea 
+                  className="min-h-[100px]" 
+                  value={formData.internalNotes}
+                  onChange={(e) => setFormData({...formData, internalNotes: e.target.value})}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="mt-8 border-t pt-4">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSave}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         <Table>
@@ -313,7 +295,7 @@ export function PropertiesView() {
               <TableHead>Propiedad</TableHead>
               <TableHead>Tipo / Uso</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Copropietarios</TableHead>
+              <TableHead>Propietarios</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -339,20 +321,10 @@ export function PropertiesView() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-primary"
-                      onClick={() => handleOpenDialog(p)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleOpenDialog(p)}>
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDelete(p.id)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(p.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
