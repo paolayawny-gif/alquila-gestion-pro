@@ -1,0 +1,711 @@
+{
+  "entities": {
+    "Property": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Property",
+      "type": "object",
+      "description": "Represents a rental property managed by the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Property entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "A descriptive name or reference for the property (e.g., 'Edificio Centro', 'Casa Frentista')."
+        },
+        "address": {
+          "type": "string",
+          "description": "The full street address of the property."
+        },
+        "unitNumber": {
+          "type": "string",
+          "description": "The specific unit or apartment number within the property (e.g., 'PB A', 'Dpto 3'). Can be '-' for houses or single units."
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "The full name of the property owner."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the property record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the property record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "address",
+        "unitNumber",
+        "ownerName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Tenant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tenant",
+      "type": "object",
+      "description": "Represents a tenant (lessee) in the rental system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tenant entity."
+        },
+        "fullName": {
+          "type": "string",
+          "description": "The full name of the tenant."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The primary contact phone number for the tenant."
+        },
+        "email": {
+          "type": "string",
+          "description": "The primary email address for the tenant.",
+          "format": "email"
+        },
+        "creditScore": {
+          "type": "number",
+          "description": "An optional numerical credit score for the tenant, derived from financial assessments."
+        },
+        "openBankingConsentId": {
+          "type": "string",
+          "description": "An identifier linking to the tenant's consent for Open Banking data access, if applicable."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the tenant record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the tenant record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "fullName",
+        "phoneNumber",
+        "email",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Contract": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Contract",
+      "type": "object",
+      "description": "Details of a rental contract linking a tenant to a property.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Contract entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant associated with this contract. (Relationship: Tenant 1:N Contract)"
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to the Property associated with this contract. (Relationship: Property 1:N Contract)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The official start date of the contract.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The official end date of the contract. (Maps to 'vencimiento' in UI)",
+          "format": "date-time"
+        },
+        "baseRentAmount": {
+          "type": "number",
+          "description": "The initial rent amount specified in the contract."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency in which the rent is primarily denominated (e.g., 'ARS', 'USD').",
+          "format": "currency"
+        },
+        "paymentFrequency": {
+          "type": "string",
+          "description": "How often the rent payments are due (e.g., 'Monthly', 'Quarterly').",
+          "format": "payment-frequency"
+        },
+        "adjustmentMechanism": {
+          "type": "string",
+          "description": "The mechanism used for rent adjustments (e.g., 'None', 'ICL', 'IPC', 'CasaPropia', 'Custom')."
+        },
+        "lastAdjustmentDate": {
+          "type": "string",
+          "description": "The date when the last rent adjustment was applied.",
+          "format": "date-time"
+        },
+        "nextAdjustmentDate": {
+          "type": "string",
+          "description": "The date when the next rent adjustment is scheduled.",
+          "format": "date-time"
+        },
+        "currentRentAmount": {
+          "type": "number",
+          "description": "The current rent amount, including all applicable adjustments."
+        },
+        "administrationFeePercentage": {
+          "type": "number",
+          "description": "The percentage charged as an administration fee on the rent collected (e.g., 0.10 for 10%)."
+        },
+        "securityDepositAmount": {
+          "type": "number",
+          "description": "The amount of the security deposit held for this contract."
+        },
+        "suretyInsuranceProvider": {
+          "type": "string",
+          "description": "The name of the surety insurance provider, if applicable."
+        },
+        "suretyInsurancePolicyNumber": {
+          "type": "string",
+          "description": "The policy number for the digital surety insurance, if applicable."
+        },
+        "contractFileUrl": {
+          "type": "string",
+          "description": "URL to the scanned or digital copy of the contract document. (Maps to 'tieneContrato' in UI)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the contract (e.g., 'Active', 'Overdue', 'InLegal', 'Expired', 'Terminated'). (Maps to 'estado' in UI)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the contract record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the contract record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "propertyId",
+        "startDate",
+        "endDate",
+        "baseRentAmount",
+        "currency",
+        "paymentFrequency",
+        "adjustmentMechanism",
+        "currentRentAmount",
+        "administrationFeePercentage",
+        "securityDepositAmount",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Invoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Invoice",
+      "type": "object",
+      "description": "Records a utility bill, communal expense, or other service-related invoice.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Invoice entity."
+        },
+        "concept": {
+          "type": "string",
+          "description": "A brief description of the invoice's concept (e.g., 'Luz (Edenor) - Espacios Comunes')."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the invoice."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the invoice amount (e.g., 'ARS', 'USD').",
+          "format": "currency"
+        },
+        "issueDate": {
+          "type": "string",
+          "description": "The date the invoice was issued.",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date the invoice is due. (Maps to 'vencimiento' in UI)",
+          "format": "date-time"
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "The date the invoice was paid.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The payment status of the invoice (e.g., 'Pending', 'Paid', 'Overdue', 'Cancelled'). (Maps to 'estado' in UI)"
+        },
+        "receiptFileUrl": {
+          "type": "string",
+          "description": "URL to the uploaded receipt or invoice document. (Maps to 'tieneArchivo' in UI)"
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to the Property this invoice is associated with. Optional for general admin invoices. (Relationship: Property 0:N Invoice)"
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the expense (e.g., 'Utility', 'CommunalExpenses', 'Tax', 'Other')."
+        },
+        "fiscalType": {
+          "type": "string",
+          "description": "The fiscal type of the invoice (e.g., 'Factura B', 'Factura C') for ARCA/AFIP compliance."
+        },
+        "fiscalIdentifier": {
+          "type": "string",
+          "description": "The unique fiscal identifier for the electronic invoice (e.g., AFIP CAE)."
+        },
+        "ocrProcessed": {
+          "type": "boolean",
+          "description": "Indicates if the invoice was processed via OCR for automated data extraction."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the invoice record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the invoice record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "concept",
+        "amount",
+        "currency",
+        "issueDate",
+        "dueDate",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MaintenanceRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MaintenanceRecord",
+      "type": "object",
+      "description": "Tracks maintenance tasks and expenses related to properties.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the MaintenanceRecord entity."
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to the Property where the maintenance was performed. (Relationship: Property 1:N MaintenanceRecord)"
+        },
+        "concept": {
+          "type": "string",
+          "description": "A description of the maintenance task (e.g., 'Plomería - Reparación caño PB')."
+        },
+        "costAmount": {
+          "type": "number",
+          "description": "The cost incurred for the maintenance task."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the maintenance cost (e.g., 'ARS', 'USD').",
+          "format": "currency"
+        },
+        "scheduledDate": {
+          "type": "string",
+          "description": "The date when the maintenance was scheduled or performed. (Maps to 'vencimiento' in UI form, implying a date target)",
+          "format": "date-time"
+        },
+        "completionDate": {
+          "type": "string",
+          "description": "The date when the maintenance task was completed.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the maintenance task (e.g., 'Pending', 'InProgress', 'Completed', 'Cancelled'). (Maps to 'estado' in UI)"
+        },
+        "documentationFileUrl": {
+          "type": "string",
+          "description": "URL to any relevant documentation (e.g., invoices, photos). (Maps to 'tieneArchivo' in UI)"
+        },
+        "contractorName": {
+          "type": "string",
+          "description": "The name of the contractor or person who performed the maintenance."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or details about the maintenance."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the maintenance record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the maintenance record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "propertyId",
+        "concept",
+        "costAmount",
+        "currency",
+        "scheduledDate",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LegalCase": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LegalCase",
+      "type": "object",
+      "description": "Manages records of legal cases or mediation processes.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the LegalCase entity."
+        },
+        "caseType": {
+          "type": "string",
+          "description": "The type of legal proceeding (e.g., 'Eviction', 'Mediation', 'Damages Claim')."
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to the Property related to this legal case. Optional if tenant-specific. (Relationship: Property 0:N LegalCase)"
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant involved in this legal case. Optional if property-specific. (Relationship: Tenant 0:N LegalCase)"
+        },
+        "contractId": {
+          "type": "string",
+          "description": "Reference to the Contract related to this legal case, if applicable. (Relationship: Contract 0:N LegalCase)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The date when the legal case or mediation process began. (Maps to 'fecha' in UI)",
+          "format": "date-time"
+        },
+        "resolutionDate": {
+          "type": "string",
+          "description": "The date when the legal case was resolved.",
+          "format": "date-time"
+        },
+        "attorneyName": {
+          "type": "string",
+          "description": "The name of the attorney handling the case. (Maps to 'abogado' in UI)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the legal case (e.g., 'Pendiente', 'En proceso', 'Acuerdo firmado', 'Finalizado', 'Closed', 'Cancelled'). (Maps to 'estado' in UI)"
+        },
+        "caseFileUrl": {
+          "type": "string",
+          "description": "URL to the uploaded legal documents or files. (Maps to 'tieneArchivo' in UI)"
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the legal case."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the legal case record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the legal case record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "caseType",
+        "startDate",
+        "attorneyName",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Liquidation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Liquidation",
+      "type": "object",
+      "description": "Details of the financial settlement or liquidation report for a property owner.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Liquidation entity."
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to the Property for which this liquidation is generated. (Relationship: Property 1:N Liquidation)"
+        },
+        "periodStartDate": {
+          "type": "string",
+          "description": "The start date of the period covered by this liquidation.",
+          "format": "date-time"
+        },
+        "periodEndDate": {
+          "type": "string",
+          "description": "The end date of the period covered by this liquidation.",
+          "format": "date-time"
+        },
+        "totalRentCollectedAmount": {
+          "type": "number",
+          "description": "The total amount of rent collected for the period. (Maps to 'valorAlquiler' in UI)"
+        },
+        "administrationFeeAmount": {
+          "type": "number",
+          "description": "The amount deducted as administration fees for the period. (Maps to 'valorAdministracion' in UI)"
+        },
+        "totalMaintenanceDeductions": {
+          "type": "number",
+          "description": "The total amount deducted for maintenance expenses during the period."
+        },
+        "totalInvoiceDeductions": {
+          "type": "number",
+          "description": "The total amount deducted for other invoices (e.g., utilities) during the period."
+        },
+        "ownerPayoutAmount": {
+          "type": "number",
+          "description": "The final amount to be paid out to the property owner after all deductions. (Maps to 'saldo' in UI)"
+        },
+        "payoutDate": {
+          "type": "string",
+          "description": "The date when the payout to the owner was made.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the liquidation (e.g., 'Draft', 'PendingPayment', 'Paid', 'Cancelled')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the liquidation record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the liquidation record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "propertyId",
+        "periodStartDate",
+        "periodEndDate",
+        "totalRentCollectedAmount",
+        "administrationFeeAmount",
+        "totalMaintenanceDeductions",
+        "totalInvoiceDeductions",
+        "ownerPayoutAmount",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/artifacts/{appId}/users/{userId}/properties/{propertyId}",
+        "definition": {
+          "entityName": "Property",
+          "schema": {
+            "$ref": "#/backend/entities/Property"
+          },
+          "description": "Collection for individual rental properties managed by a specific user within an application instance. Each property document includes a denormalized 'ownerId' field for authorization independence, linking it directly to the managing user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance, as used in the client-side code (e.g., 'default-app-id')."
+            },
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID (UID) of the user who owns and manages these properties."
+            },
+            {
+              "name": "propertyId",
+              "description": "The unique identifier for a specific property document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/users/{userId}/tenants/{tenantId}",
+        "definition": {
+          "entityName": "Tenant",
+          "schema": {
+            "$ref": "#/backend/entities/Tenant"
+          },
+          "description": "Collection for tenant records associated with a specific user and application instance. Each tenant document includes a denormalized 'ownerId' for authorization independence, linking it directly to the managing user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance, as used in the client-side code."
+            },
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID (UID) of the user who owns and manages these tenants."
+            },
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for a specific tenant document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/users/{userId}/contracts/{contractId}",
+        "definition": {
+          "entityName": "Contract",
+          "schema": {
+            "$ref": "#/backend/entities/Contract"
+          },
+          "description": "Collection for rental contracts, linking tenants to properties, specific to a user and application instance. Each contract document includes a denormalized 'ownerId' for authorization independence, linking it directly to the managing user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance, as used in the client-side code."
+            },
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID (UID) of the user who owns and manages these contracts."
+            },
+            {
+              "name": "contractId",
+              "description": "The unique identifier for a specific contract document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/users/{userId}/invoices/{invoiceId}",
+        "definition": {
+          "entityName": "Invoice",
+          "schema": {
+            "$ref": "#/backend/entities/Invoice"
+          },
+          "description": "Collection for utility bills, communal expenses, and other service invoices specific to a user and application instance. Each invoice document includes a denormalized 'ownerId' for authorization independence, linking it directly to the managing user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance, as used in the client-side code."
+            },
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID (UID) of the user who owns and manages these invoices."
+            },
+            {
+              "name": "invoiceId",
+              "description": "The unique identifier for a specific invoice document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/users/{userId}/maintenanceRecords/{maintenanceRecordId}",
+        "definition": {
+          "entityName": "MaintenanceRecord",
+          "schema": {
+            "$ref": "#/backend/entities/MaintenanceRecord"
+          },
+          "description": "Collection for tracking maintenance tasks and expenses related to properties, specific to a user and application instance. Each maintenance record document includes a denormalized 'ownerId' for authorization independence, linking it directly to the managing user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance, as used in the client-side code."
+            },
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID (UID) of the user who owns and manages these maintenance records."
+            },
+            {
+              "name": "maintenanceRecordId",
+              "description": "The unique identifier for a specific maintenance record document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/users/{userId}/legalCases/{legalCaseId}",
+        "definition": {
+          "entityName": "LegalCase",
+          "schema": {
+            "$ref": "#/backend/entities/LegalCase"
+          },
+          "description": "Collection for managing legal cases and mediations related to properties or tenants, specific to a user and application instance. Each legal case document includes a denormalized 'ownerId' for authorization independence, linking it directly to the managing user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance, as used in the client-side code."
+            },
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID (UID) of the user who owns and manages these legal cases."
+            },
+            {
+              "name": "legalCaseId",
+              "description": "The unique identifier for a specific legal case document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/users/{userId}/liquidations/{liquidationId}",
+        "definition": {
+          "entityName": "Liquidation",
+          "schema": {
+            "$ref": "#/backend/entities/Liquidation"
+          },
+          "description": "Collection for financial settlement reports for property owners, specific to a user and application instance. Each liquidation document includes a denormalized 'ownerId' for authorization independence, linking it directly to the managing user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance, as used in the client-side code."
+            },
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID (UID) of the user who owns and manages these liquidations."
+            },
+            {
+              "name": "liquidationId",
+              "description": "The unique identifier for a specific liquidation document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure is designed to leverage the existing application's user-centric data model while significantly enhancing security, scalability, and debuggability by strictly adhering to the core design principles. The current React client already organizes data under a user-specific path (`artifacts/{appId}/users/{user.uid}/{collectionName}`), which forms a strong foundation for private, user-owned data.\n\n**Authorization Independence (CRITICAL):**\nThis design prioritizes authorization independence by mandating the denormalization of the `ownerId` (which will be `request.auth.uid`) into *every single document* at all levels of the hierarchy. For example, a `Property` document at `/artifacts/{appId}/users/{userId}/properties/{propertyId}` will not only be under the `userId` path segment but will also contain a field `ownerId: {userId}`. This makes security rules extremely simple, atomic, and efficient: `allow read, write: if request.auth.uid == resource.data.ownerId;`. This eliminates any reliance on `get()` calls in security rules to check parent document ownership, which would otherwise introduce complexity, break atomic operations (like transactions or batch writes), and make debugging difficult.\n\n**QAPs (Queries as Permissions):**\nThis structure inherently supports the Queries as Permissions principle through **Structural Segregation**. All data managed by a user is segregated under their unique `userId` path. This means that a query to `/artifacts/{appId}/users/{userId}/properties` will *only* return properties owned by `userId`. Because the security rules will enforce that `request.auth.uid` must match `userId` in the path (and `ownerId` in the document data), any `list` operation performed by an authenticated user will automatically be constrained to their own data. There is no need for complex `where` clauses in security rules or client-side filtering after unauthorized data has been fetched, making queries secure by default and simplifying client-side logic."
+  }
+}
