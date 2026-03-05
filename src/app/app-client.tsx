@@ -16,7 +16,8 @@ import {
   ChevronRight,
   User,
   ShieldCheck,
-  UserPlus
+  UserPlus,
+  ArrowLeftRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,10 +31,21 @@ import { LegalView } from '@/components/dashboard/legal-view';
 import { LiquidationsView } from '@/components/dashboard/liquidations-view';
 import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
 import { OnboardingView } from '@/components/dashboard/onboarding-view';
+import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
+import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Asistente IA';
+type Role = 'Administrador' | 'Inquilino' | 'Propietario';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Asistente IA' | 'Mi Portal';
 
-const MENU_ITEMS = [
+const ADMIN_MENU = [
   { id: 'Resumen', icon: LayoutDashboard, label: 'Resumen' },
   { id: 'Propiedades', icon: Building, label: 'Propiedades' },
   { id: 'Personas', icon: Users, label: 'Personas y Contratos' },
@@ -46,10 +58,14 @@ const MENU_ITEMS = [
 ];
 
 export default function AppClient() {
+  const [activeRole, setActiveRole] = useState<Role>('Administrador');
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const renderContent = () => {
+    if (activeRole === 'Inquilino') return <TenantPortalView />;
+    if (activeRole === 'Propietario') return <OwnerPortalView />;
+
     switch (activeTab) {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case 'Propiedades': return <PropertiesView />;
@@ -63,6 +79,8 @@ export default function AppClient() {
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
     }
   };
+
+  const menuItems = activeRole === 'Administrador' ? ADMIN_MENU : [{ id: 'Mi Portal', icon: User, label: 'Mi Portal' }];
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
@@ -84,7 +102,7 @@ export default function AppClient() {
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
-          {MENU_ITEMS.map((item) => (
+          {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id as Tab)}
@@ -102,18 +120,36 @@ export default function AppClient() {
         </nav>
 
         <div className="p-4 border-t space-y-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button 
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-primary bg-primary/5 hover:bg-primary/10 transition-colors",
+                  isSidebarCollapsed && "justify-center"
+                )}
+              >
+                <ArrowLeftRight className="h-5 w-5" />
+                {!isSidebarCollapsed && <span className="truncate">Cambiar Rol: {activeRole}</span>}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Seleccionar Vista</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => { setActiveRole('Administrador'); setActiveTab('Resumen'); }}>
+                Vista Administrador
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setActiveRole('Inquilino'); setActiveTab('Mi Portal'); }}>
+                Vista Inquilino
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setActiveRole('Propietario'); setActiveTab('Mi Portal'); }}>
+                Vista Propietario
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
            <button 
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
-              isSidebarCollapsed && "justify-center"
-            )}
-           >
-            <User className="h-5 w-5" />
-            {!isSidebarCollapsed && <span>Mi Perfil</span>}
-           </button>
-           <button 
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors",
+              "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors mt-2",
               isSidebarCollapsed && "justify-center"
             )}
            >
@@ -133,12 +169,16 @@ export default function AppClient() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
         <header className="h-20 border-b flex items-center justify-between px-8 bg-white/50 backdrop-blur-md sticky top-0 z-10">
-          <h1 className="text-2xl font-bold text-foreground">{activeTab}</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {activeRole === 'Administrador' ? activeTab : `Portal de ${activeRole}`}
+          </h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:block">Empresa: Admin Inmobiliaria S.A.</span>
+            <span className="text-sm text-muted-foreground hidden sm:block">
+              {activeRole === 'Inquilino' ? 'Inquilino: Carlos Sosa' : activeRole === 'Propietario' ? 'Propietario: Juan Pérez' : 'Admin: Inmobiliaria S.A.'}
+            </span>
             <Separator orientation="vertical" className="h-6" />
-            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-              AI
+            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase">
+              {activeRole[0]}{activeRole[1]}
             </div>
           </div>
         </header>
