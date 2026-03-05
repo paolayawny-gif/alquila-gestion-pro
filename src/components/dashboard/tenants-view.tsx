@@ -9,22 +9,22 @@ import {
   Edit2, 
   Trash2, 
   Search, 
-  TrendingUp, 
   User, 
   Phone, 
   Mail, 
   ShieldCheck,
   Upload,
-  CreditCard,
   Plus,
   FileDown,
-  AlertCircle,
   Landmark,
-  X
+  X,
+  FileText,
+  DollarSign,
+  Calculator
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Contract, Person, Property, PersonType } from '@/lib/types';
+import { Contract, Person, Property, PersonType, Currency, AdjustmentMechanism } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -59,6 +59,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
+  // ESTADO PARA NUEVA PERSONA
   const [personFormData, setPersonFormData] = useState<Partial<Person>>({
     fullName: '',
     taxId: '',
@@ -66,6 +67,28 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     email: '',
     phone: '',
     bankDetails: { bank: '', cbu: '', alias: '' }
+  });
+
+  // ESTADO PARA NUEVO CONTRATO
+  const [contractFormData, setContractFormData] = useState<Partial<Contract>>({
+    tenantId: '',
+    propertyId: '',
+    startDate: '',
+    endDate: '',
+    baseRentAmount: 0,
+    currentRentAmount: 0,
+    currency: 'ARS',
+    adjustmentType: 'Index',
+    adjustmentMechanism: 'ICL',
+    adjustmentFrequencyMonths: 4,
+    depositAmount: 0,
+    depositCurrency: 'ARS',
+    commissionAmount: 0,
+    lateFeeType: 'DailyPercentage',
+    lateFeeValue: 0.5,
+    status: 'Vigente',
+    guarantorIds: [],
+    ownerIds: []
   });
 
   const getStatusBadge = (status: Contract['status']) => {
@@ -118,9 +141,48 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     setIsPersonDialogOpen(false);
   };
 
-  const handleDeletePerson = (id: string) => {
-    setPeople(people.filter(p => p.id !== id));
-    toast({ title: "Persona eliminada", description: "El registro ha sido removido." });
+  const handleSaveContract = () => {
+    if (!contractFormData.tenantId || !contractFormData.propertyId || !contractFormData.baseRentAmount) {
+      toast({ title: "Error", description: "Complete inquilino, propiedad y monto.", variant: "destructive" });
+      return;
+    }
+
+    const tenant = people.find(p => p.id === contractFormData.tenantId);
+    const property = properties.find(p => p.id === contractFormData.propertyId);
+
+    const newContract = {
+      ...contractFormData,
+      id: Math.random().toString(36).substr(2, 9),
+      tenantName: tenant?.fullName,
+      propertyName: property?.name,
+      currentRentAmount: contractFormData.baseRentAmount, // Inicialmente es igual al base
+      ownerId: 'user1',
+      documents: { mainContractUrl: '', versions: [], annexes: [] }
+    } as Contract;
+
+    setContracts([...contracts, newContract]);
+    toast({ title: "Contrato Guardado", description: "Se ha generado el registro de locación exitosamente." });
+    setIsContractDialogOpen(false);
+    
+    // Reset form
+    setContractFormData({
+      tenantId: '',
+      propertyId: '',
+      startDate: '',
+      endDate: '',
+      baseRentAmount: 0,
+      currentRentAmount: 0,
+      currency: 'ARS',
+      adjustmentType: 'Index',
+      adjustmentMechanism: 'ICL',
+      adjustmentFrequencyMonths: 4,
+      depositAmount: 0,
+      depositCurrency: 'ARS',
+      commissionAmount: 0,
+      lateFeeType: 'DailyPercentage',
+      lateFeeValue: 0.5,
+      status: 'Vigente'
+    });
   };
 
   return (
@@ -153,18 +215,19 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="mt-4">
-                  <TabsList className="grid w-full grid-cols-4 bg-muted/50">
-                    <TabsTrigger value="general">General</TabsTrigger>
-                    <TabsTrigger value="economic">Económico</TabsTrigger>
-                    <TabsTrigger value="guarantors">Garantías</TabsTrigger>
-                    <TabsTrigger value="docs">Docs</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+                    <TabsTrigger value="general">Datos Generales</TabsTrigger>
+                    <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="general" className="space-y-4 pt-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Propiedad</Label>
-                        <Select>
+                        <Select 
+                          value={contractFormData.propertyId} 
+                          onValueChange={(v) => setContractFormData({...contractFormData, propertyId: v})}
+                        >
                           <SelectTrigger><SelectValue placeholder="Seleccione unidad..." /></SelectTrigger>
                           <SelectContent>
                             {properties.map(p => (
@@ -175,35 +238,106 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       </div>
                       <div className="space-y-2">
                         <Label>Inquilino Principal</Label>
-                        <Select>
+                        <Select 
+                          value={contractFormData.tenantId} 
+                          onValueChange={(v) => setContractFormData({...contractFormData, tenantId: v})}
+                        >
                           <SelectTrigger><SelectValue placeholder="Seleccione persona..." /></SelectTrigger>
                           <SelectContent>
                             {people.filter(p => p.type === 'Inquilino').map(p => (
                               <SelectItem key={p.id} value={p.id}>{p.fullName}</SelectItem>
                             ))}
+                            {people.filter(p => p.type === 'Inquilino').length === 0 && (
+                              <div className="p-2 text-xs text-muted-foreground text-center">No hay inquilinos cargados.</div>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>Fecha Inicio</Label>
-                        <Input type="date" />
+                        <Input 
+                          type="date" 
+                          value={contractFormData.startDate} 
+                          onChange={(e) => setContractFormData({...contractFormData, startDate: e.target.value})}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Fecha Fin</Label>
-                        <Input type="date" />
+                        <Input 
+                          type="date" 
+                          value={contractFormData.endDate} 
+                          onChange={(e) => setContractFormData({...contractFormData, endDate: e.target.value})}
+                        />
                       </div>
                     </div>
                   </TabsContent>
                   
-                  {/* Resto de Tabs de contrato... */}
-                  <TabsContent value="economic" className="pt-4"><p className="text-sm text-muted-foreground">Configuración económica en desarrollo...</p></TabsContent>
-                  <TabsContent value="guarantors" className="pt-4"><p className="text-sm text-muted-foreground">Gestión de garantes en desarrollo...</p></TabsContent>
-                  <TabsContent value="docs" className="pt-4"><p className="text-sm text-muted-foreground">Carga documental en desarrollo...</p></TabsContent>
+                  <TabsContent value="economic" className="space-y-4 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Monto Alquiler Inicial</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="0" 
+                          value={contractFormData.baseRentAmount}
+                          onChange={(e) => setContractFormData({...contractFormData, baseRentAmount: parseFloat(e.target.value) || 0})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Moneda</Label>
+                        <Select 
+                          value={contractFormData.currency} 
+                          onValueChange={(v: Currency) => setContractFormData({...contractFormData, currency: v})}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ARS">Pesos (ARS)</SelectItem>
+                            <SelectItem value="USD">Dólares (USD)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Frecuencia Ajuste (Meses)</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="4" 
+                          value={contractFormData.adjustmentFrequencyMonths}
+                          onChange={(e) => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Mecanismo de Ajuste</Label>
+                        <Select 
+                          value={contractFormData.adjustmentMechanism} 
+                          onValueChange={(v: AdjustmentMechanism) => setContractFormData({...contractFormData, adjustmentMechanism: v})}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ICL">Índice ICL (BCRA)</SelectItem>
+                            <SelectItem value="IPC">Inflación (IPC)</SelectItem>
+                            <SelectItem value="CasaPropia">Casa Propia</SelectItem>
+                            <SelectItem value="Fixed">Fijo / Escalonado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Punitorio diario (%)</Label>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          value={contractFormData.lateFeeValue}
+                          onChange={(e) => setContractFormData({...contractFormData, lateFeeValue: parseFloat(e.target.value) || 0})}
+                        />
+                      </div>
+                    </div>
+                  </TabsContent>
                 </Tabs>
 
-                <DialogFooter className="mt-6">
+                <DialogFooter className="mt-8 border-t pt-4">
                   <Button variant="outline" onClick={() => setIsContractDialogOpen(false)}>Cancelar</Button>
-                  <Button className="bg-primary">Guardar Contrato</Button>
+                  <Button className="bg-primary text-white" onClick={handleSaveContract}>Guardar Contrato</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -302,7 +436,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
           </div>
           <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsPersonDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-primary" onClick={handleSavePerson}>Guardar</Button>
+            <Button className="bg-primary text-white" onClick={handleSavePerson}>Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -392,10 +526,19 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => {
+                        setSelectedPerson(p);
+                        setIsDetailOpen(true);
+                      }}>
+                        <Search className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleOpenPersonDialog(p)}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeletePerson(p.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => {
+                        setPeople(people.filter(per => per.id !== p.id));
+                        toast({ title: "Persona eliminada", description: "El registro ha sido removido." });
+                      }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -407,12 +550,13 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
         </Card>
       )}
 
+      {/* FICHA DETALLADA DE PERSONA */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-4 mb-4">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <User className="h-8 w-8" />
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl uppercase">
+                {selectedPerson?.fullName.substring(0, 2)}
               </div>
               <div>
                 <DialogTitle className="text-2xl font-bold">{selectedPerson?.fullName}</DialogTitle>
@@ -425,51 +569,90 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
 
           <Tabs defaultValue="general">
             <TabsList className="grid w-full grid-cols-3 bg-muted/50">
-              <TabsTrigger value="general">Contacto</TabsTrigger>
-              <TabsTrigger value="financial">Banco</TabsTrigger>
+              <TabsTrigger value="general">Información General</TabsTrigger>
+              <TabsTrigger value="financial">Datos Financieros</TabsTrigger>
               <TabsTrigger value="docs">Documentos</TabsTrigger>
             </TabsList>
-            <TabsContent value="general" className="pt-4">
-              <Card className="border-none bg-muted/10">
-                <CardHeader>
-                  <CardTitle className="text-sm">Datos de contacto</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <p className="text-sm"><strong>Email:</strong> {selectedPerson?.email}</p>
-                  <p className="text-sm"><strong>Teléfono:</strong> {selectedPerson?.phone}</p>
-                  <p className="text-sm"><strong>Dirección:</strong> {selectedPerson?.address || 'No informada'}</p>
-                </CardContent>
-              </Card>
+            
+            <TabsContent value="general" className="pt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="border-none bg-muted/20">
+                  <CardContent className="p-4 space-y-3">
+                    <h4 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
+                      <Phone className="h-3 w-3" /> Datos de Localización
+                    </h4>
+                    <div className="space-y-1">
+                      <p className="text-sm"><strong>Email:</strong> {selectedPerson?.email}</p>
+                      <p className="text-sm"><strong>Teléfono:</strong> {selectedPerson?.phone}</p>
+                      <p className="text-sm"><strong>Dirección:</strong> {selectedPerson?.address || 'No informada'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-none bg-muted/20">
+                  <CardContent className="p-4 space-y-3">
+                    <h4 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
+                      <Calculator className="h-3 w-3" /> Resumen Histórico
+                    </h4>
+                    <div className="space-y-1">
+                      <p className="text-sm"><strong>Contratos:</strong> 0 registrados</p>
+                      <p className="text-sm"><strong>Pagos:</strong> Sin historial</p>
+                      <p className="text-sm"><strong>Reclamos:</strong> Ninguno activo</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
+
             <TabsContent value="financial" className="pt-4">
-              <Card className="border-none bg-muted/10">
+              <Card className="border-none bg-primary/5 border border-primary/10">
                 <CardHeader>
-                  <CardTitle className="text-sm text-primary">Información Bancaria</CardTitle>
+                  <CardTitle className="text-sm text-primary flex items-center gap-2">
+                    <Landmark className="h-4 w-4" /> Configuración Bancaria para Liquidaciones
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-3 gap-4">
-                  <div><Label className="text-[10px]">Banco</Label><p className="font-bold">{selectedPerson?.bankDetails?.bank || '-'}</p></div>
-                  <div><Label className="text-[10px]">CBU</Label><p className="font-xs font-mono">{selectedPerson?.bankDetails?.cbu || '-'}</p></div>
-                  <div><Label className="text-[10px]">Alias</Label><p className="font-bold">{selectedPerson?.bankDetails?.alias || '-'}</p></div>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-[10px] uppercase">Banco</Label>
+                    <p className="font-bold">{selectedPerson?.bankDetails?.bank || 'No informado'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-[10px] uppercase">CBU / CVU</Label>
+                    <p className="font-mono text-sm break-all">{selectedPerson?.bankDetails?.cbu || 'No informado'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase">Alias</Label>
+                    <p className="font-bold">{selectedPerson?.bankDetails?.alias || 'No informado'}</p>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
+
             <TabsContent value="docs" className="pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                {(selectedPerson?.documents || []).map((doc) => (
-                  <div key={doc.id} className="p-3 border rounded-lg flex items-center justify-between">
-                    <span className="text-xs font-bold">{doc.name}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(selectedPerson?.documents || []).length > 0 ? (selectedPerson?.documents || []).map((doc) => (
+                  <div key={doc.id} className="p-3 border rounded-lg flex items-center justify-between bg-white shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold">{doc.name}</span>
+                        <span className="text-[9px] text-muted-foreground uppercase">{doc.date}</span>
+                      </div>
+                    </div>
                     <Badge variant="outline" className="text-[10px]">{doc.status}</Badge>
                   </div>
-                ))}
-                <Button variant="outline" className="border-dashed border-2 h-20 flex flex-col gap-1">
-                  <Upload className="h-4 w-4" />
-                  <span className="text-[10px]">Subir Documento</span>
-                </Button>
+                )) : (
+                  <div className="md:col-span-2 py-8 text-center bg-muted/20 rounded-lg border-2 border-dashed">
+                    <p className="text-sm text-muted-foreground">No hay documentos cargados para esta persona.</p>
+                    <Button variant="ghost" size="sm" className="mt-2 text-primary">
+                      <Upload className="h-4 w-4 mr-2" /> Subir Primer Documento
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
           <DialogFooter className="mt-6 border-t pt-4">
-            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Cerrar</Button>
+            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Cerrar Ficha</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
