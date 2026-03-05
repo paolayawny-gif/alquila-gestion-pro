@@ -9,10 +9,12 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "address": { "type": "string" },
-        "type": { "type": "string", "enum": ["Departamento", "Casa", "Local", "Cochera", "Oficina"] },
-        "usage": { "type": "string", "enum": ["Vivienda", "Comercial", "Profesional"] },
+        "type": { "type": "string", "enum": ["Departamento", "Casa", "Local", "Cochera", "Oficina", "Depósito", "Terreno"] },
+        "usage": { "type": "string", "enum": ["Vivienda", "Comercial", "Profesional", "Industrial"] },
         "status": { "type": "string", "enum": ["Disponible", "Reservada", "Alquilada", "En Mantenimiento"] },
         "squareMeters": { "type": "number" },
+        "rooms": { "type": "number" },
+        "amenities": { "type": "array", "items": { "type": "string" } },
         "owners": {
           "type": "array",
           "items": {
@@ -43,24 +45,12 @@
         "taxId": { "type": "string", "description": "CUIT/CUIL/DNI" },
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
-        "address": { "type": "string" },
         "bankDetails": {
           "type": "object",
           "properties": {
             "bank": { "type": "string" },
             "cbu": { "type": "string" },
             "alias": { "type": "string" }
-          }
-        },
-        "documents": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "url": { "type": "string" },
-              "type": { "type": "string" }
-            }
           }
         },
         "ownerId": { "type": "string" }
@@ -81,13 +71,15 @@
         "baseRentAmount": { "type": "number" },
         "currentRentAmount": { "type": "number" },
         "currency": { "type": "string", "enum": ["ARS", "USD"] },
+        "adjustmentType": { "type": "string", "enum": ["Index", "Percentage", "Scale", "Fixed"] },
         "adjustmentMechanism": { "type": "string", "enum": ["ICL", "IPC", "CasaPropia", "Fixed"] },
         "adjustmentFrequencyMonths": { "type": "number" },
-        "nextAdjustmentDate": { "type": "string", "format": "date" },
-        "status": { "type": "string", "enum": ["Active", "Overdue", "InLegal", "Terminated"] },
+        "lateFeeType": { "type": "string", "enum": ["DailyPercentage", "MonthlyPercentage", "Fixed"] },
+        "lateFeeValue": { "type": "number" },
+        "status": { "type": "string", "enum": ["Vigente", "Próximo a Vencer", "Finalizado", "Rescindido"] },
         "ownerId": { "type": "string" }
       },
-      "required": ["id", "tenantId", "propertyId", "baseRentAmount", "currency", "adjustmentMechanism", "ownerId"]
+      "required": ["id", "tenantId", "propertyId", "baseRentAmount", "currency", "ownerId"]
     }
   },
   "auth": {

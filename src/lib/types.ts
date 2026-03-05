@@ -10,9 +10,10 @@ export interface DocumentInfo {
   id: string;
   name: string;
   url: string;
-  type: string; // 'DNI' | 'Escritura' | 'Recibo' | 'Seguro'
+  type: string;
   status: 'Pendiente' | 'Validado' | 'Rechazado';
   date: string;
+  version?: number;
 }
 
 export interface BankDetails {
@@ -25,7 +26,7 @@ export interface Person {
   id: string;
   type: PersonType;
   fullName: string;
-  taxId: string; // CUIT/CUIL/DNI
+  taxId: string;
   email: string;
   phone: string;
   address?: string;
@@ -57,24 +58,50 @@ export interface Property {
   ownerId: string;
 }
 
+export interface AdjustmentScale {
+  month: number;
+  amount: number;
+}
+
 export interface Contract {
   id: string;
   tenantId: string;
-  propertyId: string;
-  guarantorIds?: string[];
   tenantName?: string;
+  propertyId: string;
   propertyName?: string;
+  guarantorIds: string[];
+  ownerIds: string[];
   startDate: string;
   endDate: string;
+  paymentPeriodDays: number;
+  
+  // Cláusulas Económicas
   baseRentAmount: number;
   currentRentAmount: number;
   currency: Currency;
-  adjustmentMechanism: AdjustmentMechanism;
+  
+  adjustmentType: 'Index' | 'Percentage' | 'Scale' | 'Fixed';
+  adjustmentMechanism?: AdjustmentMechanism;
   adjustmentFrequencyMonths: number;
-  lastAdjustmentDate?: string;
-  nextAdjustmentDate?: string;
-  lateFeePercentage?: number; // Punitorios por día o mes
-  status: 'Active' | 'Overdue' | 'InLegal' | 'Terminated';
+  adjustmentPercentage?: number;
+  adjustmentScales?: AdjustmentScale[];
+  
+  depositAmount: number;
+  depositCurrency: Currency;
+  commissionAmount: number;
+  
+  lateFeeType: 'DailyPercentage' | 'MonthlyPercentage' | 'Fixed';
+  lateFeeValue: number;
+  lateFeeCapPercentage?: number;
+  
+  status: 'Vigente' | 'Próximo a Vencer' | 'Finalizado' | 'Rescindido';
+  
+  documents: {
+    mainContractUrl: string;
+    versions: DocumentInfo[];
+    annexes: DocumentInfo[];
+  };
+  
   ownerId: string;
 }
 
@@ -102,7 +129,7 @@ export interface Invoice {
   dueDate: string;
   status: 'Pendiente' | 'Pagado' | 'Vencido';
   hasFile: boolean;
-  cae?: string; // Para AFIP futura
+  cae?: string;
 }
 
 export interface Liquidation {
