@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Building, Search, Home, MapPin, Users, Info, Settings2, Image as ImageIcon, PlusCircle, X, CreditCard, Landmark } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, CreditCard, X, PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Property, PropertyStatus, PropertyOwner } from '@/lib/types';
+import { Property, PropertyStatus, PropertyOwner, PropertyType, PropertyUsage } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from '@/hooks/use-toast';
 
 const INITIAL_PROPERTIES: Property[] = [
   { 
@@ -43,11 +44,25 @@ const INITIAL_PROPERTIES: Property[] = [
 ];
 
 export function PropertiesView() {
+  const { toast } = useToast();
   const [properties, setProperties] = useState<Property[]>(INITIAL_PROPERTIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
-  const [formOwners, setFormOwners] = useState<PropertyOwner[]>([{ ownerId: '', name: '', percentage: 100 }]);
+  
+  // Estado temporal para el formulario
+  const [formData, setFormData] = useState<Partial<Property>>({
+    name: '',
+    address: '',
+    type: 'Departamento',
+    usage: 'Vivienda',
+    status: 'Disponible',
+    squareMeters: 0,
+    rooms: 0,
+    amenities: [],
+    internalNotes: '',
+    owners: [{ ownerId: '', name: '', percentage: 100 }]
+  });
 
   const filteredProperties = properties.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -64,12 +79,75 @@ export function PropertiesView() {
     return <Badge className={cn("border-none", styles[status])}>{status}</Badge>;
   };
 
-  const addOwner = () => setFormOwners([...formOwners, { ownerId: '', name: '', percentage: 0 }]);
-  const removeOwner = (index: number) => setFormOwners(formOwners.filter((_, i) => i !== index));
+  const handleOpenDialog = (property?: Property) => {
+    if (property) {
+      setEditingProperty(property);
+      setFormData(property);
+    } else {
+      setEditingProperty(null);
+      setFormData({
+        name: '',
+        address: '',
+        type: 'Departamento',
+        usage: 'Vivienda',
+        status: 'Disponible',
+        squareMeters: 0,
+        rooms: 0,
+        amenities: [],
+        internalNotes: '',
+        owners: [{ ownerId: '', name: '', percentage: 100 }]
+      });
+    }
+    setIsDialogOpen(true);
+  };
+
+  const addOwner = () => {
+    const newOwners = [...(formData.owners || []), { ownerId: '', name: '', percentage: 0 }];
+    setFormData({ ...formData, owners: newOwners });
+  };
+
+  const removeOwner = (index: number) => {
+    const newOwners = (formData.owners || []).filter((_, i) => i !== index);
+    setFormData({ ...formData, owners: newOwners });
+  };
+
   const updateOwner = (index: number, field: keyof PropertyOwner, value: string | number) => {
-    const newOwners = [...formOwners];
+    const newOwners = [...(formData.owners || [])];
     newOwners[index] = { ...newOwners[index], [field]: value };
-    setFormOwners(newOwners);
+    setFormData({ ...formData, owners: newOwners });
+  };
+
+  const handleSave = () => {
+    if (!formData.name || !formData.address) {
+      toast({
+        title: "Campos requeridos",
+        description: "Por favor complete el nombre y la dirección de la propiedad.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (editingProperty) {
+      setProperties(properties.map(p => p.id === editingProperty.id ? { ...formData, id: p.id } as Property : p));
+      toast({ title: "Propiedad actualizada", description: `${formData.name} ha sido modificada correctamente.` });
+    } else {
+      const newProperty: Property = {
+        ...formData,
+        id: Math.random().toString(36).substr(2, 9),
+        ownerId: 'user1',
+        photos: [],
+        amenities: formData.amenities || []
+      } as Property;
+      setProperties([...properties, newProperty]);
+      toast({ title: "Propiedad creada", description: `${formData.name} ha sido dada de alta.` });
+    }
+
+    setIsDialogOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+    setProperties(properties.filter(p => p.id !== id));
+    toast({ title: "Propiedad eliminada", description: "La unidad ha sido removida del sistema." });
   };
 
   return (
@@ -86,15 +164,10 @@ export function PropertiesView() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => {
-              setEditingProperty(null);
-              setFormOwners([{ ownerId: '', name: '', percentage: 100 }]);
-            }}>
-              <Plus className="h-4 w-4" />
-              Nueva Propiedad
-            </Button>
-          </DialogTrigger>
+          <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenDialog()}>
+            <Plus className="h-4 w-4" />
+            Nueva Propiedad
+          </Button>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingProperty ? 'Editar Propiedad' : 'Alta de Propiedad'}</DialogTitle>
@@ -112,41 +185,66 @@ export function PropertiesView() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nombre Referencia</Label>
-                    <Input placeholder="Ej: Las Heras 4B" defaultValue={editingProperty?.name} />
+                    <Input 
+                      placeholder="Ej: Las Heras 4B" 
+                      value={formData.name} 
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Dirección</Label>
-                    <Input placeholder="Calle y número" defaultValue={editingProperty?.address} />
+                    <Input 
+                      placeholder="Calle y número" 
+                      value={formData.address}
+                      onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label>Superficie m²</Label>
-                    <Input type="number" defaultValue={editingProperty?.squareMeters} />
+                    <Input 
+                      type="number" 
+                      value={formData.squareMeters}
+                      onChange={(e) => setFormData({...formData, squareMeters: parseInt(e.target.value) || 0})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Ambientes</Label>
-                    <Input type="number" defaultValue={editingProperty?.rooms} />
+                    <Input 
+                      type="number" 
+                      value={formData.rooms}
+                      onChange={(e) => setFormData({...formData, rooms: parseInt(e.target.value) || 0})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo</Label>
-                    <Select defaultValue={editingProperty?.type || 'Departamento'}>
+                    <Select 
+                      value={formData.type} 
+                      onValueChange={(v: PropertyType) => setFormData({...formData, type: v})}
+                    >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Departamento">Departamento</SelectItem>
                         <SelectItem value="Casa">Casa</SelectItem>
                         <SelectItem value="Local">Local</SelectItem>
+                        <SelectItem value="Cochera">Cochera</SelectItem>
+                        <SelectItem value="Oficina">Oficina</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Estado</Label>
-                    <Select defaultValue={editingProperty?.status || 'Disponible'}>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(v: PropertyStatus) => setFormData({...formData, status: v})}
+                    >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Disponible">Disponible</SelectItem>
+                        <SelectItem value="Reservada">Reservada</SelectItem>
                         <SelectItem value="Alquilada">Alquilada</SelectItem>
-                        <SelectItem value="En Mantenimiento">Mantenimiento</SelectItem>
+                        <SelectItem value="En Mantenimiento">En Mantenimiento</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -158,19 +256,29 @@ export function PropertiesView() {
                   <h4 className="text-sm font-bold flex items-center gap-2"><Landmark className="h-4 w-4" /> Propietarios Registrados</h4>
                   <Button type="button" variant="outline" size="sm" onClick={addOwner}><PlusCircle className="h-3 w-3 mr-1" /> Añadir Dueño</Button>
                 </div>
-                {formOwners.map((owner, index) => (
+                {(formData.owners || []).map((owner, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-muted/20 rounded-lg">
                     <div className="md:col-span-6 space-y-1">
                       <Label className="text-[10px]">Dueño (Persona)</Label>
-                      <Input value={owner.name} onChange={(e) => updateOwner(index, 'name', e.target.value)} placeholder="Nombre o Razón Social" className="h-8" />
+                      <Input 
+                        value={owner.name} 
+                        onChange={(e) => updateOwner(index, 'name', e.target.value)} 
+                        placeholder="Nombre o Razón Social" 
+                        className="h-8" 
+                      />
                     </div>
                     <div className="md:col-span-3 space-y-1">
                       <Label className="text-[10px]">% Part.</Label>
-                      <Input type="number" value={owner.percentage} onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value))} className="h-8" />
+                      <Input 
+                        type="number" 
+                        value={owner.percentage} 
+                        onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value) || 0)} 
+                        className="h-8" 
+                      />
                     </div>
                     <div className="md:col-span-2 flex gap-1">
-                       <Button size="icon" variant="ghost" className="h-8 w-8 text-primary"><CreditCard className="h-4 w-4" /></Button>
-                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeOwner(index)}><X className="h-4 w-4" /></Button>
+                       <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-primary"><CreditCard className="h-4 w-4" /></Button>
+                       <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeOwner(index)}><X className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 ))}
@@ -179,14 +287,20 @@ export function PropertiesView() {
               <TabsContent value="extra" className="space-y-4 pt-6">
                 <div className="space-y-2">
                   <Label>Notas Internas (Llaves, Portería, etc.)</Label>
-                  <Textarea className="min-h-[100px]" defaultValue={editingProperty?.internalNotes} />
+                  <Textarea 
+                    className="min-h-[100px]" 
+                    value={formData.internalNotes}
+                    onChange={(e) => setFormData({...formData, internalNotes: e.target.value})}
+                  />
                 </div>
               </TabsContent>
             </Tabs>
 
             <DialogFooter className="mt-8 border-t pt-4">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-              <Button>Guardar Propiedad</Button>
+              <Button onClick={handleSave}>
+                {editingProperty ? 'Actualizar Cambios' : 'Guardar Propiedad'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -229,15 +343,16 @@ export function PropertiesView() {
                       variant="ghost" 
                       size="icon" 
                       className="h-8 w-8 text-muted-foreground hover:text-primary"
-                      onClick={() => {
-                        setEditingProperty(p);
-                        setFormOwners(p.owners);
-                        setIsDialogOpen(true);
-                      }}
+                      onClick={() => handleOpenDialog(p)}
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(p.id)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
