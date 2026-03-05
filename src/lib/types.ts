@@ -1,9 +1,26 @@
+export type PropertyType = 'Departamento' | 'Casa' | 'Local' | 'Cochera' | 'Oficina' | 'Depósito' | 'Terreno';
+export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industrial';
+export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
+
+export interface PropertyOwner {
+  name: string;
+  percentage: number;
+}
+
 export interface Property {
   id: string;
   name: string;
   address: string;
   unit?: string;
-  ownerName: string;
+  type: PropertyType;
+  usage: PropertyUsage;
+  status: PropertyStatus;
+  squareMeters?: number;
+  rooms?: number;
+  amenities: string[];
+  photos: string[];
+  internalNotes?: string;
+  owners: PropertyOwner[];
   monthlyRent: number;
   currency: 'ARS' | 'USD';
 }
@@ -42,13 +59,13 @@ export interface Invoice {
   concept: string;
   amount: number;
   currency: 'ARS' | 'USD';
-  exchangeRate?: number; // Para cobros USD en ARS
+  exchangeRate?: number;
   dueDate: string;
   paymentDate?: string;
   status: 'Pendiente' | 'Pagado' | 'Vencido';
   hasFile: boolean;
   fiscalType?: 'Factura B' | 'Factura C';
-  cae?: string; // Código de Autorización Electrónico (AFIP)
+  cae?: string;
   category: 'Alquiler' | 'Expensas' | 'Servicio' | 'Mantenimiento';
 }
 
