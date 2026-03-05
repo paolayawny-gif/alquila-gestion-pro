@@ -1,10 +1,39 @@
+
 export type PropertyType = 'Departamento' | 'Casa' | 'Local' | 'Cochera' | 'Oficina' | 'Depósito' | 'Terreno';
 export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industrial';
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
 export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
 export type Currency = 'ARS' | 'USD';
+export type PersonType = 'Inquilino' | 'Propietario' | 'Garante';
+
+export interface DocumentInfo {
+  name: string;
+  url: string;
+  type: string;
+  date?: string;
+}
+
+export interface BankDetails {
+  bank: string;
+  cbu: string;
+  alias: string;
+}
+
+export interface Person {
+  id: string;
+  type: PersonType;
+  fullName: string;
+  taxId: string; // CUIT/CUIL/DNI
+  email: string;
+  phone: string;
+  address?: string;
+  bankDetails?: BankDetails;
+  documents: DocumentInfo[];
+  ownerId: string;
+}
 
 export interface PropertyOwner {
+  ownerId: string;
   name: string;
   percentage: number;
 }
@@ -23,26 +52,14 @@ export interface Property {
   photos: string[];
   internalNotes?: string;
   owners: PropertyOwner[];
-  ownerId: string; // ID del administrador/usuario que la gestiona
-}
-
-export interface Tenant {
-  id: string;
-  name: string;
-  propertyId: string;
-  propertyName?: string;
-  phone: string;
-  email: string;
-  leaseEndDate: string;
-  status: 'Al día' | 'Atrasado' | 'En legales';
-  hasContractFile: boolean;
-  scoring?: number;
+  ownerId: string;
 }
 
 export interface Contract {
   id: string;
   tenantId: string;
   propertyId: string;
+  guarantorIds?: string[];
   tenantName?: string;
   propertyName?: string;
   startDate: string;

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Property": {
@@ -15,16 +16,56 @@
         "owners": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "percentage": { "type": "number" }
-            }
+            "$ref": "#/backend/entities/OwnerParticipation"
           }
         },
         "ownerId": { "type": "string" }
       },
       "required": ["id", "name", "address", "type", "status", "ownerId"]
+    },
+    "OwnerParticipation": {
+      "title": "OwnerParticipation",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "percentage": { "type": "number" }
+      }
+    },
+    "Person": {
+      "title": "Person",
+      "type": "object",
+      "description": "Entidad base para Inquilinos, Propietarios y Garantes.",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["Inquilino", "Propietario", "Garante"] },
+        "fullName": { "type": "string" },
+        "taxId": { "type": "string", "description": "CUIT/CUIL/DNI" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "bankDetails": {
+          "type": "object",
+          "properties": {
+            "bank": { "type": "string" },
+            "cbu": { "type": "string" },
+            "alias": { "type": "string" }
+          }
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" },
+              "type": { "type": "string" }
+            }
+          }
+        },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "type", "fullName", "taxId", "ownerId"]
     },
     "Contract": {
       "title": "Contract",
@@ -34,6 +75,7 @@
         "id": { "type": "string" },
         "tenantId": { "type": "string" },
         "propertyId": { "type": "string" },
+        "guarantorIds": { "type": "array", "items": { "type": "string" } },
         "startDate": { "type": "string", "format": "date" },
         "endDate": { "type": "string", "format": "date" },
         "baseRentAmount": { "type": "number" },
@@ -59,6 +101,10 @@
     "/artifacts/{appId}/users/{userId}/contracts/{contractId}": {
       "schema": { "$ref": "#/backend/entities/Contract" },
       "description": "Contratos de alquiler."
+    },
+    "/artifacts/{appId}/users/{userId}/people/{personId}": {
+      "schema": { "$ref": "#/backend/entities/Person" },
+      "description": "Inquilinos, Propietarios y Garantes."
     }
   }
 }
