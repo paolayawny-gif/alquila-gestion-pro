@@ -4,7 +4,7 @@ export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industri
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
 export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
 export type Currency = 'ARS' | 'USD';
-export type PersonType = 'Inquilino' | 'Propietario' | 'Garante';
+export type PersonType = 'Inquilino' | 'Propietario' | 'Garante' | 'Proveedor';
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
 export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Otros';
 export type ChargePayer = 'Inquilino' | 'Propietario';
@@ -145,7 +145,7 @@ export interface Liquidation {
   rentIncome: number;
   adminFeeDeduction: number;
   maintenanceDeductions: number;
-  expenseDeductions: number; // Expensas a cargo del propietario
+  expenseDeductions: number; 
   netAmount: number;
   status: 'Pendiente' | 'Pagada';
   dateCreated: string;
@@ -158,11 +158,18 @@ export interface MaintenanceTask {
   propertyName: string;
   tenantId?: string;
   tenantName?: string;
+  contractId?: string;
   concept: string;
   description: string;
-  amount: number;
-  dueDate: string;
   priority: 'Baja' | 'Media' | 'Alta' | 'Crítica';
-  status: 'Pendiente' | 'Presupuestado' | 'En curso' | 'Completado';
+  status: 'Pendiente' | 'Presupuestado' | 'En curso' | 'Completado' | 'Cerrado';
+  providerId?: string;
+  providerName?: string;
+  estimatedCost: number;
+  actualCost?: number;
+  photos: string[];
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
   hasFile: boolean;
 }
