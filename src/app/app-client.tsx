@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -172,10 +171,10 @@ export default function AppClient() {
       ownerId: 'p1',
       ownerName: 'Juan Pérez',
       rentIncome: 185000, 
-      adminFeeDeduction: 9250, 
+      adminFeeDeduction: 18500, // Actualizado al 10% de 185000
       maintenanceDeductions: 0, 
       expenseDeductions: 12000, 
-      netAmount: 163750, 
+      netAmount: 154500, // 185000 - 18500 - 12000
       period: 'Abril 2024',
       status: 'Pendiente',
       dateCreated: '2024-04-15'

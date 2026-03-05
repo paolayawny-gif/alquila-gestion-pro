@@ -103,8 +103,8 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
   };
 
   const calculateAutoFees = (amount: number) => {
-    // Simular 5% de comisión de administración
-    setNewLiq(prev => ({ ...prev, rentIncome: amount, adminFeeDeduction: amount * 0.05 }));
+    // Aplicar 10% de comisión de administración según política comercial
+    setNewLiq(prev => ({ ...prev, rentIncome: amount, adminFeeDeduction: amount * 0.1 }));
   };
 
   return (
@@ -129,7 +129,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Nueva Liquidación a Propietario</DialogTitle>
-                <DialogDescription>Calcule el neto a transferir deduciendo comisiones y gastos.</DialogDescription>
+                <DialogDescription>Calcule el neto a transferir deduciendo comisiones (10%) y gastos.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
@@ -167,7 +167,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2 text-primary">
-                    <Label>Comisión Adm. ($)</Label>
+                    <Label>Comisión Adm. (10%) ($)</Label>
                     <Input 
                       type="number" 
                       value={newLiq.adminFeeDeduction}
@@ -207,7 +207,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
           <span className="text-xl font-black">$ {liquidations.reduce((acc, l) => acc + l.rentIncome, 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
-          <span className="text-[10px] uppercase font-bold text-primary block">Comisiones Adm.</span>
+          <span className="text-[10px] uppercase font-bold text-primary block">Comisiones Adm. (10%)</span>
           <span className="text-xl font-black text-primary">$ {liquidations.reduce((acc, l) => acc + l.adminFeeDeduction, 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
@@ -246,7 +246,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                 <TableCell className="text-right text-xs font-medium">$ {l.rentIncome.toLocaleString('es-AR')}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex flex-col items-end text-[10px]">
-                    <span className="text-primary">Adm: - $ {l.adminFeeDeduction.toLocaleString('es-AR')}</span>
+                    <span className="text-primary">Adm (10%): - $ {l.adminFeeDeduction.toLocaleString('es-AR')}</span>
                     {(l.maintenanceDeductions > 0 || l.expenseDeductions > 0) && (
                       <span className="text-red-600">Gasto: - $ {(l.maintenanceDeductions + l.expenseDeductions).toLocaleString('es-AR')}</span>
                     )}
