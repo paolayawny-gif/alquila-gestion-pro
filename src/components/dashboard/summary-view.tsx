@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -13,7 +12,10 @@ import {
   ArrowRight,
   Clock,
   CalendarDays,
-  BellRing
+  BellRing,
+  ArrowUpRight,
+  Building2,
+  Users2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,7 +25,6 @@ import { Badge } from '@/components/ui/badge';
 export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const [dolarMep, setDolarMep] = useState<number | null>(null);
   
-  // Mock de alertas de automatización
   const [alerts] = useState<AppAlert[]>([
     { 
       id: 'a1', 
@@ -60,9 +61,9 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
 
   const stats = [
     { label: 'Recaudación Mensual', value: '$ 1.845.000', icon: TrendingUp, trend: '+18%', color: 'text-primary' },
-    { label: 'Ocupación', value: '94%', icon: CheckCircle2, trend: 'Excelente', color: 'text-green-600' },
-    { label: 'Mora Temprana', value: '2', icon: AlertTriangle, trend: 'Baja', color: 'text-orange-500' },
-    { label: 'Ajustes este mes', value: '5', icon: Clock, trend: 'Pendientes', color: 'text-blue-500' },
+    { label: 'Ocupación', value: '94.2%', icon: Building2, trend: 'Saludable', color: 'text-green-600' },
+    { label: 'Mora en Cartera', value: '4.2%', icon: AlertTriangle, trend: 'Controlada', color: 'text-orange-500' },
+    { label: 'Tickets Activos', value: '12', icon: Wrench, trend: '5 Urgentes', color: 'text-blue-500' },
   ];
 
   const upcomingAdjustments = [
@@ -102,8 +103,8 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
               <Scale className="h-4 w-4 text-green-600" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-black text-green-600">Tasa de Mora Global</p>
-              <p className="text-xl font-black text-green-900">4.2%</p>
+              <p className="text-[10px] uppercase font-black text-green-600">Ocupación Global</p>
+              <p className="text-xl font-black text-green-900">94.2%</p>
             </div>
           </CardContent>
         </Card>
@@ -113,12 +114,13 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
         {stats.map((stat, i) => (
           <Card key={i} className="shadow-sm border-none bg-white">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase">{stat.label}</CardTitle>
               <stat.icon className={cn("h-5 w-5", stat.color)} />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-black">{stat.value}</div>
-              <p className="text-[10px] font-bold uppercase text-muted-foreground mt-1">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground mt-1 flex items-center gap-1">
+                {stat.trend.includes('+') ? <ArrowUpRight className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3" />}
                 {stat.trend}
               </p>
             </CardContent>
@@ -127,7 +129,6 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Centro de Alertas Críticas (Automatización) */}
         <Card className="lg:col-span-8 shadow-sm border-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -175,7 +176,6 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
           </CardContent>
         </Card>
 
-        {/* Próximos Ajustes Programados */}
         <Card className="lg:col-span-4 shadow-sm border-none bg-white">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -204,8 +204,8 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
                 </Button>
               </div>
             ))}
-            <Button onClick={() => onNavigate('Facturas')} variant="link" className="w-full text-xs">
-              Ver calendario de aumentos anual
+            <Button onClick={() => onNavigate('Reportes')} variant="link" className="w-full text-xs">
+              Ver analítica avanzada <ArrowRight className="h-3 w-3 ml-1" />
             </Button>
           </CardContent>
         </Card>

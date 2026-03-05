@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -17,11 +16,10 @@ import {
   User,
   ShieldCheck,
   UserPlus,
-  ArrowLeftRight
+  ArrowLeftRight,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { SummaryView } from '@/components/dashboard/summary-view';
 import { PropertiesView } from '@/components/dashboard/properties-view';
 import { TenantsView } from '@/components/dashboard/tenants-view';
@@ -33,6 +31,7 @@ import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
 import { OnboardingView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
 import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
+import { ReportsView } from '@/components/dashboard/reports-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -43,7 +42,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Asistente IA' | 'Mi Portal';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
 
 const ADMIN_MENU = [
   { id: 'Resumen', icon: LayoutDashboard, label: 'Resumen' },
@@ -54,6 +53,7 @@ const ADMIN_MENU = [
   { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento / Reclamos' },
   { id: 'Legales', icon: Scale, label: 'Legales y Mediaciones' },
   { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
+  { id: 'Reportes', icon: BarChart3, label: 'Reportes y Analítica' },
   { id: 'Asistente IA', icon: MessageSquareCode, label: 'Asistente IA' },
 ];
 
@@ -75,6 +75,7 @@ export default function AppClient() {
       case 'Mantenimiento': return <MaintenanceView />;
       case 'Legales': return <LegalView />;
       case 'Liquidaciones': return <LiquidationsView />;
+      case 'Reportes': return <ReportsView />;
       case 'Asistente IA': return <AIAssistantView />;
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
     }
@@ -84,7 +85,6 @@ export default function AppClient() {
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
-      {/* Sidebar */}
       <aside 
         className={cn(
           "bg-white border-r flex flex-col transition-all duration-300 relative z-20",
@@ -166,7 +166,6 @@ export default function AppClient() {
         </button>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
         <header className="h-20 border-b flex items-center justify-between px-8 bg-white/50 backdrop-blur-md sticky top-0 z-10">
           <h1 className="text-2xl font-bold text-foreground">
@@ -176,7 +175,6 @@ export default function AppClient() {
             <span className="text-sm text-muted-foreground hidden sm:block">
               {activeRole === 'Inquilino' ? 'Inquilino: Carlos Sosa' : activeRole === 'Propietario' ? 'Propietario: Juan Pérez' : 'Admin: Inmobiliaria S.A.'}
             </span>
-            <Separator orientation="vertical" className="h-6" />
             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase">
               {activeRole[0]}{activeRole[1]}
             </div>
