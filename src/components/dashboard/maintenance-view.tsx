@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MaintenanceTask } from '@/lib/types';
+import { MaintenanceTask, Property, Person } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -43,48 +43,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 
-const INITIAL_TASKS: MaintenanceTask[] = [
-  { 
-    id: '1', 
-    propertyId: 'p1',
-    propertyName: 'Edificio Las Heras 4B',
-    tenantName: 'Carlos Sosa',
-    contractId: 'c1',
-    concept: 'Pérdida de agua en termotanque', 
-    description: 'El inquilino reporta goteo constante desde la base del equipo.',
-    priority: 'Alta',
-    status: 'En curso', 
-    providerName: 'Plomería Rodríguez',
-    estimatedCost: 85000,
-    actualCost: 0,
-    photos: ['https://picsum.photos/seed/leak1/400/300'],
-    createdAt: '2024-03-20',
-    updatedAt: '2024-03-22',
-    hasFile: true 
-  },
-  { 
-    id: '2', 
-    propertyId: 'p2',
-    propertyName: 'Quinta del Sol',
-    tenantName: 'Marta Rodriguez',
-    concept: 'Pintura Fachada Exterior', 
-    description: 'Trabajo preventivo aprobado por propietarios.',
-    priority: 'Baja',
-    status: 'Presupuestado', 
-    estimatedCost: 450000,
-    photos: [],
-    createdAt: '2024-03-15',
-    updatedAt: '2024-03-15',
-    hasFile: false 
-  },
-];
+interface MaintenanceViewProps {
+  tasks: MaintenanceTask[];
+  setTasks: React.Dispatch<React.SetStateAction<MaintenanceTask[]>>;
+  properties: Property[];
+  people: Person[];
+}
 
-export function MaintenanceView() {
+export function MaintenanceView({ tasks, setTasks, properties, people }: MaintenanceViewProps) {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<MaintenanceTask[]>(INITIAL_TASKS);
   const [isNewClaimOpen, setIsNewClaimOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+
+  // Estado del formulario para nuevo ticket
+  const [newTicket, setNewTicket] = useState<Partial<MaintenanceTask>>({
+    propertyId: '',
+    priority: 'Media',
+    concept: '',
+    description: '',
+    status: 'Pendiente'
+  });
 
   const getStatusBadge = (status: MaintenanceTask['status']) => {
     const styles = {
@@ -107,9 +86,57 @@ export function MaintenanceView() {
     return <Badge className={cn("border-none", styles[priority])}>{priority}</Badge>;
   };
 
+  const handleCreateTicket = () => {
+    if (!newTicket.propertyId || !newTicket.concept || !newTicket.description) {
+      toast({
+        title: "Campos incompletos",
+        description: "Por favor complete la propiedad, el concepto y la descripción.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const property = properties.find(p => p.id === newTicket.propertyId);
+    
+    const task: MaintenanceTask = {
+      id: Math.random().toString(36).substr(2, 9),
+      propertyId: newTicket.propertyId!,
+      propertyName: property?.name || 'Propiedad desconocida',
+      concept: newTicket.concept!,
+      description: newTicket.description!,
+      priority: (newTicket.priority as any) || 'Media',
+      status: 'Pendiente',
+      estimatedCost: 0,
+      photos: [],
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0],
+      hasFile: false
+    };
+
+    setTasks([task, ...tasks]);
+    setIsNewClaimOpen(false);
+    setNewTicket({
+      propertyId: '',
+      priority: 'Media',
+      concept: '',
+      description: '',
+      status: 'Pendiente'
+    });
+
+    toast({
+      title: "Ticket Generado",
+      description: `Se ha registrado el reclamo para ${task.propertyName}.`
+    });
+  };
+
   const handleCloseTicket = (taskId: string) => {
     setTasks(tasks.map(t => t.id === taskId ? { ...t, status: 'Cerrado', closedAt: new Date().toISOString().split('T')[0] } : t));
     toast({ title: "Ticket Cerrado", description: "El reclamo ha sido finalizado y archivado en el historial." });
+  };
+
+  const handleDeleteTicket = (taskId: string) => {
+    setTasks(tasks.filter(t => t.id !== taskId));
+    toast({ title: "Ticket Eliminado", description: "El reclamo ha sido removido del sistema." });
   };
 
   return (
@@ -141,17 +168,27 @@ export function MaintenanceView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label>Propiedad / Unidad</Label>
-                <Select>
+                <Select 
+                  value={newTicket.propertyId} 
+                  onValueChange={(v) => setNewTicket({...newTicket, propertyId: v})}
+                >
                   <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="p1">Las Heras 4B (Carlos Sosa)</SelectItem>
-                    <SelectItem value="p2">Quinta del Sol (Marta Rodriguez)</SelectItem>
+                    {properties.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} ({p.address})</SelectItem>
+                    ))}
+                    {properties.length === 0 && (
+                      <div className="p-2 text-xs text-muted-foreground text-center">No hay propiedades cargadas.</div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Prioridad</Label>
-                <Select defaultValue="Media">
+                <Select 
+                  value={newTicket.priority} 
+                  onValueChange={(v) => setNewTicket({...newTicket, priority: v as any})}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Baja">Baja (Mantenimiento General)</SelectItem>
@@ -163,11 +200,20 @@ export function MaintenanceView() {
               </div>
               <div className="md:col-span-2 space-y-2">
                 <Label>Concepto / Título</Label>
-                <Input placeholder="Ej: Filtración en baño principal" />
+                <Input 
+                  placeholder="Ej: Filtración en baño principal" 
+                  value={newTicket.concept}
+                  onChange={(e) => setNewTicket({...newTicket, concept: e.target.value})}
+                />
               </div>
               <div className="md:col-span-2 space-y-2">
                 <Label>Descripción del Reclamo</Label>
-                <Textarea placeholder="Detalle lo reportado por el inquilino..." className="h-24" />
+                <Textarea 
+                  placeholder="Detalle lo reportado por el inquilino..." 
+                  className="h-24" 
+                  value={newTicket.description}
+                  onChange={(e) => setNewTicket({...newTicket, description: e.target.value})}
+                />
               </div>
               <div className="md:col-span-2 border-2 border-dashed rounded-lg p-6 text-center space-y-2 hover:bg-muted/50 cursor-pointer transition-colors">
                 <Camera className="h-8 w-8 mx-auto text-muted-foreground" />
@@ -178,7 +224,7 @@ export function MaintenanceView() {
 
             <DialogFooter className="mt-6">
               <Button variant="outline" onClick={() => setIsNewClaimOpen(false)}>Cancelar</Button>
-              <Button className="bg-primary text-white">Generar Ticket</Button>
+              <Button className="bg-primary text-white" onClick={handleCreateTicket}>Generar Ticket</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -187,19 +233,19 @@ export function MaintenanceView() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-muted-foreground block">Tickets Abiertos</span>
-          <span className="text-xl font-black">12</span>
+          <span className="text-xl font-black">{tasks.filter(t => t.status !== 'Cerrado').length}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-red-600 block">Urgencias / Críticos</span>
-          <span className="text-xl font-black text-red-700">3</span>
+          <span className="text-xl font-black text-red-700">{tasks.filter(t => t.priority === 'Crítica' || t.priority === 'Alta').length}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-primary block">En Reparación</span>
-          <span className="text-xl font-black text-primary">5</span>
+          <span className="text-xl font-black text-primary">{tasks.filter(t => t.status === 'En curso').length}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-green-600 block">Cerrados este mes</span>
-          <span className="text-xl font-black text-green-700">24</span>
+          <span className="text-xl font-black text-green-700">{tasks.filter(t => t.status === 'Cerrado').length}</span>
         </Card>
       </div>
 
@@ -216,7 +262,7 @@ export function MaintenanceView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tasks.map((t) => (
+            {tasks.length > 0 ? tasks.map((t) => (
               <TableRow key={t.id} className="hover:bg-muted/30 transition-colors">
                 <TableCell>
                   <div className="flex flex-col gap-1">
@@ -231,7 +277,7 @@ export function MaintenanceView() {
                 <TableCell>
                   <div className="flex flex-col text-xs">
                     <span className="font-semibold">{t.propertyName}</span>
-                    <span className="text-muted-foreground">{t.tenantName}</span>
+                    <span className="text-muted-foreground">{t.tenantName || 'Sin contrato activo'}</span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -284,13 +330,17 @@ export function MaintenanceView() {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                      <XCircle className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTicket(t.id)}>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay reclamos de mantenimiento registrados.</TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -349,3 +399,4 @@ export function MaintenanceView() {
     </div>
   );
 }
+
