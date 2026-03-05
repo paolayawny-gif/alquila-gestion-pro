@@ -1,21 +1,28 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
   TrendingUp, 
   Users, 
   AlertTriangle, 
   CheckCircle2, 
-  ArrowUpRight, 
-  ArrowDownRight,
+  Scale,
   Wrench,
-  Scale
+  DollarSign,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void }) {
-  // Mock data for summary
+  const [dolarBlue, setDolarBlue] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Simulación de fetch de cotización (API BlueLytics o similar)
+    setDolarBlue(1150);
+  }, []);
+
   const stats = [
     { label: 'Total Alquileres', value: '$ 1.250.000', icon: TrendingUp, trend: '+12%', color: 'text-primary' },
     { label: 'Inquilinos al Día', value: '24', icon: CheckCircle2, trend: '92%', color: 'text-green-600' },
@@ -31,6 +38,32 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Cotización y Alertas Rápidas */}
+      <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+        <Card className="min-w-[200px] border-none shadow-sm bg-blue-50">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="bg-blue-100 p-2 rounded-full">
+              <DollarSign className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-blue-600">Dólar MEP Referencia</p>
+              <p className="text-lg font-black text-blue-900">${dolarBlue || '...'}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="min-w-[200px] border-none shadow-sm bg-orange-50">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="bg-orange-100 p-2 rounded-full">
+              <TrendingUp className="h-4 w-4 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-orange-600">Próximo Ajuste ICL</p>
+              <p className="text-lg font-black text-orange-900">15 Abr</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
           <Card key={i} className="shadow-sm border-none bg-white">
@@ -53,9 +86,14 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Liquidaciones & Financieros */}
         <Card className="lg:col-span-7 shadow-sm border-none bg-white">
-          <CardHeader>
-            <CardTitle>Liquidaciones Globales</CardTitle>
-            <CardDescription>Resumen de movimientos financieros acumulados</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Liquidaciones Globales</CardTitle>
+              <CardDescription>Resumen de movimientos financieros acumulados</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" className="gap-2">
+              <TrendingUp className="h-4 w-4" /> Conciliar MP
+            </Button>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
@@ -76,9 +114,14 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
                 <span className="text-2xl font-black text-green-700">$ 1.062.500</span>
               </div>
             </div>
-            <Button onClick={() => onNavigate('Liquidaciones')} className="w-full bg-primary hover:bg-primary/90">
-              Gestionar Liquidaciones
-            </Button>
+            <div className="flex gap-4">
+              <Button onClick={() => onNavigate('Liquidaciones')} className="flex-1 bg-primary hover:bg-primary/90">
+                Gestionar Liquidaciones
+              </Button>
+              <Button variant="secondary" className="gap-2">
+                Exportar RELI/AFIP
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -125,7 +168,7 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
             <CardContent>
               <p className="text-sm text-muted-foreground">Hay <strong>1 caso</strong> pendiente de mediación que requiere atención inmediata.</p>
               <Button variant="link" className="p-0 h-auto text-accent mt-2 text-sm" onClick={() => onNavigate('Legales')}>
-                Ir a Legales
+                Ir a Legales <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
             </CardContent>
           </Card>
@@ -134,5 +177,3 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
     </div>
   );
 }
-
-import { cn } from '@/lib/utils';
