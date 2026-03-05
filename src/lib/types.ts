@@ -5,6 +5,7 @@ export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mant
 export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
 export type Currency = 'ARS' | 'USD';
 export type PersonType = 'Inquilino' | 'Propietario' | 'Garante';
+export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
 
 export interface DocumentInfo {
   id: string;
@@ -88,7 +89,7 @@ export interface Contract {
   
   depositAmount: number;
   depositCurrency: Currency;
-  commissionAmount: number;
+  commissionAmount: number; // Porcentaje o monto fijo de administración
   
   lateFeeType: 'DailyPercentage' | 'MonthlyPercentage' | 'Fixed';
   lateFeeValue: number;
@@ -123,11 +124,18 @@ export interface MaintenanceTask {
 export interface Invoice {
   id: string;
   contractId: string;
-  concept: string;
-  amount: number;
+  tenantName: string;
+  propertyName: string;
+  concept: string; // Ej: "Alquiler Abril 2024"
+  baseAmount: number;
+  lateFees: number;
+  totalAmount: number;
   currency: Currency;
   dueDate: string;
-  status: 'Pendiente' | 'Pagado' | 'Vencido';
+  paymentDate?: string;
+  paymentMethod?: PaymentMethod;
+  reference?: string; // Número de operación / CBU
+  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
   hasFile: boolean;
   cae?: string;
 }
@@ -136,10 +144,14 @@ export interface Liquidation {
   id: string;
   propertyId: string;
   propertyName: string;
-  rentAmount: number;
-  adminFee: number;
+  ownerId: string;
+  ownerName: string;
+  period: string; // Ej: "04/2024"
+  rentIncome: number;
+  adminFeeDeduction: number;
   maintenanceDeductions: number;
   netAmount: number;
-  period: string;
+  status: 'Pendiente' | 'Pagada';
   dateCreated: string;
+  paymentReference?: string;
 }
