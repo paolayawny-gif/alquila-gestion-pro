@@ -23,8 +23,7 @@ export interface Property {
   photos: string[];
   internalNotes?: string;
   owners: PropertyOwner[];
-  monthlyRent: number;
-  currency: Currency;
+  ownerId: string; // ID del administrador/usuario que la gestiona
 }
 
 export interface Tenant {
@@ -56,6 +55,7 @@ export interface Contract {
   lastAdjustmentDate?: string;
   nextAdjustmentDate?: string;
   status: 'Active' | 'Overdue' | 'InLegal' | 'Terminated';
+  ownerId: string;
 }
 
 export interface Invoice {

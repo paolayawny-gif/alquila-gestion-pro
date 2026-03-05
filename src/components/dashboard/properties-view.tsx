@@ -3,10 +3,10 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Building, Search, Home, MapPin, Users, Info, Settings2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building, Search, Home, MapPin, Users, Info, Settings2, Image as ImageIcon, PlusCircle, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Property, PropertyStatus, PropertyType, PropertyUsage } from '@/lib/types';
+import { Property, PropertyStatus, PropertyType, PropertyUsage, PropertyOwner } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -35,9 +35,8 @@ const INITIAL_PROPERTIES: Property[] = [
     rooms: 2,
     amenities: ['Seguridad 24hs', 'SUM'],
     owners: [{ name: 'Juan Pérez', percentage: 100 }],
-    monthlyRent: 120000,
-    currency: 'ARS',
     photos: [],
+    ownerId: 'user1'
   },
   { 
     id: '2', 
@@ -53,9 +52,8 @@ const INITIAL_PROPERTIES: Property[] = [
       { name: 'Maria Garcia', percentage: 50 },
       { name: 'Sucesión Garcia', percentage: 50 }
     ],
-    monthlyRent: 250000,
-    currency: 'ARS',
     photos: [],
+    ownerId: 'user1'
   },
 ];
 
@@ -64,6 +62,9 @@ export function PropertiesView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  
+  // Estado para gestionar los propietarios en el formulario
+  const [formOwners, setFormOwners] = useState<PropertyOwner[]>([{ name: '', percentage: 100 }]);
 
   const filteredProperties = properties.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -80,9 +81,23 @@ export function PropertiesView() {
     return <Badge className={cn("border-none", styles[status])}>{status}</Badge>;
   };
 
+  const addOwner = () => {
+    setFormOwners([...formOwners, { name: '', percentage: 0 }]);
+  };
+
+  const removeOwner = (index: number) => {
+    setFormOwners(formOwners.filter((_, i) => i !== index));
+  };
+
+  const updateOwner = (index: number, field: keyof PropertyOwner, value: string | number) => {
+    const newOwners = [...formOwners];
+    newOwners[index] = { ...newOwners[index], [field]: value };
+    setFormOwners(newOwners);
+  };
+
   const handleSaveProperty = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Logic for saving (mocked for now)
+    // Simulación de guardado
     setIsDialogOpen(false);
   };
 
@@ -101,12 +116,15 @@ export function PropertiesView() {
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => setEditingProperty(null)}>
+            <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => {
+              setEditingProperty(null);
+              setFormOwners([{ name: '', percentage: 100 }]);
+            }}>
               <Plus className="h-4 w-4" />
               Nueva Propiedad
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSaveProperty}>
               <DialogHeader>
                 <DialogTitle>{editingProperty ? 'Editar Propiedad' : 'Alta de Propiedad'}</DialogTitle>
@@ -114,107 +132,158 @@ export function PropertiesView() {
                   Complete los datos técnicos, legales y de uso de la unidad.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-6 py-4">
-                {/* Sección Básica */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nombre / Referencia</Label>
-                    <Input placeholder="Ej: Edificio Central 4B" required />
+              
+              <div className="grid gap-8 py-4">
+                {/* Sección 1: Datos Básicos */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b pb-1">Ubicación y Referencia</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nombre de Referencia</Label>
+                      <Input placeholder="Ej: Edificio Central 4B" defaultValue={editingProperty?.name} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Dirección Completa</Label>
+                      <Input placeholder="Calle, número, localidad" defaultValue={editingProperty?.address} required />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Dirección</Label>
-                    <Input placeholder="Calle y número" required />
-                  </div>
-                </div>
-
-                {/* Tipo y Uso */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select defaultValue="Departamento">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Departamento">Departamento</SelectItem>
-                        <SelectItem value="Casa">Casa</SelectItem>
-                        <SelectItem value="Local">Local</SelectItem>
-                        <SelectItem value="Cochera">Cochera</SelectItem>
-                        <SelectItem value="Oficina">Oficina</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Uso</Label>
-                    <Select defaultValue="Vivienda">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Uso" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Vivienda">Vivienda</SelectItem>
-                        <SelectItem value="Comercial">Comercial</SelectItem>
-                        <SelectItem value="Profesional">Profesional</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Estado</Label>
-                    <Select defaultValue="Disponible">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Disponible">Disponible</SelectItem>
-                        <SelectItem value="Reservada">Reservada</SelectItem>
-                        <SelectItem value="Alquilada">Alquilada</SelectItem>
-                        <SelectItem value="En Mantenimiento">En Mantenimiento</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Medidas y Ambientes */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Metros Cuadrados (m²)</Label>
-                    <Input type="number" placeholder="0" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ambientes</Label>
-                    <Input type="number" placeholder="0" />
-                  </div>
-                </div>
-
-                {/* Propietarios */}
-                <div className="space-y-2 border p-3 rounded-lg bg-muted/20">
-                  <div className="flex justify-between items-center mb-2">
-                    <Label className="flex items-center gap-2"><Users className="h-4 w-4" /> Propietarios y Participación</Label>
-                    <Button type="button" variant="ghost" size="sm" className="text-xs text-primary">+ Añadir Dueño</Button>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-4 gap-2 items-center">
-                      <Input className="col-span-3 h-8" placeholder="Nombre completo del propietario" defaultValue="Juan Pérez" />
-                      <div className="flex items-center gap-1">
-                        <Input className="h-8" type="number" defaultValue="100" />
-                        <span className="text-xs font-bold">%</span>
-                      </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label>Unidad/Piso</Label>
+                      <Input placeholder="Ej: 4B" defaultValue={editingProperty?.unit} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tipo</Label>
+                      <Select defaultValue={editingProperty?.type || "Departamento"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Departamento">Departamento</SelectItem>
+                          <SelectItem value="Casa">Casa</SelectItem>
+                          <SelectItem value="Local">Local</SelectItem>
+                          <SelectItem value="Cochera">Cochera</SelectItem>
+                          <SelectItem value="Oficina">Oficina</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Uso</Label>
+                      <Select defaultValue={editingProperty?.usage || "Vivienda"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Vivienda">Vivienda</SelectItem>
+                          <SelectItem value="Comercial">Comercial</SelectItem>
+                          <SelectItem value="Profesional">Profesional</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Estado</Label>
+                      <Select defaultValue={editingProperty?.status || "Disponible"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Disponible">Disponible</SelectItem>
+                          <SelectItem value="Reservada">Reservada</SelectItem>
+                          <SelectItem value="Alquilada">Alquilada</SelectItem>
+                          <SelectItem value="En Mantenimiento">En Mantenimiento</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Amenities / Características</Label>
-                  <Input placeholder="Ej: Piscina, Parrilla, Seguridad 24hs (separado por comas)" />
+                {/* Sección 2: Especificaciones Técnicas */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b pb-1">Especificaciones Técnicas</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Superficie (m²)</Label>
+                      <Input type="number" placeholder="0" defaultValue={editingProperty?.squareMeters} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ambientes</Label>
+                      <Input type="number" placeholder="0" defaultValue={editingProperty?.rooms} />
+                    </div>
+                    <div className="space-y-2 md:col-span-1">
+                      <Label>Amenities</Label>
+                      <Input placeholder="Piscina, SUM, etc." defaultValue={editingProperty?.amenities.join(", ")} />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Notas Internas</Label>
-                  <Textarea placeholder="Información relevante para la administración..." />
+                {/* Sección 3: Propietarios (Copropiedad) */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center border-b pb-1">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Propietarios y Participación</h4>
+                    <Button type="button" variant="ghost" size="sm" onClick={addOwner} className="text-primary h-7">
+                      <PlusCircle className="h-3 w-3 mr-1" /> Añadir Dueño
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {formOwners.map((owner, index) => (
+                      <div key={index} className="flex gap-2 items-end bg-muted/20 p-2 rounded-lg">
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-[10px]">Nombre Completo</Label>
+                          <Input 
+                            value={owner.name} 
+                            onChange={(e) => updateOwner(index, 'name', e.target.value)}
+                            placeholder="Ej: Juan Pérez"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="w-24 space-y-1">
+                          <Label className="text-[10px]">Participación</Label>
+                          <div className="relative">
+                            <Input 
+                              type="number" 
+                              value={owner.percentage} 
+                              onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value))}
+                              className="h-8 text-sm pr-6"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold">%</span>
+                          </div>
+                        </div>
+                        {formOwners.length > 1 && (
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => removeOwner(index)}
+                            className="h-8 w-8 text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sección 4: Archivos y Notas */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b pb-1">Información Adicional</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Fotos de la Propiedad</Label>
+                      <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/30 cursor-pointer transition-colors">
+                        <ImageIcon className="h-8 w-8 mb-2" />
+                        <span className="text-xs">Click para subir o arrastrar archivos</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Notas Internas</Label>
+                      <Textarea 
+                        placeholder="Detalles sobre llaves, reglamentos, etc." 
+                        className="min-h-[80px]"
+                        defaultValue={editingProperty?.internalNotes}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-              <DialogFooter>
+
+              <DialogFooter className="mt-6">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="bg-primary text-white">Guardar Cambios</Button>
+                <Button type="submit" className="bg-primary text-white">Guardar Propiedad</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -229,7 +298,7 @@ export function PropertiesView() {
               <TableHead>Ubicación / Tipo</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Propietario(s)</TableHead>
-              <TableHead className="text-right">Detalle</TableHead>
+              <TableHead className="text-right">Técnico</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -257,7 +326,7 @@ export function PropertiesView() {
                     {p.owners.map((o, idx) => (
                       <span key={idx} className="text-[11px] bg-muted px-1.5 py-0.5 rounded flex justify-between items-center max-w-[150px]">
                         <span className="truncate">{o.name}</span>
-                        <span className="font-bold">{o.percentage}%</span>
+                        <span className="font-bold ml-2">{o.percentage}%</span>
                       </span>
                     ))}
                   </div>
@@ -267,7 +336,7 @@ export function PropertiesView() {
                     {p.rooms && <Badge variant="outline" className="text-[9px] h-5">{p.rooms} AMB</Badge>}
                     {p.amenities.length > 0 && (
                       <Badge variant="secondary" className="text-[9px] h-5">
-                        +{p.amenities.length} AMENITIES
+                        +{p.amenities.length}
                       </Badge>
                     )}
                    </div>
@@ -280,6 +349,7 @@ export function PropertiesView() {
                       className="h-8 w-8 text-muted-foreground hover:text-primary"
                       onClick={() => {
                         setEditingProperty(p);
+                        setFormOwners(p.owners);
                         setIsDialogOpen(true);
                       }}
                     >
@@ -300,21 +370,21 @@ export function PropertiesView() {
         <Card className="p-4 bg-muted/30 border-none shadow-none flex items-center gap-3">
           <div className="p-2 bg-white rounded-full"><Home className="h-5 w-5 text-primary" /></div>
           <div>
-            <p className="text-xs text-muted-foreground">Total Unidades</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">Total Unidades</p>
             <p className="text-lg font-bold">{properties.length}</p>
           </div>
         </Card>
         <Card className="p-4 bg-muted/30 border-none shadow-none flex items-center gap-3">
           <div className="p-2 bg-white rounded-full"><Settings2 className="h-5 w-5 text-orange-600" /></div>
           <div>
-            <p className="text-xs text-muted-foreground">En Mantenimiento</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">En Mantenimiento</p>
             <p className="text-lg font-bold">{properties.filter(p => p.status === 'En Mantenimiento').length}</p>
           </div>
         </Card>
         <Card className="p-4 bg-muted/30 border-none shadow-none flex items-center gap-3">
           <div className="p-2 bg-white rounded-full"><Info className="h-5 w-5 text-blue-600" /></div>
           <div>
-            <p className="text-xs text-muted-foreground">Disponibles</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">Disponibles</p>
             <p className="text-lg font-bold">{properties.filter(p => p.status === 'Disponible').length}</p>
           </div>
         </Card>
