@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   UserPlus, 
@@ -337,7 +337,6 @@ export function TenantsView() {
           </Table>
         </Card>
       ) : (
-        /* VISTA DE PERSONAS REFACTORIZADA */
         <Card className="border-none shadow-sm overflow-hidden bg-white">
           <Table>
             <TableHeader>
@@ -379,7 +378,15 @@ export function TenantsView() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => {
+                          setSelectedPerson(p);
+                          setIsDetailOpen(true);
+                        }}
+                      >
                         <Edit2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -391,7 +398,6 @@ export function TenantsView() {
         </Card>
       )}
 
-      {/* DIALOGO DE FICHA UNIFICADA (EXISTENTE REPOTENCIADO) */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -427,10 +433,35 @@ export function TenantsView() {
                     <div className="space-y-2">
                       <p className="text-sm"><strong>Teléfono:</strong> {selectedPerson?.phone}</p>
                       <p className="text-sm"><strong>Email:</strong> {selectedPerson?.email}</p>
+                      <p className="text-sm"><strong>Dirección:</strong> {selectedPerson?.address || 'No informada'}</p>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="financial" className="pt-4">
+              <Card className="border-none bg-muted/20">
+                <CardContent className="p-4 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
+                    <CreditCard className="h-3 w-3" /> Datos para Conciliación / Liquidación
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Banco</Label>
+                      <p className="text-sm font-bold">{selectedPerson?.bankDetails?.bank || 'Sin cargar'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">CBU</Label>
+                      <p className="text-xs font-mono">{selectedPerson?.bankDetails?.cbu || 'Sin cargar'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Alias</Label>
+                      <p className="text-sm font-bold uppercase">{selectedPerson?.bankDetails?.alias || 'Sin cargar'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
 
