@@ -1,6 +1,8 @@
 export type PropertyType = 'Departamento' | 'Casa' | 'Local' | 'Cochera' | 'Oficina' | 'Depósito' | 'Terreno';
 export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industrial';
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
+export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
+export type Currency = 'ARS' | 'USD';
 
 export interface PropertyOwner {
   name: string;
@@ -22,7 +24,7 @@ export interface Property {
   internalNotes?: string;
   owners: PropertyOwner[];
   monthlyRent: number;
-  currency: 'ARS' | 'USD';
+  currency: Currency;
 }
 
 export interface Tenant {
@@ -42,12 +44,14 @@ export interface Contract {
   id: string;
   tenantId: string;
   propertyId: string;
+  tenantName?: string;
+  propertyName?: string;
   startDate: string;
   endDate: string;
   baseRentAmount: number;
   currentRentAmount: number;
-  currency: 'ARS' | 'USD';
-  adjustmentMechanism: 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
+  currency: Currency;
+  adjustmentMechanism: AdjustmentMechanism;
   adjustmentFrequencyMonths: number;
   lastAdjustmentDate?: string;
   nextAdjustmentDate?: string;
@@ -58,26 +62,19 @@ export interface Invoice {
   id: string;
   concept: string;
   amount: number;
-  currency: 'ARS' | 'USD';
-  exchangeRate?: number;
+  currency: Currency;
   dueDate: string;
-  paymentDate?: string;
   status: 'Pendiente' | 'Pagado' | 'Vencido';
   hasFile: boolean;
-  fiscalType?: 'Factura B' | 'Factura C';
-  cae?: string;
-  category: 'Alquiler' | 'Expensas' | 'Servicio' | 'Mantenimiento';
 }
 
 export interface MaintenanceTask {
   id: string;
   concept: string;
   amount: number;
-  currency: 'ARS' | 'USD';
   dueDate: string;
   status: 'Pendiente' | 'En curso' | 'Completado';
   hasFile: boolean;
-  providerName?: string;
 }
 
 export interface LegalCase {
@@ -86,18 +83,16 @@ export interface LegalCase {
   propertyName: string;
   startDate: string;
   attorney: string;
-  status: 'Pendiente' | 'En proceso' | 'Acuerdo firmado' | 'Finalizado';
+  status: string;
   hasFile: boolean;
 }
 
 export interface Liquidation {
   id: string;
-  propertyId: string;
   propertyName: string;
   rentAmount: number;
   adminFee: number;
   maintenanceDeductions: number;
   netAmount: number;
   period: string;
-  status: 'Procesada' | 'Pagada';
 }

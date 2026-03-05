@@ -1,55 +1,17 @@
 {
   "entities": {
     "Property": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Property",
       "type": "object",
-      "description": "Represents a rental property managed by the application with detailed technical and legal data.",
+      "description": "Unidad funcional gestionada.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Property entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "A descriptive name or reference for the property."
-        },
-        "address": {
-          "type": "string",
-          "description": "The full street address of the property."
-        },
-        "unitNumber": {
-          "type": "string",
-          "description": "The specific unit or apartment number."
-        },
-        "type": {
-          "type": "string",
-          "enum": ["Departamento", "Casa", "Local", "Cochera", "Oficina", "Depósito", "Terreno"],
-          "description": "The category of the property."
-        },
-        "usage": {
-          "type": "string",
-          "enum": ["Vivienda", "Comercial", "Profesional", "Industrial"],
-          "description": "The intended usage of the property."
-        },
-        "status": {
-          "type": "string",
-          "enum": ["Disponible", "Reservada", "Alquilada", "En Mantenimiento"],
-          "description": "The current operational status of the unit."
-        },
-        "squareMeters": {
-          "type": "number",
-          "description": "Total area in square meters."
-        },
-        "rooms": {
-          "type": "number",
-          "description": "Number of rooms (ambientes)."
-        },
-        "amenities": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "List of amenities provided."
-        },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "type": { "type": "string", "enum": ["Departamento", "Casa", "Local", "Cochera", "Oficina"] },
+        "usage": { "type": "string", "enum": ["Vivienda", "Comercial", "Profesional"] },
+        "status": { "type": "string", "enum": ["Disponible", "Reservada", "Alquilada", "En Mantenimiento"] },
+        "squareMeters": { "type": "number" },
         "owners": {
           "type": "array",
           "items": {
@@ -58,181 +20,45 @@
               "name": { "type": "string" },
               "percentage": { "type": "number" }
             }
-          },
-          "description": "List of owners and their participation percentage."
+          }
         },
-        "internalNotes": {
-          "type": "string",
-          "description": "Administrative notes."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
+        "ownerId": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "address",
-        "type",
-        "usage",
-        "status",
-        "owners",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Tenant": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Tenant",
-      "type": "object",
-      "description": "Represents a tenant (lessee) in the rental system.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Tenant entity."
-        },
-        "fullName": {
-          "type": "string",
-          "description": "The full name of the tenant."
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The primary contact phone number for the tenant."
-        },
-        "email": {
-          "type": "string",
-          "description": "The primary email address for the tenant.",
-          "format": "email"
-        },
-        "creditScore": {
-          "type": "number",
-          "description": "An optional numerical credit score for the tenant."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "fullName",
-        "phoneNumber",
-        "email",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "address", "type", "status", "ownerId"]
     },
     "Contract": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Contract",
       "type": "object",
-      "description": "Details of a rental contract linking a tenant to a property.",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "tenantId": {
-          "type": "string"
-        },
-        "propertyId": {
-          "type": "string"
-        },
-        "startDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "baseRentAmount": {
-          "type": "number"
-        },
-        "currency": {
-          "type": "string",
-          "enum": ["ARS", "USD"]
-        },
-        "adjustmentMechanism": {
-          "type": "string",
-          "enum": ["ICL", "IPC", "CasaPropia", "Fixed"]
-        },
-        "currentRentAmount": {
-          "type": "number"
-        },
-        "status": {
-          "type": "string",
-          "enum": ["Active", "Overdue", "InLegal", "Expired", "Terminated"]
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "tenantId",
-        "propertyId",
-        "startDate",
-        "endDate",
-        "baseRentAmount",
-        "currency",
-        "status",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Invoice": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Invoice",
-      "type": "object",
+      "description": "Contrato de locación con lógica de indexación argentina.",
       "properties": {
         "id": { "type": "string" },
-        "concept": { "type": "string" },
-        "amount": { "type": "number" },
+        "tenantId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "baseRentAmount": { "type": "number" },
+        "currentRentAmount": { "type": "number" },
         "currency": { "type": "string", "enum": ["ARS", "USD"] },
-        "issueDate": { "type": "string", "format": "date-time" },
-        "dueDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["Pending", "Paid", "Overdue"] },
-        "cae": { "type": "string", "description": "AFIP CAE Code" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "adjustmentMechanism": { "type": "string", "enum": ["ICL", "IPC", "CasaPropia", "Fixed"] },
+        "adjustmentFrequencyMonths": { "type": "number" },
+        "nextAdjustmentDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Active", "Overdue", "InLegal", "Terminated"] },
+        "ownerId": { "type": "string" }
       },
-      "required": ["id", "concept", "amount", "dueDate", "status", "createdAt"]
+      "required": ["id", "tenantId", "propertyId", "baseRentAmount", "currency", "adjustmentMechanism", "ownerId"]
     }
   },
   "auth": {
-    "providers": ["password", "anonymous"]
+    "providers": ["password", "google"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/artifacts/{appId}/users/{userId}/properties/{propertyId}",
-        "definition": {
-          "entityName": "Property",
-          "schema": { "$ref": "#/backend/entities/Property" },
-          "description": "Rental properties collection."
-        }
-      },
-      {
-        "path": "/artifacts/{appId}/users/{userId}/tenants/{tenantId}",
-        "definition": {
-          "entityName": "Tenant",
-          "schema": { "$ref": "#/backend/entities/Tenant" },
-          "description": "Tenant records collection."
-        }
-      }
-    ]
+    "/artifacts/{appId}/users/{userId}/properties/{propertyId}": {
+      "schema": { "$ref": "#/backend/entities/Property" },
+      "description": "Colección de propiedades."
+    },
+    "/artifacts/{appId}/users/{userId}/contracts/{contractId}": {
+      "schema": { "$ref": "#/backend/entities/Contract" },
+      "description": "Contratos de alquiler."
+    }
   }
 }
