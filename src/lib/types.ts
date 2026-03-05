@@ -8,6 +8,7 @@ export type PersonType = 'Inquilino' | 'Propietario' | 'Garante' | 'Proveedor';
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
 export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Otros';
 export type ChargePayer = 'Inquilino' | 'Propietario';
+export type ApplicationStatus = 'Nueva' | 'En análisis' | 'Aprobada' | 'Rechazada' | 'Pendiente de documentación';
 
 export interface DocumentInfo {
   id: string;
@@ -58,6 +59,21 @@ export interface Property {
   photos: string[];
   internalNotes?: string;
   owners: PropertyOwner[];
+  ownerId: string;
+}
+
+export interface RentalApplication {
+  id: string;
+  propertyId: string;
+  propertyName?: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone: string;
+  income: number;
+  references: string;
+  documents: DocumentInfo[];
+  status: ApplicationStatus;
+  submittedAt: string;
   ownerId: string;
 }
 

@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  ShieldCheck
+  ShieldCheck,
+  UserPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -28,13 +29,15 @@ import { MaintenanceView } from '@/components/dashboard/maintenance-view';
 import { LegalView } from '@/components/dashboard/legal-view';
 import { LiquidationsView } from '@/components/dashboard/liquidations-view';
 import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
+import { OnboardingView } from '@/components/dashboard/onboarding-view';
 
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Contratos' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Asistente IA';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Asistente IA';
 
 const MENU_ITEMS = [
   { id: 'Resumen', icon: LayoutDashboard, label: 'Resumen' },
   { id: 'Propiedades', icon: Building, label: 'Propiedades' },
   { id: 'Personas', icon: Users, label: 'Personas y Contratos' },
+  { id: 'Onboarding', icon: UserPlus, label: 'Onboarding / Solicitudes' },
   { id: 'Facturas', icon: FileSpreadsheet, label: 'Facturas y Servicios' },
   { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento / Reclamos' },
   { id: 'Legales', icon: Scale, label: 'Legales y Mediaciones' },
@@ -51,6 +54,7 @@ export default function AppClient() {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case 'Propiedades': return <PropertiesView />;
       case 'Personas': return <TenantsView />;
+      case 'Onboarding': return <OnboardingView />;
       case 'Facturas': return <InvoicesView />;
       case 'Mantenimiento': return <MaintenanceView />;
       case 'Legales': return <LegalView />;

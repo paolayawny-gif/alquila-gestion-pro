@@ -57,6 +57,23 @@
       },
       "required": ["id", "type", "fullName", "taxId", "ownerId"]
     },
+    "RentalApplication": {
+      "title": "RentalApplication",
+      "type": "object",
+      "description": "Solicitud de alquiler (Onboarding).",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "applicantName": { "type": "string" },
+        "applicantEmail": { "type": "string" },
+        "applicantPhone": { "type": "string" },
+        "income": { "type": "number" },
+        "status": { "type": "string", "enum": ["Nueva", "En análisis", "Aprobada", "Rechazada", "Pendiente de documentación"] },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "propertyId", "applicantName", "status", "ownerId"]
+    },
     "Contract": {
       "title": "Contract",
       "type": "object",
@@ -80,27 +97,6 @@
         "ownerId": { "type": "string" }
       },
       "required": ["id", "tenantId", "propertyId", "baseRentAmount", "currency", "ownerId"]
-    },
-    "MaintenanceRecord": {
-      "title": "MaintenanceRecord",
-      "type": "object",
-      "description": "Ticket de mantenimiento o reparación.",
-      "properties": {
-        "id": { "type": "string" },
-        "propertyId": { "type": "string" },
-        "contractId": { "type": "string" },
-        "concept": { "type": "string" },
-        "description": { "type": "string" },
-        "priority": { "type": "string", "enum": ["Baja", "Media", "Alta", "Crítica"] },
-        "status": { "type": "string", "enum": ["Pendiente", "Presupuestado", "En curso", "Completado", "Cerrado"] },
-        "providerId": { "type": "string" },
-        "estimatedCost": { "type": "number" },
-        "actualCost": { "type": "number" },
-        "photos": { "type": "array", "items": { "type": "string" } },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "ownerId": { "type": "string" }
-      },
-      "required": ["id", "propertyId", "concept", "priority", "status", "ownerId"]
     }
   },
   "auth": {
@@ -111,17 +107,17 @@
       "schema": { "$ref": "#/backend/entities/Property" },
       "description": "Colección de propiedades."
     },
+    "/artifacts/{appId}/users/{userId}/applications/{applicationId}": {
+      "schema": { "$ref": "#/backend/entities/RentalApplication" },
+      "description": "Solicitudes de onboarding."
+    },
     "/artifacts/{appId}/users/{userId}/contracts/{contractId}": {
       "schema": { "$ref": "#/backend/entities/Contract" },
       "description": "Contratos de alquiler."
     },
     "/artifacts/{appId}/users/{userId}/people/{personId}": {
       "schema": { "$ref": "#/backend/entities/Person" },
-      "description": "Inquilinos, Propietarios, Garantes y Proveedores."
-    },
-    "/artifacts/{appId}/users/{userId}/maintenanceRecords/{recordId}": {
-      "schema": { "$ref": "#/backend/entities/MaintenanceRecord" },
-      "description": "Tickets de mantenimiento."
+      "description": "Personas vinculadas."
     }
   }
 }
