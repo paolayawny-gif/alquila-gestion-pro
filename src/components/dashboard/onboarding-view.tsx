@@ -45,7 +45,7 @@ const MOCK_APPLICATIONS: RentalApplication[] = [
     applicantName: 'Mariano Grondona',
     applicantEmail: 'm.grondona@email.com',
     applicantPhone: '11 2233-4455',
-    income: 850000,
+    ingreso: 850000,
     references: 'Anterior locador: Juan Gomez (Tel: 11 9988-7766)',
     documents: [],
     status: 'Nueva',
@@ -59,7 +59,7 @@ const MOCK_APPLICATIONS: RentalApplication[] = [
     applicantName: 'Lucía Galán',
     applicantEmail: 'lucia.g@email.com',
     applicantPhone: '11 5566-7788',
-    income: 1200000,
+    ingreso: 1200000,
     references: 'Recibos de sueldo de OSDE, 10 años de antigüedad.',
     documents: [],
     status: 'En análisis',
@@ -68,9 +68,9 @@ const MOCK_APPLICATIONS: RentalApplication[] = [
   }
 ];
 
-export function OnboardingView() {
+export function ApplicationsView({ applications: propsApps, setApplications, properties }: { applications: RentalApplication[], setApplications: any, properties: any }) {
   const { toast } = useToast();
-  const [applications, setApplications] = useState<RentalApplication[]>(MOCK_APPLICATIONS);
+  const [apps, setApps] = useState<RentalApplication[]>(propsApps.length > 0 ? propsApps : MOCK_APPLICATIONS);
   const [selectedApp, setSelectedApp] = useState<RentalApplication | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
@@ -90,7 +90,6 @@ export function OnboardingView() {
       title: "Solicitud Aprobada",
       description: `Se ha generado un borrador de contrato para ${app.applicantName}.`,
     });
-    // Aquí se dispararía la lógica de creación de contrato precargado
   };
 
   return (
@@ -136,13 +135,13 @@ export function OnboardingView() {
             <TableRow className="bg-muted/50">
               <TableHead>Candidato / Fecha</TableHead>
               <TableHead>Propiedad Objetivo</TableHead>
-              <TableHead>Ingresos Declarados</TableHead>
+              <TableHead>Ingreso Declarado</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {applications.map((app) => (
+            {apps.map((app) => (
               <TableRow key={app.id} className="hover:bg-muted/30 transition-colors">
                 <TableCell>
                   <div className="flex flex-col">
@@ -161,7 +160,7 @@ export function OnboardingView() {
                 <TableCell>
                    <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-green-600" />
-                    <span className="font-black">$ {app.income.toLocaleString('es-AR')}</span>
+                    <span className="font-black">$ {app.ingreso.toLocaleString('es-AR')}</span>
                   </div>
                 </TableCell>
                 <TableCell>{getStatusBadge(app.status)}</TableCell>
@@ -189,7 +188,6 @@ export function OnboardingView() {
         </Table>
       </Card>
 
-      {/* DIALOGO DE EVALUACIÓN DE CANDIDATO */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -216,7 +214,7 @@ export function OnboardingView() {
                   <DollarSign className="h-4 w-4" /> Capacidad Financiera
                 </h4>
                 <div className="space-y-1">
-                  <p className="text-sm"><strong>Ingresos:</strong> $ {selectedApp?.income.toLocaleString('es-AR')}</p>
+                  <p className="text-sm"><strong>Ingreso:</strong> $ {selectedApp?.ingreso.toLocaleString('es-AR')}</p>
                   <p className="text-xs text-muted-foreground">Relación cuota/ingreso est: 22% (Saludable)</p>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -28,7 +29,7 @@ import { MaintenanceView } from '@/components/dashboard/maintenance-view';
 import { LegalView } from '@/components/dashboard/legal-view';
 import { LiquidationsView } from '@/components/dashboard/liquidations-view';
 import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
-import { OnboardingView } from '@/components/dashboard/onboarding-view';
+import { ApplicationsView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
 import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
 import { ReportsView } from '@/components/dashboard/reports-view';
@@ -43,13 +44,13 @@ import {
 import { Property, Person, Contract, RentalApplication, Invoice, MaintenanceTask, LegalCase, Liquidation } from '@/lib/types';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Onboarding' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
 
 const ADMIN_MENU = [
   { id: 'Resumen', icon: LayoutDashboard, label: 'Resumen' },
   { id: 'Propiedades', icon: Building, label: 'Propiedades' },
   { id: 'Personas', icon: Users, label: 'Personas y Contratos' },
-  { id: 'Onboarding', icon: UserPlus, label: 'Onboarding / Solicitudes' },
+  { id: 'Solicitudes', icon: UserPlus, label: 'Gestión de Solicitudes' },
   { id: 'Facturas', icon: FileSpreadsheet, label: 'Facturas y Servicios' },
   { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento / Reclamos' },
   { id: 'Legales', icon: Scale, label: 'Legales y Mediaciones' },
@@ -171,10 +172,10 @@ export default function AppClient() {
       ownerId: 'p1',
       ownerName: 'Juan Pérez',
       rentIncome: 185000, 
-      adminFeeDeduction: 18500, // Actualizado al 10% de 185000
+      adminFeeDeduction: 18500,
       maintenanceDeductions: 0, 
       expenseDeductions: 12000, 
-      netAmount: 154500, // 185000 - 18500 - 12000
+      netAmount: 154500,
       period: 'Abril 2024',
       status: 'Pendiente',
       dateCreated: '2024-04-15'
@@ -197,7 +198,7 @@ export default function AppClient() {
           properties={properties} 
         />
       );
-      case 'Onboarding': return <OnboardingView applications={applications} setApplications={setApplications} properties={properties} />;
+      case 'Solicitudes': return <ApplicationsView applications={applications} setApplications={setApplications} properties={properties} />;
       case 'Facturas': return <InvoicesView invoices={invoices} setInvoices={setInvoices} contracts={contracts} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} setTasks={setTasks} properties={properties} people={people} />;
       case 'Legales': return <LegalView legalCases={legalCases} setLegalCases={setLegalCases} properties={properties} />;

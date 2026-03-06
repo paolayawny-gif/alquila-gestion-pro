@@ -70,7 +70,7 @@ export interface RentalApplication {
   applicantName: string;
   applicantEmail: string;
   applicantPhone: string;
-  income: number;
+  ingreso: number;
   references: string;
   documents: DocumentInfo[];
   status: ApplicationStatus;
