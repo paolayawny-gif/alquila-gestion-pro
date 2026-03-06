@@ -160,7 +160,7 @@ export interface Liquidation {
   ownerId: string;
   ownerName: string;
   period: string; 
-  rentIncome: number;
+  ingresoAlquiler: number;
   adminFeeDeduction: number;
   maintenanceDeductions: number;
   expenseDeductions: number; 

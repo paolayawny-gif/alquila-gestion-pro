@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -13,30 +14,26 @@ import {
   ResponsiveContainer, 
   PieChart, 
   Pie, 
-  Cell,
-  LineChart,
-  Line
+  Cell
 } from 'recharts';
 import { 
   Download, 
   FileSpreadsheet, 
   TrendingUp, 
-  TrendingDown, 
   Users, 
   Building,
   AlertCircle,
   Clock,
-  ArrowUpRight,
-  ArrowDownRight
+  ArrowUpRight
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-const INCOME_DATA = [
-  { name: 'Ene', income: 1250000 },
-  { name: 'Feb', income: 1350000 },
-  { name: 'Mar', income: 1680000 },
-  { name: 'Abr', income: 1845000 },
+const INGRESO_DATA = [
+  { name: 'Ene', ingreso: 1250000 },
+  { name: 'Feb', ingreso: 1350000 },
+  { name: 'Mar', ingreso: 1680000 },
+  { name: 'Abr', ingreso: 1845000 },
 ];
 
 const OCCUPANCY_DATA = [
@@ -45,9 +42,9 @@ const OCCUPANCY_DATA = [
 ];
 
 const PROPERTY_RANKING = [
-  { id: '1', name: 'Las Heras 4B', owner: 'Juan Pérez', income: 185000, margin: '95%' },
-  { id: '2', name: 'Florida Local', owner: 'Jorge Paez', income: 450000, margin: '92%' },
-  { id: '3', name: 'Quinta del Sol', owner: 'Marta Rodriguez', income: 250000, margin: '88%' },
+  { id: '1', name: 'Las Heras 4B', owner: 'Juan Pérez', ingreso: 185000, margin: '95%' },
+  { id: '2', name: 'Florida Local', owner: 'Jorge Paez', ingreso: 450000, margin: '92%' },
+  { id: '3', name: 'Quinta del Sol', owner: 'Marta Rodriguez', ingreso: 250000, margin: '88%' },
 ];
 
 const COLORS = ['#f97316', '#e2e8f0'];
@@ -57,7 +54,7 @@ export function ReportsView() {
     let content = "";
     if (type === 'ranking') {
       content = "ID,Propiedad,Propietario,Ingreso,Margen\n" + 
-        PROPERTY_RANKING.map(p => `${p.id},${p.name},${p.owner},${p.income},${p.margin}`).join("\n");
+        PROPERTY_RANKING.map(p => `${p.id},${p.name},${p.owner},${p.ingreso},${p.margin}`).join("\n");
     }
     
     const blob = new Blob([content], { type: 'text/csv' });
@@ -70,7 +67,6 @@ export function ReportsView() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* KPIs Superiores */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm">
           <CardContent className="p-4">
@@ -134,7 +130,6 @@ export function ReportsView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Gráfico de Ingresos */}
         <Card className="border-none shadow-sm bg-white">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -146,22 +141,22 @@ export function ReportsView() {
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={INCOME_DATA}>
+                <BarChart data={INGRESO_DATA}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#64748b' }} />
                   <YAxis axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#64748b' }} tickFormatter={(v) => `$${v/1000}k`} />
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }} 
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    formatter={(value: any) => [`$ ${value.toLocaleString()}`, "Ingreso"]}
                   />
-                  <Bar dataKey="income" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="ingreso" name="Ingreso" fill="#f97316" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Distribución de Ocupación */}
         <Card className="border-none shadow-sm bg-white">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -204,7 +199,6 @@ export function ReportsView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Ranking de Propiedades */}
         <Card className="lg:col-span-2 border-none shadow-sm bg-white">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -230,7 +224,7 @@ export function ReportsView() {
                   <TableRow key={p.id}>
                     <TableCell className="font-bold">{p.name}</TableCell>
                     <TableCell className="text-xs">{p.owner}</TableCell>
-                    <TableCell className="text-right font-black text-primary">$ {p.income.toLocaleString('es-AR')}</TableCell>
+                    <TableCell className="text-right font-black text-primary">$ {p.ingreso.toLocaleString('es-AR')}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1 text-green-600 font-bold">
                         {p.margin} <ArrowUpRight className="h-3 w-3" />
@@ -243,7 +237,6 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        {/* Morosidad Aging Report */}
         <Card className="border-none shadow-sm bg-white">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">

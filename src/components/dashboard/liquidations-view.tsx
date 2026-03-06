@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -8,10 +9,7 @@ import {
   Search, 
   Download, 
   Send,
-  MoreVertical,
   ArrowUpRight,
-  TrendingDown,
-  FileCheck,
   Plus,
   Trash2
 } from 'lucide-react';
@@ -46,7 +44,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
   const [newLiq, setNewLiq] = useState<Partial<Liquidation>>({
     propertyId: '',
     period: 'Mayo 2024',
-    rentIncome: 0,
+    ingresoAlquiler: 0,
     adminFeeDeduction: 0,
     maintenanceDeductions: 0,
     expenseDeductions: 0,
@@ -54,7 +52,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
   });
 
   const handleCreateLiq = () => {
-    if (!newLiq.propertyId || !newLiq.rentIncome) {
+    if (!newLiq.propertyId || !newLiq.ingresoAlquiler) {
       toast({
         title: "Error",
         description: "Complete la propiedad y el monto bruto.",
@@ -66,7 +64,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
     const property = properties.find(p => p.id === newLiq.propertyId);
     const owner = people.find(p => p.id === property?.owners[0]?.ownerId);
 
-    const net = (newLiq.rentIncome || 0) - (newLiq.adminFeeDeduction || 0) - (newLiq.maintenanceDeductions || 0) - (newLiq.expenseDeductions || 0);
+    const net = (newLiq.ingresoAlquiler || 0) - (newLiq.adminFeeDeduction || 0) - (newLiq.maintenanceDeductions || 0) - (newLiq.expenseDeductions || 0);
 
     const liqData: Liquidation = {
       id: Math.random().toString(36).substr(2, 9),
@@ -75,7 +73,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
       ownerId: owner?.id || property?.owners[0]?.ownerId || 'unknown',
       ownerName: owner?.fullName || property?.owners[0]?.name || 'Propietario no encontrado',
       period: newLiq.period!,
-      rentIncome: newLiq.rentIncome!,
+      ingresoAlquiler: newLiq.ingresoAlquiler!,
       adminFeeDeduction: newLiq.adminFeeDeduction || 0,
       maintenanceDeductions: newLiq.maintenanceDeductions || 0,
       expenseDeductions: newLiq.expenseDeductions || 0,
@@ -89,7 +87,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
     setNewLiq({
       propertyId: '',
       period: 'Mayo 2024',
-      rentIncome: 0,
+      ingresoAlquiler: 0,
       adminFeeDeduction: 0,
       maintenanceDeductions: 0,
       expenseDeductions: 0,
@@ -103,8 +101,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
   };
 
   const calculateAutoFees = (amount: number) => {
-    // Aplicar 10% de comisión de administración según política comercial
-    setNewLiq(prev => ({ ...prev, rentIncome: amount, adminFeeDeduction: amount * 0.1 }));
+    setNewLiq(prev => ({ ...prev, ingresoAlquiler: amount, adminFeeDeduction: amount * 0.1 }));
   };
 
   return (
@@ -160,7 +157,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                     <Input 
                       type="number" 
                       placeholder="0" 
-                      value={newLiq.rentIncome}
+                      value={newLiq.ingresoAlquiler}
                       onChange={(e) => calculateAutoFees(parseFloat(e.target.value) || 0)}
                     />
                   </div>
@@ -187,7 +184,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-green-700 uppercase">Neto Final a Pagar</span>
                     <span className="text-lg font-black text-green-800">
-                      $ {((newLiq.rentIncome || 0) - (newLiq.adminFeeDeduction || 0) - (newLiq.maintenanceDeductions || 0)).toLocaleString('es-AR')}
+                      $ {((newLiq.ingresoAlquiler || 0) - (newLiq.adminFeeDeduction || 0) - (newLiq.maintenanceDeductions || 0)).toLocaleString('es-AR')}
                     </span>
                   </div>
                 </div>
@@ -204,7 +201,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-muted-foreground block">Recaudado (Bruto)</span>
-          <span className="text-xl font-black">$ {liquidations.reduce((acc, l) => acc + l.rentIncome, 0).toLocaleString('es-AR')}</span>
+          <span className="text-xl font-black">$ {liquidations.reduce((acc, l) => acc + l.ingresoAlquiler, 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-primary block">Comisiones Adm. (10%)</span>
@@ -243,7 +240,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                   </div>
                 </TableCell>
                 <TableCell className="text-xs">{l.period}</TableCell>
-                <TableCell className="text-right text-xs font-medium">$ {l.rentIncome.toLocaleString('es-AR')}</TableCell>
+                <TableCell className="text-right text-xs font-medium">$ {l.ingresoAlquiler.toLocaleString('es-AR')}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex flex-col items-end text-[10px]">
                     <span className="text-primary">Adm (10%): - $ {l.adminFeeDeduction.toLocaleString('es-AR')}</span>
@@ -270,9 +267,6 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
                       <Send className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-green-700">
-                      <FileCheck className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setLiquidations(liquidations.filter(liq => liq.id !== l.id))}>
                       <Trash2 className="h-4 w-4" />
