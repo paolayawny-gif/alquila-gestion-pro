@@ -201,19 +201,19 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-muted-foreground block">Recaudado (Bruto)</span>
-          <span className="text-xl font-black">$ {liquidations.reduce((acc, l) => acc + l.ingresoAlquiler, 0).toLocaleString('es-AR')}</span>
+          <span className="text-xl font-black">$ {liquidations.reduce((acc, l) => acc + (l.ingresoAlquiler || 0), 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-primary block">Comisiones Adm. (10%)</span>
-          <span className="text-xl font-black text-primary">$ {liquidations.reduce((acc, l) => acc + l.adminFeeDeduction, 0).toLocaleString('es-AR')}</span>
+          <span className="text-xl font-black text-primary">$ {liquidations.reduce((acc, l) => acc + (l.adminFeeDeduction || 0), 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-red-600 block">Deducciones</span>
-          <span className="text-xl font-black text-red-600">$ {liquidations.reduce((acc, l) => acc + l.maintenanceDeductions + l.expenseDeductions, 0).toLocaleString('es-AR')}</span>
+          <span className="text-xl font-black text-red-600">$ {liquidations.reduce((acc, l) => acc + (l.maintenanceDeductions || 0) + (l.expenseDeductions || 0), 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4 border-l-4 border-l-green-500">
           <span className="text-[10px] uppercase font-bold text-green-700 block">Total a Liquidar</span>
-          <span className="text-xl font-black text-green-700">$ {liquidations.reduce((acc, l) => acc + l.netAmount, 0).toLocaleString('es-AR')}</span>
+          <span className="text-xl font-black text-green-700">$ {liquidations.reduce((acc, l) => acc + (l.netAmount || 0), 0).toLocaleString('es-AR')}</span>
         </Card>
       </div>
 
@@ -240,18 +240,18 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                   </div>
                 </TableCell>
                 <TableCell className="text-xs">{l.period}</TableCell>
-                <TableCell className="text-right text-xs font-medium">$ {l.ingresoAlquiler.toLocaleString('es-AR')}</TableCell>
+                <TableCell className="text-right text-xs font-medium">$ {(l.ingresoAlquiler || 0).toLocaleString('es-AR')}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex flex-col items-end text-[10px]">
-                    <span className="text-primary">Adm (10%): - $ {l.adminFeeDeduction.toLocaleString('es-AR')}</span>
-                    {(l.maintenanceDeductions > 0 || l.expenseDeductions > 0) && (
-                      <span className="text-red-600">Gasto: - $ {(l.maintenanceDeductions + l.expenseDeductions).toLocaleString('es-AR')}</span>
+                    <span className="text-primary">Adm (10%): - $ {(l.adminFeeDeduction || 0).toLocaleString('es-AR')}</span>
+                    {((l.maintenanceDeductions || 0) > 0 || (l.expenseDeductions || 0) > 0) && (
+                      <span className="text-red-600">Gasto: - $ {((l.maintenanceDeductions || 0) + (l.expenseDeductions || 0)).toLocaleString('es-AR')}</span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2 text-green-700 font-black text-sm">
-                    $ {l.netAmount.toLocaleString('es-AR')}
+                    $ {(l.netAmount || 0).toLocaleString('es-AR')}
                     <ArrowUpRight className="h-3 w-3" />
                   </div>
                 </TableCell>

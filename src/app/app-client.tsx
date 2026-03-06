@@ -171,7 +171,7 @@ export default function AppClient() {
       propertyName: 'Las Heras 4B', 
       ownerId: 'p1',
       ownerName: 'Juan Pérez',
-      rentIncome: 185000, 
+      ingresoAlquiler: 185000, 
       adminFeeDeduction: 18500,
       maintenanceDeductions: 0, 
       expenseDeductions: 12000, 
