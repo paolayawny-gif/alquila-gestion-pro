@@ -1,0 +1,68 @@
+'use server';
+/**
+ * @fileOverview A Genkit flow for extracting structured data from rental contracts.
+ *
+ * - extractContractData - A function that handles the AI extraction process from documents.
+ * - ExtractContractDataInput - The input type for the extractContractData function.
+ * - ExtractContractDataOutput - The return type for the extractContractData function.
+ */
+
+import {ai} from '@/ai/genkit';
+import {z} from 'genkit';
+
+const ExtractContractDataInputSchema = z.object({
+  documentDataUri: z
+    .string()
+    .describe(
+      "A photo or PDF of a rental contract, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
+});
+export type ExtractContractDataInput = z.infer<typeof ExtractContractDataInputSchema>;
+
+const ExtractContractDataOutputSchema = z.object({
+  baseRentAmount: z.number().describe('The initial monthly rent amount.'),
+  currency: z.enum(['ARS', 'USD']).describe('The currency of the rent.'),
+  adjustmentFrequencyMonths: z.number().describe('How often the rent is adjusted (in months).'),
+  adjustmentMechanism: z.enum(['ICL', 'IPC', 'CasaPropia', 'Fixed']).describe('The index or method used for adjustments.'),
+  confidenceScore: z.number().describe('AI confidence score for the extraction (0 to 1).'),
+  summary: z.string().describe('A brief summary of the economic clauses found.'),
+});
+export type ExtractContractDataOutput = z.infer<typeof ExtractContractDataOutputSchema>;
+
+export async function extractContractData(
+  input: ExtractContractDataInput
+): Promise<ExtractContractDataOutput> {
+  return extractContractDataFlow(input);
+}
+
+const extractContractDataPrompt = ai.definePrompt({
+  name: 'extractContractDataPrompt',
+  input: {schema: ExtractContractDataInputSchema},
+  output: {schema: ExtractContractDataOutputSchema},
+  prompt: `You are an expert legal document analyst specializing in Argentinian rental contracts.
+Your task is to analyze the provided document and extract the key economic clauses accurately.
+
+Pay special attention to:
+1. The initial rent amount (monto inicial).
+2. The currency (usually ARS or USD).
+3. The adjustment frequency (frecuencia de ajuste, e.g., "cuatrimestral" = 4, "semestral" = 6).
+4. The adjustment index (ICL, IPC, Casa Propia, or Fixed/Escalonado).
+
+If the text is in Spanish, parse it carefully.
+Document: {{media url=documentDataUri}}`,
+});
+
+const extractContractDataFlow = ai.defineFlow(
+  {
+    name: 'extractContractDataFlow',
+    inputSchema: ExtractContractDataInputSchema,
+    outputSchema: ExtractContractDataOutputSchema,
+  },
+  async input => {
+    const {output} = await extractContractDataPrompt(input);
+    if (!output) {
+      throw new Error('Failed to extract data from the contract document.');
+    }
+    return output;
+  }
+);

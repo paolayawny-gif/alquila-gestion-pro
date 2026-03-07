@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -20,7 +19,11 @@ import {
   X,
   FileText,
   DollarSign,
-  Calculator
+  Calculator,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -41,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from '@/hooks/use-toast';
+import { extractContractData, ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
 
 interface TenantsViewProps {
   people: Person[];
@@ -59,6 +63,10 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // AI State
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiResult, setAiResult] = useState<ExtractContractDataOutput | null>(null);
 
   // ESTADO PARA NUEVA PERSONA
   const [personFormData, setPersonFormData] = useState<Partial<Person>>({
@@ -122,6 +130,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
   };
 
   const handleOpenContractDialog = (contract?: Contract) => {
+    setAiResult(null);
     if (contract) {
       setEditingContract(contract);
       setContractFormData(contract);
@@ -203,18 +212,36 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     setIsContractDialogOpen(false);
   };
 
-  const simulateFileUpload = () => {
-    setContractFormData({
-      ...contractFormData,
-      documents: {
-        ...contractFormData.documents!,
-        mainContractUrl: 'simulated_url_contract.pdf'
-      }
-    });
-    toast({
-      title: "Archivo Cargado",
-      description: "El contrato firmado ha sido vinculado correctamente."
-    });
+  const simulateAiExtraction = async () => {
+    setIsAiProcessing(true);
+    try {
+      // Simulation of a contract data URI (real one would come from a file upload)
+      // For this prototype, we use a placeholder to trigger the AI logic
+      const result = await extractContractData({ 
+        documentDataUri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' 
+      });
+      setAiResult(result);
+      toast({ title: "Análisis Completo", description: "La IA ha extraído las cláusulas económicas." });
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo analizar el contrato.", variant: "destructive" });
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
+  const applyAiData = () => {
+    if (aiResult) {
+      setContractFormData({
+        ...contractFormData,
+        baseRentAmount: aiResult.baseRentAmount,
+        currency: aiResult.currency,
+        adjustmentFrequencyMonths: aiResult.adjustmentFrequencyMonths,
+        adjustmentMechanism: aiResult.adjustmentMechanism,
+        currentRentAmount: aiResult.baseRentAmount
+      });
+      setAiResult(null);
+      toast({ title: "Datos Aplicados", description: "La información ha sido copiada a las cláusulas económicas." });
+    }
   };
 
   return (
@@ -362,17 +389,73 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="documents" className="space-y-4 pt-4">
-                    <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-3 hover:bg-muted/50 cursor-pointer transition-colors border-muted-foreground/20">
-                      <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-bold">Subir Contrato Firmado (PDF)</p>
-                        <p className="text-xs text-muted-foreground">O arrastre y suelte el archivo aquí</p>
+                  <TabsContent value="documents" className="space-y-6 pt-4">
+                    {!aiResult && !isAiProcessing && (
+                      <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-3 hover:bg-muted/50 cursor-pointer transition-colors border-muted-foreground/20">
+                        <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-bold">Subir Contrato Firmado (PDF)</p>
+                          <p className="text-xs text-muted-foreground">O arrastre y suelte el archivo aquí</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={simulateAiExtraction}>
+                          <Sparkles className="h-4 w-4 mr-2 text-primary" />
+                          Subir y Analizar con IA
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm" onClick={simulateFileUpload}>Seleccionar Archivo</Button>
-                    </div>
+                    )}
 
-                    {contractFormData.documents?.mainContractUrl && (
+                    {isAiProcessing && (
+                      <div className="p-8 text-center space-y-4 animate-pulse">
+                        <Loader2 className="h-10 w-10 mx-auto text-primary animate-spin" />
+                        <div className="space-y-2">
+                          <p className="text-sm font-bold">Analizando cláusulas económicas...</p>
+                          <p className="text-xs text-muted-foreground">La IA está extrayendo montos, plazos e índices.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {aiResult && !isAiProcessing && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <Card className="border-primary/20 bg-primary/5 shadow-none">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Sparkles className="h-4 w-4 text-primary" />
+                                Revisión de Extracción IA
+                              </CardTitle>
+                              <Badge className="bg-green-100 text-green-700 border-green-200">95% Confianza</Badge>
+                            </div>
+                            <CardDescription className="text-xs">Valide los datos detectados antes de aplicarlos.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6">
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Monto Detectado</span>
+                              <p className="text-sm font-black text-foreground">{aiResult.currency} {aiResult.baseRentAmount.toLocaleString('es-AR')}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Frecuencia</span>
+                              <p className="text-sm font-black text-foreground">Cada {aiResult.adjustmentFrequencyMonths} meses</p>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Modalidad</span>
+                              <p className="text-sm font-black text-foreground">{aiResult.adjustmentMechanism}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Resumen</span>
+                              <p className="text-[10px] text-muted-foreground italic leading-tight">{aiResult.summary}</p>
+                            </div>
+                          </CardContent>
+                          <div className="p-4 bg-white/50 border-t border-primary/10 flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => setAiResult(null)}>Descartar</Button>
+                            <Button size="sm" className="bg-primary text-white gap-2" onClick={applyAiData}>
+                              <CheckCircle2 className="h-4 w-4" /> Confirmar y Aplicar
+                            </Button>
+                          </div>
+                        </Card>
+                      </div>
+                    )}
+
+                    {contractFormData.documents?.mainContractUrl && !aiResult && !isAiProcessing && (
                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 animate-in fade-in slide-in-from-top-1">
                          <div className="flex items-center gap-2">
                            <FileText className="h-4 w-4 text-green-600" />
