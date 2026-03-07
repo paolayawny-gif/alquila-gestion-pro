@@ -56,6 +56,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
@@ -88,7 +89,8 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     lateFeeValue: 0.5,
     status: 'Vigente',
     guarantorIds: [],
-    ownerIds: []
+    ownerIds: [],
+    documents: { mainContractUrl: '', versions: [], annexes: [] }
   });
 
   const getStatusBadge = (status: Contract['status']) => {
@@ -119,6 +121,37 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     setIsPersonDialogOpen(true);
   };
 
+  const handleOpenContractDialog = (contract?: Contract) => {
+    if (contract) {
+      setEditingContract(contract);
+      setContractFormData(contract);
+    } else {
+      setEditingContract(null);
+      setContractFormData({
+        tenantId: '',
+        propertyId: '',
+        startDate: '',
+        endDate: '',
+        baseRentAmount: 0,
+        currentRentAmount: 0,
+        currency: 'ARS',
+        adjustmentType: 'Index',
+        adjustmentMechanism: 'ICL',
+        adjustmentFrequencyMonths: 4,
+        depositAmount: 0,
+        depositCurrency: 'ARS',
+        commissionAmount: 0,
+        lateFeeType: 'DailyPercentage',
+        lateFeeValue: 0.5,
+        status: 'Vigente',
+        guarantorIds: [],
+        ownerIds: [],
+        documents: { mainContractUrl: '', versions: [], annexes: [] }
+      });
+    }
+    setIsContractDialogOpen(true);
+  };
+
   const handleSavePerson = () => {
     if (!personFormData.fullName || !personFormData.taxId) {
       toast({ title: "Error", description: "Nombre y CUIT/DNI son obligatorios", variant: "destructive" });
@@ -147,41 +180,40 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
       return;
     }
 
-    const tenant = people.find(p => p.id === contractFormData.tenantId);
-    const property = properties.find(p => p.id === contractFormData.propertyId);
+    if (editingContract) {
+      setContracts(contracts.map(c => c.id === editingContract.id ? { ...contractFormData, id: c.id } as Contract : c));
+      toast({ title: "Contrato Actualizado", description: "Los cambios se han guardado correctamente." });
+    } else {
+      const tenant = people.find(p => p.id === contractFormData.tenantId);
+      const property = properties.find(p => p.id === contractFormData.propertyId);
 
-    const newContract = {
-      ...contractFormData,
-      id: Math.random().toString(36).substr(2, 9),
-      tenantName: tenant?.fullName,
-      propertyName: property?.name,
-      currentRentAmount: contractFormData.baseRentAmount, // Inicialmente es igual al base
-      ownerId: 'user1',
-      documents: { mainContractUrl: '', versions: [], annexes: [] }
-    } as Contract;
+      const newContract = {
+        ...contractFormData,
+        id: Math.random().toString(36).substr(2, 9),
+        tenantName: tenant?.fullName,
+        propertyName: property?.name,
+        currentRentAmount: contractFormData.baseRentAmount,
+        ownerId: 'user1',
+        documents: contractFormData.documents || { mainContractUrl: '', versions: [], annexes: [] }
+      } as Contract;
 
-    setContracts([...contracts, newContract]);
-    toast({ title: "Contrato Guardado", description: "Se ha generado el registro de locación exitosamente." });
+      setContracts([...contracts, newContract]);
+      toast({ title: "Contrato Guardado", description: "Se ha generado el registro de locación exitosamente." });
+    }
     setIsContractDialogOpen(false);
-    
-    // Reset form
+  };
+
+  const simulateFileUpload = () => {
     setContractFormData({
-      tenantId: '',
-      propertyId: '',
-      startDate: '',
-      endDate: '',
-      baseRentAmount: 0,
-      currentRentAmount: 0,
-      currency: 'ARS',
-      adjustmentType: 'Index',
-      adjustmentMechanism: 'ICL',
-      adjustmentFrequencyMonths: 4,
-      depositAmount: 0,
-      depositCurrency: 'ARS',
-      commissionAmount: 0,
-      lateFeeType: 'DailyPercentage',
-      lateFeeValue: 0.5,
-      status: 'Vigente'
+      ...contractFormData,
+      documents: {
+        ...contractFormData.documents!,
+        mainContractUrl: 'simulated_url_contract.pdf'
+      }
+    });
+    toast({
+      title: "Archivo Cargado",
+      description: "El contrato firmado ha sido vinculado correctamente."
     });
   };
 
@@ -204,20 +236,21 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
           {activeTab === 'contracts' ? (
             <Dialog open={isContractDialogOpen} onOpenChange={setIsContractDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
+                <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenContractDialog()}>
                   <Plus className="h-4 w-4" /> Nuevo Contrato
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Alta de Contrato</DialogTitle>
-                  <DialogDescription>Configure los términos de la locación.</DialogDescription>
+                  <DialogTitle>{editingContract ? 'Editar Contrato' : 'Alta de Contrato'}</DialogTitle>
+                  <DialogDescription>Configure los términos de la locación y adjunte documentos.</DialogDescription>
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="mt-4">
-                  <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+                  <TabsList className="grid w-full grid-cols-3 bg-muted/50">
                     <TabsTrigger value="general">Datos Generales</TabsTrigger>
                     <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
+                    <TabsTrigger value="documents">Documentos</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="general" className="space-y-4 pt-4">
@@ -247,9 +280,6 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                             {people.filter(p => p.type === 'Inquilino').map(p => (
                               <SelectItem key={p.id} value={p.id}>{p.fullName}</SelectItem>
                             ))}
-                            {people.filter(p => p.type === 'Inquilino').length === 0 && (
-                              <div className="p-2 text-xs text-muted-foreground text-center">No hay inquilinos cargados.</div>
-                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -278,7 +308,6 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                         <Label>Monto Alquiler Inicial</Label>
                         <Input 
                           type="number" 
-                          placeholder="0" 
                           value={contractFormData.baseRentAmount}
                           onChange={(e) => setContractFormData({...contractFormData, baseRentAmount: parseFloat(e.target.value) || 0})}
                         />
@@ -300,7 +329,6 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                         <Label>Frecuencia Ajuste (Meses)</Label>
                         <Input 
                           type="number" 
-                          placeholder="4" 
                           value={contractFormData.adjustmentFrequencyMonths}
                           onChange={(e) => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})}
                         />
@@ -333,11 +361,41 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       </div>
                     </div>
                   </TabsContent>
+
+                  <TabsContent value="documents" className="space-y-4 pt-4">
+                    <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-3 hover:bg-muted/50 cursor-pointer transition-colors border-muted-foreground/20">
+                      <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-bold">Subir Contrato Firmado (PDF)</p>
+                        <p className="text-xs text-muted-foreground">O arrastre y suelte el archivo aquí</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={simulateFileUpload}>Seleccionar Archivo</Button>
+                    </div>
+
+                    {contractFormData.documents?.mainContractUrl && (
+                       <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 animate-in fade-in slide-in-from-top-1">
+                         <div className="flex items-center gap-2">
+                           <FileText className="h-4 w-4 text-green-600" />
+                           <span className="text-xs font-medium text-green-800">Contrato_Firmado.pdf</span>
+                         </div>
+                         <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-600 hover:bg-red-50 h-8"
+                          onClick={() => setContractFormData({...contractFormData, documents: {...contractFormData.documents!, mainContractUrl: ''}})}
+                        >
+                          Eliminar
+                        </Button>
+                       </div>
+                    )}
+                  </TabsContent>
                 </Tabs>
 
                 <DialogFooter className="mt-8 border-t pt-4">
                   <Button variant="outline" onClick={() => setIsContractDialogOpen(false)}>Cancelar</Button>
-                  <Button className="bg-primary text-white" onClick={handleSaveContract}>Guardar Contrato</Button>
+                  <Button className="bg-primary text-white" onClick={handleSaveContract}>
+                    {editingContract ? 'Actualizar Contrato' : 'Guardar Contrato'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -462,6 +520,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       <span className="font-bold">{c.tenantName}</span>
                       <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1">
                         <ShieldCheck className="h-3 w-3" /> Con Garantía
+                        {c.documents?.mainContractUrl && <FileText className="h-3 w-3 text-green-600" />}
                       </span>
                     </div>
                   </TableCell>
@@ -477,9 +536,19 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                     {c.currency} {c.currentRentAmount.toLocaleString('es-AR')}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                      <FileDown className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => handleOpenContractDialog(c)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                        <FileDown className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               )) : (
