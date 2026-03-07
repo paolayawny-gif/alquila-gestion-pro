@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -57,6 +57,7 @@ interface TenantsViewProps {
 
 export function TenantsView({ people, setPeople, contracts, setContracts, properties }: TenantsViewProps) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'contracts' | 'people'>('contracts');
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
@@ -213,21 +214,25 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     setIsContractDialogOpen(false);
   };
 
-  const simulateAiExtraction = async () => {
-    setIsAiProcessing(true);
-    try {
-      // Simulation of a contract data URI (real one would come from a file upload)
-      // For this prototype, we use a 1x1 pixel placeholder to trigger the AI logic
-      const result = await extractContractData({ 
-        documentDataUri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' 
-      });
-      setAiResult(result);
-      toast({ title: "Análisis Completo", description: "La IA ha extraído las cláusulas económicas." });
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo analizar el contrato.", variant: "destructive" });
-    } finally {
-      setIsAiProcessing(false);
-    }
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUri = e.target?.result as string;
+      setIsAiProcessing(true);
+      try {
+        const result = await extractContractData({ documentDataUri: dataUri });
+        setAiResult(result);
+        toast({ title: "Análisis Completo", description: "La IA ha extraído las cláusulas económicas del archivo." });
+      } catch (error) {
+        toast({ title: "Error de Análisis", description: "No se pudieron extraer los datos del contrato.", variant: "destructive" });
+      } finally {
+        setIsAiProcessing(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const applyAiData = () => {
@@ -241,11 +246,11 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
         currentRentAmount: aiResult.baseRentAmount,
         documents: {
           ...contractFormData.documents!,
-          mainContractUrl: 'simulated_uploaded_file_url'
+          mainContractUrl: 'uploaded_document_confirmed'
         }
       });
       setAiResult(null);
-      toast({ title: "Datos Aplicados", description: "La información ha sido copiada y el contrato marcado como cargado." });
+      toast({ title: "Datos Aplicados", description: "La información ha sido copiada a las cláusulas económicas." });
     }
   };
 
@@ -395,19 +400,27 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                   </TabsContent>
 
                   <TabsContent value="documents" className="space-y-6 pt-4">
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".pdf,image/*" 
+                      onChange={handleFileUpload}
+                    />
+                    
                     {!aiResult && !isAiProcessing && !contractFormData.documents?.mainContractUrl && (
                       <div 
-                        onClick={simulateAiExtraction}
+                        onClick={() => fileInputRef.current?.click()}
                         className="border-2 border-dashed rounded-lg p-8 text-center space-y-3 hover:bg-muted/50 cursor-pointer transition-colors border-muted-foreground/20"
                       >
                         <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
                         <div>
                           <p className="text-sm font-bold">Subir Contrato Firmado (PDF)</p>
-                          <p className="text-xs text-muted-foreground">Presione aquí o en el botón para analizar con IA</p>
+                          <p className="text-xs text-muted-foreground">Presione aquí para elegir el archivo de su computadora</p>
                         </div>
-                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); simulateAiExtraction(); }}>
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
                           <Sparkles className="h-4 w-4 mr-2 text-primary" />
-                          Subir y Analizar con IA
+                          Elegir Archivo y Analizar con IA
                         </Button>
                       </div>
                     )}
@@ -416,8 +429,8 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       <div className="p-8 text-center space-y-4 animate-pulse">
                         <Loader2 className="h-10 w-10 mx-auto text-primary animate-spin" />
                         <div className="space-y-2">
-                          <p className="text-sm font-bold">Analizando cláusulas económicas...</p>
-                          <p className="text-xs text-muted-foreground">La IA está extrayendo montos, plazos e índices.</p>
+                          <p className="text-sm font-bold">Leyendo el documento...</p>
+                          <p className="text-xs text-muted-foreground">La IA está extrayendo montos, plazos e índices del archivo.</p>
                         </div>
                       </div>
                     )}
@@ -468,7 +481,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                          <div className="flex items-center gap-3">
                            <FileText className="h-6 w-6 text-green-600" />
                            <div className="flex flex-col">
-                             <span className="text-sm font-bold text-green-800">Contrato_Firmado.pdf</span>
+                             <span className="text-sm font-bold text-green-800">Contrato_Analizado.pdf</span>
                              <span className="text-[10px] text-green-600 uppercase">Documento validado por IA</span>
                            </div>
                          </div>
