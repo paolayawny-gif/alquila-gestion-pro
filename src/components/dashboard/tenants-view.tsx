@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -216,7 +217,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     setIsAiProcessing(true);
     try {
       // Simulation of a contract data URI (real one would come from a file upload)
-      // For this prototype, we use a placeholder to trigger the AI logic
+      // For this prototype, we use a 1x1 pixel placeholder to trigger the AI logic
       const result = await extractContractData({ 
         documentDataUri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' 
       });
@@ -237,10 +238,14 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
         currency: aiResult.currency,
         adjustmentFrequencyMonths: aiResult.adjustmentFrequencyMonths,
         adjustmentMechanism: aiResult.adjustmentMechanism,
-        currentRentAmount: aiResult.baseRentAmount
+        currentRentAmount: aiResult.baseRentAmount,
+        documents: {
+          ...contractFormData.documents!,
+          mainContractUrl: 'simulated_uploaded_file_url'
+        }
       });
       setAiResult(null);
-      toast({ title: "Datos Aplicados", description: "La información ha sido copiada a las cláusulas económicas." });
+      toast({ title: "Datos Aplicados", description: "La información ha sido copiada y el contrato marcado como cargado." });
     }
   };
 
@@ -390,14 +395,17 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                   </TabsContent>
 
                   <TabsContent value="documents" className="space-y-6 pt-4">
-                    {!aiResult && !isAiProcessing && (
-                      <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-3 hover:bg-muted/50 cursor-pointer transition-colors border-muted-foreground/20">
+                    {!aiResult && !isAiProcessing && !contractFormData.documents?.mainContractUrl && (
+                      <div 
+                        onClick={simulateAiExtraction}
+                        className="border-2 border-dashed rounded-lg p-8 text-center space-y-3 hover:bg-muted/50 cursor-pointer transition-colors border-muted-foreground/20"
+                      >
                         <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
                         <div>
                           <p className="text-sm font-bold">Subir Contrato Firmado (PDF)</p>
-                          <p className="text-xs text-muted-foreground">O arrastre y suelte el archivo aquí</p>
+                          <p className="text-xs text-muted-foreground">Presione aquí o en el botón para analizar con IA</p>
                         </div>
-                        <Button variant="outline" size="sm" onClick={simulateAiExtraction}>
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); simulateAiExtraction(); }}>
                           <Sparkles className="h-4 w-4 mr-2 text-primary" />
                           Subir y Analizar con IA
                         </Button>
@@ -456,10 +464,13 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                     )}
 
                     {contractFormData.documents?.mainContractUrl && !aiResult && !isAiProcessing && (
-                       <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 animate-in fade-in slide-in-from-top-1">
-                         <div className="flex items-center gap-2">
-                           <FileText className="h-4 w-4 text-green-600" />
-                           <span className="text-xs font-medium text-green-800">Contrato_Firmado.pdf</span>
+                       <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-1">
+                         <div className="flex items-center gap-3">
+                           <FileText className="h-6 w-6 text-green-600" />
+                           <div className="flex flex-col">
+                             <span className="text-sm font-bold text-green-800">Contrato_Firmado.pdf</span>
+                             <span className="text-[10px] text-green-600 uppercase">Documento validado por IA</span>
+                           </div>
                          </div>
                          <Button 
                           variant="ghost" 
