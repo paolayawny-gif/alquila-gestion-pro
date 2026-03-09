@@ -18,8 +18,51 @@ import {
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+
+const LIQUIDATIONS_MOCK = [
+  { propiedad: 'Las Heras 4B', periodo: 'Abril 2024', bruto: 185000, neto: 163750, estado: 'Pagada' },
+  { propiedad: 'Quinta del Sol', periodo: 'Marzo 2024', bruto: 250000, neto: 152500, estado: 'Pagada' },
+];
+
+const PROPERTIES_MOCK = [
+  { nombre: 'Las Heras 4B', inquilino: 'Carlos Sosa', estado: 'Alquilada', monto: 185000, ajuste: 'Septiembre 2024' },
+  { nombre: 'Quinta del Sol', inquilino: 'Marta Rodriguez', estado: 'Alquilada', monto: 250000, ajuste: 'Julio 2024' },
+];
 
 export function OwnerPortalView() {
+  const { toast } = useToast();
+
+  const handleExportReport = () => {
+    try {
+      const headers = "Propiedad,Periodo,Monto Bruto,Neto Liquidado,Estado\n";
+      const rows = LIQUIDATIONS_MOCK.map(l => 
+        `${l.propiedad},${l.periodo},${l.bruto},${l.neto},${l.estado}`
+      ).join("\n");
+      
+      const csvContent = headers + rows;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `reporte_liquidaciones_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Reporte Exportado",
+        description: "Se ha descargado el historial de liquidaciones en formato CSV."
+      });
+    } catch (error) {
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo generar el archivo de reporte.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Indicadores de Portafolio */}
@@ -64,7 +107,7 @@ export function OwnerPortalView() {
           <CardContent className="p-6">
             <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Propiedades</p>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black">2</h3>
+              <h3 className="text-2xl font-black">{PROPERTIES_MOCK.length}</h3>
               <div className="p-2 bg-muted rounded-full">
                 <PieChart className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -82,7 +125,7 @@ export function OwnerPortalView() {
                 <CardTitle>Historial de Liquidaciones</CardTitle>
                 <CardDescription>Detalle de transferencias recibidas de la administración.</CardDescription>
               </div>
-              <Button variant="outline" size="sm" className="gap-1">
+              <Button variant="outline" size="sm" className="gap-1" onClick={handleExportReport}>
                 <Download className="h-4 w-4" /> Exportar Reporte
               </Button>
             </CardHeader>
@@ -98,20 +141,19 @@ export function OwnerPortalView() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell className="font-bold">Las Heras 4B</TableCell>
-                    <TableCell className="text-xs">Abril 2024</TableCell>
-                    <TableCell className="text-right text-xs">$ 185.000</TableCell>
-                    <TableCell className="text-right font-black text-green-700">$ 163.750</TableCell>
-                    <TableCell><Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Pagada</Badge></TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-bold">Quinta del Sol</TableCell>
-                    <TableCell className="text-xs">Marzo 2024</TableCell>
-                    <TableCell className="text-right text-xs">$ 250.000</TableCell>
-                    <TableCell className="text-right font-black text-green-700">$ 152.500</TableCell>
-                    <TableCell><Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Pagada</Badge></TableCell>
-                  </TableRow>
+                  {LIQUIDATIONS_MOCK.map((l, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-bold">{l.propiedad}</TableCell>
+                      <TableCell className="text-xs">{l.periodo}</TableCell>
+                      <TableCell className="text-right text-xs">$ {l.bruto.toLocaleString('es-AR')}</TableCell>
+                      <TableCell className="text-right font-black text-green-700">$ {l.neto.toLocaleString('es-AR')}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                          {l.estado}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
@@ -123,36 +165,25 @@ export function OwnerPortalView() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="p-4 border rounded-lg flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                      <Building className="h-6 w-6" />
+                {PROPERTIES_MOCK.map((p, i) => (
+                  <div key={i} className="p-4 border rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                        <Building className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm">{p.nombre}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">
+                          Inquilino: {p.inquilino} • {p.estado}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-sm">Las Heras 4B</p>
-                      <p className="text-[10px] text-muted-foreground uppercase">Inquilino: Carlos Sosa • Alquilada</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-primary">$ 185.000 / mes</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Ajuste ICL: Septiembre 2024</p>
-                  </div>
-                </div>
-                <div className="p-4 border rounded-lg flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                      <Building className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Quinta del Sol</p>
-                      <p className="text-[10px] text-muted-foreground uppercase">Inquilino: Marta Rodriguez • Alquilada</p>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-primary">$ {p.monto.toLocaleString('es-AR')} / mes</p>
+                      <p className="text-[9px] text-muted-foreground uppercase">Próximo Ajuste: {p.ajuste}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-primary">$ 250.000 / mes</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Ajuste IPC: Julio 2024</p>
-                  </div>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
