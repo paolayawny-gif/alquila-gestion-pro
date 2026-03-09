@@ -19,11 +19,12 @@ import {
   Loader2,
   Upload,
   Building2,
-  DollarSign
+  DollarSign,
+  Calendar
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Invoice, Contract, ChargeType, ChargePayer } from '@/lib/types';
+import { Invoice, Contract, ChargeType, ChargePayer, ChargeItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -49,16 +50,29 @@ interface InvoicesViewProps {
 export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // UI States
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
+  const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [processingAutomation, setProcessingAutomation] = useState(false);
   
   // AI State
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiResult, setAiResult] = useState<ExtractInvoiceDataOutput | null>(null);
   const [imputedTo, setImputedTo] = useState<ChargePayer>('Inquilino');
   const [selectedContractId, setSelectedContractId] = useState<string>('');
+
+  // Manual Charge State
+  const [manualCharge, setManualCharge] = useState({
+    contractId: '',
+    type: 'Otros' as ChargeType,
+    description: '',
+    amount: 0,
+    imputedTo: 'Inquilino' as ChargePayer,
+    period: '',
+    dueDate: new Date().toISOString().split('T')[0]
+  });
 
   const getStatusBadge = (status: Invoice['status']) => {
     const styles = {
@@ -68,17 +82,6 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
       'Anulado': 'bg-gray-100 text-gray-700 border-gray-200'
     };
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
-  };
-
-  const handleAutomatedBilling = () => {
-    setProcessingAutomation(true);
-    setTimeout(() => {
-      setProcessingAutomation(false);
-      toast({
-        title: "Facturación Automatizada Exitosa",
-        description: "Se han generado nuevas cuotas para el periodo actual.",
-      });
-    }, 2000);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,23 +114,60 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
     const contract = contracts.find(c => c.id === selectedContractId);
     if (!contract) return;
 
-    // Buscamos si ya existe una factura para este contrato y periodo
     const periodStr = aiResult.period || "Actual";
-    const existingInvoiceIndex = invoices.findIndex(i => i.contractId === selectedContractId && i.period.includes(periodStr));
-
-    const newCharge = {
+    saveChargeToInvoice(contract, {
       id: Math.random().toString(36).substr(2, 9),
       type: aiResult.serviceType as ChargeType,
       description: `Gasto de ${aiResult.serviceType} - ${periodStr}`,
       amount: aiResult.amount,
       imputedTo: imputedTo,
       isPaid: false
-    };
+    }, periodStr, aiResult.dueDate || new Date().toISOString().split('T')[0]);
+
+    setAiResult(null);
+    setIsAiDialogOpen(false);
+    toast({ title: "Servicio Cargado", description: `Se ha agregado el cargo de ${aiResult.serviceType} exitosamente.` });
+  };
+
+  const handleSaveManualCharge = () => {
+    if (!manualCharge.contractId || !manualCharge.amount || !manualCharge.period) {
+      toast({ title: "Error", description: "Complete todos los campos obligatorios.", variant: "destructive" });
+      return;
+    }
+
+    const contract = contracts.find(c => c.id === manualCharge.contractId);
+    if (!contract) return;
+
+    saveChargeToInvoice(contract, {
+      id: Math.random().toString(36).substr(2, 9),
+      type: manualCharge.type,
+      description: manualCharge.description || `${manualCharge.type} - ${manualCharge.period}`,
+      amount: manualCharge.amount,
+      imputedTo: manualCharge.imputedTo,
+      isPaid: false
+    }, manualCharge.period, manualCharge.dueDate);
+
+    setIsManualDialogOpen(false);
+    setManualCharge({
+      contractId: '',
+      type: 'Otros',
+      description: '',
+      amount: 0,
+      imputedTo: 'Inquilino',
+      period: '',
+      dueDate: new Date().toISOString().split('T')[0]
+    });
+    
+    toast({ title: "Cargo Registrado", description: "Se ha guardado el nuevo cargo manual." });
+  };
+
+  const saveChargeToInvoice = (contract: Contract, charge: ChargeItem, period: string, dueDate: string) => {
+    const existingInvoiceIndex = invoices.findIndex(i => i.contractId === contract.id && i.period === period);
 
     if (existingInvoiceIndex > -1) {
       const updatedInvoices = [...invoices];
-      updatedInvoices[existingInvoiceIndex].charges.push(newCharge);
-      updatedInvoices[existingInvoiceIndex].totalAmount += aiResult.amount;
+      updatedInvoices[existingInvoiceIndex].charges.push(charge);
+      updatedInvoices[existingInvoiceIndex].totalAmount += charge.amount;
       setInvoices(updatedInvoices);
     } else {
       const newInvoice: Invoice = {
@@ -135,21 +175,17 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
         contractId: contract.id,
         tenantName: contract.tenantName || 'Inquilino',
         propertyName: contract.propertyName || 'Propiedad',
-        period: periodStr,
-        charges: [newCharge],
+        period: period,
+        charges: [charge],
         lateFees: 0,
-        totalAmount: aiResult.amount,
+        totalAmount: charge.amount,
         currency: contract.currency,
-        dueDate: aiResult.dueDate || new Date().toISOString().split('T')[0],
+        dueDate: dueDate,
         status: 'Pendiente',
-        hasFile: true
+        hasFile: false
       };
       setInvoices([newInvoice, ...invoices]);
     }
-
-    setAiResult(null);
-    setIsAiDialogOpen(false);
-    toast({ title: "Servicio Cargado", description: `Se ha agregado el cargo de ${aiResult.serviceType} exitosamente.` });
   };
 
   return (
@@ -166,6 +202,7 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
         </div>
         
         <div className="flex gap-2 w-full sm:w-auto">
+          {/* AI INVOICE LOADING */}
           <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
             <DialogTrigger asChild>
               <Button 
@@ -181,21 +218,10 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
                 <DialogTitle>Cargar Gasto de Servicio con IA</DialogTitle>
                 <DialogDescription>Suba el PDF de Luz, Gas o Aguas para extraer los datos automáticamente.</DialogDescription>
               </DialogHeader>
-              
               <div className="space-y-6 py-4">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept=".pdf,image/*" 
-                  onChange={handleFileUpload}
-                />
-                
+                <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
                 {!aiResult && !isAiProcessing && (
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed rounded-lg p-10 text-center space-y-4 hover:bg-muted/50 cursor-pointer transition-colors border-primary/20"
-                  >
+                  <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-10 text-center space-y-4 hover:bg-muted/50 cursor-pointer transition-colors border-primary/20">
                     <Upload className="h-10 w-10 mx-auto text-primary" />
                     <div className="space-y-1">
                       <p className="font-bold">Haga clic para subir la factura</p>
@@ -203,27 +229,16 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
                     </div>
                   </div>
                 )}
-
                 {isAiProcessing && (
                   <div className="p-10 text-center space-y-4">
                     <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
                     <p className="text-sm font-bold">La IA está leyendo el comprobante...</p>
                   </div>
                 )}
-
                 {aiResult && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <Card className="border-primary/20 bg-primary/5 shadow-none">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-bold flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            Datos Extraídos
-                          </CardTitle>
-                          <Badge variant="outline">{Math.round(aiResult.confidenceScore * 100)}% Confianza</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="grid grid-cols-2 gap-4 pb-4">
+                      <CardContent className="grid grid-cols-2 gap-4 pt-4">
                         <div className="space-y-1">
                           <Label className="text-[10px] uppercase text-muted-foreground">Servicio</Label>
                           <p className="text-sm font-bold">{aiResult.serviceType}</p>
@@ -242,10 +257,9 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
                         </div>
                       </CardContent>
                     </Card>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Imputar a Contrato / Propiedad</Label>
+                        <Label>Contrato / Propiedad</Label>
                         <Select value={selectedContractId} onValueChange={setSelectedContractId}>
                           <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
                           <SelectContent>
@@ -256,12 +270,12 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Cargar a cargo de:</Label>
+                        <Label>A cargo de:</Label>
                         <Select value={imputedTo} onValueChange={(v: any) => setImputedTo(v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Inquilino">Inquilino (Suma al alquiler)</SelectItem>
-                            <SelectItem value="Propietario">Propietario (Deduce de liquidación)</SelectItem>
+                            <SelectItem value="Inquilino">Inquilino</SelectItem>
+                            <SelectItem value="Propietario">Propietario</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -269,26 +283,93 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
                   </div>
                 )}
               </div>
-
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAiDialogOpen(false)}>Cancelar</Button>
-                <Button 
-                  className="bg-primary text-white" 
-                  disabled={!aiResult || !selectedContractId}
-                  onClick={handleApplyAiService}
-                >
-                  Confirmar e Imputar Cargo
-                </Button>
+                <Button className="bg-primary text-white" disabled={!aiResult || !selectedContractId} onClick={handleApplyAiService}>Confirmar e Imputar</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
 
-          <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
-            <Plus className="h-4 w-4" /> Cargo Manual
-          </Button>
+          {/* MANUAL CHARGE LOADING */}
+          <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
+                <Plus className="h-4 w-4" /> Cargo Manual
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Registrar Cargo Manual</DialogTitle>
+                <DialogDescription>Cargue una cuota, servicio o ajuste manualmente.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Contrato / Propiedad</Label>
+                  <Select value={manualCharge.contractId} onValueChange={(v) => setManualCharge({...manualCharge, contractId: v})}>
+                    <SelectTrigger><SelectValue placeholder="Seleccione contrato..." /></SelectTrigger>
+                    <SelectContent>
+                      {contracts.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.propertyName} - {c.tenantName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tipo de Cargo</Label>
+                    <Select value={manualCharge.type} onValueChange={(v: any) => setManualCharge({...manualCharge, type: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Alquiler">Alquiler</SelectItem>
+                        <SelectItem value="Expensa Ordinaria">Expensa Ordinaria</SelectItem>
+                        <SelectItem value="Expensa Extraordinaria">Expensa Extraordinaria</SelectItem>
+                        <SelectItem value="Luz/Gas">Luz/Gas</SelectItem>
+                        <SelectItem value="Aguas">Aguas</SelectItem>
+                        <SelectItem value="TGI/ABL">TGI/ABL</SelectItem>
+                        <SelectItem value="Otros">Otros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Periodo (Ej: Mayo 2024)</Label>
+                    <Input value={manualCharge.period} onChange={(e) => setManualCharge({...manualCharge, period: e.target.value})} placeholder="Mes Año" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Monto ($)</Label>
+                    <Input type="number" value={manualCharge.amount} onChange={(e) => setManualCharge({...manualCharge, amount: parseFloat(e.target.value) || 0})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vencimiento</Label>
+                    <Input type="date" value={manualCharge.dueDate} onChange={(e) => setManualCharge({...manualCharge, dueDate: e.target.value})} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Imputar a:</Label>
+                  <Select value={manualCharge.imputedTo} onValueChange={(v: any) => setManualCharge({...manualCharge, imputedTo: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Inquilino">Inquilino (Suma al total)</SelectItem>
+                      <SelectItem value="Propietario">Propietario (Descuenta)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Descripción (Opcional)</Label>
+                  <Input value={manualCharge.description} onChange={(e) => setManualCharge({...manualCharge, description: e.target.value})} placeholder="Detalle del cargo..." />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsManualDialogOpen(false)}>Cancelar</Button>
+                <Button className="bg-primary text-white" onClick={handleSaveManualCharge}>Guardar Cargo</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
+      {/* STAT CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-muted-foreground block">Recaudación Proyectada</span>
@@ -308,6 +389,7 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
         </Card>
       </div>
 
+      {/* TABLE */}
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         <Table>
           <TableHeader>
@@ -379,6 +461,7 @@ export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewP
         </Table>
       </Card>
 
+      {/* PAYMENT DIALOG */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
