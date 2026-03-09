@@ -186,8 +186,16 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
   };
 
   const handleSaveContract = () => {
-    if (!contractFormData.tenantId || !contractFormData.propertyId || !contractFormData.baseRentAmount) {
-      toast({ title: "Error", description: "Complete inquilino, propiedad y monto.", variant: "destructive" });
+    if (!contractFormData.tenantId) {
+      toast({ title: "Error", description: "Debe seleccionar un inquilino.", variant: "destructive" });
+      return;
+    }
+    if (!contractFormData.propertyId) {
+      toast({ title: "Error", description: "Debe seleccionar una propiedad.", variant: "destructive" });
+      return;
+    }
+    if (!contractFormData.baseRentAmount || contractFormData.baseRentAmount <= 0) {
+      toast({ title: "Error", description: "Debe ingresar un monto de alquiler base.", variant: "destructive" });
       return;
     }
 
@@ -235,30 +243,31 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     reader.readAsDataURL(file);
   };
 
-  // Función para normalizar texto (ayuda a la IA a vincular datos)
   const normalizeText = (str: string) => {
-    return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    if (!str) return '';
+    return str.toLowerCase().trim()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+      .replace(/[^a-z0-9]/g, ''); // Solo alfanumérico
   };
 
   const applyAiData = () => {
-    if (aiResult) {
-      // 1. Mapeo de datos financieros y fechas
-      const updatedData: Partial<Contract> = {
-        ...contractFormData,
-        baseRentAmount: aiResult.baseRentAmount,
-        currency: aiResult.currency,
-        adjustmentFrequencyMonths: aiResult.adjustmentFrequencyMonths,
-        adjustmentMechanism: aiResult.adjustmentMechanism,
-        currentRentAmount: aiResult.baseRentAmount,
-        startDate: aiResult.startDate || contractFormData.startDate,
-        endDate: aiResult.endDate || contractFormData.endDate,
-        documents: {
-          ...contractFormData.documents!,
-          mainContractUrl: 'uploaded_document_confirmed'
-        }
-      };
+    if (!aiResult) return;
 
-      // 2. Vinculación inteligente de Inquilino
+    setContractFormData(prev => {
+      const updated = { ...prev };
+      
+      // Mapeo económico
+      updated.baseRentAmount = aiResult.baseRentAmount;
+      updated.currency = aiResult.currency;
+      updated.adjustmentFrequencyMonths = aiResult.adjustmentFrequencyMonths;
+      updated.adjustmentMechanism = aiResult.adjustmentMechanism;
+      updated.currentRentAmount = aiResult.baseRentAmount;
+      
+      // Fechas
+      if (aiResult.startDate) updated.startDate = aiResult.startDate;
+      if (aiResult.endDate) updated.endDate = aiResult.endDate;
+
+      // Vinculación de Inquilino
       if (aiResult.tenantName) {
         const normalizedAiName = normalizeText(aiResult.tenantName);
         const match = people.find(p => {
@@ -268,12 +277,18 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
         });
         
         if (match) {
-          updatedData.tenantId = match.id;
-          toast({ title: "Inquilino Vinculado", description: `Se detectó a ${match.fullName} en los datos generales.` });
+          updated.tenantId = match.id;
+          toast({ title: "Inquilino Vinculado", description: `Se detectó a ${match.fullName}.` });
+        } else {
+          toast({ 
+            title: "Inquilino no encontrado", 
+            description: `No se encontró a "${aiResult.tenantName}" en el sistema.`, 
+            variant: "destructive" 
+          });
         }
       }
 
-      // 3. Vinculación inteligente de Propiedad
+      // Vinculación de Propiedad
       if (aiResult.propertyAddress) {
         const normalizedAiAddress = normalizeText(aiResult.propertyAddress);
         const match = properties.find(p => {
@@ -285,18 +300,31 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
         });
 
         if (match) {
-          updatedData.propertyId = match.id;
+          updated.propertyId = match.id;
           toast({ title: "Propiedad Vinculada", description: `Se detectó la unidad en ${match.address}.` });
+        } else {
+          toast({ 
+            title: "Propiedad no encontrada", 
+            description: `No se encontró la dirección "${aiResult.propertyAddress}" en el sistema.`, 
+            variant: "destructive" 
+          });
         }
       }
 
-      setContractFormData(updatedData);
-      setAiResult(null);
-      toast({ 
-        title: "Autocompletado Exitoso", 
-        description: "Se han rellenado los datos generales y económicos en todas las pestañas." 
-      });
-    }
+      // Marcar documento como cargado
+      updated.documents = {
+        ...prev.documents!,
+        mainContractUrl: 'ai_analyzed_confirmed'
+      };
+
+      return updated;
+    });
+
+    setAiResult(null);
+    toast({ 
+      title: "Autocompletado Exitoso", 
+      description: "Se han aplicado los datos a todas las pestañas." 
+    });
   };
 
   return (
@@ -340,6 +368,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       <div className="space-y-2">
                         <Label>Propiedad</Label>
                         <Select 
+                          key={`prop-${contractFormData.propertyId}`}
                           value={contractFormData.propertyId || ""} 
                           onValueChange={(v) => setContractFormData({...contractFormData, propertyId: v})}
                         >
@@ -354,6 +383,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       <div className="space-y-2">
                         <Label>Inquilino Principal</Label>
                         <Select 
+                          key={`tenant-${contractFormData.tenantId}`}
                           value={contractFormData.tenantId || ""} 
                           onValueChange={(v) => setContractFormData({...contractFormData, tenantId: v})}
                         >
