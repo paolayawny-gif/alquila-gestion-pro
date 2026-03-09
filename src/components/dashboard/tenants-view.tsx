@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -225,7 +224,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
       try {
         const result = await extractContractData({ documentDataUri: dataUri });
         setAiResult(result);
-        toast({ title: "Análisis Completo", description: "La IA ha extraído las cláusulas económicas del archivo." });
+        toast({ title: "Análisis Completo", description: "La IA ha extraído las cláusulas del archivo." });
       } catch (error) {
         toast({ title: "Error de Análisis", description: "No se pudieron extraer los datos del contrato.", variant: "destructive" });
       } finally {
@@ -237,20 +236,52 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
 
   const applyAiData = () => {
     if (aiResult) {
-      setContractFormData({
+      // Mapeo exhaustivo de datos detectados
+      const updatedData: Partial<Contract> = {
         ...contractFormData,
         baseRentAmount: aiResult.baseRentAmount,
         currency: aiResult.currency,
         adjustmentFrequencyMonths: aiResult.adjustmentFrequencyMonths,
         adjustmentMechanism: aiResult.adjustmentMechanism,
         currentRentAmount: aiResult.baseRentAmount,
+        startDate: aiResult.startDate || contractFormData.startDate,
+        endDate: aiResult.endDate || contractFormData.endDate,
         documents: {
           ...contractFormData.documents!,
           mainContractUrl: 'uploaded_document_confirmed'
         }
-      });
+      };
+
+      // Intento de vinculación automática con inquilinos existentes
+      if (aiResult.tenantName) {
+        const match = people.find(p => 
+          p.fullName.toLowerCase().includes(aiResult.tenantName!.toLowerCase()) ||
+          aiResult.tenantName!.toLowerCase().includes(p.fullName.toLowerCase())
+        );
+        if (match) {
+          updatedData.tenantId = match.id;
+          toast({ title: "Inquilino Vinculado", description: `Se detectó a ${match.fullName} en el contrato.` });
+        }
+      }
+
+      // Intento de vinculación automática con propiedades existentes
+      if (aiResult.propertyAddress) {
+        const match = properties.find(p => 
+          p.address.toLowerCase().includes(aiResult.propertyAddress!.toLowerCase()) ||
+          aiResult.propertyAddress!.toLowerCase().includes(p.address.toLowerCase())
+        );
+        if (match) {
+          updatedData.propertyId = match.id;
+          toast({ title: "Unidad Vinculada", description: `Se detectó la propiedad en ${match.address}.` });
+        }
+      }
+
+      setContractFormData(updatedData);
       setAiResult(null);
-      toast({ title: "Datos Aplicados", description: "La información ha sido copiada a las cláusulas económicas." });
+      toast({ 
+        title: "Datos Aplicados", 
+        description: "Se han completado los datos generales y económicos en todas las pestañas." 
+      });
     }
   };
 
@@ -444,32 +475,43 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                                 <Sparkles className="h-4 w-4 text-primary" />
                                 Revisión de Extracción IA
                               </CardTitle>
-                              <Badge className="bg-green-100 text-green-700 border-green-200">95% Confianza</Badge>
+                              <Badge className="bg-green-100 text-green-700 border-green-200">
+                                {Math.round(aiResult.confidenceScore * 100)}% Confianza
+                              </Badge>
                             </div>
-                            <CardDescription className="text-xs">Valide los datos detectados antes de aplicarlos.</CardDescription>
+                            <CardDescription className="text-xs">Valide los datos detectados antes de aplicarlos a todas las pestañas.</CardDescription>
                           </CardHeader>
-                          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6">
+                          <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-6 pb-6">
                             <div className="space-y-1">
                               <span className="text-[10px] uppercase text-muted-foreground font-bold">Monto Detectado</span>
                               <p className="text-sm font-black text-foreground">{aiResult.currency} {aiResult.baseRentAmount.toLocaleString('es-AR')}</p>
                             </div>
                             <div className="space-y-1">
-                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Frecuencia</span>
-                              <p className="text-sm font-black text-foreground">Cada {aiResult.adjustmentFrequencyMonths} meses</p>
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Frecuencia / Modalidad</span>
+                              <p className="text-sm font-black text-foreground">{aiResult.adjustmentFrequencyMonths}m • {aiResult.adjustmentMechanism}</p>
                             </div>
                             <div className="space-y-1">
-                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Modalidad</span>
-                              <p className="text-sm font-black text-foreground">{aiResult.adjustmentMechanism}</p>
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Vigencia</span>
+                              <p className="text-xs font-bold text-foreground">
+                                {aiResult.startDate || 'No detectado'} / {aiResult.endDate || 'No detectado'}
+                              </p>
                             </div>
-                            <div className="space-y-1">
-                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Resumen</span>
+                            <div className="md:col-span-2 space-y-1">
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Personas y Propiedad</span>
+                              <p className="text-xs font-medium text-foreground">
+                                <strong>Inquilino:</strong> {aiResult.tenantName || 'No detectado'}<br/>
+                                <strong>Unidad:</strong> {aiResult.propertyAddress || 'No detectado'}
+                              </p>
+                            </div>
+                            <div className="md:col-span-3 space-y-1 border-t pt-2">
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">Resumen Técnico</span>
                               <p className="text-[10px] text-muted-foreground italic leading-tight">{aiResult.summary}</p>
                             </div>
                           </CardContent>
                           <div className="p-4 bg-white/50 border-t border-primary/10 flex justify-end gap-2">
                             <Button variant="ghost" size="sm" onClick={() => setAiResult(null)}>Descartar</Button>
                             <Button size="sm" className="bg-primary text-white gap-2" onClick={applyAiData}>
-                              <CheckCircle2 className="h-4 w-4" /> Confirmar y Aplicar
+                              <CheckCircle2 className="h-4 w-4" /> Confirmar y Autocompletar Todo
                             </Button>
                           </div>
                         </Card>
