@@ -187,7 +187,7 @@ export default function AppClient() {
     if (activeRole === 'Propietario') return <OwnerPortalView />;
 
     switch (activeTab) {
-      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
       case 'Propiedades': return <PropertiesView properties={properties} setProperties={setProperties} />;
       case 'Personas': return (
         <TenantsView 
@@ -205,7 +205,7 @@ export default function AppClient() {
       case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} setLiquidations={setLiquidations} properties={properties} people={people} />;
       case 'Reportes': return <ReportsView />;
       case 'Asistente IA': return <AIAssistantView />;
-      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
     }
   };
 

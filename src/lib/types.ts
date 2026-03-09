@@ -139,7 +139,7 @@ export interface Invoice {
   contractId: string;
   tenantName: string;
   propertyName: string;
-  period: string; // Ej: "04/2024"
+  period: string; 
   charges: ChargeItem[];
   lateFees: number;
   totalAmount: number;

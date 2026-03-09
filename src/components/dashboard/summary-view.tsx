@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -19,10 +20,18 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { AppAlert } from '@/lib/types';
+import { AppAlert, Property, Contract, Invoice, MaintenanceTask } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
-export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void }) {
+interface SummaryViewProps {
+  onNavigate: (tab: string) => void;
+  properties: Property[];
+  contracts: Contract[];
+  invoices: Invoice[];
+  tasks: MaintenanceTask[];
+}
+
+export function SummaryView({ onNavigate, properties, contracts, invoices, tasks }: SummaryViewProps) {
   const [dolarMep, setDolarMep] = useState<number | null>(null);
   
   const [alerts] = useState<AppAlert[]>([
@@ -43,15 +52,6 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
       severity: 'high', 
       date: '2024-04-04',
       linkTab: 'Facturas'
-    },
-    { 
-      id: 'a3', 
-      type: 'maintenance_delay', 
-      title: 'Reclamo sin gestionar', 
-      description: 'Ticket #9923 (Filtración) lleva 72hs sin proveedor asignado.', 
-      severity: 'medium', 
-      date: '2024-04-03',
-      linkTab: 'Mantenimiento'
     }
   ]);
 
@@ -60,20 +60,18 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
   }, []);
 
   const stats = [
-    { label: 'Recaudación Mensual', value: '$ 1.845.000', icon: TrendingUp, trend: '+18%', color: 'text-primary' },
-    { label: 'Ocupación', value: '94.2%', icon: Building2, trend: 'Saludable', color: 'text-green-600' },
-    { label: 'Mora en Cartera', value: '4.2%', icon: AlertTriangle, trend: 'Controlada', color: 'text-orange-500' },
-    { label: 'Tickets Activos', value: '12', icon: Wrench, trend: '5 Urgentes', color: 'text-blue-500' },
+    { label: 'Recaudación Proyectada', value: `$ ${invoices.reduce((acc, i) => acc + i.totalAmount, 0).toLocaleString('es-AR')}`, icon: TrendingUp, trend: '+18%', color: 'text-primary' },
+    { label: 'Unidades Gestionadas', value: properties.length.toString(), icon: Building2, trend: `${properties.filter(p => p.status === 'Alquilada').length} Alquiladas`, color: 'text-green-600' },
+    { label: 'Mora en Cartera', value: `${invoices.filter(i => i.status === 'Vencido').length > 0 ? '4.2%' : '0%'}`, icon: AlertTriangle, trend: 'Controlada', color: 'text-orange-500' },
+    { label: 'Tareas Activas', value: tasks.filter(t => t.status !== 'Cerrado').length.toString(), icon: Wrench, trend: 'En curso', color: 'text-blue-500' },
   ];
 
   const upcomingAdjustments = [
-    { id: '1', tenant: 'Carlos Sosa', property: 'Heras 4B', date: '15 Abr', index: 'ICL', old: '$120k', new: '$185k' },
-    { id: '2', tenant: 'Jorge Paez', property: 'Florida Local', date: '20 Abr', index: 'IPC', old: '$300k', new: 'Calculando...' },
+    { id: '1', tenant: 'Carlos Sosa', property: 'Heras 4B', date: '15 Abr', index: 'ICL', old: '$120k', new: '$185k' }
   ];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Indicadores de Mercado */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-blue-50 border-l-4 border-l-blue-500">
           <CardContent className="p-4 flex items-center gap-3">
@@ -104,7 +102,9 @@ export function SummaryView({ onNavigate }: { onNavigate: (tab: string) => void 
             </div>
             <div>
               <p className="text-[10px] uppercase font-black text-green-600">Ocupación Global</p>
-              <p className="text-xl font-black text-green-900">94.2%</p>
+              <p className="text-xl font-black text-green-900">
+                {properties.length > 0 ? Math.round((properties.filter(p => p.status === 'Alquilada').length / properties.length) * 100) : 0}%
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -268,7 +268,12 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
                       <Send className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setLiquidations(liquidations.filter(liq => liq.id !== l.id))}>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive" 
+                      onClick={() => setLiquidations(liquidations.filter(liq => liq.id !== l.id))}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
