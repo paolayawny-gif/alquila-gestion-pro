@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -12,14 +11,19 @@ import {
   MoreHorizontal,
   Download,
   CreditCard,
-  Table as TableIcon,
   RefreshCcw,
   Send,
-  Bell
+  Bell,
+  FileText,
+  Sparkles,
+  Loader2,
+  Upload,
+  Building2,
+  DollarSign
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Invoice } from '@/lib/types';
+import { Invoice, Contract, ChargeType, ChargePayer } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -34,51 +38,27 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
+import { extractInvoiceData, ExtractInvoiceDataOutput } from '@/ai/flows/extract-invoice-data-flow';
 
-const MOCK_INVOICES: Invoice[] = [
-  { 
-    id: '1', 
-    contractId: 'c1',
-    tenantName: 'Carlos Sosa',
-    propertyName: 'Las Heras 4B',
-    period: 'Marzo 2024',
-    charges: [
-      { id: 'ch1', type: 'Alquiler', description: 'Alquiler mensual', amount: 185000, imputedTo: 'Inquilino', isPaid: true },
-      { id: 'ch2', type: 'Expensa Ordinaria', description: 'Expensas Marzo', amount: 45000, imputedTo: 'Inquilino', isPaid: true },
-    ],
-    lateFees: 0,
-    totalAmount: 230000,
-    currency: 'ARS',
-    dueDate: '2024-03-10', 
-    status: 'Pagado', 
-    paymentDate: '2024-03-08',
-    paymentMethod: 'Transferencia',
-    hasFile: true 
-  },
-  { 
-    id: '2', 
-    contractId: 'c1',
-    tenantName: 'Carlos Sosa',
-    propertyName: 'Las Heras 4B',
-    period: 'Abril 2024',
-    charges: [
-      { id: 'ch4', type: 'Alquiler', description: 'Alquiler mensual', amount: 185000, imputedTo: 'Inquilino', isPaid: false },
-    ],
-    lateFees: 3700,
-    totalAmount: 188700,
-    currency: 'ARS',
-    dueDate: '2024-04-10', 
-    status: 'Vencido', 
-    hasFile: false 
-  },
-];
+interface InvoicesViewProps {
+  invoices: Invoice[];
+  setInvoices: React.Dispatch<React.SetStateAction<Invoice[]>>;
+  contracts: Contract[];
+}
 
-export function InvoicesView() {
+export function InvoicesView({ invoices, setInvoices, contracts }: InvoicesViewProps) {
   const { toast } = useToast();
-  const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [processingAutomation, setProcessingAutomation] = useState(false);
+  
+  // AI State
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiResult, setAiResult] = useState<ExtractInvoiceDataOutput | null>(null);
+  const [imputedTo, setImputedTo] = useState<ChargePayer>('Inquilino');
+  const [selectedContractId, setSelectedContractId] = useState<string>('');
 
   const getStatusBadge = (status: Invoice['status']) => {
     const styles = {
@@ -92,21 +72,84 @@ export function InvoicesView() {
 
   const handleAutomatedBilling = () => {
     setProcessingAutomation(true);
-    // Simulación de proceso masivo
     setTimeout(() => {
       setProcessingAutomation(false);
       toast({
         title: "Facturación Automatizada Exitosa",
-        description: "Se han generado 12 nuevas cuotas para el periodo Mayo 2024 aplicando índices ICL/IPC.",
+        description: "Se han generado nuevas cuotas para el periodo actual.",
       });
     }, 2000);
   };
 
-  const handleSendReminders = () => {
-    toast({
-      title: "Recordatorios Enviados",
-      description: "Se han enviado 5 emails y 8 WhatsApps con el estado de cuenta y avisos de vencimiento.",
-    });
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUri = e.target?.result as string;
+      setIsAiProcessing(true);
+      try {
+        const result = await extractInvoiceData({ documentDataUri: dataUri });
+        setAiResult(result);
+        toast({ title: "Análisis de Factura Completo", description: "Se detectaron los cargos y el vencimiento." });
+      } catch (error) {
+        toast({ title: "Error de Análisis", description: "No se pudo leer la factura de servicio.", variant: "destructive" });
+      } finally {
+        setIsAiProcessing(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleApplyAiService = () => {
+    if (!aiResult || !selectedContractId) {
+      toast({ title: "Error", description: "Seleccione un contrato para imputar el gasto.", variant: "destructive" });
+      return;
+    }
+
+    const contract = contracts.find(c => c.id === selectedContractId);
+    if (!contract) return;
+
+    // Buscamos si ya existe una factura para este contrato y periodo
+    const periodStr = aiResult.period || "Actual";
+    const existingInvoiceIndex = invoices.findIndex(i => i.contractId === selectedContractId && i.period.includes(periodStr));
+
+    const newCharge = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: aiResult.serviceType as ChargeType,
+      description: `Gasto de ${aiResult.serviceType} - ${periodStr}`,
+      amount: aiResult.amount,
+      imputedTo: imputedTo,
+      isPaid: false
+    };
+
+    if (existingInvoiceIndex > -1) {
+      const updatedInvoices = [...invoices];
+      updatedInvoices[existingInvoiceIndex].charges.push(newCharge);
+      updatedInvoices[existingInvoiceIndex].totalAmount += aiResult.amount;
+      setInvoices(updatedInvoices);
+    } else {
+      const newInvoice: Invoice = {
+        id: Math.random().toString(36).substr(2, 9),
+        contractId: contract.id,
+        tenantName: contract.tenantName || 'Inquilino',
+        propertyName: contract.propertyName || 'Propiedad',
+        period: periodStr,
+        charges: [newCharge],
+        lateFees: 0,
+        totalAmount: aiResult.amount,
+        currency: contract.currency,
+        dueDate: aiResult.dueDate || new Date().toISOString().split('T')[0],
+        status: 'Pendiente',
+        hasFile: true
+      };
+      setInvoices([newInvoice, ...invoices]);
+    }
+
+    setAiResult(null);
+    setIsAiDialogOpen(false);
+    toast({ title: "Servicio Cargado", description: `Se ha agregado el cargo de ${aiResult.serviceType} exitosamente.` });
   };
 
   return (
@@ -115,23 +158,130 @@ export function InvoicesView() {
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Filtrar morosos o por propiedad..." className="pl-9 bg-white" />
+            <Input placeholder="Filtrar facturas..." className="pl-9 bg-white" />
           </div>
-          <Button variant="outline" className="gap-2" onClick={handleSendReminders}>
+          <Button variant="outline" className="gap-2">
             <Send className="h-4 w-4" /> Notificar Mora
           </Button>
         </div>
         
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button 
-            variant="outline" 
-            className="gap-2 border-primary text-primary hover:bg-primary/5"
-            onClick={handleAutomatedBilling}
-            disabled={processingAutomation}
-          >
-            {processingAutomation ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-            Procesar Facturación Mayo
-          </Button>
+          <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="gap-2 border-primary text-primary hover:bg-primary/5"
+              >
+                <Sparkles className="h-4 w-4" />
+                Cargar Factura de Servicio (IA)
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Cargar Gasto de Servicio con IA</DialogTitle>
+                <DialogDescription>Suba el PDF de Luz, Gas o Aguas para extraer los datos automáticamente.</DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 py-4">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept=".pdf,image/*" 
+                  onChange={handleFileUpload}
+                />
+                
+                {!aiResult && !isAiProcessing && (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed rounded-lg p-10 text-center space-y-4 hover:bg-muted/50 cursor-pointer transition-colors border-primary/20"
+                  >
+                    <Upload className="h-10 w-10 mx-auto text-primary" />
+                    <div className="space-y-1">
+                      <p className="font-bold">Haga clic para subir la factura</p>
+                      <p className="text-xs text-muted-foreground">Soportamos PDF y fotos de comprobantes.</p>
+                    </div>
+                  </div>
+                )}
+
+                {isAiProcessing && (
+                  <div className="p-10 text-center space-y-4">
+                    <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
+                    <p className="text-sm font-bold">La IA está leyendo el comprobante...</p>
+                  </div>
+                )}
+
+                {aiResult && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <Card className="border-primary/20 bg-primary/5 shadow-none">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-bold flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            Datos Extraídos
+                          </CardTitle>
+                          <Badge variant="outline">{Math.round(aiResult.confidenceScore * 100)}% Confianza</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="grid grid-cols-2 gap-4 pb-4">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] uppercase text-muted-foreground">Servicio</Label>
+                          <p className="text-sm font-bold">{aiResult.serviceType}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] uppercase text-muted-foreground">Monto Total</Label>
+                          <p className="text-sm font-black text-primary">$ {aiResult.amount.toLocaleString('es-AR')}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] uppercase text-muted-foreground">Vencimiento</Label>
+                          <p className="text-sm font-bold">{aiResult.dueDate || 'No detectado'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] uppercase text-muted-foreground">Periodo</Label>
+                          <p className="text-sm font-bold">{aiResult.period || 'No detectado'}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Imputar a Contrato / Propiedad</Label>
+                        <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                          <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                          <SelectContent>
+                            {contracts.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.propertyName} - {c.tenantName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Cargar a cargo de:</Label>
+                        <Select value={imputedTo} onValueChange={(v: any) => setImputedTo(v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Inquilino">Inquilino (Suma al alquiler)</SelectItem>
+                            <SelectItem value="Propietario">Propietario (Deduce de liquidación)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAiDialogOpen(false)}>Cancelar</Button>
+                <Button 
+                  className="bg-primary text-white" 
+                  disabled={!aiResult || !selectedContractId}
+                  onClick={handleApplyAiService}
+                >
+                  Confirmar e Imputar Cargo
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
             <Plus className="h-4 w-4" /> Cargo Manual
@@ -142,19 +292,19 @@ export function InvoicesView() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-muted-foreground block">Recaudación Proyectada</span>
-          <span className="text-xl font-black">$ 475.200</span>
+          <span className="text-xl font-black">$ {invoices.reduce((acc, i) => acc + i.totalAmount, 0).toLocaleString('es-AR')}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
-          <span className="text-[10px] uppercase font-bold text-blue-600 block">Recordatorios Enviados</span>
-          <span className="text-xl font-black text-blue-700">13 <span className="text-xs font-normal">hoy</span></span>
+          <span className="text-[10px] uppercase font-bold text-blue-600 block">Facturas Activas</span>
+          <span className="text-xl font-black text-blue-700">{invoices.length}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
-          <span className="text-[10px] uppercase font-bold text-orange-600 block">Facturas Vencidas</span>
-          <span className="text-xl font-black text-orange-700">2</span>
+          <span className="text-[10px] uppercase font-bold text-orange-600 block">Vencidas</span>
+          <span className="text-xl font-black text-orange-700">{invoices.filter(i => i.status === 'Vencido').length}</span>
         </Card>
-        <Card className="bg-white border-none shadow-sm p-4 border-l-4 border-l-red-500">
-          <span className="text-[10px] uppercase font-bold text-red-600 block">Punitorios Calculados</span>
-          <span className="text-xl font-black text-red-700">$ 12.400</span>
+        <Card className="bg-white border-none shadow-sm p-4 border-l-4 border-l-primary">
+          <span className="text-[10px] uppercase font-bold text-primary block">Servicios Procesados</span>
+          <span className="text-xl font-black text-primary">8</span>
         </Card>
       </div>
 
@@ -164,8 +314,7 @@ export function InvoicesView() {
             <TableRow className="bg-muted/50">
               <TableHead>Inquilino / Periodo</TableHead>
               <TableHead>Vencimiento</TableHead>
-              <TableHead className="text-right">Monto Base</TableHead>
-              <TableHead className="text-right">Punitorios</TableHead>
+              <TableHead className="text-right">Conceptos</TableHead>
               <TableHead className="text-right">Total Final</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -178,7 +327,6 @@ export function InvoicesView() {
                   <div className="flex flex-col">
                     <span className="font-bold text-foreground">{i.tenantName}</span>
                     <span className="text-[10px] text-muted-foreground uppercase">{i.propertyName} • {i.period}</span>
-                    {i.isAutomated && <Badge className="w-fit text-[8px] h-3 bg-blue-50 text-blue-700 border-blue-100 mt-1">Automática</Badge>}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -187,11 +335,14 @@ export function InvoicesView() {
                     {i.paymentDate && <span className="text-[9px] text-green-600 font-bold">Cobrado el {i.paymentDate}</span>}
                   </div>
                 </TableCell>
-                <TableCell className="text-right text-xs">
-                  $ {(i.totalAmount - i.lateFees).toLocaleString('es-AR')}
-                </TableCell>
-                <TableCell className="text-right text-xs font-bold text-red-600">
-                  {i.lateFees > 0 ? `+ $ ${i.lateFees.toLocaleString('es-AR')}` : '-'}
+                <TableCell className="text-right">
+                  <div className="flex flex-col items-end gap-1">
+                    {i.charges.map(c => (
+                      <Badge key={c.id} variant="outline" className="text-[9px] font-normal px-1 h-4">
+                        {c.type}: $ {c.amount.toLocaleString('es-AR')}
+                      </Badge>
+                    ))}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right font-black text-primary">
                   $ {i.totalAmount.toLocaleString('es-AR')}
@@ -199,11 +350,6 @@ export function InvoicesView() {
                 <TableCell>{getStatusBadge(i.status)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    {i.status === 'Vencido' && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-600 hover:bg-orange-50">
-                        <Bell className="h-4 w-4" />
-                      </Button>
-                    )}
                     {i.status !== 'Pagado' && (
                       <Button 
                         size="sm" 
@@ -224,6 +370,11 @@ export function InvoicesView() {
                 </TableCell>
               </TableRow>
             ))}
+            {invoices.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay facturas registradas.</TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -240,7 +391,6 @@ export function InvoicesView() {
                 <span className="text-xs text-muted-foreground uppercase font-bold">Total a Cobrar</span>
                 <span className="font-black text-primary">$ {selectedInvoice?.totalAmount.toLocaleString('es-AR')}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground">Incluye capital e intereses por mora.</p>
             </div>
             <div className="space-y-2">
               <Label>Referencia / Nro. Operación Bancaria</Label>
