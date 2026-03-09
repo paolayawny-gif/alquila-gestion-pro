@@ -41,7 +41,7 @@ export function SummaryView({ onNavigate, properties, contracts, invoices, tasks
       title: 'Contrato Próximo a Vencer', 
       description: 'El contrato de Carlos Sosa (Heras 4B) vence en 45 días.', 
       severity: 'high', 
-      date: '2024-04-05',
+      date: '2026-04-05',
       linkTab: 'Personas'
     },
     { 
@@ -50,7 +50,7 @@ export function SummaryView({ onNavigate, properties, contracts, invoices, tasks
       title: 'Mora Superior a 30 días', 
       description: 'Jorge Paez adeuda 2 meses de alquiler en Local Florida.', 
       severity: 'high', 
-      date: '2024-04-04',
+      date: '2026-04-04',
       linkTab: 'Facturas'
     }
   ]);
@@ -67,7 +67,7 @@ export function SummaryView({ onNavigate, properties, contracts, invoices, tasks
   ];
 
   const upcomingAdjustments = [
-    { id: '1', tenant: 'Carlos Sosa', property: 'Heras 4B', date: '15 Abr', index: 'ICL', old: '$120k', new: '$185k' }
+    { id: '1', tenant: 'Carlos Sosa', property: 'Heras 4B', date: '15 Abr 2026', index: 'ICL', old: '$120k', new: '$185k' }
   ];
 
   return (

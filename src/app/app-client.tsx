@@ -118,8 +118,8 @@ export default function AppClient() {
       propertyName: 'Edificio Las Heras 4B',
       guarantorIds: [],
       ownerIds: ['p1'],
-      startDate: '2023-05-15',
-      endDate: '2025-05-15',
+      startDate: '2026-05-15',
+      endDate: '2028-05-15',
       paymentPeriodDays: 30,
       baseRentAmount: 120000,
       currentRentAmount: 185000,
@@ -145,7 +145,7 @@ export default function AppClient() {
       contractId: 'c1',
       tenantName: 'Carlos Sosa',
       propertyName: 'Las Heras 4B',
-      period: 'Marzo 2024',
+      period: 'Marzo 2026',
       charges: [
         { id: 'ch1', type: 'Alquiler', description: 'Alquiler mensual', amount: 185000, imputedTo: 'Inquilino', isPaid: true },
         { id: 'ch2', type: 'Expensa Ordinaria', description: 'Expensas Marzo', amount: 45000, imputedTo: 'Inquilino', isPaid: true },
@@ -153,16 +153,16 @@ export default function AppClient() {
       lateFees: 0,
       totalAmount: 230000,
       currency: 'ARS',
-      dueDate: '2024-03-10', 
+      dueDate: '2026-03-10', 
       status: 'Pagado', 
-      paymentDate: '2024-03-08',
+      paymentDate: '2026-03-08',
       paymentMethod: 'Transferencia',
       hasFile: true 
     }
   ]);
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
   const [legalCases, setLegalCases] = useState<LegalCase[]>([
-    { id: '1', type: 'Desalojo por Falta de Pago', propertyId: '1', propertyName: 'Las Heras 4B', startDate: '2024-01-10', attorney: 'Dr. Ricardo Darín', status: 'En proceso', hasFile: true, ownerId: 'user1' }
+    { id: '1', type: 'Desalojo por Falta de Pago', propertyId: '1', propertyName: 'Las Heras 4B', startDate: '2026-01-10', attorney: 'Dr. Ricardo Darín', status: 'En proceso', hasFile: true, ownerId: 'user1' }
   ]);
   const [liquidations, setLiquidations] = useState<Liquidation[]>([
     { 
@@ -176,9 +176,9 @@ export default function AppClient() {
       maintenanceDeductions: 0, 
       expenseDeductions: 12000, 
       netAmount: 154500,
-      period: 'Abril 2024',
+      period: 'Abril 2026',
       status: 'Pendiente',
-      dateCreated: '2024-04-15'
+      dateCreated: '2026-04-15'
     }
   ]);
 

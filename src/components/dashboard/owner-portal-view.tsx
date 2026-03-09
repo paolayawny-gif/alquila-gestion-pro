@@ -21,13 +21,13 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
 const LIQUIDATIONS_MOCK = [
-  { propiedad: 'Las Heras 4B', periodo: 'Abril 2024', bruto: 185000, neto: 163750, estado: 'Pagada' },
-  { propiedad: 'Quinta del Sol', periodo: 'Marzo 2024', bruto: 250000, neto: 152500, estado: 'Pagada' },
+  { propiedad: 'Las Heras 4B', periodo: 'Abril 2026', bruto: 185000, neto: 163750, estado: 'Pagada' },
+  { propiedad: 'Quinta del Sol', periodo: 'Marzo 2026', bruto: 250000, neto: 152500, estado: 'Pagada' },
 ];
 
 const PROPERTIES_MOCK = [
-  { nombre: 'Las Heras 4B', inquilino: 'Carlos Sosa', estado: 'Alquilada', monto: 185000, ajuste: 'Septiembre 2024' },
-  { nombre: 'Quinta del Sol', inquilino: 'Marta Rodriguez', estado: 'Alquilada', monto: 250000, ajuste: 'Julio 2024' },
+  { nombre: 'Las Heras 4B', inquilino: 'Carlos Sosa', estado: 'Alquilada', monto: 185000, ajuste: 'Septiembre 2026' },
+  { nombre: 'Quinta del Sol', inquilino: 'Marta Rodriguez', estado: 'Alquilada', monto: 250000, ajuste: 'Julio 2026' },
 ];
 
 export function OwnerPortalView() {
@@ -47,7 +47,7 @@ export function OwnerPortalView() {
       
       // Robust download logic for all browsers
       link.href = url;
-      link.setAttribute("download", `reporte_liquidaciones_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute("download", `reporte_liquidaciones_${new Date('2026-01-01').toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

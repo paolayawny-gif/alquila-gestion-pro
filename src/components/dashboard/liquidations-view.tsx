@@ -43,7 +43,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
   const [isNewLiqOpen, setIsNewLiqOpen] = useState(false);
   const [newLiq, setNewLiq] = useState<Partial<Liquidation>>({
     propertyId: '',
-    period: 'Mayo 2024',
+    period: 'Mayo 2026',
     ingresoAlquiler: 0,
     adminFeeDeduction: 0,
     maintenanceDeductions: 0,
@@ -79,14 +79,14 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
       expenseDeductions: newLiq.expenseDeductions || 0,
       netAmount: net,
       status: 'Pendiente',
-      dateCreated: new Date().toISOString().split('T')[0]
+      dateCreated: new Date('2026-01-01').toISOString().split('T')[0] // Defaulting to 2026
     };
 
     setLiquidations([liqData, ...liquidations]);
     setIsNewLiqOpen(false);
     setNewLiq({
       propertyId: '',
-      period: 'Mayo 2024',
+      period: 'Mayo 2026',
       ingresoAlquiler: 0,
       adminFeeDeduction: 0,
       maintenanceDeductions: 0,
@@ -147,7 +147,7 @@ export function LiquidationsView({ liquidations, setLiquidations, properties, pe
                   <div className="space-y-2">
                     <Label>Periodo</Label>
                     <Input 
-                      placeholder="Ej: Mayo 2024" 
+                      placeholder="Ej: Mayo 2026" 
                       value={newLiq.period}
                       onChange={(e) => setNewLiq({...newLiq, period: e.target.value})}
                     />

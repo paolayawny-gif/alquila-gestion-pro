@@ -30,7 +30,7 @@ export function TenantPortalView() {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-bold text-primary">Recordatorio de Pago</p>
-            <p className="text-xs text-primary/80">Tu alquiler de Mayo 2024 vence en 5 días. Evita punitorios pagando antes del 10/05.</p>
+            <p className="text-xs text-primary/80">Tu alquiler de Mayo 2026 vence en 5 días. Evita punitorios pagando antes del 10/05/2026.</p>
           </div>
         </div>
         <Button size="sm" className="bg-primary text-white hover:bg-primary/90">Pagar con MP</Button>
@@ -44,7 +44,7 @@ export function TenantPortalView() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Vence el 10/05/2024
+              <Clock className="h-3 w-3" /> Vence el 10/05/2026
             </p>
             <Button className="w-full mt-4 bg-primary/10 text-primary hover:bg-primary/20 gap-2 border-none">
               <CreditCard className="h-4 w-4" /> Medios de Pago
@@ -55,7 +55,7 @@ export function TenantPortalView() {
         <Card className="border-none shadow-sm bg-white">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase font-bold">Próximo Ajuste (ICL)</CardDescription>
-            <CardTitle className="text-3xl font-black">15/09/2024</CardTitle>
+            <CardTitle className="text-3xl font-black">15/09/2026</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -108,7 +108,7 @@ export function TenantPortalView() {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-medium">Abril 2024</TableCell>
+                    <TableCell className="font-medium">Abril 2026</TableCell>
                     <TableCell className="font-black">$ 238.500</TableCell>
                     <TableCell><Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Pagado</Badge></TableCell>
                     <TableCell className="text-right">

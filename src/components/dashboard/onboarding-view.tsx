@@ -49,7 +49,7 @@ const MOCK_APPLICATIONS: RentalApplication[] = [
     references: 'Anterior locador: Juan Gomez (Tel: 11 9988-7766)',
     documents: [],
     status: 'Nueva',
-    submittedAt: '2024-04-01',
+    submittedAt: '2026-04-01',
     ownerId: 'user1'
   },
   {
@@ -63,7 +63,7 @@ const MOCK_APPLICATIONS: RentalApplication[] = [
     references: 'Recibos de sueldo de OSDE, 10 años de antigüedad.',
     documents: [],
     status: 'En análisis',
-    submittedAt: '2024-03-28',
+    submittedAt: '2026-03-28',
     ownerId: 'user1'
   }
 ];
