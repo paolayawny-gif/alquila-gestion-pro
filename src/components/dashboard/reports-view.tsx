@@ -51,18 +51,25 @@ const COLORS = ['#f97316', '#e2e8f0'];
 
 export function ReportsView() {
   const exportToCSV = (type: string) => {
-    let content = "";
-    if (type === 'ranking') {
-      content = "ID,Propiedad,Propietario,Ingreso,Margen\n" + 
-        PROPERTY_RANKING.map(p => `${p.id},${p.name},${p.owner},${p.ingreso},${p.margin}`).join("\n");
+    try {
+      let content = "";
+      if (type === 'ranking') {
+        content = "ID,Propiedad,Propietario,Ingreso,Margen\n" + 
+          PROPERTY_RANKING.map(p => `${p.id},${p.name},${p.owner},${p.ingreso},${p.margin}`).join("\n");
+      }
+      
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute("download", `reporte_${type}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error exporting CSV:", e);
     }
-    
-    const blob = new Blob([content], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporte_${type}.csv`;
-    a.click();
   };
 
   return (

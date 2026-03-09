@@ -42,17 +42,20 @@ export function OwnerPortalView() {
       
       const csvContent = headers + rows;
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.setAttribute("href", url);
+      
+      // Robust download logic for all browsers
+      link.href = url;
       link.setAttribute("download", `reporte_liquidaciones_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
       toast({
         title: "Reporte Exportado",
-        description: "Se ha descargado el historial de liquidaciones en formato CSV."
+        description: "El archivo CSV se ha descargado en tu carpeta de descargas."
       });
     } catch (error) {
       toast({
