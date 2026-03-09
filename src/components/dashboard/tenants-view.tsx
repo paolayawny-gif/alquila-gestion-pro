@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -234,9 +235,14 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
     reader.readAsDataURL(file);
   };
 
+  // Función para normalizar texto (ayuda a la IA a vincular datos)
+  const normalizeText = (str: string) => {
+    return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  };
+
   const applyAiData = () => {
     if (aiResult) {
-      // Mapeo exhaustivo de datos detectados
+      // 1. Mapeo de datos financieros y fechas
       const updatedData: Partial<Contract> = {
         ...contractFormData,
         baseRentAmount: aiResult.baseRentAmount,
@@ -252,35 +258,43 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
         }
       };
 
-      // Intento de vinculación automática con inquilinos existentes
+      // 2. Vinculación inteligente de Inquilino
       if (aiResult.tenantName) {
-        const match = people.find(p => 
-          p.fullName.toLowerCase().includes(aiResult.tenantName!.toLowerCase()) ||
-          aiResult.tenantName!.toLowerCase().includes(p.fullName.toLowerCase())
-        );
+        const normalizedAiName = normalizeText(aiResult.tenantName);
+        const match = people.find(p => {
+          if (p.type !== 'Inquilino') return false;
+          const normalizedPersonName = normalizeText(p.fullName);
+          return normalizedPersonName.includes(normalizedAiName) || normalizedAiName.includes(normalizedPersonName);
+        });
+        
         if (match) {
           updatedData.tenantId = match.id;
-          toast({ title: "Inquilino Vinculado", description: `Se detectó a ${match.fullName} en el contrato.` });
+          toast({ title: "Inquilino Vinculado", description: `Se detectó a ${match.fullName} en los datos generales.` });
         }
       }
 
-      // Intento de vinculación automática con propiedades existentes
+      // 3. Vinculación inteligente de Propiedad
       if (aiResult.propertyAddress) {
-        const match = properties.find(p => 
-          p.address.toLowerCase().includes(aiResult.propertyAddress!.toLowerCase()) ||
-          aiResult.propertyAddress!.toLowerCase().includes(p.address.toLowerCase())
-        );
+        const normalizedAiAddress = normalizeText(aiResult.propertyAddress);
+        const match = properties.find(p => {
+          const normalizedPropAddress = normalizeText(p.address);
+          const normalizedPropName = normalizeText(p.name);
+          return normalizedPropAddress.includes(normalizedAiAddress) || 
+                 normalizedAiAddress.includes(normalizedPropAddress) ||
+                 normalizedPropName.includes(normalizedAiAddress);
+        });
+
         if (match) {
           updatedData.propertyId = match.id;
-          toast({ title: "Unidad Vinculada", description: `Se detectó la propiedad en ${match.address}.` });
+          toast({ title: "Propiedad Vinculada", description: `Se detectó la unidad en ${match.address}.` });
         }
       }
 
       setContractFormData(updatedData);
       setAiResult(null);
       toast({ 
-        title: "Datos Aplicados", 
-        description: "Se han completado los datos generales y económicos en todas las pestañas." 
+        title: "Autocompletado Exitoso", 
+        description: "Se han rellenado los datos generales y económicos en todas las pestañas." 
       });
     }
   };
@@ -326,7 +340,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       <div className="space-y-2">
                         <Label>Propiedad</Label>
                         <Select 
-                          value={contractFormData.propertyId} 
+                          value={contractFormData.propertyId || ""} 
                           onValueChange={(v) => setContractFormData({...contractFormData, propertyId: v})}
                         >
                           <SelectTrigger><SelectValue placeholder="Seleccione unidad..." /></SelectTrigger>
@@ -340,7 +354,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                       <div className="space-y-2">
                         <Label>Inquilino Principal</Label>
                         <Select 
-                          value={contractFormData.tenantId} 
+                          value={contractFormData.tenantId || ""} 
                           onValueChange={(v) => setContractFormData({...contractFormData, tenantId: v})}
                         >
                           <SelectTrigger><SelectValue placeholder="Seleccione persona..." /></SelectTrigger>
@@ -355,7 +369,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                         <Label>Fecha Inicio</Label>
                         <Input 
                           type="date" 
-                          value={contractFormData.startDate} 
+                          value={contractFormData.startDate || ""} 
                           onChange={(e) => setContractFormData({...contractFormData, startDate: e.target.value})}
                         />
                       </div>
@@ -363,7 +377,7 @@ export function TenantsView({ people, setPeople, contracts, setContracts, proper
                         <Label>Fecha Fin</Label>
                         <Input 
                           type="date" 
-                          value={contractFormData.endDate} 
+                          value={contractFormData.endDate || ""} 
                           onChange={(e) => setContractFormData({...contractFormData, endDate: e.target.value})}
                         />
                       </div>

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for extracting structured data from rental contracts.
@@ -24,8 +25,8 @@ const ExtractContractDataOutputSchema = z.object({
   currency: z.enum(['ARS', 'USD']).describe('The currency of the rent.'),
   adjustmentFrequencyMonths: z.number().describe('How often the rent is adjusted (in months).'),
   adjustmentMechanism: z.enum(['ICL', 'IPC', 'CasaPropia', 'Fixed']).describe('The index or method used for adjustments.'),
-  tenantName: z.string().optional().describe('Name of the tenant found in the contract.'),
-  propertyAddress: z.string().optional().describe('Address of the property found in the contract.'),
+  tenantName: z.string().optional().describe('Full Name of the tenant found in the contract (Locatario).'),
+  propertyAddress: z.string().optional().describe('Full Address of the property found in the contract.'),
   startDate: z.string().optional().describe('Start date of the contract in YYYY-MM-DD format.'),
   endDate: z.string().optional().describe('End date of the contract in YYYY-MM-DD format.'),
   confidenceScore: z.number().describe('AI confidence score for the extraction (0 to 1).'),
@@ -45,6 +46,11 @@ const extractContractDataPrompt = ai.definePrompt({
   output: {schema: ExtractContractDataOutputSchema},
   prompt: `You are an expert legal document analyst specializing in Argentinian rental contracts.
 Your task is to analyze the provided document and extract the key economic and general clauses accurately.
+
+### IMPORTANT: FIELD MATCHING
+- tenantName: Extract the FULL name of the "Locatario".
+- propertyAddress: Extract the FULL address of the property.
+- startDate / endDate: ALWAYS format as YYYY-MM-DD.
 
 Pay special attention to:
 1. The initial rent amount (monto inicial).
