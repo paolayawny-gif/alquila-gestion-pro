@@ -149,6 +149,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
       });
       setInvitationDraft(draft);
     } catch (e) {
+      console.error(e);
       toast({ title: "Error", description: "No se pudo redactar la invitación.", variant: "destructive" });
     } finally {
       setIsDraftingInvite(false);
@@ -161,7 +162,6 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     const docId = invitingPerson.id;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', docId);
     
-    // Registrar el envío en Firestore (simulado)
     setDocumentNonBlocking(docRef, { 
       lastInvitationSent: new Date().toLocaleDateString('es-AR'),
       invitationStatus: 'Enviada'
@@ -169,7 +169,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     
     toast({ 
       title: "Invitación Despachada (Simulado)", 
-      description: `Se ha procesado el envío para ${invitingPerson.email}. En producción, esto dispararía un email real.` 
+      description: `Se ha procesado el envío para ${invitingPerson.email}.` 
     });
     
     setIsInviteDialogOpen(false);
@@ -215,6 +215,37 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     setDocumentNonBlocking(docRef, personData, { merge: true });
     setIsPersonDialogOpen(false);
     toast({ title: editingPerson ? "Persona actualizada" : "Persona creada", description: `${personFormData.fullName} se ha guardado.` });
+  };
+
+  const handleOpenContractDialog = (contract?: Contract) => {
+    if (contract) {
+      setEditingContract(contract);
+      setContractFormData(contract);
+    } else {
+      setEditingContract(null);
+      setContractFormData({
+        tenantId: '',
+        propertyId: '',
+        startDate: '',
+        endDate: '',
+        baseRentAmount: 0,
+        currentRentAmount: 0,
+        currency: 'ARS',
+        adjustmentType: 'Index',
+        adjustmentMechanism: 'ICL',
+        adjustmentFrequencyMonths: 4,
+        depositAmount: 0,
+        depositCurrency: 'ARS',
+        commissionAmount: 0,
+        lateFeeType: 'DailyPercentage',
+        lateFeeValue: 0.5,
+        status: 'Vigente',
+        guarantorIds: [],
+        ownerIds: [],
+        documents: { mainContractUrl: '', versions: [], annexes: [] }
+      });
+    }
+    setIsContractDialogOpen(true);
   };
 
   const handleSaveContract = () => {

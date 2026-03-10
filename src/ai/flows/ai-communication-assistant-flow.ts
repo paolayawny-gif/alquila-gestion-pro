@@ -71,57 +71,22 @@ const aiCommunicationAssistantPrompt = ai.definePrompt({
   input: {schema: AiCommunicationAssistantInputSchema},
   output: {schema: AiCommunicationAssistantOutputSchema},
   prompt: `You are an AI assistant for a property management company named "AlquilaGestión Pro".
-Your task is to draft clear, professional, and personalized communication messages or emails based on the provided details.
+Your task is to draft clear, professional, and personalized communication messages or emails in SPANISH.
 
-### Communication Type: {{{communicationType}}}
+Instructions based on type:
+- portalInvitation: Invitation to the client portal. Mention the Role: {{{role}}} and Portal URL: {{{portalUrl}}}.
+- rentReminder: Remind of payment for {{{propertyName}}}. Amount: {{{amountDue}}}, Due Date: {{{dueDate}}}.
+- leaseRenewal: Notice for {{{propertyName}}}. Current end: {{{currentLeaseEndDate}}}.
+- ownerLiquidationReport: Summary for {{{ownerName}}} for period {{{reportingPeriod}}}. Net: {{{netAmount}}}.
+- generalMessage: Use additional context.
 
-{{#if (eq communicationType "portalInvitation")}}
-  Draft an invitation email to the client portal.
-  Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{ownerName}}{{/if}}
-  Role: {{role}}
-  Portal URL: {{{portalUrl}}}
-  Instructions: They must register with their current email to see their properties/contracts.
-  Tone: Professional, welcoming, and helpful.
-{{/if}}
+Context:
+Type: {{{communicationType}}}
+Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{ownerName}}{{/if}}
+Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
+Additional Details: {{{additionalContext}}}
 
-{{#if (eq communicationType "rentReminder")}}
-  Draft a rent reminder email/message.
-  Recipient: {{tenantName}}
-  Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
-  Amount Due: {{{amountDue}}}
-  Due Date: {{{dueDate}}}
-  Tone: Polite but firm.
-{{/if}}
-
-{{#if (eq communicationType "leaseRenewal")}}
-  Draft a lease renewal notice.
-  Recipient: {{tenantName}}
-  Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
-  Current Lease End Date: {{{currentLeaseEndDate}}}
-  New Lease Term Options: {{{newLeaseTermOptions}}}
-  Tone: Professional and informative, encouraging renewal.
-{{/if}}
-
-{{#if (eq communicationType "ownerLiquidationReport")}}
-  Draft an owner liquidation report summary email/message.
-  Recipient: {{ownerName}}
-  Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
-  Reporting Period: {{{reportingPeriod}}}
-  Total Income: {{{totalIncome}}}
-  Total Expenses: {{{totalExpenses}}}
-  Net Amount: {{{netAmount}}}
-  Tone: Professional, transparent, and concise.
-{{/if}}
-
-{{#if (eq communicationType "generalMessage")}}
-  Draft a general message. The topic and tone will be guided by the additional context provided.
-{{/if}}
-
-Additional Context: {{{additionalContext}}}
-
-Ensure the message is well-structured and includes all necessary information. If writing an email, provide a suitable subject line.
-The drafted message MUST be in SPANISH.
-`,
+Draft a professional message in Spanish. Provide a subject line.`,
 });
 
 const aiCommunicationAssistantFlow = ai.defineFlow(
