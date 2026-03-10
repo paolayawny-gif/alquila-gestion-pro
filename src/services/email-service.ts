@@ -17,20 +17,21 @@ export async function sendEmail({ to, subject, html }: SendEmailInput) {
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
 
+  // Si no hay credenciales, el sistema entra en modo simulación
   if (!user || !pass) {
     console.warn("EMAIL_USER o EMAIL_PASS no encontrados en .env. El envío de email se simulará en la consola.");
     console.log(`--- SIMULACIÓN DE ENVÍO DE EMAIL ---`);
     console.log(`PARA: ${to}`);
     console.log(`ASUNTO: ${subject}`);
-    console.log(`CONTENIDO: Ver en el inspector de red o aquí.`);
     console.log(`-------------------------------------`);
-    // Simulamos un pequeño delay para la UI
+    
+    // Pequeño delay artificial para que la UI se sienta real
     await new Promise(resolve => setTimeout(resolve, 1500));
     return { success: true, simulated: true };
   }
 
   try {
-    // Configuración para Gmail
+    // Configuración específica para el servicio de Gmail
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -52,6 +53,6 @@ export async function sendEmail({ to, subject, html }: SendEmailInput) {
     return { success: true, id: info.messageId };
   } catch (err: any) {
     console.error("Error enviando email via Gmail/SMTP:", err);
-    return { success: false, error: err.message || "Error desconocido al enviar el correo." };
+    return { success: false, error: err.message || "Error desconocido al enviar el correo a través de Gmail." };
   }
 }
