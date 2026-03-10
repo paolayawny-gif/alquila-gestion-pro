@@ -87,6 +87,7 @@ export default function AppClient() {
     await signOut(auth);
   };
 
+  // Queries para colecciones en Firestore
   const propiedadesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'propiedades'));
@@ -117,20 +118,28 @@ export default function AppClient() {
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'liquidaciones'));
   }, [db, user]);
 
+  const solicitudesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'solicitudes'));
+  }, [db, user]);
+
+  // Suscripción a los datos de Firestore
   const { data: propertiesData } = useCollection(propiedadesQuery);
   const { data: peopleData } = useCollection(inquilinosQuery);
   const { data: invoicesData } = useCollection(facturasQuery);
   const { data: tasksData } = useCollection(mantenimientoQuery);
   const { data: legalCasesData } = useCollection(legalQuery);
   const { data: liquidationsData } = useCollection(liquidacionesQuery);
+  const { data: applicationsData } = useCollection(solicitudesQuery);
 
-  // Aseguramos arreglos vacíos por defecto para evitar errores de .reduce o .length
+  // Asegurar arreglos para evitar errores de null
   const properties = propertiesData || [];
   const people = peopleData || [];
   const invoices = invoicesData || [];
   const tasks = tasksData || [];
   const legalCases = legalCasesData || [];
   const liquidations = liquidationsData || [];
+  const applications = applicationsData || [];
 
   const [contracts, setContracts] = useState<any[]>([]);
 
@@ -153,7 +162,16 @@ export default function AppClient() {
     }
 
     switch (activeTab) {
-      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
+      case 'Resumen': return (
+        <SummaryView 
+          onNavigate={(tab) => setActiveTab(tab as Tab)} 
+          properties={properties} 
+          contracts={contracts} 
+          invoices={invoices} 
+          tasks={tasks} 
+          applications={applications}
+        />
+      );
       case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} />;
       case 'Personas': return (
         <TenantsView 
@@ -164,14 +182,20 @@ export default function AppClient() {
           properties={properties} 
         />
       );
-      case 'Solicitudes': return <ApplicationsView applications={[]} setApplications={() => {}} properties={properties} />;
+      case 'Solicitudes': return (
+        <ApplicationsView 
+          applications={applications} 
+          userId={user?.uid} 
+          properties={properties} 
+        />
+      );
       case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
       case 'Legales': return <LegalView legalCases={legalCases} userId={user?.uid} properties={properties} />;
       case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} />;
       case 'Reportes': return <ReportsView />;
       case 'Asistente IA': return <AIAssistantView />;
-      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
+      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
     }
   };
 

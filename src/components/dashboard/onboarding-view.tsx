@@ -18,11 +18,14 @@ import {
   TrendingUp, 
   DollarSign,
   ClipboardCheck,
-  Filter
+  Filter,
+  Copy,
+  ExternalLink,
+  Trash2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RentalApplication, ApplicationStatus } from '@/lib/types';
+import { RentalApplication, ApplicationStatus, Property } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -36,43 +39,24 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-const MOCK_APPLICATIONS: RentalApplication[] = [
-  {
-    id: 'app1',
-    propertyId: 'p1',
-    propertyName: 'Las Heras 4B',
-    applicantName: 'Mariano Grondona',
-    applicantEmail: 'm.grondona@email.com',
-    applicantPhone: '11 2233-4455',
-    ingreso: 850000,
-    references: 'Anterior locador: Juan Gomez (Tel: 11 9988-7766)',
-    documents: [],
-    status: 'Nueva',
-    submittedAt: '2026-04-01',
-    ownerId: 'user1'
-  },
-  {
-    id: 'app2',
-    propertyId: 'p2',
-    propertyName: 'Quinta del Sol',
-    applicantName: 'Lucía Galán',
-    applicantEmail: 'lucia.g@email.com',
-    applicantPhone: '11 5566-7788',
-    ingreso: 1200000,
-    references: 'Recibos de sueldo de OSDE, 10 años de antigüedad.',
-    documents: [],
-    status: 'En análisis',
-    submittedAt: '2026-03-28',
-    ownerId: 'user1'
-  }
-];
+interface ApplicationsViewProps {
+  applications: RentalApplication[];
+  userId?: string;
+  properties: Property[];
+}
 
-export function ApplicationsView({ applications: propsApps, setApplications, properties }: { applications: RentalApplication[], setApplications: any, properties: any }) {
+const APP_ID = "alquilagestion-pro";
+
+export function ApplicationsView({ applications, userId, properties }: ApplicationsViewProps) {
   const { toast } = useToast();
-  const [apps, setApps] = useState<RentalApplication[]>(propsApps.length > 0 ? propsApps : MOCK_APPLICATIONS);
+  const db = useFirestore();
   const [selectedApp, setSelectedApp] = useState<RentalApplication | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
 
   const getStatusBadge = (status: ApplicationStatus) => {
     const styles = {
@@ -85,11 +69,28 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
   };
 
-  const handleApprove = (app: RentalApplication) => {
+  const handleUpdateStatus = (appId: string, newStatus: ApplicationStatus) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', appId);
+    setDocumentNonBlocking(docRef, { status: newStatus }, { merge: true });
+    
     toast({
-      title: "Solicitud Aprobada",
-      description: `Se ha generado un borrador de contrato para ${app.applicantName}.`,
+      title: `Solicitud ${newStatus}`,
+      description: `El estado se ha actualizado correctamente en la nube.`,
     });
+  };
+
+  const handleDelete = (appId: string) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', appId);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: "Solicitud eliminada", description: "Se ha removido el registro." });
+  };
+
+  const copyPublicLink = () => {
+    const link = `https://alquilagestion-pro.web.app/apply?adminId=${userId}`;
+    navigator.clipboard.writeText(link);
+    toast({ title: "Enlace Copiado", description: "El link público de solicitudes está en el portapapeles." });
   };
 
   return (
@@ -100,32 +101,45 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar por candidato o unidad..." className="pl-9 bg-white shadow-sm" />
           </div>
-          <Button variant="outline" className="gap-2">
-            <Filter className="h-4 w-4" /> Filtros
-          </Button>
         </div>
         
-        <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
-          <UserPlus className="h-4 w-4" /> Link de Solicitud Pública
-        </Button>
+        <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
+              <ExternalLink className="h-4 w-4" /> Link de Solicitud Pública
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Recibir Solicitudes Online</DialogTitle>
+              <DialogDescription>
+                Envía este enlace a tus interesados para que carguen sus datos y documentos directamente en tu sistema.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
+              <code className="text-[10px] flex-1 truncate">https://alquilagestion-pro.web.app/apply?adminId={userId}</code>
+              <Button size="icon" variant="ghost" onClick={copyPublicLink}><Copy className="h-4 w-4" /></Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm p-4">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground block">Nuevas Solicitudes</span>
-          <span className="text-xl font-black">5</span>
+          <span className="text-[10px] uppercase font-bold text-muted-foreground block">Nuevas</span>
+          <span className="text-xl font-black">{applications.filter(a => a.status === 'Nueva').length}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
           <span className="text-[10px] uppercase font-bold text-orange-600 block">En Análisis</span>
-          <span className="text-xl font-black text-orange-700">12</span>
+          <span className="text-xl font-black text-orange-700">{applications.filter(a => a.status === 'En análisis').length}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4">
-          <span className="text-[10px] uppercase font-bold text-green-600 block">Aprobadas (Pend. Contrato)</span>
-          <span className="text-xl font-black text-green-700">3</span>
+          <span className="text-[10px] uppercase font-bold text-green-600 block">Aprobadas</span>
+          <span className="text-xl font-black text-green-700">{applications.filter(a => a.status === 'Aprobada').length}</span>
         </Card>
         <Card className="bg-white border-none shadow-sm p-4 border-l-4 border-l-primary">
-          <span className="text-[10px] uppercase font-bold text-primary block">Tasa de Conversión</span>
-          <span className="text-xl font-black text-primary">68%</span>
+          <span className="text-[10px] uppercase font-bold text-primary block">Total Recibidas</span>
+          <span className="text-xl font-black text-primary">{applications.length}</span>
         </Card>
       </div>
 
@@ -141,7 +155,7 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
             </TableRow>
           </TableHeader>
           <TableBody>
-            {apps.map((app) => (
+            {applications.map((app) => (
               <TableRow key={app.id} className="hover:bg-muted/30 transition-colors">
                 <TableCell>
                   <div className="flex flex-col">
@@ -154,13 +168,13 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
                 <TableCell>
                   <div className="flex items-center gap-2 text-xs">
                     <Building2 className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{app.propertyName}</span>
+                    <span className="font-medium">{app.propertyName || 'Unidad No Asignada'}</span>
                   </div>
                 </TableCell>
                 <TableCell>
                    <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-green-600" />
-                    <span className="font-black">$ {app.ingreso.toLocaleString('es-AR')}</span>
+                    <span className="font-black">$ {app.ingreso?.toLocaleString('es-AR') || '0'}</span>
                   </div>
                 </TableCell>
                 <TableCell>{getStatusBadge(app.status)}</TableCell>
@@ -177,13 +191,21 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
                     >
                       <ClipboardCheck className="h-4 w-4" /> Evaluar
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                      <MoreHorizontal className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(app.id)}>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
+            {applications.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground space-y-2">
+                  <UserPlus className="h-8 w-8 mx-auto opacity-20" />
+                  <p>No hay solicitudes recibidas aún. Comparte tu link público para empezar.</p>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -214,8 +236,7 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
                   <DollarSign className="h-4 w-4" /> Capacidad Financiera
                 </h4>
                 <div className="space-y-1">
-                  <p className="text-sm"><strong>Ingreso:</strong> $ {selectedApp?.ingreso.toLocaleString('es-AR')}</p>
-                  <p className="text-xs text-muted-foreground">Relación cuota/ingreso est: 22% (Saludable)</p>
+                  <p className="text-sm"><strong>Ingreso:</strong> $ {selectedApp?.ingreso?.toLocaleString('es-AR') || '0'}</p>
                 </div>
               </div>
             </div>
@@ -226,7 +247,7 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
                   <FileText className="h-4 w-4" /> Referencias y Notas
                 </h4>
                 <p className="text-sm italic text-foreground/80 leading-relaxed">
-                  "{selectedApp?.references}"
+                  "{selectedApp?.references || 'Sin referencias adjuntas.'}"
                 </p>
               </div>
 
@@ -246,7 +267,10 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
 
           <DialogFooter className="mt-8 border-t pt-4">
             <div className="flex gap-2 w-full justify-between">
-              <Button variant="ghost" className="text-red-600 hover:bg-red-50 gap-2">
+              <Button variant="ghost" className="text-red-600 hover:bg-red-50 gap-2" onClick={() => {
+                if (selectedApp) handleUpdateStatus(selectedApp.id, 'Rechazada');
+                setIsDetailOpen(false);
+              }}>
                 <XCircle className="h-4 w-4" /> Rechazar
               </Button>
               <div className="flex gap-2">
@@ -254,7 +278,7 @@ export function ApplicationsView({ applications: propsApps, setApplications, pro
                 <Button 
                   className="bg-primary text-white gap-2"
                   onClick={() => {
-                    if (selectedApp) handleApprove(selectedApp);
+                    if (selectedApp) handleUpdateStatus(selectedApp.id, 'Aprobada');
                     setIsDetailOpen(false);
                   }}
                 >

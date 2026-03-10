@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { AppAlert, Property, Contract, Invoice, MaintenanceTask } from '@/lib/types';
+import { AppAlert, Property, Contract, Invoice, MaintenanceTask, RentalApplication } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
 interface SummaryViewProps {
@@ -29,42 +29,53 @@ interface SummaryViewProps {
   contracts: Contract[];
   invoices: Invoice[];
   tasks: MaintenanceTask[];
+  applications: RentalApplication[];
 }
 
-export function SummaryView({ onNavigate, properties = [], contracts = [], invoices = [], tasks = [] }: SummaryViewProps) {
+export function SummaryView({ onNavigate, properties = [], contracts = [], invoices = [], tasks = [], applications = [] }: SummaryViewProps) {
   const [dolarMep, setDolarMep] = useState<number | null>(null);
   
-  const [alerts] = useState<AppAlert[]>([
-    { 
-      id: 'a1', 
-      type: 'contract_expiry', 
-      title: 'Contrato Próximo a Vencer', 
-      description: 'El contrato de Carlos Sosa (Heras 4B) vence en 45 días.', 
-      severity: 'high', 
-      date: '2026-04-05',
-      linkTab: 'Personas'
-    },
-    { 
-      id: 'a2', 
-      type: 'overdue_debt', 
-      title: 'Mora Superior a 30 días', 
-      description: 'Jorge Paez adeuda 2 meses de alquiler en Local Florida.', 
-      severity: 'high', 
-      date: '2026-04-04',
-      linkTab: 'Facturas'
-    }
-  ]);
+  const [alerts, setAlerts] = useState<AppAlert[]>([]);
 
   useEffect(() => {
     setDolarMep(1185);
-  }, []);
+    
+    // Generar alertas dinámicas basadas en datos reales
+    const newAlerts: AppAlert[] = [];
+    
+    if (applications.filter(a => a.status === 'Nueva').length > 0) {
+      newAlerts.push({
+        id: 'new_apps',
+        type: 'rent_adjustment',
+        title: 'Nuevas Solicitudes',
+        description: `Tienes ${applications.filter(a => a.status === 'Nueva').length} nuevas solicitudes de alquiler para evaluar.`,
+        severity: 'medium',
+        date: '2026-05-15',
+        linkTab: 'Solicitudes'
+      });
+    }
+
+    if (invoices.filter(i => i.status === 'Vencido').length > 0) {
+      newAlerts.push({
+        id: 'debt_alert',
+        type: 'overdue_debt',
+        title: 'Mora Detectada',
+        description: `Existen facturas vencidas de inquilinos. Revisar cobranzas.`,
+        severity: 'high',
+        date: '2026-05-15',
+        linkTab: 'Facturas'
+      });
+    }
+
+    setAlerts(newAlerts);
+  }, [applications, invoices]);
 
   const stats = [
     { 
       label: 'Recaudación Proyectada', 
       value: `$ ${(invoices || []).reduce((acc, i) => acc + (i.totalAmount || 0), 0).toLocaleString('es-AR')}`, 
       icon: TrendingUp, 
-      trend: '+18%', 
+      trend: '+12% vs abr', 
       color: 'text-primary' 
     },
     { 
@@ -78,14 +89,14 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
       label: 'Mora en Cartera', 
       value: `${(invoices || []).filter(i => i.status === 'Vencido').length > 0 ? '4.2%' : '0%'}`, 
       icon: AlertTriangle, 
-      trend: 'Controlada', 
+      trend: (invoices || []).filter(i => i.status === 'Vencido').length > 0 ? 'Revisar' : 'Saludable', 
       color: 'text-orange-500' 
     },
     { 
-      label: 'Tareas Activas', 
-      value: (tasks || []).filter(t => t.status !== 'Cerrado').length.toString(), 
-      icon: Wrench, 
-      trend: 'En curso', 
+      label: 'Solicitudes Pendientes', 
+      value: (applications || []).filter(a => a.status === 'Nueva' || a.status === 'En análisis').length.toString(), 
+      icon: Users2, 
+      trend: 'Por evaluar', 
       color: 'text-blue-500' 
     },
   ];
@@ -168,7 +179,7 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {alerts.map((alert) => (
+              {alerts.length > 0 ? alerts.map((alert) => (
                 <div key={alert.id} className={cn(
                   "flex items-start justify-between p-4 rounded-lg border transition-all",
                   alert.severity === 'high' ? "bg-red-50/50 border-red-100" : "bg-muted/30 border-transparent"
@@ -178,8 +189,7 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
                       "mt-1 p-2 rounded-full",
                       alert.severity === 'high' ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
                     )}>
-                      {alert.type === 'contract_expiry' ? <CalendarDays className="h-4 w-4" /> : 
-                       alert.type === 'overdue_debt' ? <AlertTriangle className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+                      {alert.id === 'new_apps' ? <Users2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                     </div>
                     <div>
                       <p className="font-bold text-sm text-foreground">{alert.title}</p>
@@ -195,7 +205,12 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
                     Gestionar <ArrowRight className="h-3 w-3 ml-1" />
                   </Button>
                 </div>
-              ))}
+              )) : (
+                <div className="p-8 text-center text-muted-foreground space-y-2">
+                  <CheckCircle2 className="h-8 w-8 mx-auto opacity-20 text-green-600" />
+                  <p className="text-sm">Todo está en orden por ahora.</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

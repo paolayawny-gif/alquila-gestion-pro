@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Propiedad": {
@@ -176,92 +177,22 @@
         "estado"
       ]
     },
-    "LegalCase": {
+    "RentalApplication": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "LegalCase",
+      "title": "RentalApplication",
       "type": "object",
-      "description": "Represents a legal case or mediation process related to a property or tenant.",
+      "description": "Represents a rental application submitted by a potential tenant.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the LegalCase entity."
-        },
-        "tipo": {
-          "type": "string",
-          "description": "The type of legal process (e.g., 'Desalojo', 'Mediación por Ruidos Molestos')."
-        },
-        "propiedadId": {
-          "type": "string",
-          "description": "Reference to the Propiedad entity involved in the legal case. (Relationship: Propiedad 1:N LegalCase)"
-        },
-        "inquilinoId": {
-          "type": "string",
-          "description": "Reference to the Inquilino entity involved in the legal case. Optional if the case is not tenant-specific. (Relationship: Inquilino 1:N LegalCase)"
-        },
-        "fecha": {
-          "type": "string",
-          "description": "The start date of the legal process in 'DD/MM/AAAA' format."
-        },
-        "abogado": {
-          "type": "string",
-          "description": "The name of the attorney handling the case."
-        },
-        "estado": {
-          "type": "string",
-          "description": "The current status of the legal case.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "tieneArchivo": {
-          "type": "boolean",
-          "description": "A flag indicating whether a legal document has been uploaded for this case."
-        }
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "applicantName": { "type": "string" },
+        "applicantEmail": { "type": "string" },
+        "applicantPhone": { "type": "string" },
+        "ingreso": { "type": "number" },
+        "status": { "type": "string" },
+        "submittedAt": { "type": "string" }
       },
-      "required": [
-        "id",
-        "tipo",
-        "propiedadId",
-        "fecha",
-        "abogado",
-        "estado"
-      ]
-    },
-    "Liquidacion": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Liquidacion",
-      "type": "object",
-      "description": "Represents a financial settlement report to a property owner, detailing rental income and deductions.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Liquidacion entity."
-        },
-        "propiedadId": {
-          "type": "string",
-          "description": "Reference to the Propiedad entity for which this settlement is made. (Relationship: Propiedad 1:N Liquidacion)"
-        },
-        "valorAlquiler": {
-          "type": "string",
-          "description": "The total rental income for the settlement period, including currency symbol (e.g., '$ 450.000')."
-        },
-        "valorAdministracion": {
-          "type": "string",
-          "description": "The administration fee deducted from the rental income, including currency symbol (e.g., '$ 45.000')."
-        },
-        "saldo": {
-          "type": "string",
-          "description": "The final amount owed to the property owner after deductions, including currency symbol (e.g., '$ 405.000'). This is typically a calculated field."
-        }
-      },
-      "required": [
-        "id",
-        "propiedadId",
-        "valorAlquiler",
-        "valorAdministracion",
-        "saldo"
-      ]
+      "required": ["id", "applicantName", "applicantEmail", "status"]
     }
   },
   "auth": {
@@ -279,7 +210,7 @@
           "schema": {
             "$ref": "#/backend/entities/Propiedad"
           },
-          "description": "Collection storing individual rental property details. Each document is owned by the `userId` in the path. Includes a `propiedadId` wildcard that corresponds to the document's `id` field. All documents in this collection share the same security posture, owned by the respective user."
+          "description": "Collection storing individual rental property details."
         }
       },
       {
@@ -289,7 +220,7 @@
           "schema": {
             "$ref": "#/backend/entities/Inquilino"
           },
-          "description": "Collection storing tenant information. Each document represents a tenant and is owned by the `userId` in the path. Includes `inquilinoId` wildcard corresponding to the document's `id` field, and a `propiedadId` field linking to a specific property. All documents in this collection share the same security posture, owned by the respective user."
+          "description": "Collection storing tenant information."
         }
       },
       {
@@ -299,7 +230,7 @@
           "schema": {
             "$ref": "#/backend/entities/Factura"
           },
-          "description": "Collection for recording bills and service invoices. Each document is owned by the `userId` in the path. Includes `facturaId` wildcard corresponding to the document's `id` field, and an optional `propiedadId` for association. All documents in this collection share the same security posture, owned by the respective user."
+          "description": "Collection for recording bills and service invoices."
         }
       },
       {
@@ -309,30 +240,19 @@
           "schema": {
             "$ref": "#/backend/entities/Mantenimiento"
           },
-          "description": "Collection for tracking maintenance tasks and repairs. Each document is owned by the `userId` in the path. Includes `mantenimientoId` wildcard corresponding to the document's `id` field, and a `propiedadId` for association. All documents in this collection share the same security posture, owned by the respective user."
+          "description": "Collection for tracking maintenance tasks."
         }
       },
       {
-        "path": "artifacts/{appId}/users/{userId}/legalCases/{legalCaseId}",
+        "path": "artifacts/{appId}/users/{userId}/solicitudes/{solicitudId}",
         "definition": {
-          "entityName": "LegalCase",
+          "entityName": "RentalApplication",
           "schema": {
-            "$ref": "#/backend/entities/LegalCase"
+            "$ref": "#/backend/entities/RentalApplication"
           },
-          "description": "Collection for managing legal cases and mediations. Each document is owned by the `userId` in the path. Includes `legalCaseId` wildcard corresponding to the document's `id` field, and `propiedadId` and optional `inquilinoId` for associations. All documents in this collection share the same security posture, owned by the respective user."
-        }
-      },
-      {
-        "path": "artifacts/{appId}/users/{userId}/liquidaciones/{liquidacionId}",
-        "definition": {
-          "entityName": "Liquidacion",
-          "schema": {
-            "$ref": "#/backend/entities/Liquidacion"
-          },
-          "description": "Collection for financial settlement reports to property owners. Each document is owned by the `userId` in the path. Includes `liquidacionId` wildcard corresponding to the document's `id` field, and `propiedadId` for association. All documents in this collection share the same security posture, owned by the respective user."
+          "description": "Collection for storing rental applications submitted by potential tenants."
         }
       }
-    ],
-    "reasoning": "The recommended Firestore data structure strictly adheres to the core design principles, focusing on secure, scalable, and debuggable user-owned data. The structure places all user-specific data under a deeply nested, user-isolated path: `/artifacts/{appId}/users/{userId}/{collectionName}/{docId}`.\n\n**Justification of Design:**\n\n1.  **Authorization Independence (CRITICAL):** This structure inherently provides robust authorization independence. Each user's entire dataset (Propiedades, Inquilinos, Facturas, Mantenimiento, LegalCases, Liquidaciones) is encapsulated under their unique `userId` in the path. Firestore security rules can directly enforce ownership by checking `request.auth.uid == userId` at the `users/{userId}` level. This eliminates the need for `get()` calls to other documents (e.g., to check a parent `Propiedad` for authorization to an `Inquilino`) because the ownership is explicit and atomic at the user's data root. All entities, even those logically related (like `Inquilino` to `Propiedad`), are treated as top-level collections *under the user's scope*. Their interdependencies are managed via `propiedadId` foreign keys for data integrity and querying, not for authorization.\n\n2.  **Clarity of Intent (Debuggability):** The path `/artifacts/{appId}/users/{userId}/{collectionName}/{docId}` makes the ownership model crystal clear. It's immediately evident that all data within `users/{userId}` belongs to `userId`. This explicit path-based ownership simplifies writing and debugging security rules, as the primary authorization check is a direct comparison to the authenticated user's ID.\n\n3.  **DBAC (No Custom Claims):** Roles and permissions are implicitly handled by ownership. Since `request.auth.uid` is used directly in the path, no custom claims are needed for basic CRUD operations on a user's own data.\n\n4.  **QAPs (Rules are not Filters):** This structure is highly QAP-friendly. Because all documents within a given collection (e.g., `/artifacts/{appId}/users/{userId}/inquilinos`) are unequivocally owned by the `userId` specified in the path, any `list` operation on that collection for a specific user will automatically retrieve only their data. Security rules will enforce that `list` requests must originate from the `userId` matching the path, ensuring that no unauthorized data is ever returned, thus preventing rules from acting as filters.\n\n5.  **Invariants:** Ownership is strongly enforced by the path. The `id` field in each entity schema is consistent with Firestore's document IDs. Explicit status fields (`estado`) and boolean flags (`tieneContrato`, `tieneArchivo`) maintain clear data state.\n\n**Structural Segregation:** Each collection (`propiedades`, `inquilinos`, etc.) under a user's branch `users/{userId}` maintains a homogeneous security posture. All documents within, say, `/users/{userId}/inquilinos`, are private to `userId`. There is no mixing of public/private or different user roles within these collections, which greatly simplifies security rule logic.\n\nThe Next.js hydration error reported (e.g., `id=\"radix-_R_1datmlb_\"` vs `id=\"radix-_R_5matmlb_\"`) is a client-side rendering issue related to non-deterministic HTML generation by UI libraries like Radix UI between server and client renders. This is a front-end rendering concern and falls outside the scope of Firestore data structure architecture."
+    ]
   }
 }
