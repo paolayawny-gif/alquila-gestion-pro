@@ -2,76 +2,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * DOCUMENTATION: PROP-ADMIN SECURITY MODEL
-     *
-     * Core Philosophy:
-     * This ruleset enforces a strict user-ownership model. Every piece of data—from properties 
-     * and tenants to invoices and legal cases—is nested within a user-specific path. 
-     * Security is primary derived from the {userId} parameter in the document path.
-     *
-     * Data Structure:
-     * All data is organized under the hierarchy: /artifacts/{appId}/users/{userId}/{collection}/{docId}.
-     * This ensures that one user's data is physically and logically separated from another's.
-     *
-     * Key Security Decisions:
-     * 1. Path-Based Authorization: We rely on the userId in the path matching the 
-     *    authenticated user's UID (request.auth.uid). This is the fastest and most secure 
-     *    method for user-owned data.
-     * 2. No Public Access: All collections are private. There are no public read or list operations.
-     * 3. Identity Anchoring: During document creation, we ensure the internal 'id' field 
-     *    of the document matches the Firestore Document ID to maintain relational integrity.
-     * 4. Immutable Identity: Once a document is created, its 'id' field is made immutable 
-     *    to prevent accidental or malicious re-parenting.
-     *
-     * Denormalization for Authorization:
-     * The ownership (userId) is "denormalized" directly into the URL path. This avoids 
-     * costly get() lookups on parent documents and allows for efficient, scalable rules.
-     */
-
-    // --- Helper Functions ---
-
-    /**
-     * @description Checks if a user is authenticated with a valid Firebase Auth token.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Verifies if the authenticated user matches the owner of the path.
-     * @param userId The UID extracted from the document path.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * @description Combines ownership check with a check for document existence.
-     * Used for update and delete operations to ensure the target exists and is owned.
-     * @param userId The UID extracted from the document path.
-     */
     function isExistingOwner(userId) {
       return resource != null && isOwner(userId);
     }
 
-    // --- Collection Rules ---
-
-    /**
-     * @description Security rules for the Propiedad collection.
-     * @path /artifacts/{appId}/users/{userId}/propiedades/{propiedadId}
-     */
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
-      allow get, list: if isOwner(userId);
+      allow get: if true; // Permitir lectura pública para que los postulantes vean la unidad
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == propiedadId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Security rules for the Inquilino collection.
-     * @path /artifacts/{appId}/users/{userId}/inquilinos/{inquilinoId}
-     */
     match /artifacts/{appId}/users/{userId}/inquilinos/{inquilinoId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == inquilinoId;
@@ -79,10 +29,6 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Security rules for the Factura collection.
-     * @path /artifacts/{appId}/users/{userId}/facturas/{facturaId}
-     */
     match /artifacts/{appId}/users/{userId}/facturas/{facturaId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == facturaId;
@@ -90,10 +36,6 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Security rules for the Mantenimiento collection.
-     * @path /artifacts/{appId}/users/{userId}/mantenimiento/{mantenimientoId}
-     */
     match /artifacts/{appId}/users/{userId}/mantenimiento/{mantenimientoId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == mantenimientoId;
@@ -101,10 +43,11 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Security rules for the LegalCase collection.
-     * @path /artifacts/{appId}/users/{userId}/legalCases/{legalCaseId}
-     */
+    match /artifacts/{appId}/users/{userId}/solicitudes/{solicitudId} {
+      allow get, list, update, delete: if isOwner(userId);
+      allow create: if true; // PERMITIR CREACIÓN PÚBLICA (Buzón de entrada)
+    }
+
     match /artifacts/{appId}/users/{userId}/legalCases/{legalCaseId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == legalCaseId;
@@ -112,24 +55,9 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Security rules for the Liquidacion collection.
-     * @path /artifacts/{appId}/users/{userId}/liquidaciones/{liquidacionId}
-     */
     match /artifacts/{appId}/users/{userId}/liquidaciones/{liquidacionId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == liquidacionId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Security rules for the RentalApplication collection.
-     * @path /artifacts/{appId}/users/{userId}/solicitudes/{solicitudId}
-     */
-    match /artifacts/{appId}/users/{userId}/solicitudes/{solicitudId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == solicitudId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
