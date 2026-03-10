@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, CreditCard, X, PlusCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyType } from '@/lib/types';
@@ -23,14 +23,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
+import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface PropertiesViewProps {
   properties: Property[];
-  setProperties: React.Dispatch<React.SetStateAction<Property[]>>;
+  userId?: string;
 }
 
-export function PropertiesView({ properties, setProperties }: PropertiesViewProps) {
+const APP_ID = "alquilagestion-pro";
+
+export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const { toast } = useToast();
+  const db = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -102,35 +108,41 @@ export function PropertiesView({ properties, setProperties }: PropertiesViewProp
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.address) {
+    if (!formData.name || !formData.address || !userId || !db) {
       toast({
-        title: "Campos requeridos",
-        description: "Por favor complete el nombre y la dirección de la propiedad.",
+        title: "Error",
+        description: "Complete todos los campos requeridos.",
         variant: "destructive"
       });
       return;
     }
 
-    if (editingProperty) {
-      setProperties(properties.map(p => p.id === editingProperty.id ? { ...formData, id: p.id } as Property : p));
-      toast({ title: "Propiedad actualizada", description: `${formData.name} ha sido modificada.` });
-    } else {
-      const newProperty: Property = {
-        ...formData,
-        id: Math.random().toString(36).substr(2, 9),
-        ownerId: 'user1',
-        photos: [],
-        amenities: formData.amenities || []
-      } as Property;
-      setProperties([...properties, newProperty]);
-      toast({ title: "Propiedad creada", description: `${formData.name} ha sido dada de alta.` });
-    }
+    const docId = editingProperty?.id || Math.random().toString(36).substr(2, 9);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'propiedades', docId);
 
+    const propertyData: Property = {
+      ...formData,
+      id: docId,
+      ownerId: userId,
+      photos: formData.photos || [],
+      amenities: formData.amenities || [],
+      owners: formData.owners || []
+    } as Property;
+
+    setDocumentNonBlocking(docRef, propertyData, { merge: true });
+    
+    toast({ 
+      title: editingProperty ? "Propiedad actualizada" : "Propiedad creada", 
+      description: `${formData.name} se ha guardado en la nube.` 
+    });
+    
     setIsDialogOpen(false);
   };
 
   const handleDelete = (id: string) => {
-    setProperties(properties.filter(p => p.id !== id));
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'propiedades', id);
+    deleteDocumentNonBlocking(docRef);
     toast({ title: "Propiedad eliminada", description: "La unidad ha sido removida." });
   };
 
@@ -312,7 +324,7 @@ export function PropertiesView({ properties, setProperties }: PropertiesViewProp
                 <TableCell>{getStatusBadge(p.status)}</TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1">
-                    {p.owners.map((o, idx) => (
+                    {(p.owners || []).map((o, idx) => (
                       <span key={idx} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full w-fit">
                         {o.name} ({o.percentage}%)
                       </span>
@@ -331,6 +343,11 @@ export function PropertiesView({ properties, setProperties }: PropertiesViewProp
                 </TableCell>
               </TableRow>
             ))}
+            {filteredProperties.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No hay propiedades cargadas.</TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -15,9 +16,9 @@ import {
   ChevronRight,
   User,
   ShieldCheck,
-  UserPlus,
   ArrowLeftRight,
-  BarChart3
+  BarChart3,
+  UserPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -40,9 +41,15 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Property, Person, Contract, RentalApplication, Invoice, MaintenanceTask, LegalCase, Liquidation } from '@/lib/types';
-import { useAuth, useUser } from '@/firebase';
+import { 
+  useAuth, 
+  useUser, 
+  useFirestore, 
+  useCollection, 
+  useMemoFirebase 
+} from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { collection, query } from 'firebase/firestore';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
@@ -60,13 +67,17 @@ const ADMIN_MENU = [
   { id: 'Asistente IA', icon: MessageSquareCode, label: 'Asistente IA' },
 ];
 
+const APP_ID = "alquilagestion-pro";
+
 export default function AppClient() {
   const [activeRole, setActiveRole] = useState<Role>('Administrador');
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  
   const { user } = useUser();
   const auth = useAuth();
+  const db = useFirestore();
 
   useEffect(() => {
     setIsMounted(true);
@@ -76,123 +87,50 @@ export default function AppClient() {
     await signOut(auth);
   };
 
-  // ESTADO GLOBAL CENTRALIZADO
-  const [properties, setProperties] = useState<Property[]>([
-    { 
-      id: '1', 
-      name: 'Edificio Las Heras 4B', 
-      address: 'Las Heras 1234', 
-      unit: '4B', 
-      type: 'Departamento',
-      usage: 'Vivienda',
-      status: 'Alquilada',
-      squareMeters: 55,
-      rooms: 2,
-      amenities: ['Seguridad 24hs', 'SUM'],
-      owners: [{ ownerId: 'p1', name: 'Juan Pérez', percentage: 100 }],
-      photos: [],
-      ownerId: 'user1'
-    }
-  ]);
+  // CONSULTAS A FIRESTORE (Persistencia Real)
+  const propiedadesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'propiedades'));
+  }, [db, user]);
 
-  const [people, setPeople] = useState<Person[]>([
-    {
-      id: '1',
-      type: 'Inquilino',
-      fullName: 'Carlos Sosa',
-      taxId: '20-34567890-9',
-      email: 'carlos.sosa@email.com',
-      phone: '11 4455-6677',
-      address: 'Av. Corrientes 1500, CABA',
-      documents: [],
-      bankDetails: { bank: 'Galicia', cbu: '0070123456', alias: 'CARLOS.SOSA.PAGO' },
-      ownerId: 'user1'
-    },
-    {
-      id: 'p1',
-      type: 'Propietario',
-      fullName: 'Juan Pérez',
-      taxId: '20-12345678-9',
-      email: 'juan.perez@email.com',
-      phone: '11 9988-7766',
-      documents: [],
-      bankDetails: { bank: 'Santander', cbu: '0720123456', alias: 'JUAN.P.PROPIEDAD' },
-      ownerId: 'user1'
-    }
-  ]);
+  const inquilinosQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'inquilinos'));
+  }, [db, user]);
 
-  const [contracts, setContracts] = useState<Contract[]>([
-    { 
-      id: 'c1', 
-      tenantId: '1', 
-      tenantName: 'Carlos Sosa',
-      propertyId: '1', 
-      propertyName: 'Edificio Las Heras 4B',
-      guarantorIds: [],
-      ownerIds: ['p1'],
-      startDate: '2026-05-15',
-      endDate: '2028-05-15',
-      paymentPeriodDays: 30,
-      baseRentAmount: 120000,
-      currentRentAmount: 185000,
-      currency: 'ARS',
-      adjustmentType: 'Index',
-      adjustmentMechanism: 'ICL',
-      adjustmentFrequencyMonths: 4,
-      depositAmount: 120000,
-      depositCurrency: 'ARS',
-      commissionAmount: 60000,
-      lateFeeType: 'DailyPercentage',
-      lateFeeValue: 0.5,
-      status: 'Vigente',
-      documents: { mainContractUrl: '', versions: [], annexes: [] },
-      ownerId: 'user1'
-    }
-  ]);
+  const facturasQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'facturas'));
+  }, [db, user]);
 
-  const [applications, setApplications] = useState<RentalApplication[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { 
-      id: '1', 
-      contractId: 'c1',
-      tenantName: 'Carlos Sosa',
-      propertyName: 'Las Heras 4B',
-      period: 'Marzo 2026',
-      charges: [
-        { id: 'ch1', type: 'Alquiler', description: 'Alquiler mensual', amount: 185000, imputedTo: 'Inquilino', isPaid: true },
-        { id: 'ch2', type: 'Expensa Ordinaria', description: 'Expensas Marzo', amount: 45000, imputedTo: 'Inquilino', isPaid: true },
-      ],
-      lateFees: 0,
-      totalAmount: 230000,
-      currency: 'ARS',
-      dueDate: '2026-03-10', 
-      status: 'Pagado', 
-      paymentDate: '2026-03-08',
-      paymentMethod: 'Transferencia',
-      hasFile: true 
-    }
-  ]);
-  const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
-  const [legalCases, setLegalCases] = useState<LegalCase[]>([
-    { id: '1', type: 'Desalojo por Falta de Pago', propertyId: '1', propertyName: 'Las Heras 4B', startDate: '2026-01-10', attorney: 'Dr. Ricardo Darín', status: 'En proceso', hasFile: true, ownerId: 'user1' }
-  ]);
-  const [liquidations, setLiquidations] = useState<Liquidation[]>([
-    { 
-      id: '1', 
-      propertyId: '1',
-      propertyName: 'Las Heras 4B', 
-      ownerId: 'p1',
-      ownerName: 'Juan Pérez',
-      ingresoAlquiler: 185000, 
-      adminFeeDeduction: 18500,
-      maintenanceDeductions: 0, 
-      expenseDeductions: 12000, 
-      netAmount: 154500,
-      period: 'Abril 2026',
-      status: 'Pendiente',
-      dateCreated: '2026-04-15'
-    }
-  ]);
+  const mantenimientoQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'mantenimiento'));
+  }, [db, user]);
+
+  const legalQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'legalCases'));
+  }, [db, user]);
+
+  const liquidacionesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'liquidaciones'));
+  }, [db, user]);
+
+  const { data: properties = [] } = useCollection(propiedadesQuery);
+  const { data: people = [] } = useCollection(inquilinosQuery);
+  const { data: invoices = [] } = useCollection(facturasQuery);
+  const { data: tasks = [] } = useCollection(mantenimientoQuery);
+  const { data: legalCases = [] } = useCollection(legalQuery);
+  const { data: liquidations = [] } = useCollection(liquidacionesQuery);
+
+  // Mapeo manual para contratos ya que en backend.json no hay colección directa 
+  // pero el sistema los gestiona como parte de la lógica de Personas
+  // En este MVP simplificado, tratamos los contratos como una vista filtrada o extendida
+  // Para propósitos de este prototipo, seguimos usando el estado para contratos 
+  // pero vinculados a las propiedades e inquilinos reales.
+  const [contracts, setContracts] = useState<any[]>([]);
 
   if (!isMounted) return null;
 
@@ -201,25 +139,25 @@ export default function AppClient() {
     if (activeRole === 'Propietario') return <OwnerPortalView />;
 
     switch (activeTab) {
-      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
-      case 'Propiedades': return <PropertiesView properties={properties} setProperties={setProperties} />;
+      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties as any} contracts={contracts} invoices={invoices as any} tasks={tasks as any} />;
+      case 'Propiedades': return <PropertiesView properties={properties as any} userId={user?.uid} />;
       case 'Personas': return (
         <TenantsView 
-          people={people} 
-          setPeople={setPeople} 
+          people={people as any} 
+          userId={user?.uid}
           contracts={contracts} 
           setContracts={setContracts} 
-          properties={properties} 
+          properties={properties as any} 
         />
       );
-      case 'Solicitudes': return <ApplicationsView applications={applications} setApplications={setApplications} properties={properties} />;
-      case 'Facturas': return <InvoicesView invoices={invoices} setInvoices={setInvoices} contracts={contracts} />;
-      case 'Mantenimiento': return <MaintenanceView tasks={tasks} setTasks={setTasks} properties={properties} people={people} />;
-      case 'Legales': return <LegalView legalCases={legalCases} setLegalCases={setLegalCases} properties={properties} />;
-      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} setLiquidations={setLiquidations} properties={properties} people={people} />;
+      case 'Solicitudes': return <ApplicationsView applications={[]} setApplications={() => {}} properties={properties as any} />;
+      case 'Facturas': return <InvoicesView invoices={invoices as any} userId={user?.uid} contracts={contracts} />;
+      case 'Mantenimiento': return <MaintenanceView tasks={tasks as any} userId={user?.uid} properties={properties as any} people={people as any} />;
+      case 'Legales': return <LegalView legalCases={legalCases as any} userId={user?.uid} properties={properties as any} />;
+      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations as any} userId={user?.uid} properties={properties as any} people={people as any} />;
       case 'Reportes': return <ReportsView />;
       case 'Asistente IA': return <AIAssistantView />;
-      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
+      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties as any} contracts={contracts} invoices={invoices as any} tasks={tasks as any} />;
     }
   };
 
