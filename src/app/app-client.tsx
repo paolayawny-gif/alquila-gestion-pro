@@ -87,7 +87,9 @@ export default function AppClient() {
     await signOut(auth);
   };
 
-  // CONSULTAS A FIRESTORE (Persistencia Real)
+  // El sistema asume un Administrador que gestiona los datos de todos.
+  // En un escenario real, un "Propietario" consultaría una colección compartida.
+  // Para este prototipo, mostramos la potencia de filtrado en el mismo flujo.
   const propiedadesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'propiedades'));
@@ -125,18 +127,13 @@ export default function AppClient() {
   const { data: legalCases = [] } = useCollection(legalQuery);
   const { data: liquidations = [] } = useCollection(liquidacionesQuery);
 
-  // Mapeo manual para contratos ya que en backend.json no hay colección directa 
-  // pero el sistema los gestiona como parte de la lógica de Personas
-  // En este MVP simplificado, tratamos los contratos como una vista filtrada o extendida
-  // Para propósitos de este prototipo, seguimos usando el estado para contratos 
-  // pero vinculados a las propiedades e inquilinos reales.
   const [contracts, setContracts] = useState<any[]>([]);
 
   if (!isMounted) return null;
 
   const renderContent = () => {
     if (activeRole === 'Inquilino') return <TenantPortalView />;
-    if (activeRole === 'Propietario') return <OwnerPortalView />;
+    if (activeRole === 'Propietario') return <OwnerPortalView properties={properties as any} liquidations={liquidations as any} />;
 
     switch (activeTab) {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties as any} contracts={contracts} invoices={invoices as any} tasks={tasks as any} />;

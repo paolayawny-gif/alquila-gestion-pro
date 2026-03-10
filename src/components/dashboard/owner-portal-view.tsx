@@ -19,25 +19,37 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Property, Liquidation } from '@/lib/types';
+import { useUser } from '@/firebase';
 
-const LIQUIDATIONS_MOCK = [
-  { propiedad: 'Las Heras 4B', periodo: 'Abril 2026', bruto: 185000, neto: 163750, estado: 'Pagada' },
-  { propiedad: 'Quinta del Sol', periodo: 'Marzo 2026', bruto: 250000, neto: 152500, estado: 'Pagada' },
-];
+interface OwnerPortalViewProps {
+  properties: Property[];
+  liquidations: Liquidation[];
+}
 
-const PROPERTIES_MOCK = [
-  { nombre: 'Las Heras 4B', inquilino: 'Carlos Sosa', estado: 'Alquilada', monto: 185000, ajuste: 'Septiembre 2026' },
-  { nombre: 'Quinta del Sol', inquilino: 'Marta Rodriguez', estado: 'Alquilada', monto: 250000, ajuste: 'Julio 2026' },
-];
-
-export function OwnerPortalView() {
+export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewProps) {
   const { toast } = useToast();
+  const { user } = useUser();
+
+  // FILTRADO DINÁMICO: El propietario solo ve las unidades donde su email coincide
+  const myProperties = properties.filter(p => 
+    p.owners.some(o => o.email.toLowerCase() === user?.email?.toLowerCase())
+  );
+
+  const myLiquidations = liquidations.filter(l => 
+    l.ownerEmail?.toLowerCase() === user?.email?.toLowerCase() ||
+    myProperties.some(p => p.id === l.propertyId)
+  );
+
+  const totalNetRecieved = myLiquidations
+    .filter(l => l.status === 'Pagada')
+    .reduce((acc, l) => acc + l.netAmount, 0);
 
   const handleExportReport = () => {
     try {
       const headers = "Propiedad,Periodo,Monto Bruto,Neto Liquidado,Estado\n";
-      const rows = LIQUIDATIONS_MOCK.map(l => 
-        `${l.propiedad},${l.periodo},${l.bruto},${l.neto},${l.estado}`
+      const rows = myLiquidations.map(l => 
+        `${l.propertyName},${l.period},${l.ingresoAlquiler},${l.netAmount},${l.status}`
       ).join("\n");
       
       const csvContent = headers + rows;
@@ -45,9 +57,8 @@ export function OwnerPortalView() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       
-      // Robust download logic for all browsers
       link.href = url;
-      link.setAttribute("download", `reporte_liquidaciones_${new Date('2026-01-01').toISOString().split('T')[0]}.csv`);
+      link.setAttribute("download", `reporte_liquidaciones_2026.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -55,7 +66,7 @@ export function OwnerPortalView() {
       
       toast({
         title: "Reporte Exportado",
-        description: "El archivo CSV se ha descargado en tu carpeta de descargas."
+        description: "El archivo CSV se ha descargado correctamente."
       });
     } catch (error) {
       toast({
@@ -68,13 +79,12 @@ export function OwnerPortalView() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Indicadores de Portafolio */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-6">
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Liquidado este Mes</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Liquidado este Año</p>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black text-green-700">$ 316.250</h3>
+              <h3 className="text-2xl font-black text-green-700">$ {totalNetRecieved.toLocaleString('es-AR')}</h3>
               <div className="p-2 bg-green-50 rounded-full">
                 <TrendingUp className="h-4 w-4 text-green-600" />
               </div>
@@ -84,9 +94,9 @@ export function OwnerPortalView() {
 
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-6">
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Ocupación</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Unidades en Gestión</p>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black">100%</h3>
+              <h3 className="text-2xl font-black">{myProperties.length}</h3>
               <div className="p-2 bg-blue-50 rounded-full">
                 <Building className="h-4 w-4 text-blue-600" />
               </div>
@@ -96,10 +106,10 @@ export function OwnerPortalView() {
 
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-6">
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Mora en Cartera</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Estado General</p>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black text-red-600">0%</h3>
-              <div className="p-2 bg-red-50 rounded-full">
+              <h3 className="text-2xl font-black text-green-700">OK</h3>
+              <div className="p-2 bg-green-50 rounded-full">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
               </div>
             </div>
@@ -108,9 +118,14 @@ export function OwnerPortalView() {
 
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-6">
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Propiedades</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Participación Promedio</p>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black">{PROPERTIES_MOCK.length}</h3>
+              <h3 className="text-2xl font-black">
+                {myProperties.length > 0 ? 
+                  Math.round(myProperties.reduce((acc, p) => 
+                    acc + (p.owners.find(o => o.email.toLowerCase() === user?.email?.toLowerCase())?.percentage || 0)
+                  , 0) / myProperties.length) : 0}%
+              </h3>
               <div className="p-2 bg-muted rounded-full">
                 <PieChart className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -120,15 +135,14 @@ export function OwnerPortalView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Próximas Liquidaciones */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-sm bg-white">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Historial de Liquidaciones</CardTitle>
-                <CardDescription>Detalle de transferencias recibidas de la administración.</CardDescription>
+                <CardDescription>Detalle de transferencias recibidas para {user?.email}.</CardDescription>
               </div>
-              <Button variant="outline" size="sm" className="gap-1" onClick={handleExportReport}>
+              <Button variant="outline" size="sm" className="gap-1" onClick={handleExportReport} disabled={myLiquidations.length === 0}>
                 <Download className="h-4 w-4" /> Exportar Reporte
               </Button>
             </CardHeader>
@@ -144,19 +158,27 @@ export function OwnerPortalView() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {LIQUIDATIONS_MOCK.map((l, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-bold">{l.propiedad}</TableCell>
-                      <TableCell className="text-xs">{l.periodo}</TableCell>
-                      <TableCell className="text-right text-xs">$ {l.bruto.toLocaleString('es-AR')}</TableCell>
-                      <TableCell className="text-right font-black text-green-700">$ {l.neto.toLocaleString('es-AR')}</TableCell>
+                  {myLiquidations.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-bold">{l.propertyName}</TableCell>
+                      <TableCell className="text-xs">{l.period}</TableCell>
+                      <TableCell className="text-right text-xs">$ {l.ingresoAlquiler.toLocaleString('es-AR')}</TableCell>
+                      <TableCell className="text-right font-black text-green-700">$ {l.netAmount.toLocaleString('es-AR')}</TableCell>
                       <TableCell>
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
-                          {l.estado}
+                        <Badge className={cn(
+                          "border-none",
+                          l.status === 'Pagada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                        )}>
+                          {l.status}
                         </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
+                  {myLiquidations.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">No hay liquidaciones registradas para su correo.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -168,31 +190,35 @@ export function OwnerPortalView() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {PROPERTIES_MOCK.map((p, i) => (
-                  <div key={i} className="p-4 border rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                        <Building className="h-6 w-6" />
+                {myProperties.map((p) => {
+                  const myPart = p.owners.find(o => o.email.toLowerCase() === user?.email?.toLowerCase())?.percentage || 0;
+                  return (
+                    <div key={p.id} className="p-4 border rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                          <Building className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">{p.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase">
+                            Dirección: {p.address} • Participación: {myPart}%
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-sm">{p.nombre}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase">
-                          Inquilino: {p.inquilino} • {p.estado}
-                        </p>
+                      <div className="text-right">
+                        <Badge variant="outline" className="text-[10px]">{p.status}</Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-primary">$ {p.monto.toLocaleString('es-AR')} / mes</p>
-                      <p className="text-[9px] text-muted-foreground uppercase">Próximo Ajuste: {p.ajuste}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+                {myProperties.length === 0 && (
+                  <p className="text-center py-4 text-muted-foreground text-sm italic">No tiene propiedades vinculadas a su email.</p>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Reportes y Notificaciones */}
         <div className="space-y-6">
           <Card className="border-none shadow-sm bg-primary/5 border-t-4 border-t-primary">
             <CardHeader>
@@ -201,32 +227,11 @@ export function OwnerPortalView() {
             <CardContent className="space-y-3">
               <Button className="w-full justify-start gap-3 h-12 bg-white text-foreground hover:bg-muted border-none shadow-sm">
                 <Calculator className="h-5 w-5 text-primary" />
-                <span className="text-sm font-bold">Descargar PDF Impositivo Anual</span>
+                <span className="text-sm font-bold">PDF Impositivo Anual 2026</span>
               </Button>
               <Button className="w-full justify-start gap-3 h-12 bg-white text-foreground hover:bg-muted border-none shadow-sm">
                 <FileCheck className="h-5 w-5 text-primary" />
-                <span className="text-sm font-bold">Ver Contratos Firmados</span>
-              </Button>
-              <Button className="w-full justify-start gap-3 h-12 bg-white text-foreground hover:bg-muted border-none shadow-sm">
-                <History className="h-5 w-5 text-primary" />
-                <span className="text-sm font-bold">Reporte de Mantenimiento Anual</span>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white">
-            <CardHeader>
-              <CardTitle className="text-lg text-orange-600 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Alertas Gestión
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-3 bg-orange-50 rounded-lg text-xs text-orange-800 leading-relaxed border border-orange-100">
-                Tiene <strong>1 presupuesto</strong> de reparación pendiente de aprobación en "Quinta del Sol".
-              </div>
-              <Button variant="outline" className="w-full text-xs gap-2">
-                Ir a Mantenimiento <ArrowUpRight className="h-3 w-3" />
+                <span className="text-sm font-bold">Contratos Firmados</span>
               </Button>
             </CardContent>
           </Card>

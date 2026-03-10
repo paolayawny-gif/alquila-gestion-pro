@@ -41,8 +41,9 @@ export interface Person {
 }
 
 export interface PropertyOwner {
-  ownerId: string;
+  ownerId?: string;
   name: string;
+  email: string; // Vínculo para el portal
   percentage: number;
 }
 
@@ -159,6 +160,7 @@ export interface Liquidation {
   propertyName: string;
   ownerId: string;
   ownerName: string;
+  ownerEmail?: string; // Para filtrado
   period: string; 
   ingresoAlquiler: number;
   adminFeeDeduction: number;

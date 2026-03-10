@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface PropertiesViewProps {
@@ -51,7 +51,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     rooms: 0,
     amenities: [],
     internalNotes: '',
-    owners: [{ ownerId: '', name: '', percentage: 100 }]
+    owners: [{ name: '', email: '', percentage: 100 }]
   });
 
   const filteredProperties = properties.filter(p => 
@@ -85,14 +85,14 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
         rooms: 0,
         amenities: [],
         internalNotes: '',
-        owners: [{ ownerId: '', name: '', percentage: 100 }]
+        owners: [{ name: '', email: '', percentage: 100 }]
       });
     }
     setIsDialogOpen(true);
   };
 
   const addOwner = () => {
-    const newOwners = [...(formData.owners || []), { ownerId: '', name: '', percentage: 0 }];
+    const newOwners = [...(formData.owners || []), { name: '', email: '', percentage: 0 }];
     setFormData({ ...formData, owners: newOwners });
   };
 
@@ -198,74 +198,35 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>Superficie m²</Label>
-                  <Input 
-                    type="number" 
-                    value={formData.squareMeters}
-                    onChange={(e) => setFormData({...formData, squareMeters: parseInt(e.target.value) || 0})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ambientes</Label>
-                  <Input 
-                    type="number" 
-                    value={formData.rooms}
-                    onChange={(e) => setFormData({...formData, rooms: parseInt(e.target.value) || 0})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select 
-                    value={formData.type} 
-                    onValueChange={(v: PropertyType) => setFormData({...formData, type: v})}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Departamento">Departamento</SelectItem>
-                      <SelectItem value="Casa">Casa</SelectItem>
-                      <SelectItem value="Local">Local</SelectItem>
-                      <SelectItem value="Cochera">Cochera</SelectItem>
-                      <SelectItem value="Oficina">Oficina</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <Select 
-                    value={formData.status} 
-                    onValueChange={(v: PropertyStatus) => setFormData({...formData, status: v})}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Disponible">Disponible</SelectItem>
-                      <SelectItem value="Reservada">Reservada</SelectItem>
-                      <SelectItem value="Alquilada">Alquilada</SelectItem>
-                      <SelectItem value="En Mantenimiento">En Mantenimiento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
             </TabsContent>
 
             <TabsContent value="owners" className="space-y-6 pt-6">
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-bold flex items-center gap-2"><Landmark className="h-4 w-4" /> Propietarios</h4>
-                <Button type="button" variant="outline" size="sm" onClick={addOwner}><PlusCircle className="h-3 w-3 mr-1" /> Añadir</Button>
+                <h4 className="text-sm font-bold flex items-center gap-2"><Landmark className="h-4 w-4" /> Propietarios y Copropietarios</h4>
+                <Button type="button" variant="outline" size="sm" onClick={addOwner}><PlusCircle className="h-3 w-3 mr-1" /> Añadir Dueño</Button>
               </div>
+              <p className="text-[10px] text-muted-foreground italic">Ingrese el email del propietario para que pueda ver esta unidad en su portal personal.</p>
               {(formData.owners || []).map((owner, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-muted/20 rounded-lg">
-                  <div className="md:col-span-6 space-y-1">
-                    <Label className="text-[10px]">Dueño</Label>
+                  <div className="md:col-span-4 space-y-1">
+                    <Label className="text-[10px]">Nombre</Label>
                     <Input 
                       value={owner.name} 
                       onChange={(e) => updateOwner(index, 'name', e.target.value)} 
-                      placeholder="Nombre" 
+                      placeholder="Nombre Completo" 
                       className="h-8" 
                     />
                   </div>
-                  <div className="md:col-span-3 space-y-1">
+                  <div className="md:col-span-5 space-y-1">
+                    <Label className="text-[10px]">Email Acceso</Label>
+                    <Input 
+                      value={owner.email} 
+                      onChange={(e) => updateOwner(index, 'email', e.target.value)} 
+                      placeholder="ejemplo@correo.com" 
+                      className="h-8" 
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
                     <Label className="text-[10px]">% Part.</Label>
                     <Input 
                       type="number" 
@@ -274,7 +235,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                       className="h-8" 
                     />
                   </div>
-                  <div className="md:col-span-2 flex gap-1">
+                  <div className="md:col-span-1 flex justify-center">
                      <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeOwner(index)}><X className="h-4 w-4" /></Button>
                   </div>
                 </div>
