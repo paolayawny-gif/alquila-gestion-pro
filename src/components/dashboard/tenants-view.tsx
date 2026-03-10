@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -33,7 +34,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { extractContractData, ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
@@ -41,6 +42,7 @@ import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/f
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { sendEmail } from '@/services/email-service';
 
 interface TenantsViewProps {
   people: Person[];
@@ -68,6 +70,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
   // AI State
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [aiResult, setAiResult] = useState<ExtractContractDataOutput | null>(null);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
 
@@ -156,23 +159,41 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     }
   };
 
-  const handleSendInvitation = () => {
-    if (!invitingPerson || !userId || !db) return;
+  const handleSendInvitation = async () => {
+    if (!invitingPerson || !invitationDraft || !userId || !db) return;
     
-    const docId = invitingPerson.id;
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', docId);
-    
-    setDocumentNonBlocking(docRef, { 
-      lastInvitationSent: new Date().toLocaleDateString('es-AR'),
-      invitationStatus: 'Enviada'
-    }, { merge: true });
-    
-    toast({ 
-      title: "Invitación Despachada (Simulado)", 
-      description: `Se ha procesado el envío para ${invitingPerson.email}.` 
-    });
-    
-    setIsInviteDialogOpen(false);
+    setIsSendingEmail(true);
+    try {
+      const emailResult = await sendEmail({
+        to: invitingPerson.email,
+        subject: invitationDraft.subjectLine,
+        html: `<div>${invitationDraft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
+      });
+
+      if (emailResult.success) {
+        const docId = invitingPerson.id;
+        const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', docId);
+        
+        setDocumentNonBlocking(docRef, { 
+          lastInvitationSent: new Date().toLocaleDateString('es-AR'),
+          invitationStatus: 'Enviada'
+        }, { merge: true });
+        
+        toast({ 
+          title: "Invitación Despachada", 
+          description: emailResult.simulated 
+            ? `Simulación exitosa para ${invitingPerson.email}. Revisa la consola.`
+            : `El correo ha sido enviado exitosamente a ${invitingPerson.email}.`
+        });
+        setIsInviteDialogOpen(false);
+      } else {
+        toast({ title: "Error de envío", description: emailResult.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Ocurrió un error al intentar enviar el email.", variant: "destructive" });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleQuickAddNicolas = () => {
@@ -450,8 +471,13 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-primary text-white gap-2 font-bold px-8" onClick={handleSendInvitation} disabled={isDraftingInvite || !invitationDraft}>
-              <Send className="h-4 w-4" /> Confirmar Envío
+            <Button 
+              className="bg-primary text-white gap-2 font-bold px-8" 
+              onClick={handleSendInvitation} 
+              disabled={isDraftingInvite || !invitationDraft || isSendingEmail}
+            >
+              {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {isSendingEmail ? "Enviando..." : "Confirmar y Enviar"}
             </Button>
           </DialogFooter>
         </DialogContent>
