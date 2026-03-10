@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Loader2, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+import { ShieldCheck, Loader2, Mail, Lock, UserPlus, LogIn, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type AuthMode = 'login' | 'register';
 
@@ -78,8 +79,8 @@ export default function LoginPage() {
     <div className="min-h-screen w-full flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=2000')] bg-cover bg-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-0" />
       
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-none">
-        <CardHeader className="space-y-1 text-center">
+      <Card className="w-full max-w-md relative z-10 shadow-2xl border-none overflow-hidden">
+        <CardHeader className="space-y-1 text-center bg-white">
           <div className="flex justify-center mb-4">
             <div className="bg-primary/10 p-3 rounded-2xl">
               <ShieldCheck className="h-10 w-10 text-primary" />
@@ -89,11 +90,22 @@ export default function LoginPage() {
           <CardDescription>
             {mode === 'login' 
               ? 'Ingrese sus credenciales para acceder' 
-              : 'Complete los datos para crear su cuenta de administrador'}
+              : 'Complete los datos para crear su cuenta'}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6 bg-white">
+            {mode === 'register' && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-800 text-xs font-bold">Guía de Inicio</AlertTitle>
+                <AlertDescription className="text-blue-700 text-[10px]">
+                  Si es su primera vez, regístrese aquí para ser el <strong>Administrador</strong>. 
+                  Luego podrá cargar propiedades e invitar a inquilinos y dueños.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Correo Electrónico</Label>
               <div className="relative">
@@ -129,7 +141,7 @@ export default function LoginPage() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col gap-4 bg-white pb-8">
             <Button className="w-full h-12 text-lg font-bold" type="submit" disabled={isLoading}>
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
