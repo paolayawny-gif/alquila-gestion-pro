@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -21,11 +22,13 @@ import {
   Trash2,
   Sparkles,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  FileCheck
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RentalApplication, ApplicationStatus, Property } from '@/lib/types';
+import { RentalApplication, ApplicationStatus, Property, DocumentInfo } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -84,9 +87,8 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     setIsAnalyzing(true);
     setAiAnalysis(null);
     try {
-      // Intentar encontrar la propiedad para saber el monto del alquiler
       const property = properties.find(p => p.id === app.propertyId);
-      const rentAmount = 250000; // Valor por defecto si no se encuentra (podría venir de la propiedad en el futuro)
+      const rentAmount = 250000; // Valor por defecto
       
       const result = await analyzeApplication({
         applicantName: app.applicantName,
@@ -108,6 +110,15 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     const link = `${origin}/apply?adminId=${userId}`;
     navigator.clipboard.writeText(link);
     toast({ title: "Enlace Copiado", description: "Link de postulaciones listo para enviar." });
+  };
+
+  const viewDocument = (doc: DocumentInfo) => {
+    if (doc.url) {
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`<iframe src="${doc.url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+      }
+    }
   };
 
   return (
@@ -192,7 +203,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
       </Card>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Evaluación: {selectedApp?.applicantName}</DialogTitle>
             <DialogDescription>Postulación ingresada el {selectedApp?.submittedAt}</DialogDescription>
@@ -201,14 +212,16 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <div className="space-y-4">
               <div className="p-4 bg-muted/20 rounded-lg space-y-2">
-                <h4 className="text-[10px] font-black uppercase text-muted-foreground">Contacto</h4>
-                <p className="text-sm"><strong>Email:</strong> {selectedApp?.applicantEmail}</p>
-                <p className="text-sm"><strong>Teléfono:</strong> {selectedApp?.applicantPhone}</p>
-                <p className="text-sm"><strong>Ingreso:</strong> $ {selectedApp?.ingreso.toLocaleString('es-AR')}</p>
+                <h4 className="text-[10px] font-black uppercase text-muted-foreground">Datos de Contacto e Ingreso</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm pt-2">
+                  <p><strong>Email:</strong> {selectedApp?.applicantEmail}</p>
+                  <p><strong>Teléfono:</strong> {selectedApp?.applicantPhone}</p>
+                  <p className="col-span-2"><strong>Ingreso Mensual:</strong> $ {selectedApp?.ingreso.toLocaleString('es-AR')}</p>
+                </div>
               </div>
 
               <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
-                <h4 className="text-[10px] font-black uppercase text-blue-700 mb-2">Análisis de Riesgo IA</h4>
+                <h4 className="text-[10px] font-black uppercase text-blue-700 mb-2">Análisis Financiero IA</h4>
                 {isAnalyzing ? (
                   <div className="flex items-center gap-2 text-xs text-blue-600">
                     <Loader2 className="h-3 w-3 animate-spin" /> Procesando con analista experto...
@@ -238,9 +251,37 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
               </div>
             </div>
 
-            <div className="p-4 bg-muted/10 rounded-lg space-y-3">
-              <h4 className="text-[10px] font-black uppercase text-muted-foreground">Referencias y Notas</h4>
-              <p className="text-sm italic">"{selectedApp?.references || 'Sin notas.'}"</p>
+            <div className="space-y-4">
+              <div className="p-4 bg-muted/10 rounded-lg space-y-3">
+                <h4 className="text-[10px] font-black uppercase text-muted-foreground">Documentación Presentada</h4>
+                <div className="space-y-2">
+                  {selectedApp?.documents && selectedApp.documents.length > 0 ? (
+                    selectedApp.documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-2 bg-white rounded border border-muted-foreground/10">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <FileCheck className="h-4 w-4 text-primary flex-shrink-0" />
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-bold truncate">{doc.name}</span>
+                            <span className="text-[9px] text-muted-foreground uppercase">{doc.type}</span>
+                          </div>
+                        </div>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => viewDocument(doc)}>
+                          <Eye className="h-3 w-3 text-primary" />
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground italic">
+                      <AlertTriangle className="h-3 w-3" /> No se adjuntaron archivos.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 bg-muted/10 rounded-lg space-y-3">
+                <h4 className="text-[10px] font-black uppercase text-muted-foreground">Referencias y Notas</h4>
+                <p className="text-sm italic text-muted-foreground">"{selectedApp?.references || 'Sin notas adicionales.'}"</p>
+              </div>
             </div>
           </div>
 

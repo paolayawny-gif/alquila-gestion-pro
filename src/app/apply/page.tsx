@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   ShieldCheck, 
@@ -13,7 +14,10 @@ import {
   Send,
   CheckCircle2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  FileCheck,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +28,7 @@ import { useFirestore } from '@/firebase';
 import { doc, getDoc, collection } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
-import { Property, RentalApplication } from '@/lib/types';
+import { Property, RentalApplication, DocumentInfo } from '@/lib/types';
 
 const APP_ID = "alquilagestion-pro";
 
@@ -49,6 +53,9 @@ function ApplyPageContent() {
     references: ''
   });
 
+  const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+
   useEffect(() => {
     async function loadProperty() {
       if (!db || !adminId || !propertyId) {
@@ -70,9 +77,53 @@ function ApplyPageContent() {
     loadProperty();
   }, [db, adminId, propertyId]);
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Limitamos tamaño de archivo para este prototipo (Base64 en Firestore)
+    if (file.size > 800000) {
+      toast({ 
+        title: "Archivo demasiado grande", 
+        description: "Por favor suba archivos menores a 800KB para el prototipo.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setUploadingFiles(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const newDoc: DocumentInfo = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        url: event.target?.result as string,
+        type: type,
+        status: 'Validado',
+        date: new Date().toLocaleDateString('es-AR')
+      };
+      setDocuments(prev => [...prev, newDoc]);
+      setUploadingFiles(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeDoc = (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminId || !db) return;
+
+    if (documents.length === 0) {
+      toast({ 
+        title: "Documentación Faltante", 
+        description: "Debe adjuntar al menos su comprobante de ingresos.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -88,7 +139,7 @@ function ApplyPageContent() {
         applicantPhone: formData.phone,
         ingreso: parseFloat(formData.income) || 0,
         references: formData.references,
-        documents: [],
+        documents: documents,
         status: 'Nueva',
         submittedAt: new Date().toLocaleDateString('es-AR'),
         ownerId: adminId
@@ -146,7 +197,7 @@ function ApplyPageContent() {
 
   return (
     <div className="min-h-screen bg-muted/30 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex flex-col items-center text-center space-y-2">
           <div className="bg-primary/10 p-4 rounded-3xl mb-4">
             <ShieldCheck className="h-12 w-12 text-primary" />
@@ -170,10 +221,12 @@ function ApplyPageContent() {
             </Card>
 
             <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-              <p className="text-xs font-bold text-primary mb-2 uppercase">Proceso Seguro</p>
-              <p className="text-[10px] text-primary/70 leading-relaxed">
-                Tus datos están protegidos por encriptación de grado bancario. Solo el administrador verá tu perfil.
-              </p>
+              <p className="text-xs font-bold text-primary mb-2 uppercase">Documentación Obligatoria</p>
+              <ul className="text-[10px] text-primary/70 space-y-1 list-disc pl-4">
+                <li>Recibo de sueldo o Certificación Contable</li>
+                <li>DNI (Frente y Dorso)</li>
+                <li>Garantía (Recibo, Propiedad o Seguro de Caución)</li>
+              </ul>
             </div>
           </div>
 
@@ -182,7 +235,7 @@ function ApplyPageContent() {
               <CardTitle>Tus Datos Personales</CardTitle>
               <CardDescription>Completa la información para que podamos evaluar tu perfil.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2"><User className="h-3 w-3" /> Nombre Completo</Label>
@@ -227,11 +280,70 @@ function ApplyPageContent() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><FileText className="h-3 w-3" /> Referencias y Comentarios</Label>
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <Upload className="h-4 w-4 text-primary" /> Documentación Respaldatoria
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Recibo / Certif. (Inquilino)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="file" 
+                        className="text-[10px] cursor-pointer" 
+                        onChange={(e) => handleFileChange(e, 'Recibo Sueldo')} 
+                        accept=".pdf,image/*"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">DNI (Inquilino)</Label>
+                    <Input 
+                      type="file" 
+                      className="text-[10px] cursor-pointer" 
+                      onChange={(e) => handleFileChange(e, 'DNI')} 
+                      accept=".pdf,image/*"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Documentación del Garante (Opcional)</Label>
+                    <Input 
+                      type="file" 
+                      className="text-[10px] cursor-pointer" 
+                      onChange={(e) => handleFileChange(e, 'Garantía')} 
+                      accept=".pdf,image/*"
+                    />
+                  </div>
+                </div>
+
+                {documents.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <p className="text-[10px] font-bold text-muted-foreground">Archivos cargados:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {documents.map((doc) => (
+                        <Badge key={doc.id} variant="secondary" className="gap-2 px-3 py-1">
+                          <FileCheck className="h-3 w-3" />
+                          <span className="max-w-[100px] truncate">{doc.name}</span>
+                          <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => removeDoc(doc.id)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {uploadingFiles && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Procesando archivo...
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <Label className="flex items-center gap-2"><FileText className="h-3 w-3" /> Comentarios Adicionales</Label>
                 <Textarea 
-                  placeholder="Contanos sobre tu actividad laboral, garantes o cualquier dato relevante..." 
-                  className="min-h-[100px]"
+                  placeholder="Contanos sobre tu actividad laboral, tipo de garantía o cualquier dato relevante..." 
+                  className="min-h-[80px]"
                   value={formData.references}
                   onChange={e => setFormData({...formData, references: e.target.value})}
                 />
@@ -241,7 +353,7 @@ function ApplyPageContent() {
               <Button 
                 type="submit" 
                 className="w-full bg-primary hover:bg-primary/90 text-white h-12 text-lg font-bold gap-2"
-                disabled={isSubmitting}
+                disabled={isSubmitting || uploadingFiles}
               >
                 {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 Enviar Postulación
