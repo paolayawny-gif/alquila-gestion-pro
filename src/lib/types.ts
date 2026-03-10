@@ -1,4 +1,3 @@
-
 export type PropertyType = 'Departamento' | 'Casa' | 'Local' | 'Cochera' | 'Oficina' | 'Depósito' | 'Terreno';
 export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industrial';
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
@@ -159,6 +158,8 @@ export interface Invoice {
   status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
   hasFile: boolean;
   isAutomated?: boolean;
+  lastReminderSent?: string;
+  reminderType?: 'initial' | 'overdue';
 }
 
 export interface Liquidation {

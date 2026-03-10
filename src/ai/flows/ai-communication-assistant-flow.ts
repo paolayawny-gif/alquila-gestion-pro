@@ -14,6 +14,7 @@ const AiCommunicationAssistantInputSchema = z.object({
   communicationType: z
     .enum([
       'rentReminder',
+      'rentOverdue',
       'leaseRenewal',
       'ownerLiquidationReport',
       'portalInvitation',
@@ -75,7 +76,8 @@ Your task is to draft clear, professional, and personalized communication messag
 
 Instructions based on type:
 - portalInvitation: Invitation to the client portal. Mention the Role: {{{role}}} and Portal URL: {{{portalUrl}}}.
-- rentReminder: Remind of payment for {{{propertyName}}}. Amount: {{{amountDue}}}, Due Date: {{{dueDate}}}.
+- rentReminder: Friendly reminder. Rent for {{{propertyName}}} is available. Amount: {{{amountDue}}}, Pay by: {{{dueDate}}} (Usually between 1st and 10th).
+- rentOverdue: Firm but polite notification. Rent for {{{propertyName}}} is OVERDUE. Amount: {{{amountDue}}}. Original due date was: {{{dueDate}}}. Ask for payment confirmation.
 - leaseRenewal: Notice for {{{propertyName}}}. Current end: {{{currentLeaseEndDate}}}.
 - ownerLiquidationReport: Summary for {{{ownerName}}} for period {{{reportingPeriod}}}. Net: {{{netAmount}}}.
 - generalMessage: Use additional context.
