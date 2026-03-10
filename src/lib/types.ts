@@ -77,6 +77,13 @@ export interface RentalApplication {
   status: ApplicationStatus;
   submittedAt: string;
   ownerId: string;
+  adminNotes?: string;
+  aiAnalysis?: {
+    score: number;
+    recommendation: string;
+    reasoning: string;
+    riskFactors: string[];
+  };
 }
 
 export interface AdjustmentScale {

@@ -1,11 +1,10 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  UserPlus, 
   Search, 
   CheckCircle2, 
   XCircle, 
@@ -19,7 +18,10 @@ import {
   ShieldCheck,
   Copy,
   ClipboardCheck,
-  DollarSign
+  DollarSign,
+  Upload,
+  X,
+  FileText
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,9 +42,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { analyzeApplication, AnalyzeApplicationOutput } from '@/ai/flows/analyze-application-flow';
+import { analyzeApplication } from '@/ai/flows/analyze-application-flow';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ApplicationsViewProps {
   applications: RentalApplication[];
@@ -55,13 +58,15 @@ const APP_ID = "alquilagestion-pro";
 export function ApplicationsView({ applications, userId, properties }: ApplicationsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [selectedApp, setSelectedApp] = useState<RentalApplication | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<AnalyzeApplicationOutput | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   const getStatusBadge = (status: ApplicationStatus) => {
     const styles = {
@@ -74,11 +79,18 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
   };
 
-  const handleUpdateStatus = (appId: string, newStatus: ApplicationStatus) => {
+  const handleUpdateStatus = (app: RentalApplication, newStatus: ApplicationStatus) => {
     if (!userId || !db) return;
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', appId);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
     setDocumentNonBlocking(docRef, { status: newStatus }, { merge: true });
     toast({ title: `Solicitud ${newStatus}`, description: `Estado actualizado correctamente.` });
+  };
+
+  const handleSaveNotes = (appId: string, notes: string) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', appId);
+    setDocumentNonBlocking(docRef, { adminNotes: notes }, { merge: true });
+    toast({ title: "Notas Guardadas", description: "El comentario se ha registrado." });
   };
 
   const handleDelete = (appId: string) => {
@@ -90,9 +102,8 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
 
   const handleAnalyzeWithAI = async (app: RentalApplication) => {
     setIsAnalyzing(true);
-    setAiAnalysis(null);
     try {
-      const rentAmount = 350000; // Valor de referencia
+      const rentAmount = 350000; 
       const result = await analyzeApplication({
         applicantName: app.applicantName,
         applicantIncome: app.ingreso,
@@ -100,17 +111,47 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
         currency: 'ARS',
         references: app.references
       });
-      setAiAnalysis(result);
       
       if (userId && db) {
         const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
-        setDocumentNonBlocking(docRef, { status: 'En análisis' }, { merge: true });
+        setDocumentNonBlocking(docRef, { 
+          status: 'En análisis',
+          aiAnalysis: result
+        }, { merge: true });
       }
+      toast({ title: "Análisis Completado", description: "La IA ha generado su veredicto." });
     } catch (e) {
       toast({ title: "Error de Análisis", description: "No se pudo conectar con el analista de IA.", variant: "destructive" });
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleAddDocument = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedApp || !userId || !db) return;
+
+    setUploadingDoc(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const newDoc: DocumentInfo = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        url: event.target?.result as string,
+        type: 'Adicional (Admin)',
+        status: 'Validado',
+        date: new Date().toLocaleDateString('es-AR')
+      };
+
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', selectedApp.id);
+      const updatedDocs = [...(selectedApp.documents || []), newDoc];
+      
+      setDocumentNonBlocking(docRef, { documents: updatedDocs }, { merge: true });
+      setSelectedApp({ ...selectedApp, documents: updatedDocs });
+      setUploadingDoc(false);
+      toast({ title: "Documento Subido", description: "Se ha agregado al expediente." });
+    };
+    reader.readAsDataURL(file);
   };
 
   const copyPublicLink = () => {
@@ -125,13 +166,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     if (doc.url) {
       const newWindow = window.open();
       if (newWindow) {
-        newWindow.document.write(`
-          <html>
-            <body style="margin:0; background: #333; display: flex; align-items: center; justify-content: center;">
-              <img src="${doc.url}" style="max-width: 100%; max-height: 100vh; object-fit: contain;" />
-            </body>
-          </html>
-        `);
+        newWindow.document.write(`<html><body style="margin:0; background: #333; display: flex; align-items: center; justify-content: center;"><img src="${doc.url}" style="max-width: 100%; max-height: 100vh; object-fit: contain;" /></body></html>`);
       }
     }
   };
@@ -167,16 +202,12 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
               <DialogTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-primary" /> Recibir Postulaciones
               </DialogTitle>
-              <DialogDescription className="pt-2">
-                Comparte este link para que los interesados carguen sus datos.
-              </DialogDescription>
+              <DialogDescription className="pt-2">Comparte este link para recibir carpetas digitales.</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-4">
               <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-xl border border-dashed border-primary/20">
                 <code className="text-[10px] flex-1 truncate font-mono text-primary font-bold">/apply?adminId={userId}</code>
-                <Button size="icon" variant="ghost" onClick={copyPublicLink}>
-                  <Copy className="h-4 w-4 text-primary" />
-                </Button>
+                <Button size="icon" variant="ghost" onClick={copyPublicLink}><Copy className="h-4 w-4 text-primary" /></Button>
               </div>
             </div>
           </DialogContent>
@@ -185,18 +216,14 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
 
       <Tabs defaultValue="pending" className="w-full">
         <TabsList className="bg-white border shadow-sm">
-          <TabsTrigger value="pending" className="data-[state=active]:bg-primary data-[state=active]:text-white">
-            Pendientes ({pendingApps.length})
-          </TabsTrigger>
-          <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-white">
-            Historial ({historyApps.length})
-          </TabsTrigger>
+          <TabsTrigger value="pending" className="data-[state=active]:bg-primary data-[state=active]:text-white">Pendientes ({pendingApps.length})</TabsTrigger>
+          <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-white">Historial ({historyApps.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="mt-4">
           <ApplicationsTable 
             apps={pendingApps} 
-            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); setAiAnalysis(null); }} 
+            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); }} 
             onDelete={handleDelete}
             getStatusBadge={getStatusBadge}
           />
@@ -205,7 +232,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
         <TabsContent value="history" className="mt-4">
           <ApplicationsTable 
             apps={historyApps} 
-            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); setAiAnalysis(null); }} 
+            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); }} 
             onDelete={handleDelete}
             getStatusBadge={getStatusBadge}
           />
@@ -221,12 +248,10 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                   <div>
                     <Badge className="bg-white/20 text-white border-white/30 mb-2">Expediente Digital</Badge>
                     <DialogTitle className="text-2xl font-black">{selectedApp.applicantName}</DialogTitle>
-                    <DialogDescription className="text-white/80 font-medium">
-                      Solicitud ingresada el {selectedApp.submittedAt}
-                    </DialogDescription>
+                    <DialogDescription className="text-white/80 font-medium">Postulación para {selectedApp.propertyName}</DialogDescription>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] uppercase font-bold text-white/60 mb-1">Estado Actual</p>
+                    <p className="text-[10px] uppercase font-bold text-white/60 mb-1">Estado</p>
                     <Badge className="bg-white text-primary font-black px-4">{selectedApp.status}</Badge>
                   </div>
                 </div>
@@ -248,26 +273,18 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
 
                     <div className="p-6 bg-primary/5 rounded-2xl border border-primary/10">
                       <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-xs font-black uppercase text-primary flex items-center gap-2">
-                          <Sparkles className="h-4 w-4" /> Análisis de IA
-                        </h4>
-                        {aiAnalysis && (
-                          <Badge className={cn(
-                            "font-black px-3",
-                            aiAnalysis.score > 70 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                          )}>
-                            Score: {aiAnalysis.score}/100
+                        <h4 className="text-xs font-black uppercase text-primary flex items-center gap-2"><Sparkles className="h-4 w-4" /> Evaluación IA</h4>
+                        {selectedApp.aiAnalysis && (
+                          <Badge className={cn("font-black px-3", selectedApp.aiAnalysis.score > 70 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
+                            Score: {selectedApp.aiAnalysis.score}/100
                           </Badge>
                         )}
                       </div>
                       
-                      {!aiAnalysis && !isAnalyzing ? (
+                      {!selectedApp.aiAnalysis && !isAnalyzing ? (
                         <div className="text-center py-6 space-y-4">
-                          <p className="text-xs text-muted-foreground italic">La IA analizará el perfil financiero automáticamente.</p>
-                          <Button 
-                            className="w-full bg-primary text-white font-bold h-12 gap-2 shadow-sm"
-                            onClick={() => handleAnalyzeWithAI(selectedApp)}
-                          >
+                          <p className="text-xs text-muted-foreground italic">Analiza la viabilidad financiera del candidato.</p>
+                          <Button className="w-full bg-primary text-white font-bold h-12 gap-2 shadow-sm" onClick={() => handleAnalyzeWithAI(selectedApp)}>
                             <Sparkles className="h-4 w-4" /> Iniciar Evaluación con IA
                           </Button>
                         </div>
@@ -279,62 +296,58 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                       ) : (
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
                           <div className="p-4 bg-white rounded-xl border border-primary/20 shadow-sm">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Dictamen IA</p>
-                            <p className={cn(
-                              "text-lg font-black",
-                              aiAnalysis?.recommendation.includes('APROBADO') ? "text-green-600" : "text-orange-600"
-                            )}>
-                              {aiAnalysis?.recommendation}
+                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Recomendación IA</p>
+                            <p className={cn("text-lg font-black", selectedApp.aiAnalysis?.recommendation.includes('APROBADO') ? "text-green-600" : "text-orange-600")}>
+                              {selectedApp.aiAnalysis?.recommendation}
                             </p>
                             <Separator className="my-3" />
-                            <p className="text-sm leading-relaxed text-foreground/80 italic">
-                              "{aiAnalysis?.reasoning}"
-                            </p>
+                            <p className="text-sm leading-relaxed text-foreground/80 italic">"{selectedApp.aiAnalysis?.reasoning}"</p>
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-black uppercase text-muted-foreground">Comentarios y Justificación (Visible para Propietario)</Label>
+                      <Textarea 
+                        placeholder="Escribe aquí tu justificación de aprobación para que el dueño pueda verla..."
+                        className="min-h-[100px]"
+                        defaultValue={selectedApp.adminNotes}
+                        onBlur={(e) => handleSaveNotes(selectedApp.id, e.target.value)}
+                      />
                     </div>
                   </div>
 
                   <div className="md:col-span-5 space-y-6">
                     <Card className="border-none bg-muted/10 shadow-none">
-                      <CardHeader className="pb-4">
-                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
-                          <FileCheck className="h-4 w-4 text-primary" /> Archivos Adjuntos
-                        </CardTitle>
+                      <CardHeader className="pb-4 flex flex-row items-center justify-between">
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2"><FileCheck className="h-4 w-4 text-primary" /> Documentación</CardTitle>
+                        <div className="relative">
+                          <input type="file" ref={fileInputRef} className="hidden" onChange={handleAddDocument} />
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => fileInputRef.current?.click()}>
+                            {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {selectedApp.documents && selectedApp.documents.length > 0 ? (
-                          selectedApp.documents.map((doc) => (
-                            <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-muted-foreground/10 hover:border-primary/30 group">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <FileCheck className="h-5 w-5 text-primary" />
-                                <div className="flex flex-col">
-                                  <span className="text-[11px] font-bold truncate max-w-[150px]">{doc.name}</span>
-                                  <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">{doc.type}</span>
-                                </div>
+                        {selectedApp.documents?.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-muted-foreground/10 hover:border-primary/30 group">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <FileCheck className="h-5 w-5 text-primary" />
+                              <div className="flex flex-col">
+                                <span className="text-[11px] font-bold truncate max-w-[150px]">{doc.name}</span>
+                                <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">{doc.type}</span>
                               </div>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 rounded-full"
-                                onClick={() => viewDocument(doc)}
-                              >
-                                <Eye className="h-4 w-4 text-primary" />
-                              </Button>
                             </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground/50 italic text-xs">Sin documentos.</div>
-                        )}
+                            <Button size="sm" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => viewDocument(doc)}><Eye className="h-4 w-4 text-primary" /></Button>
+                          </div>
+                        ))}
                       </CardContent>
                     </Card>
 
                     <div className="p-6 bg-green-50 rounded-2xl border border-green-100 flex flex-col items-center text-center space-y-2">
-                      <div className="p-3 bg-green-100 rounded-full">
-                        <DollarSign className="h-5 w-5 text-green-700" />
-                      </div>
-                      <p className="text-[10px] font-black uppercase text-green-700">Ingreso Declarado</p>
+                      <div className="p-3 bg-green-100 rounded-full"><DollarSign className="h-5 w-5 text-green-700" /></div>
+                      <p className="text-[10px] font-black uppercase text-green-700">Ingreso Neto</p>
                       <p className="text-2xl font-black text-green-900">$ {selectedApp.ingreso.toLocaleString('es-AR')}</p>
                     </div>
                   </div>
@@ -343,25 +356,8 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
 
               <DialogFooter className="p-6 bg-muted/30 border-t rounded-b-lg">
                 <div className="flex gap-4 w-full justify-end">
-                  <Button 
-                    variant="ghost" 
-                    className="text-red-600 font-bold hover:bg-red-50"
-                    onClick={() => {
-                      handleUpdateStatus(selectedApp.id, 'Rechazada');
-                      setIsDetailOpen(false);
-                    }}
-                  >
-                    <XCircle className="h-4 w-4 mr-2" /> Rechazar
-                  </Button>
-                  <Button 
-                    className="bg-primary text-white font-black px-8"
-                    onClick={() => {
-                      handleUpdateStatus(selectedApp.id, 'Aprobada');
-                      setIsDetailOpen(false);
-                    }}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" /> Aprobar Candidato
-                  </Button>
+                  <Button variant="ghost" className="text-red-600 font-bold" onClick={() => { handleUpdateStatus(selectedApp, 'Rechazada'); setIsDetailOpen(false); }}><XCircle className="h-4 w-4 mr-2" /> Rechazar</Button>
+                  <Button className="bg-primary text-white font-black px-8" onClick={() => { handleUpdateStatus(selectedApp, 'Aprobada'); setIsDetailOpen(false); }}><CheckCircle2 className="h-4 w-4 mr-2" /> Aprobar Candidato</Button>
                 </div>
               </DialogFooter>
             </>
@@ -372,17 +368,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   );
 }
 
-function ApplicationsTable({ 
-  apps, 
-  onEval, 
-  onDelete, 
-  getStatusBadge 
-}: { 
-  apps: RentalApplication[], 
-  onEval: (app: RentalApplication) => void, 
-  onDelete: (id: string) => void,
-  getStatusBadge: (status: ApplicationStatus) => React.ReactNode
-}) {
+function ApplicationsTable({ apps, onEval, onDelete, getStatusBadge }: { apps: RentalApplication[], onEval: (app: RentalApplication) => void, onDelete: (id: string) => void, getStatusBadge: (status: ApplicationStatus) => React.ReactNode }) {
   return (
     <Card className="border-none shadow-sm overflow-hidden bg-white">
       <Table>
@@ -400,44 +386,20 @@ function ApplicationsTable({
               <TableCell>
                 <div className="flex flex-col">
                   <span className="font-bold text-foreground">{app.applicantName}</span>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Recibida: {app.submittedAt}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> {app.submittedAt}</span>
                 </div>
               </TableCell>
-              <TableCell className="font-black text-primary">
-                $ {app.ingreso.toLocaleString('es-AR')}
-              </TableCell>
+              <TableCell className="font-black text-primary">$ {app.ingreso.toLocaleString('es-AR')}</TableCell>
               <TableCell>{getStatusBadge(app.status)}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="border-primary text-primary h-8 gap-2 font-bold px-4"
-                    onClick={() => onEval(app)}
-                  >
-                    <ClipboardCheck className="h-4 w-4" /> Evaluar
-                  </Button>
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => onDelete(app.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <Button size="sm" variant="outline" className="border-primary text-primary h-8 gap-2 font-bold px-4" onClick={() => onEval(app)}><ClipboardCheck className="h-4 w-4" /> Evaluar</Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => onDelete(app.id)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </TableCell>
             </TableRow>
           ))}
-          {apps.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">
-                No hay solicitudes en esta categoría.
-              </TableCell>
-            </TableRow>
-          )}
+          {apps.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground">No hay solicitudes en esta categoría.</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
