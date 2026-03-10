@@ -1,7 +1,7 @@
 
 'use server';
 
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
 interface SendEmailInput {
   to: string;
@@ -10,37 +10,48 @@ interface SendEmailInput {
 }
 
 /**
- * Sends an email using the Resend service.
- * Requires RESEND_API_KEY environment variable.
+ * Sends an email using Gmail/SMTP via Nodemailer.
+ * Requires EMAIL_USER and EMAIL_PASS (App Password) environment variables.
  */
 export async function sendEmail({ to, subject, html }: SendEmailInput) {
-  const apiKey = process.env.RESEND_API_KEY;
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
 
-  if (!apiKey) {
-    console.warn("RESEND_API_KEY no encontrada. El envío de email se simulará en la consola.");
-    console.log(`SIMULACIÓN DE EMAIL A: ${to}\nASUNTO: ${subject}\nCUERPO:\n${html}`);
-    // Simulamos un pequeño delay para que la UI muestre el estado de carga
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  if (!user || !pass) {
+    console.warn("EMAIL_USER o EMAIL_PASS no encontrados en .env. El envío de email se simulará en la consola.");
+    console.log(`--- SIMULACIÓN DE ENVÍO DE EMAIL ---`);
+    console.log(`PARA: ${to}`);
+    console.log(`ASUNTO: ${subject}`);
+    console.log(`CONTENIDO: Ver en el inspector de red o aquí.`);
+    console.log(`-------------------------------------`);
+    // Simulamos un pequeño delay para la UI
+    await new Promise(resolve => setTimeout(resolve, 1500));
     return { success: true, simulated: true };
   }
 
   try {
-    const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
-      from: 'AlquilaGestión Pro <notificaciones@tu-dominio.com>', // Cambiar por tu dominio verificado en Resend
-      to: [to],
-      subject: subject,
-      html: html,
+    // Configuración para Gmail
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: user,
+        pass: pass,
+      },
     });
 
-    if (error) {
-      console.error("Error enviando email via Resend:", error);
-      return { success: false, error: error.message };
-    }
+    const mailOptions = {
+      from: `"AlquilaGestión Pro" <${user}>`,
+      to: to,
+      subject: subject,
+      html: html,
+    };
 
-    return { success: true, id: data?.id };
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email enviado exitosamente:", info.messageId);
+
+    return { success: true, id: info.messageId };
   } catch (err: any) {
-    console.error("Error inesperado en servicio de email:", err);
-    return { success: false, error: err.message };
+    console.error("Error enviando email via Gmail/SMTP:", err);
+    return { success: false, error: err.message || "Error desconocido al enviar el correo." };
   }
 }
