@@ -16,6 +16,7 @@ const AiCommunicationAssistantInputSchema = z.object({
       'rentReminder',
       'leaseRenewal',
       'ownerLiquidationReport',
+      'portalInvitation',
       'generalMessage',
     ])
     .describe('The type of communication to draft.'),
@@ -40,6 +41,8 @@ const AiCommunicationAssistantInputSchema = z.object({
     .string()
     .optional()
     .describe('Net amount for the owner after deductions.'),
+  portalUrl: z.string().optional().describe('The URL of the application portal.'),
+  role: z.string().optional().describe('The role of the person being invited (Inquilino/Propietario).'),
   additionalContext: z
     .string()
     .optional()
@@ -71,6 +74,15 @@ const aiCommunicationAssistantPrompt = ai.definePrompt({
 Your task is to draft clear, professional, and personalized communication messages or emails based on the provided details.
 
 ### Communication Type: {{{communicationType}}}
+
+{{#if (eq communicationType "portalInvitation")}}
+  Draft an invitation email to the client portal.
+  Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{ownerName}}{{/if}}
+  Role: {{role}}
+  Portal URL: {{{portalUrl}}}
+  Instructions: They must register with their current email to see their properties/contracts.
+  Tone: Professional, welcoming, and helpful.
+{{/if}}
 
 {{#if (eq communicationType "rentReminder")}}
   Draft a rent reminder email/message.
@@ -108,6 +120,7 @@ Your task is to draft clear, professional, and personalized communication messag
 Additional Context: {{{additionalContext}}}
 
 Ensure the message is well-structured and includes all necessary information. If writing an email, provide a suitable subject line.
+The drafted message MUST be in SPANISH.
 `,
 });
 

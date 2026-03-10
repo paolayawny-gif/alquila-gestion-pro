@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -20,7 +19,9 @@ import {
   Calculator,
   Sparkles,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Send,
+  MessageSquareShare
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -42,6 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from '@/hooks/use-toast';
 import { extractContractData, ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
+import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { useFirestore } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -63,14 +65,17 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
   const [activeTab, setActiveTab] = useState<'contracts' | 'people'>('contracts');
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [invitingPerson, setInvitingPerson] = useState<Person | null>(null);
 
   // AI State
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [aiResult, setAiResult] = useState<ExtractContractDataOutput | null>(null);
+  const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
 
   // ESTADO PARA NUEVA PERSONA
   const [personFormData, setPersonFormData] = useState<Partial<Person>>({
@@ -133,36 +138,38 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     setIsPersonDialogOpen(true);
   };
 
-  const handleOpenContractDialog = (contract?: Contract) => {
-    setAiResult(null);
-    if (contract) {
-      setEditingContract(contract);
-      setContractFormData(contract);
-    } else {
-      setEditingContract(null);
-      setContractFormData({
-        tenantId: '',
-        propertyId: '',
-        startDate: '',
-        endDate: '',
-        baseRentAmount: 0,
-        currentRentAmount: 0,
-        currency: 'ARS',
-        adjustmentType: 'Index',
-        adjustmentMechanism: 'ICL',
-        adjustmentFrequencyMonths: 4,
-        depositAmount: 0,
-        depositCurrency: 'ARS',
-        commissionAmount: 0,
-        lateFeeType: 'DailyPercentage',
-        lateFeeValue: 0.5,
-        status: 'Vigente',
-        guarantorIds: [],
-        ownerIds: [],
-        documents: { mainContractUrl: '', versions: [], annexes: [] }
+  const handleOpenInviteDialog = async (person: Person) => {
+    setInvitingPerson(person);
+    setIsInviteDialogOpen(true);
+    setInvitationDraft(null);
+    setIsDraftingInvite(true);
+    
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const draft = await aiCommunicationAssistant({
+        communicationType: 'portalInvitation',
+        tenantName: person.fullName,
+        role: person.type,
+        portalUrl: origin,
+        additionalContext: `Es ${person.type} de una unidad. Debe registrarse con este email: ${person.email}`
       });
+      setInvitationDraft(draft);
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo redactar la invitación.", variant: "destructive" });
+    } finally {
+      setIsDraftingInvite(false);
     }
-    setIsContractDialogOpen(true);
+  };
+
+  const handleSendInvitation = () => {
+    if (!invitingPerson || !userId || !db) return;
+    
+    // Simular envío de email
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', invitingPerson.id);
+    setDocumentNonBlocking(docRef, { lastInvitationSent: new Date().toLocaleDateString('es-AR') }, { merge: true });
+    
+    toast({ title: "Invitación Enviada", description: `Se ha enviado el acceso a ${invitingPerson.email}` });
+    setIsInviteDialogOpen(false);
   };
 
   const handleSavePerson = () => {
@@ -197,11 +204,6 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
       return;
     }
 
-    // Nota: El backend.json no define una colección "contratos" directamente, 
-    // pero podemos gestionarlos bajo una lógica local o crear la colección si fuera necesario.
-    // Para mantener consistencia con backend.json, usaremos el estado local para contratos en este prototipo
-    // pero vinculados a los IDs reales de Firestore de personas y propiedades.
-    
     const tenant = people.find(p => p.id === contractFormData.tenantId);
     const property = properties.find(p => p.id === contractFormData.propertyId);
 
@@ -435,6 +437,14 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
               <Input value={personFormData.taxId} onChange={e => setPersonFormData({...personFormData, taxId: e.target.value})} />
             </div>
             <div className="space-y-2">
+              <Label>Correo Electrónico</Label>
+              <Input value={personFormData.email} onChange={e => setPersonFormData({...personFormData, email: e.target.value})} placeholder="ejemplo@correo.com" />
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono</Label>
+              <Input value={personFormData.phone} onChange={e => setPersonFormData({...personFormData, phone: e.target.value})} placeholder="+54 9 11..." />
+            </div>
+            <div className="space-y-2">
               <Label>Tipo de Rol</Label>
               <Select value={personFormData.type} onValueChange={(v: PersonType) => setPersonFormData({...personFormData, type: v})}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -450,6 +460,59 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
           <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsPersonDialogOpen(false)}>Cancelar</Button>
             <Button className="bg-primary text-white" onClick={handleSavePerson}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Enviar Invitación al Portal
+            </DialogTitle>
+            <DialogDescription>
+              La IA redactará una invitación personalizada para {invitingPerson?.fullName}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-6 space-y-4">
+            {isDraftingInvite ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium text-muted-foreground">Redactando invitación profesional...</p>
+              </div>
+            ) : invitationDraft ? (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                <div className="p-3 bg-muted/30 rounded-lg border">
+                  <Label className="text-[10px] uppercase font-black text-muted-foreground mb-1 block">Asunto</Label>
+                  <p className="font-bold text-sm">{invitationDraft.subjectLine}</p>
+                </div>
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10 text-sm whitespace-pre-wrap leading-relaxed min-h-[200px]">
+                  {invitationDraft.draftedMessage}
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-3 border border-blue-100">
+                  <Mail className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <p className="text-[10px] text-blue-700 font-medium">
+                    El correo se enviará a <strong>{invitingPerson?.email}</strong>. 
+                    Asegúrate de que esta sea la dirección que el usuario usará para registrarse.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground">No se pudo generar el borrador.</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancelar</Button>
+            <Button 
+              className="bg-primary text-white gap-2 font-bold px-8" 
+              onClick={handleSendInvitation}
+              disabled={isDraftingInvite || !invitationDraft}
+            >
+              <Send className="h-4 w-4" /> Enviar Invitación
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -488,7 +551,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead>Nombre y CUIT</TableHead>
-                <TableHead>Rol</TableHead>
+                <TableHead>Rol / Acceso</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -496,10 +559,33 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
               {people.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-bold">{p.fullName}<br/><span className="text-[10px] text-muted-foreground font-normal">{p.taxId}</span></TableCell>
-                  <TableCell><Badge variant="outline">{p.type}</Badge></TableCell>
-                  <TableCell className="text-right flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="outline" className="w-fit">{p.type}</Badge>
+                      {p.email && <span className="text-[9px] text-muted-foreground">{p.email}</span>}
+                      {(p as any).lastInvitationSent && (
+                        <span className="text-[8px] text-green-600 font-bold uppercase flex items-center gap-1">
+                          <CheckCircle2 className="h-2 w-2" /> Invitado: {(p as any).lastInvitationSent}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {p.email && p.type !== 'Garante' && p.type !== 'Proveedor' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-primary hover:bg-primary/10" 
+                          title="Invitar al Portal"
+                          onClick={() => handleOpenInviteDialog(p)}
+                        >
+                          <MessageSquareShare className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}><Edit2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -511,3 +597,4 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     </div>
   );
 }
+

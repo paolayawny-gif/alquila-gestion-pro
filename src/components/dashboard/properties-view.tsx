@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, MessageSquareShare, Sparkles, Loader2, Send } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyType } from '@/lib/types';
@@ -26,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 
 interface PropertiesViewProps {
   properties: Property[];
@@ -39,8 +39,13 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const db = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   
+  const [invitingOwner, setInvitingOwner] = useState<{name: string, email: string} | null>(null);
+  const [isDraftingInvite, setIsDraftingInvite] = useState(false);
+  const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
+
   const [formData, setFormData] = useState<Partial<Property>>({
     name: '',
     address: '',
@@ -89,6 +94,34 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
       });
     }
     setIsDialogOpen(true);
+  };
+
+  const handleOpenInviteDialog = async (owner: PropertyOwner) => {
+    setInvitingOwner({ name: owner.name, email: owner.email });
+    setIsInviteDialogOpen(true);
+    setInvitationDraft(null);
+    setIsDraftingInvite(true);
+    
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const draft = await aiCommunicationAssistant({
+        communicationType: 'portalInvitation',
+        ownerName: owner.name,
+        role: 'Propietario',
+        portalUrl: origin,
+        additionalContext: `Le invitamos a ver el rendimiento de su propiedad. Debe registrarse con este email: ${owner.email}`
+      });
+      setInvitationDraft(draft);
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo redactar la invitación.", variant: "destructive" });
+    } finally {
+      setIsDraftingInvite(false);
+    }
+  };
+
+  const handleSendOwnerInvitation = () => {
+    toast({ title: "Invitación Enviada", description: `Acceso enviado a ${invitingOwner?.email}` });
+    setIsInviteDialogOpen(false);
   };
 
   const addOwner = () => {
@@ -261,6 +294,47 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Invitar Propietario al Portal
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6 space-y-4">
+            {isDraftingInvite ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium text-muted-foreground">Redactando invitación para el Propietario...</p>
+              </div>
+            ) : invitationDraft ? (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted/30 rounded-lg border">
+                  <Label className="text-[10px] uppercase font-black text-muted-foreground mb-1 block">Asunto</Label>
+                  <p className="font-bold text-sm">{invitationDraft.subjectLine}</p>
+                </div>
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10 text-sm whitespace-pre-wrap leading-relaxed min-h-[200px]">
+                  {invitationDraft.draftedMessage}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancelar</Button>
+            <Button 
+              className="bg-primary text-white gap-2 font-bold px-8" 
+              onClick={handleSendOwnerInvitation}
+              disabled={isDraftingInvite || !invitationDraft}
+            >
+              <Send className="h-4 w-4" /> Enviar Invitación
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         <Table>
           <TableHeader>
@@ -286,9 +360,20 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     {(p.owners || []).map((o, idx) => (
-                      <span key={idx} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full w-fit">
-                        {o.name} ({o.percentage}%)
-                      </span>
+                      <div key={idx} className="flex items-center gap-2 group/owner">
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full w-fit">
+                          {o.name} ({o.percentage}%)
+                        </span>
+                        {o.email && (
+                          <button 
+                            onClick={() => handleOpenInviteDialog(o)}
+                            className="text-primary opacity-0 group-hover/owner:opacity-100 transition-opacity"
+                            title="Enviar Invitación"
+                          >
+                            <MessageSquareShare className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </TableCell>
