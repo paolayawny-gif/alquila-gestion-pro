@@ -1,17 +1,21 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Loader2, Mail, Lock } from 'lucide-react';
+import { ShieldCheck, Loader2, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
+type AuthMode = 'login' | 'register';
+
 export default function LoginPage() {
+  const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,21 +30,35 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
 
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: "Bienvenido",
-        description: "Sesión iniciada correctamente.",
-      });
+      if (mode === 'login') {
+        await signInWithEmailAndPassword(auth, email, password);
+        toast({
+          title: "Bienvenido",
+          description: "Sesión iniciada correctamente.",
+        });
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+        toast({
+          title: "Cuenta creada",
+          description: "Su cuenta ha sido registrada exitosamente.",
+        });
+      }
     } catch (error: any) {
+      let message = "Ocurrió un error inesperado.";
+      if (error.code === 'auth/wrong-password') message = "Contraseña incorrecta.";
+      if (error.code === 'auth/user-not-found') message = "Usuario no encontrado.";
+      if (error.code === 'auth/email-already-in-use') message = "Este correo ya está registrado.";
+      if (error.code === 'auth/weak-password') message = "La contraseña debe tener al menos 6 caracteres.";
+
       toast({
-        title: "Error de acceso",
-        description: "Credenciales inválidas. Por favor, reintente.",
+        title: mode === 'login' ? "Error de acceso" : "Error de registro",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -69,10 +87,12 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-3xl font-black text-primary">AlquilaGestión Pro</CardTitle>
           <CardDescription>
-            Ingrese sus credenciales para acceder al sistema
+            {mode === 'login' 
+              ? 'Ingrese sus credenciales para acceder' 
+              : 'Complete los datos para crear su cuenta de administrador'}
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Correo Electrónico</Label>
@@ -81,7 +101,7 @@ export default function LoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="admin@alquilagestion.com" 
+                  placeholder="ejemplo@alquilagestion.com" 
                   className="pl-10"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -92,7 +112,9 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Contraseña</Label>
-                <Button variant="link" className="p-0 h-auto text-xs text-primary">¿Olvidó su contraseña?</Button>
+                {mode === 'login' && (
+                  <Button variant="link" className="p-0 h-auto text-xs text-primary">¿Olvidó su contraseña?</Button>
+                )}
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -109,10 +131,43 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button className="w-full h-12 text-lg font-bold" type="submit" disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Iniciar Sesión"}
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              ) : mode === 'login' ? (
+                <><LogIn className="h-5 w-5 mr-2" /> Iniciar Sesión</>
+              ) : (
+                <><UserPlus className="h-5 w-5 mr-2" /> Crear Cuenta</>
+              )}
             </Button>
-            <p className="text-xs text-center text-muted-foreground">
-              Al ingresar, usted acepta nuestros Términos de Servicio y Política de Privacidad.
+            
+            <div className="text-sm text-center">
+              {mode === 'login' ? (
+                <p>
+                  ¿No tiene cuenta?{' '}
+                  <button 
+                    type="button" 
+                    onClick={() => setMode('register')} 
+                    className="text-primary font-bold hover:underline"
+                  >
+                    Regístrese aquí
+                  </button>
+                </p>
+              ) : (
+                <p>
+                  ¿Ya tiene una cuenta?{' '}
+                  <button 
+                    type="button" 
+                    onClick={() => setMode('login')} 
+                    className="text-primary font-bold hover:underline"
+                  >
+                    Inicie sesión
+                  </button>
+                </p>
+              )}
+            </div>
+
+            <p className="text-[10px] text-center text-muted-foreground px-6 leading-tight">
+              Al ingresar o registrarse, usted acepta nuestros Términos de Servicio y la Política de Privacidad de AlquilaGestión Pro.
             </p>
           </CardFooter>
         </form>
