@@ -24,7 +24,8 @@ import {
   Loader2,
   AlertTriangle,
   Eye,
-  FileCheck
+  FileCheck,
+  ShieldCheck
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -46,6 +47,7 @@ import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { analyzeApplication, AnalyzeApplicationOutput } from '@/ai/flows/analyze-application-flow';
+import { Separator } from '@/components/ui/separator';
 
 interface ApplicationsViewProps {
   applications: RentalApplication[];
@@ -87,8 +89,9 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     setIsAnalyzing(true);
     setAiAnalysis(null);
     try {
+      // Intentamos obtener el valor de alquiler de la propiedad si existe, sino usamos un estimado
       const property = properties.find(p => p.id === app.propertyId);
-      const rentAmount = 250000; // Valor por defecto
+      const rentAmount = 300000; // Valor base para análisis si no se especifica
       
       const result = await analyzeApplication({
         applicantName: app.applicantName,
@@ -98,6 +101,12 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
         references: app.references
       });
       setAiAnalysis(result);
+      
+      // Actualizamos el estado de la solicitud automáticamente a "En análisis"
+      if (userId && db) {
+        const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
+        setDocumentNonBlocking(docRef, { status: 'En análisis' }, { merge: true });
+      }
     } catch (e) {
       toast({ title: "Error de Análisis", description: "No se pudo conectar con el analista de IA.", variant: "destructive" });
     } finally {
@@ -116,7 +125,13 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     if (doc.url) {
       const newWindow = window.open();
       if (newWindow) {
-        newWindow.document.write(`<iframe src="${doc.url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        newWindow.document.write(`
+          <html>
+            <body style="margin:0; background: #333; display: flex; align-items: center; justify-content: center;">
+              <img src="${doc.url}" style="max-width: 100%; max-height: 100vh; object-fit: contain;" />
+            </body>
+          </html>
+        `);
       }
     }
   };
@@ -133,18 +148,30 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
         
         <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary text-white gap-2">
+            <Button className="bg-primary text-white gap-2 font-bold shadow-md hover:shadow-lg transition-all">
               <ExternalLink className="h-4 w-4" /> Enlace de Postulación Pública
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Recibir Postulaciones</DialogTitle>
-              <DialogDescription>Comparte este link con interesados para recibir sus datos directamente aquí sin que ellos tengan que registrarse.</DialogDescription>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Recibir Postulaciones
+              </DialogTitle>
+              <DialogDescription className="pt-2">
+                Cualquier persona con este link podrá enviarte su documentación. Las solicitudes aparecerán automáticamente en tu panel para ser analizadas por la IA.
+              </DialogDescription>
             </DialogHeader>
-            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
-              <code className="text-[10px] flex-1 truncate">/apply?adminId={userId}</code>
-              <Button size="icon" variant="ghost" onClick={copyPublicLink}><Copy className="h-4 w-4" /></Button>
+            <div className="flex flex-col gap-4 py-4">
+              <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-xl border border-dashed border-primary/20">
+                <code className="text-[11px] flex-1 truncate font-mono text-primary font-bold">/apply?adminId={userId}</code>
+                <Button size="icon" variant="ghost" onClick={copyPublicLink} className="hover:bg-primary/10">
+                  <Copy className="h-4 w-4 text-primary" />
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground text-center italic">
+                Sugerencia: Publica este link en tus avisos de ZonaProp, Argenprop o Marketplace.
+              </p>
             </div>
           </DialogContent>
         </Dialog>
@@ -155,46 +182,49 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead>Candidato / Fecha</TableHead>
-              <TableHead>Ingreso Declarado</TableHead>
+              <TableHead>Ingreso Mensual</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead className="text-right">Gestión</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {applications.map((app) => (
-              <TableRow key={app.id}>
+              <TableRow key={app.id} className="hover:bg-primary/5 transition-colors">
                 <TableCell>
                   <div className="flex flex-col">
-                    <span className="font-bold">{app.applicantName}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {app.submittedAt}
+                    <span className="font-bold text-foreground">{app.applicantName}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1 font-medium">
+                      <Clock className="h-3 w-3" /> Recibida: {app.submittedAt}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="font-black text-green-700">
+                <TableCell className="font-black text-primary">
                   $ {app.ingreso.toLocaleString('es-AR')}
                 </TableCell>
                 <TableCell>{getStatusBadge(app.status)}</TableCell>
                 <TableCell className="text-right">
                   <Button 
                     size="sm" 
-                    variant="ghost" 
-                    className="text-primary hover:bg-primary/5 h-8 gap-2"
+                    variant="outline" 
+                    className="border-primary text-primary hover:bg-primary hover:text-white h-8 gap-2 font-bold px-4"
                     onClick={() => {
                       setSelectedApp(app);
                       setIsDetailOpen(true);
                       setAiAnalysis(null);
                     }}
                   >
-                    <ClipboardCheck className="h-4 w-4" /> Evaluar
+                    <ClipboardCheck className="h-4 w-4" /> Evaluar Candidato
                   </Button>
                 </TableCell>
               </TableRow>
             ))}
             {applications.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">
-                  No hay solicitudes recibidas aún.
+                <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2 opacity-50">
+                    <UserPlus className="h-12 w-12" />
+                    <p className="text-sm italic font-medium">No has recibido postulaciones por el momento.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
@@ -203,100 +233,181 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
       </Card>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Evaluación: {selectedApp?.applicantName}</DialogTitle>
-            <DialogDescription>Postulación ingresada el {selectedApp?.submittedAt}</DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-            <div className="space-y-4">
-              <div className="p-4 bg-muted/20 rounded-lg space-y-2">
-                <h4 className="text-[10px] font-black uppercase text-muted-foreground">Datos de Contacto e Ingreso</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm pt-2">
-                  <p><strong>Email:</strong> {selectedApp?.applicantEmail}</p>
-                  <p><strong>Teléfono:</strong> {selectedApp?.applicantPhone}</p>
-                  <p className="col-span-2"><strong>Ingreso Mensual:</strong> $ {selectedApp?.ingreso.toLocaleString('es-AR')}</p>
-                </div>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl">
+          <div className="bg-primary p-6 text-white rounded-t-lg">
+            <div className="flex justify-between items-start">
+              <div>
+                <Badge className="bg-white/20 text-white border-white/30 mb-2">Expediente Digital</Badge>
+                <DialogTitle className="text-2xl font-black">{selectedApp?.applicantName}</DialogTitle>
+                <DialogDescription className="text-white/80 font-medium">
+                  Solicitud para alquiler ingresada el {selectedApp?.submittedAt}
+                </DialogDescription>
               </div>
-
-              <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
-                <h4 className="text-[10px] font-black uppercase text-blue-700 mb-2">Análisis Financiero IA</h4>
-                {isAnalyzing ? (
-                  <div className="flex items-center gap-2 text-xs text-blue-600">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Procesando con analista experto...
-                  </div>
-                ) : aiAnalysis ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold">Viabilidad:</span>
-                      <Badge className={aiAnalysis.score > 70 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
-                        {aiAnalysis.score}/100
-                      </Badge>
-                    </div>
-                    <div className="p-2 bg-white rounded border text-[11px] leading-relaxed">
-                      <strong>Dictamen: {aiAnalysis.recommendation}</strong><br/>
-                      {aiAnalysis.reasoning}
-                    </div>
-                  </div>
-                ) : (
-                  <Button 
-                    size="sm" 
-                    className="w-full bg-blue-600 text-white gap-2 h-8 text-[11px]"
-                    onClick={() => selectedApp && handleAnalyzeWithAI(selectedApp)}
-                  >
-                    <Sparkles className="h-3 w-3" /> Iniciar Evaluación con IA
-                  </Button>
-                )}
+              <div className="text-right">
+                <p className="text-[10px] uppercase font-bold text-white/60 mb-1">Estado Actual</p>
+                <Badge className="bg-white text-primary font-black px-4">{selectedApp?.status}</Badge>
               </div>
             </div>
+          </div>
+          
+          <div className="p-8">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+              {/* COLUMNA IZQUIERDA: DATOS Y IA */}
+              <div className="md:col-span-7 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted/30 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Mail className="h-4 w-4" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Email</span>
+                    </div>
+                    <p className="text-sm font-semibold">{selectedApp?.applicantEmail}</p>
+                  </div>
+                  <div className="p-4 bg-muted/30 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Phone className="h-4 w-4" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Teléfono</span>
+                    </div>
+                    <p className="text-sm font-semibold">{selectedApp?.applicantPhone}</p>
+                  </div>
+                </div>
 
-            <div className="space-y-4">
-              <div className="p-4 bg-muted/10 rounded-lg space-y-3">
-                <h4 className="text-[10px] font-black uppercase text-muted-foreground">Documentación Presentada</h4>
-                <div className="space-y-2">
-                  {selectedApp?.documents && selectedApp.documents.length > 0 ? (
-                    selectedApp.documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-2 bg-white rounded border border-muted-foreground/10">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <FileCheck className="h-4 w-4 text-primary flex-shrink-0" />
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-bold truncate">{doc.name}</span>
-                            <span className="text-[9px] text-muted-foreground uppercase">{doc.type}</span>
-                          </div>
-                        </div>
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => viewDocument(doc)}>
-                          <Eye className="h-3 w-3 text-primary" />
-                        </Button>
-                      </div>
-                    ))
+                <div className="p-6 bg-primary/5 rounded-2xl border border-primary/10">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-xs font-black uppercase text-primary flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" /> Análisis de Riesgo Financiero (IA)
+                    </h4>
+                    {aiAnalysis && (
+                       <Badge className={cn(
+                        "font-black px-3",
+                        aiAnalysis.score > 70 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                      )}>
+                        Score: {aiAnalysis.score}/100
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {!aiAnalysis && !isAnalyzing ? (
+                    <div className="text-center py-6 space-y-4">
+                      <p className="text-xs text-muted-foreground">La IA analizará el recibo de sueldo, la relación cuota-ingreso y las referencias aportadas.</p>
+                      <Button 
+                        className="w-full bg-primary text-white font-bold h-12 gap-2 shadow-sm"
+                        onClick={() => selectedApp && handleAnalyzeWithAI(selectedApp)}
+                      >
+                        <Sparkles className="h-4 w-4" /> Iniciar Evaluación con IA
+                      </Button>
+                    </div>
+                  ) : isAnalyzing ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-xs font-bold text-primary animate-pulse">Analizando perfil crediticio y laboral...</p>
+                    </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground italic">
-                      <AlertTriangle className="h-3 w-3" /> No se adjuntaron archivos.
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="p-4 bg-white rounded-xl border border-primary/20 shadow-sm">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Recomendación Final</p>
+                        <p className={cn(
+                          "text-lg font-black",
+                          aiAnalysis?.recommendation.includes('APROBADO') ? "text-green-600" : "text-orange-600"
+                        )}>
+                          {aiAnalysis?.recommendation}
+                        </p>
+                        <Separator className="my-3" />
+                        <p className="text-sm leading-relaxed text-foreground/80 italic">
+                          "{aiAnalysis?.reasoning}"
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-2">
+                        {aiAnalysis?.riskFactors.map((risk, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-[11px] text-muted-foreground bg-white px-3 py-1.5 rounded-lg border">
+                            <AlertTriangle className="h-3 w-3 text-orange-500" /> {risk}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
+
+                <div className="p-6 bg-muted/20 rounded-2xl space-y-3">
+                  <h4 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Referencias y Comentarios
+                  </h4>
+                  <p className="text-sm leading-relaxed text-foreground/70 italic">
+                    "{selectedApp?.references || 'El postulante no incluyó comentarios adicionales.'}"
+                  </p>
+                </div>
               </div>
 
-              <div className="p-4 bg-muted/10 rounded-lg space-y-3">
-                <h4 className="text-[10px] font-black uppercase text-muted-foreground">Referencias y Notas</h4>
-                <p className="text-sm italic text-muted-foreground">"{selectedApp?.references || 'Sin notas adicionales.'}"</p>
+              {/* COLUMNA DERECHA: DOCUMENTOS */}
+              <div className="md:col-span-5 space-y-6">
+                <Card className="border-none bg-muted/10 shadow-none">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                      <FileCheck className="h-4 w-4 text-primary" /> Documentación Adjunta
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {selectedApp?.documents && selectedApp.documents.length > 0 ? (
+                      selectedApp.documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-muted-foreground/10 hover:border-primary/30 transition-all shadow-sm group">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="p-2 bg-primary/5 rounded-lg group-hover:bg-primary/10 transition-colors">
+                              <FileCheck className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold truncate max-w-[150px]">{doc.name}</span>
+                              <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">{doc.type}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-8 w-8 rounded-full hover:bg-primary/10"
+                            onClick={() => viewDocument(doc)}
+                          >
+                            <Eye className="h-4 w-4 text-primary" />
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground/40 italic bg-white rounded-2xl border border-dashed">
+                        <AlertTriangle className="h-8 w-8" />
+                        <p className="text-xs font-bold">Sin archivos adjuntos</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <div className="p-6 bg-green-50 rounded-2xl border border-green-100 flex flex-col items-center text-center space-y-2">
+                  <div className="p-3 bg-green-100 rounded-full">
+                    <DollarSign className="h-5 w-5 text-green-700" />
+                  </div>
+                  <p className="text-[10px] font-black uppercase text-green-700">Ingreso Neto Declarado</p>
+                  <p className="text-2xl font-black text-green-900">$ {selectedApp?.ingreso.toLocaleString('es-AR')}</p>
+                </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="mt-6">
-             <div className="flex gap-2 w-full justify-between">
-              <Button variant="ghost" className="text-red-600" onClick={() => {
-                if (selectedApp) handleUpdateStatus(selectedApp.id, 'Rechazada');
-                setIsDetailOpen(false);
-              }}>
-                <XCircle className="h-4 w-4 mr-2" /> Rechazar
+          <DialogFooter className="p-6 bg-muted/30 border-t rounded-b-lg">
+             <div className="flex gap-4 w-full justify-end">
+              <Button 
+                variant="ghost" 
+                className="text-red-600 font-bold hover:bg-red-50"
+                onClick={() => {
+                  if (selectedApp) handleUpdateStatus(selectedApp.id, 'Rechazada');
+                  setIsDetailOpen(false);
+                }}
+              >
+                <XCircle className="h-4 w-4 mr-2" /> Rechazar Solicitud
               </Button>
-              <Button className="bg-primary text-white" onClick={() => {
-                if (selectedApp) handleUpdateStatus(selectedApp.id, 'Aprobada');
-                setIsDetailOpen(false);
-              }}>
+              <Button 
+                className="bg-primary text-white font-black px-8 shadow-md hover:shadow-lg transition-all"
+                onClick={() => {
+                  if (selectedApp) handleUpdateStatus(selectedApp.id, 'Aprobada');
+                  setIsDetailOpen(false);
+                }}
+              >
                 <CheckCircle2 className="h-4 w-4 mr-2" /> Aprobar Candidato
               </Button>
             </div>
