@@ -7,25 +7,19 @@ import { Button } from '@/components/ui/button';
 import { 
   UserPlus, 
   Search, 
-  FileText, 
   CheckCircle2, 
   XCircle, 
   Clock, 
-  Phone, 
-  Mail, 
-  Building2, 
-  TrendingUp, 
-  DollarSign,
-  ClipboardCheck,
+  ExternalLink, 
+  Trash2, 
+  Sparkles, 
+  Loader2, 
+  Eye, 
+  FileCheck, 
+  ShieldCheck,
   Copy,
-  ExternalLink,
-  Trash2,
-  Sparkles,
-  Loader2,
-  AlertTriangle,
-  Eye,
-  FileCheck,
-  ShieldCheck
+  ClipboardCheck,
+  DollarSign
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -48,6 +42,7 @@ import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { analyzeApplication, AnalyzeApplicationOutput } from '@/ai/flows/analyze-application-flow';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ApplicationsViewProps {
   applications: RentalApplication[];
@@ -63,6 +58,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   const [selectedApp, setSelectedApp] = useState<RentalApplication | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AnalyzeApplicationOutput | null>(null);
@@ -85,11 +81,18 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     toast({ title: `Solicitud ${newStatus}`, description: `Estado actualizado correctamente.` });
   };
 
+  const handleDelete = (appId: string) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', appId);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: "Solicitud Eliminada", description: "El registro ha sido removido." });
+  };
+
   const handleAnalyzeWithAI = async (app: RentalApplication) => {
     setIsAnalyzing(true);
     setAiAnalysis(null);
     try {
-      const rentAmount = 350000; // Valor base para análisis
+      const rentAmount = 350000; // Valor de referencia
       const result = await analyzeApplication({
         applicantName: app.applicantName,
         applicantIncome: app.ingreso,
@@ -133,101 +136,81 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     }
   };
 
+  const filteredApps = applications.filter(app => 
+    app.applicantName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const pendingApps = filteredApps.filter(app => ['Nueva', 'En análisis', 'Pendiente de documentación'].includes(app.status));
+  const historyApps = filteredApps.filter(app => ['Aprobada', 'Rechazada'].includes(app.status));
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex gap-2 w-full sm:w-auto">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar candidatos..." className="pl-9 bg-white" />
-          </div>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Buscar candidatos..." 
+            className="pl-9 bg-white" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         
         <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary text-white gap-2 font-bold shadow-md hover:shadow-lg transition-all">
-              <ExternalLink className="h-4 w-4" /> Enlace de Postulación Pública
+            <Button className="bg-primary text-white gap-2 font-bold shadow-md">
+              <ExternalLink className="h-4 w-4" /> Enlace Público
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                Recibir Postulaciones
+                <ShieldCheck className="h-5 w-5 text-primary" /> Recibir Postulaciones
               </DialogTitle>
               <DialogDescription className="pt-2">
-                Usa este link para que los interesados carguen sus datos sin necesidad de tener un usuario.
+                Comparte este link para que los interesados carguen sus datos.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-4">
-              <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-xl border border-dashed border-primary/20 overflow-hidden">
+              <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-xl border border-dashed border-primary/20">
                 <code className="text-[10px] flex-1 truncate font-mono text-primary font-bold">/apply?adminId={userId}</code>
-                <Button size="icon" variant="ghost" onClick={copyPublicLink} className="hover:bg-primary/10 flex-shrink-0">
+                <Button size="icon" variant="ghost" onClick={copyPublicLink}>
                   <Copy className="h-4 w-4 text-primary" />
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground text-center italic">
-                Copia este link y ábrelo en una pestaña de incógnito para probar cómo lo ve el interesado.
-              </p>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card className="border-none shadow-sm overflow-hidden bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Candidato / Fecha</TableHead>
-              <TableHead>Ingreso Mensual</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Gestión</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {applications.map((app) => (
-              <TableRow key={app.id} className="hover:bg-primary/5 transition-colors">
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-foreground">{app.applicantName}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1 font-medium">
-                      <Clock className="h-3 w-3" /> Recibida: {app.submittedAt}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="font-black text-primary">
-                  $ {app.ingreso.toLocaleString('es-AR')}
-                </TableCell>
-                <TableCell>{getStatusBadge(app.status)}</TableCell>
-                <TableCell className="text-right">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="border-primary text-primary hover:bg-primary hover:text-white h-8 gap-2 font-bold px-4"
-                    onClick={() => {
-                      setSelectedApp(app);
-                      setIsDetailOpen(true);
-                      setAiAnalysis(null);
-                    }}
-                  >
-                    <ClipboardCheck className="h-4 w-4" /> Evaluar Candidato
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {applications.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2 opacity-50">
-                    <UserPlus className="h-12 w-12" />
-                    <p className="text-sm italic font-medium">No has recibido postulaciones por el momento.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <Tabs defaultValue="pending" className="w-full">
+        <TabsList className="bg-white border shadow-sm">
+          <TabsTrigger value="pending" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+            Pendientes ({pendingApps.length})
+          </TabsTrigger>
+          <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+            Historial ({historyApps.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending" className="mt-4">
+          <ApplicationsTable 
+            apps={pendingApps} 
+            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); setAiAnalysis(null); }} 
+            onDelete={handleDelete}
+            getStatusBadge={getStatusBadge}
+          />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <ApplicationsTable 
+            apps={historyApps} 
+            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); setAiAnalysis(null); }} 
+            onDelete={handleDelete}
+            getStatusBadge={getStatusBadge}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl">
@@ -280,7 +263,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                       
                       {!aiAnalysis && !isAnalyzing ? (
                         <div className="text-center py-6 space-y-4">
-                          <p className="text-xs text-muted-foreground italic">La IA analizará el perfil financiero y laboral automáticamente.</p>
+                          <p className="text-xs text-muted-foreground italic">La IA analizará el perfil financiero automáticamente.</p>
                           <Button 
                             className="w-full bg-primary text-white font-bold h-12 gap-2 shadow-sm"
                             onClick={() => handleAnalyzeWithAI(selectedApp)}
@@ -291,7 +274,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                       ) : isAnalyzing ? (
                         <div className="flex flex-col items-center justify-center py-12 space-y-4">
                           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                          <p className="text-xs font-bold text-primary animate-pulse">Procesando perfil financiero...</p>
+                          <p className="text-xs font-bold text-primary animate-pulse">Procesando perfil...</p>
                         </div>
                       ) : (
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
@@ -323,7 +306,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                       <CardContent className="space-y-3">
                         {selectedApp.documents && selectedApp.documents.length > 0 ? (
                           selectedApp.documents.map((doc) => (
-                            <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-muted-foreground/10 hover:border-primary/30 transition-all shadow-sm group">
+                            <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-muted-foreground/10 hover:border-primary/30 group">
                               <div className="flex items-center gap-3 overflow-hidden">
                                 <FileCheck className="h-5 w-5 text-primary" />
                                 <div className="flex flex-col">
@@ -334,7 +317,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
-                                className="h-8 w-8 rounded-full hover:bg-primary/10"
+                                className="h-8 w-8 rounded-full"
                                 onClick={() => viewDocument(doc)}
                               >
                                 <Eye className="h-4 w-4 text-primary" />
@@ -371,7 +354,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                     <XCircle className="h-4 w-4 mr-2" /> Rechazar
                   </Button>
                   <Button 
-                    className="bg-primary text-white font-black px-8 shadow-md hover:shadow-lg transition-all"
+                    className="bg-primary text-white font-black px-8"
                     onClick={() => {
                       handleUpdateStatus(selectedApp.id, 'Aprobada');
                       setIsDetailOpen(false);
@@ -386,5 +369,77 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ApplicationsTable({ 
+  apps, 
+  onEval, 
+  onDelete, 
+  getStatusBadge 
+}: { 
+  apps: RentalApplication[], 
+  onEval: (app: RentalApplication) => void, 
+  onDelete: (id: string) => void,
+  getStatusBadge: (status: ApplicationStatus) => React.ReactNode
+}) {
+  return (
+    <Card className="border-none shadow-sm overflow-hidden bg-white">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/50">
+            <TableHead>Candidato / Fecha</TableHead>
+            <TableHead>Ingreso Mensual</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead className="text-right">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {apps.map((app) => (
+            <TableRow key={app.id} className="hover:bg-primary/5">
+              <TableCell>
+                <div className="flex flex-col">
+                  <span className="font-bold text-foreground">{app.applicantName}</span>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Recibida: {app.submittedAt}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell className="font-black text-primary">
+                $ {app.ingreso.toLocaleString('es-AR')}
+              </TableCell>
+              <TableCell>{getStatusBadge(app.status)}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="border-primary text-primary h-8 gap-2 font-bold px-4"
+                    onClick={() => onEval(app)}
+                  >
+                    <ClipboardCheck className="h-4 w-4" /> Evaluar
+                  </Button>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-8 w-8 text-destructive"
+                    onClick={() => onDelete(app.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+          {apps.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">
+                No hay solicitudes en esta categoría.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }
