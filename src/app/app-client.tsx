@@ -87,9 +87,6 @@ export default function AppClient() {
     await signOut(auth);
   };
 
-  // El sistema asume un Administrador que gestiona los datos de todos.
-  // En un escenario real, un "Propietario" consultaría una colección compartida.
-  // Para este prototipo, mostramos la potencia de filtrado en el mismo flujo.
   const propiedadesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'propiedades'));
@@ -132,8 +129,20 @@ export default function AppClient() {
   if (!isMounted) return null;
 
   const renderContent = () => {
-    if (activeRole === 'Inquilino') return <TenantPortalView />;
-    if (activeRole === 'Propietario') return <OwnerPortalView properties={properties as any} liquidations={liquidations as any} />;
+    if (activeRole === 'Inquilino') {
+      return (
+        <TenantPortalView 
+          contracts={contracts} 
+          properties={properties as any} 
+          invoices={invoices as any}
+          tasks={tasks as any}
+        />
+      );
+    }
+    
+    if (activeRole === 'Propietario') {
+      return <OwnerPortalView properties={properties as any} liquidations={liquidations as any} />;
+    }
 
     switch (activeTab) {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties as any} contracts={contracts} invoices={invoices as any} tasks={tasks as any} />;
