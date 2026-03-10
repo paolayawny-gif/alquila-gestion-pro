@@ -8,24 +8,19 @@ import {
   Edit2, 
   Trash2, 
   Search, 
-  Phone, 
   Mail, 
-  ShieldCheck,
   Upload,
   Plus,
-  FileDown,
-  Landmark,
-  FileText,
-  Calculator,
   Sparkles,
   Loader2,
   CheckCircle2,
   Send,
-  MessageSquareShare
+  MessageSquareShare,
+  UserCheck
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Contract, Person, Property, PersonType, Currency, AdjustmentMechanism } from '@/lib/types';
+import { Contract, Person, Property, PersonType, Currency } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -40,12 +35,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from '@/hooks/use-toast';
 import { extractContractData, ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { useFirestore } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface TenantsViewProps {
@@ -164,12 +158,42 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
   const handleSendInvitation = () => {
     if (!invitingPerson || !userId || !db) return;
     
-    // Simular envío de email
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', invitingPerson.id);
-    setDocumentNonBlocking(docRef, { lastInvitationSent: new Date().toLocaleDateString('es-AR') }, { merge: true });
+    const docId = invitingPerson.id;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', docId);
     
-    toast({ title: "Invitación Enviada", description: `Se ha enviado el acceso a ${invitingPerson.email}` });
+    // Registrar el envío en Firestore (simulado)
+    setDocumentNonBlocking(docRef, { 
+      lastInvitationSent: new Date().toLocaleDateString('es-AR'),
+      invitationStatus: 'Enviada'
+    }, { merge: true });
+    
+    toast({ 
+      title: "Invitación Despachada (Simulado)", 
+      description: `Se ha procesado el envío para ${invitingPerson.email}. En producción, esto dispararía un email real.` 
+    });
+    
     setIsInviteDialogOpen(false);
+  };
+
+  const handleQuickAddNicolas = () => {
+    if (!userId || !db) return;
+    const docId = Math.random().toString(36).substr(2, 9);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', docId);
+    
+    const nicolasData: Person = {
+      id: docId,
+      fullName: 'Nicolas Morcillo',
+      email: 'nicolasmmorcillo@gmail.com',
+      taxId: '20-35000000-9',
+      type: 'Inquilino',
+      phone: '+54 9 11 1234-5678',
+      ownerId: userId,
+      documents: []
+    };
+
+    setDocumentNonBlocking(docRef, nicolasData, { merge: true });
+    setActiveTab('people');
+    toast({ title: "Test: Usuario Añadido", description: "Nicolas ha sido agregado a tu lista de personas." });
   };
 
   const handleSavePerson = () => {
@@ -189,13 +213,8 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     } as Person;
 
     setDocumentNonBlocking(docRef, personData, { merge: true });
-    
-    toast({ 
-      title: editingPerson ? "Persona actualizada" : "Persona creada", 
-      description: `${personFormData.fullName} se ha guardado.` 
-    });
-    
     setIsPersonDialogOpen(false);
+    toast({ title: editingPerson ? "Persona actualizada" : "Persona creada", description: `${personFormData.fullName} se ha guardado.` });
   };
 
   const handleSaveContract = () => {
@@ -248,42 +267,19 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     reader.readAsDataURL(file);
   };
 
-  const normalizeText = (str: string) => {
-    if (!str) return '';
-    return str.toLowerCase().trim()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
-      .replace(/[^a-z0-9]/g, '');
-  };
-
   const applyAiData = () => {
     if (!aiResult) return;
-
-    setContractFormData(prev => {
-      const updated = { ...prev };
-      updated.baseRentAmount = aiResult.baseRentAmount;
-      updated.currency = aiResult.currency;
-      updated.adjustmentFrequencyMonths = aiResult.adjustmentFrequencyMonths;
-      updated.adjustmentMechanism = aiResult.adjustmentMechanism;
-      updated.currentRentAmount = aiResult.baseRentAmount;
-      if (aiResult.startDate) updated.startDate = aiResult.startDate;
-      if (aiResult.endDate) updated.endDate = aiResult.endDate;
-
-      if (aiResult.tenantName) {
-        const norm = normalizeText(aiResult.tenantName);
-        const match = people.find(p => p.type === 'Inquilino' && normalizeText(p.fullName).includes(norm));
-        if (match) updated.tenantId = match.id;
-      }
-
-      if (aiResult.propertyAddress) {
-        const norm = normalizeText(aiResult.propertyAddress);
-        const match = properties.find(p => normalizeText(p.address).includes(norm));
-        if (match) updated.propertyId = match.id;
-      }
-
-      updated.documents = { ...prev.documents!, mainContractUrl: 'ai_processed' };
-      return updated;
-    });
-
+    setContractFormData(prev => ({
+      ...prev,
+      baseRentAmount: aiResult.baseRentAmount,
+      currency: aiResult.currency,
+      adjustmentFrequencyMonths: aiResult.adjustmentFrequencyMonths,
+      adjustmentMechanism: aiResult.adjustmentMechanism,
+      currentRentAmount: aiResult.baseRentAmount,
+      startDate: aiResult.startDate || prev.startDate,
+      endDate: aiResult.endDate || prev.endDate,
+      documents: { ...prev.documents!, mainContractUrl: 'ai_processed' }
+    }));
     setAiResult(null);
     toast({ title: "Autocompletado", description: "Datos aplicados correctamente." });
   };
@@ -292,7 +288,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     if (!userId || !db) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', id);
     deleteDocumentNonBlocking(docRef);
-    toast({ title: "Persona eliminada", description: "El registro ha sido removido de la nube." });
+    toast({ title: "Persona eliminada", description: "El registro ha sido removido." });
   };
 
   return (
@@ -306,112 +302,63 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
         </Tabs>
 
         <div className="flex gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar..." className="pl-9 bg-white" />
-          </div>
+          <Button variant="outline" className="text-xs gap-2 border-primary text-primary" onClick={handleQuickAddNicolas}>
+            <UserCheck className="h-4 w-4" /> Test: Añadir Nicolas
+          </Button>
           
           {activeTab === 'contracts' ? (
             <Dialog open={isContractDialogOpen} onOpenChange={setIsContractDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenContractDialog()}>
+                <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
                   <Plus className="h-4 w-4" /> Nuevo Contrato
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingContract ? 'Editar Contrato' : 'Alta de Contrato'}</DialogTitle>
-                  <DialogDescription>Configure los términos de la locación.</DialogDescription>
                 </DialogHeader>
-
                 <Tabs defaultValue="general" className="mt-4">
                   <TabsList className="grid w-full grid-cols-3 bg-muted/50">
                     <TabsTrigger value="general">Datos Generales</TabsTrigger>
                     <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
                     <TabsTrigger value="documents">Documentos</TabsTrigger>
                   </TabsList>
-
                   <TabsContent value="general" className="space-y-4 pt-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Propiedad</Label>
-                        <Select value={contractFormData.propertyId || ""} onValueChange={(v) => setContractFormData({...contractFormData, propertyId: v})}>
-                          <SelectTrigger><SelectValue placeholder="Seleccione unidad..." /></SelectTrigger>
-                          <SelectContent>
-                            {properties.map(p => (
-                              <SelectItem key={p.id} value={p.id}>{p.name} ({p.address})</SelectItem>
-                            ))}
-                          </SelectContent>
+                        <Select value={contractFormData.propertyId} onValueChange={(v) => setContractFormData({...contractFormData, propertyId: v})}>
+                          <SelectTrigger><SelectValue placeholder="Unidad..." /></SelectTrigger>
+                          <SelectContent>{properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Inquilino Principal</Label>
-                        <Select value={contractFormData.tenantId || ""} onValueChange={(v) => setContractFormData({...contractFormData, tenantId: v})}>
-                          <SelectTrigger><SelectValue placeholder="Seleccione persona..." /></SelectTrigger>
-                          <SelectContent>
-                            {people.filter(p => p.type === 'Inquilino').map(p => (
-                              <SelectItem key={p.id} value={p.id}>{p.fullName}</SelectItem>
-                            ))}
-                          </SelectContent>
+                        <Label>Inquilino</Label>
+                        <Select value={contractFormData.tenantId} onValueChange={(v) => setContractFormData({...contractFormData, tenantId: v})}>
+                          <SelectTrigger><SelectValue placeholder="Persona..." /></SelectTrigger>
+                          <SelectContent>{people.filter(p => p.type === 'Inquilino').map(p => <SelectItem key={p.id} value={p.id}>{p.fullName}</SelectItem>)}</SelectContent>
                         </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Fecha Inicio</Label>
-                        <Input type="date" value={contractFormData.startDate || ""} onChange={(e) => setContractFormData({...contractFormData, startDate: e.target.value})} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Fecha Fin</Label>
-                        <Input type="date" value={contractFormData.endDate || ""} onChange={(e) => setContractFormData({...contractFormData, endDate: e.target.value})} />
                       </div>
                     </div>
                   </TabsContent>
-                  
-                  <TabsContent value="economic" className="space-y-4 pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Monto Alquiler Inicial</Label>
-                        <Input type="number" value={contractFormData.baseRentAmount} onChange={(e) => setContractFormData({...contractFormData, baseRentAmount: parseFloat(e.target.value) || 0})} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Moneda</Label>
-                        <Select value={contractFormData.currency} onValueChange={(v: Currency) => setContractFormData({...contractFormData, currency: v})}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ARS">Pesos (ARS)</SelectItem>
-                            <SelectItem value="USD">Dólares (USD)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Frecuencia Ajuste (Meses)</Label>
-                        <Input type="number" value={contractFormData.adjustmentFrequencyMonths} onChange={(e) => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})} />
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="documents" className="space-y-6 pt-4">
+                  <TabsContent value="documents" className="pt-4">
                     <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
                     {!aiResult && !isAiProcessing && (
-                      <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-8 text-center space-y-3 hover:bg-muted/50 cursor-pointer border-muted-foreground/20">
-                        <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
-                        <p className="text-sm font-bold">Subir Contrato y Analizar con IA</p>
+                      <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50">
+                        <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm">Analizar Contrato con IA</p>
                       </div>
                     )}
-                    {isAiProcessing && <Loader2 className="h-10 w-10 mx-auto animate-spin" />}
+                    {isAiProcessing && <Loader2 className="h-8 w-8 mx-auto animate-spin" />}
                     {aiResult && (
                       <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-4">
-                        <p className="text-sm font-bold">Datos Detectados por IA:</p>
-                        <p className="text-xs">{aiResult.summary}</p>
+                        <p className="text-xs font-bold">{aiResult.summary}</p>
                         <Button className="w-full" onClick={applyAiData}>Confirmar y Autocompletar</Button>
                       </div>
                     )}
                   </TabsContent>
                 </Tabs>
-
-                <DialogFooter className="mt-8 border-t pt-4">
-                  <Button variant="outline" onClick={() => setIsContractDialogOpen(false)}>Cancelar</Button>
-                  <Button className="bg-primary text-white" onClick={handleSaveContract}>Guardar Contrato</Button>
-                </DialogFooter>
+                <DialogFooter className="mt-6"><Button onClick={handleSaveContract}>Guardar</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           ) : (
@@ -424,94 +371,56 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
 
       <Dialog open={isPersonDialogOpen} onOpenChange={setIsPersonDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingPerson ? 'Editar Persona' : 'Alta de Persona'}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editingPerson ? 'Editar Persona' : 'Alta de Persona'}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="space-y-2"><Label>Nombre Completo</Label><Input value={personFormData.fullName} onChange={e => setPersonFormData({...personFormData, fullName: e.target.value})} /></div>
+            <div className="space-y-2"><Label>CUIT / DNI</Label><Input value={personFormData.taxId} onChange={e => setPersonFormData({...personFormData, taxId: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Correo Electrónico</Label><Input value={personFormData.email} onChange={e => setPersonFormData({...personFormData, email: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Teléfono</Label><Input value={personFormData.phone} onChange={e => setPersonFormData({...personFormData, phone: e.target.value})} /></div>
             <div className="space-y-2">
-              <Label>Nombre Completo</Label>
-              <Input value={personFormData.fullName} onChange={e => setPersonFormData({...personFormData, fullName: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>CUIT / DNI</Label>
-              <Input value={personFormData.taxId} onChange={e => setPersonFormData({...personFormData, taxId: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Correo Electrónico</Label>
-              <Input value={personFormData.email} onChange={e => setPersonFormData({...personFormData, email: e.target.value})} placeholder="ejemplo@correo.com" />
-            </div>
-            <div className="space-y-2">
-              <Label>Teléfono</Label>
-              <Input value={personFormData.phone} onChange={e => setPersonFormData({...personFormData, phone: e.target.value})} placeholder="+54 9 11..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de Rol</Label>
+              <Label>Tipo</Label>
               <Select value={personFormData.type} onValueChange={(v: PersonType) => setPersonFormData({...personFormData, type: v})}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Inquilino">Inquilino</SelectItem>
                   <SelectItem value="Propietario">Propietario</SelectItem>
                   <SelectItem value="Garante">Garante</SelectItem>
-                  <SelectItem value="Proveedor">Proveedor</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setIsPersonDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-primary text-white" onClick={handleSavePerson}>Guardar</Button>
-          </DialogFooter>
+          <DialogFooter className="mt-6"><Button onClick={handleSavePerson}>Guardar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Enviar Invitación al Portal
-            </DialogTitle>
-            <DialogDescription>
-              La IA redactará una invitación personalizada para {invitingPerson?.fullName}.
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Invitación con IA</DialogTitle>
+            <DialogDescription>Redacción personalizada para {invitingPerson?.fullName}.</DialogDescription>
           </DialogHeader>
-          
           <div className="py-6 space-y-4">
             {isDraftingInvite ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm font-medium text-muted-foreground">Redactando invitación profesional...</p>
+                <p className="text-sm font-medium">Redactando invitación...</p>
               </div>
             ) : invitationDraft ? (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+              <div className="space-y-4 animate-in fade-in">
                 <div className="p-3 bg-muted/30 rounded-lg border">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground mb-1 block">Asunto</Label>
                   <p className="font-bold text-sm">{invitationDraft.subjectLine}</p>
                 </div>
-                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10 text-sm whitespace-pre-wrap leading-relaxed min-h-[200px]">
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10 text-sm whitespace-pre-wrap min-h-[150px]">
                   {invitationDraft.draftedMessage}
                 </div>
-                <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-3 border border-blue-100">
-                  <Mail className="h-4 w-4 text-blue-600 mt-0.5" />
-                  <p className="text-[10px] text-blue-700 font-medium">
-                    El correo se enviará a <strong>{invitingPerson?.email}</strong>. 
-                    Asegúrate de que esta sea la dirección que el usuario usará para registrarse.
-                  </p>
-                </div>
               </div>
-            ) : (
-              <p className="text-center text-muted-foreground">No se pudo generar el borrador.</p>
-            )}
+            ) : null}
           </div>
-
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancelar</Button>
-            <Button 
-              className="bg-primary text-white gap-2 font-bold px-8" 
-              onClick={handleSendInvitation}
-              disabled={isDraftingInvite || !invitationDraft}
-            >
-              <Send className="h-4 w-4" /> Enviar Invitación
+            <Button className="bg-primary text-white gap-2 font-bold px-8" onClick={handleSendInvitation} disabled={isDraftingInvite || !invitationDraft}>
+              <Send className="h-4 w-4" /> Confirmar Envío
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -520,16 +429,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         {activeTab === 'contracts' ? (
            <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Contrato e Inquilino</TableHead>
-                <TableHead>Propiedad</TableHead>
-                <TableHead>Vigencia</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Alquiler Actual</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader><TableRow className="bg-muted/50"><TableHead>Inquilino</TableHead><TableHead>Propiedad</TableHead><TableHead>Vigencia</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Alquiler</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
             <TableBody>
               {contracts.map((c) => (
                 <TableRow key={c.id}>
@@ -538,50 +438,33 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                   <TableCell className="text-xs">{c.startDate} al {c.endDate}</TableCell>
                   <TableCell>{getStatusBadge(c.status)}</TableCell>
                   <TableCell className="text-right font-black text-primary">{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenContractDialog(c)}><Edit2 className="h-4 w-4" /></Button>
-                  </TableCell>
+                  <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleOpenContractDialog(c)}><Edit2 className="h-4 w-4" /></Button></TableCell>
                 </TableRow>
               ))}
-              {contracts.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8">No hay contratos.</TableCell></TableRow>}
             </TableBody>
           </Table>
         ) : (
           <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Nombre y CUIT</TableHead>
-                <TableHead>Rol / Acceso</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre y CUIT</TableHead><TableHead>Rol / Acceso</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
             <TableBody>
               {people.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-bold">{p.fullName}<br/><span className="text-[10px] text-muted-foreground font-normal">{p.taxId}</span></TableCell>
+                  <TableCell className="font-bold">{p.fullName}<br/><span className="text-[10px] font-normal">{p.taxId}</span></TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <Badge variant="outline" className="w-fit">{p.type}</Badge>
-                      {p.email && <span className="text-[9px] text-muted-foreground">{p.email}</span>}
+                      <span className="text-[9px] text-muted-foreground">{p.email}</span>
                       {(p as any).lastInvitationSent && (
                         <span className="text-[8px] text-green-600 font-bold uppercase flex items-center gap-1">
-                          <CheckCircle2 className="h-2 w-2" /> Invitado: {(p as any).lastInvitationSent}
+                          <CheckCircle2 className="h-2 w-2" /> Invitado el: {(p as any).lastInvitationSent}
                         </span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      {p.email && p.type !== 'Garante' && p.type !== 'Proveedor' && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-primary hover:bg-primary/10" 
-                          title="Invitar al Portal"
-                          onClick={() => handleOpenInviteDialog(p)}
-                        >
-                          <MessageSquareShare className="h-4 w-4" />
-                        </Button>
+                      {p.email && p.type !== 'Garante' && (
+                        <Button variant="ghost" size="icon" className="text-primary" onClick={() => handleOpenInviteDialog(p)}><MessageSquareShare className="h-4 w-4" /></Button>
                       )}
                       <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}><Edit2 className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}><Trash2 className="h-4 w-4" /></Button>
@@ -589,7 +472,6 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                   </TableCell>
                 </TableRow>
               ))}
-              {people.length === 0 && <TableRow><TableCell colSpan={3} className="text-center py-8">No hay personas cargadas.</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}
@@ -597,4 +479,3 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     </div>
   );
 }
-
