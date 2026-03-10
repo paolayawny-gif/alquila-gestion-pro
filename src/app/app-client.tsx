@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Building, 
@@ -42,6 +41,8 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Property, Person, Contract, RentalApplication, Invoice, MaintenanceTask, LegalCase, Liquidation } from '@/lib/types';
+import { useAuth, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
@@ -63,6 +64,17 @@ export default function AppClient() {
   const [activeRole, setActiveRole] = useState<Role>('Administrador');
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const { user } = useUser();
+  const auth = useAuth();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
 
   // ESTADO GLOBAL CENTRALIZADO
   const [properties, setProperties] = useState<Property[]>([
@@ -182,6 +194,8 @@ export default function AppClient() {
     }
   ]);
 
+  if (!isMounted) return null;
+
   const renderContent = () => {
     if (activeRole === 'Inquilino') return <TenantPortalView />;
     if (activeRole === 'Propietario') return <OwnerPortalView />;
@@ -276,6 +290,7 @@ export default function AppClient() {
           </DropdownMenu>
 
            <button 
+            onClick={handleLogout}
             className={cn(
               "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors mt-2",
               isSidebarCollapsed && "justify-center"
@@ -300,9 +315,14 @@ export default function AppClient() {
             {activeRole === 'Administrador' ? activeTab : `Portal de ${activeRole}`}
           </h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              {activeRole === 'Inquilino' ? 'Inquilino: Carlos Sosa' : activeRole === 'Propietario' ? 'Propietario: Juan Pérez' : 'Admin: Inmobiliaria S.A.'}
-            </span>
+            <div className="flex flex-col items-end hidden sm:flex">
+              <span className="text-sm font-bold text-foreground">
+                {user?.email}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Rol: {activeRole}
+              </span>
+            </div>
             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase">
               {activeRole[0]}{activeRole[1]}
             </div>
