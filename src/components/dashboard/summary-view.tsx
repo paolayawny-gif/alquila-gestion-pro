@@ -31,7 +31,7 @@ interface SummaryViewProps {
   tasks: MaintenanceTask[];
 }
 
-export function SummaryView({ onNavigate, properties, contracts, invoices, tasks }: SummaryViewProps) {
+export function SummaryView({ onNavigate, properties = [], contracts = [], invoices = [], tasks = [] }: SummaryViewProps) {
   const [dolarMep, setDolarMep] = useState<number | null>(null);
   
   const [alerts] = useState<AppAlert[]>([
@@ -60,10 +60,34 @@ export function SummaryView({ onNavigate, properties, contracts, invoices, tasks
   }, []);
 
   const stats = [
-    { label: 'Recaudación Proyectada', value: `$ ${invoices.reduce((acc, i) => acc + i.totalAmount, 0).toLocaleString('es-AR')}`, icon: TrendingUp, trend: '+18%', color: 'text-primary' },
-    { label: 'Unidades Gestionadas', value: properties.length.toString(), icon: Building2, trend: `${properties.filter(p => p.status === 'Alquilada').length} Alquiladas`, color: 'text-green-600' },
-    { label: 'Mora en Cartera', value: `${invoices.filter(i => i.status === 'Vencido').length > 0 ? '4.2%' : '0%'}`, icon: AlertTriangle, trend: 'Controlada', color: 'text-orange-500' },
-    { label: 'Tareas Activas', value: tasks.filter(t => t.status !== 'Cerrado').length.toString(), icon: Wrench, trend: 'En curso', color: 'text-blue-500' },
+    { 
+      label: 'Recaudación Proyectada', 
+      value: `$ ${(invoices || []).reduce((acc, i) => acc + (i.totalAmount || 0), 0).toLocaleString('es-AR')}`, 
+      icon: TrendingUp, 
+      trend: '+18%', 
+      color: 'text-primary' 
+    },
+    { 
+      label: 'Unidades Gestionadas', 
+      value: (properties || []).length.toString(), 
+      icon: Building2, 
+      trend: `${(properties || []).filter(p => p.status === 'Alquilada').length} Alquiladas`, 
+      color: 'text-green-600' 
+    },
+    { 
+      label: 'Mora en Cartera', 
+      value: `${(invoices || []).filter(i => i.status === 'Vencido').length > 0 ? '4.2%' : '0%'}`, 
+      icon: AlertTriangle, 
+      trend: 'Controlada', 
+      color: 'text-orange-500' 
+    },
+    { 
+      label: 'Tareas Activas', 
+      value: (tasks || []).filter(t => t.status !== 'Cerrado').length.toString(), 
+      icon: Wrench, 
+      trend: 'En curso', 
+      color: 'text-blue-500' 
+    },
   ];
 
   const upcomingAdjustments = [

@@ -117,12 +117,20 @@ export default function AppClient() {
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'liquidaciones'));
   }, [db, user]);
 
-  const { data: properties = [] } = useCollection(propiedadesQuery);
-  const { data: people = [] } = useCollection(inquilinosQuery);
-  const { data: invoices = [] } = useCollection(facturasQuery);
-  const { data: tasks = [] } = useCollection(mantenimientoQuery);
-  const { data: legalCases = [] } = useCollection(legalQuery);
-  const { data: liquidations = [] } = useCollection(liquidacionesQuery);
+  const { data: propertiesData } = useCollection(propiedadesQuery);
+  const { data: peopleData } = useCollection(inquilinosQuery);
+  const { data: invoicesData } = useCollection(facturasQuery);
+  const { data: tasksData } = useCollection(mantenimientoQuery);
+  const { data: legalCasesData } = useCollection(legalQuery);
+  const { data: liquidationsData } = useCollection(liquidacionesQuery);
+
+  // Aseguramos arreglos vacíos por defecto para evitar errores de .reduce o .length
+  const properties = propertiesData || [];
+  const people = peopleData || [];
+  const invoices = invoicesData || [];
+  const tasks = tasksData || [];
+  const legalCases = legalCasesData || [];
+  const liquidations = liquidationsData || [];
 
   const [contracts, setContracts] = useState<any[]>([]);
 
@@ -133,37 +141,37 @@ export default function AppClient() {
       return (
         <TenantPortalView 
           contracts={contracts} 
-          properties={properties as any} 
-          invoices={invoices as any}
-          tasks={tasks as any}
+          properties={properties} 
+          invoices={invoices}
+          tasks={tasks}
         />
       );
     }
     
     if (activeRole === 'Propietario') {
-      return <OwnerPortalView properties={properties as any} liquidations={liquidations as any} />;
+      return <OwnerPortalView properties={properties} liquidations={liquidations} />;
     }
 
     switch (activeTab) {
-      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties as any} contracts={contracts} invoices={invoices as any} tasks={tasks as any} />;
-      case 'Propiedades': return <PropertiesView properties={properties as any} userId={user?.uid} />;
+      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
+      case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} />;
       case 'Personas': return (
         <TenantsView 
-          people={people as any} 
+          people={people} 
           userId={user?.uid}
           contracts={contracts} 
           setContracts={setContracts} 
-          properties={properties as any} 
+          properties={properties} 
         />
       );
-      case 'Solicitudes': return <ApplicationsView applications={[]} setApplications={() => {}} properties={properties as any} />;
-      case 'Facturas': return <InvoicesView invoices={invoices as any} userId={user?.uid} contracts={contracts} />;
-      case 'Mantenimiento': return <MaintenanceView tasks={tasks as any} userId={user?.uid} properties={properties as any} people={people as any} />;
-      case 'Legales': return <LegalView legalCases={legalCases as any} userId={user?.uid} properties={properties as any} />;
-      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations as any} userId={user?.uid} properties={properties as any} people={people as any} />;
+      case 'Solicitudes': return <ApplicationsView applications={[]} setApplications={() => {}} properties={properties} />;
+      case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} />;
+      case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
+      case 'Legales': return <LegalView legalCases={legalCases} userId={user?.uid} properties={properties} />;
+      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} />;
       case 'Reportes': return <ReportsView />;
       case 'Asistente IA': return <AIAssistantView />;
-      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties as any} contracts={contracts} invoices={invoices as any} tasks={tasks as any} />;
+      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
     }
   };
 
