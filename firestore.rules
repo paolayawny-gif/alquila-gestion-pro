@@ -3,156 +3,142 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * PROTYPING MODE SECURITY RULES
-     * 
-     * Core Philosophy: 
-     * This ruleset enforces a strict user-ownership model. Access is strictly compartmentalized 
-     * by the User ID (UID) provided by Firebase Authentication.
-     * 
-     * Data Structure: 
-     * Data is organized hierarchically under /artifacts/{appId}/users/{userId}/. 
-     * Every document is expected to contain an 'ownerId' field that matches the {userId} in the path.
-     * 
+     * DOCUMENTATION: PROP-ADMIN SECURITY MODEL
+     *
+     * Core Philosophy:
+     * This ruleset enforces a strict user-ownership model. Every piece of data—from properties 
+     * and tenants to invoices and legal cases—is nested within a user-specific path. 
+     * Security is primary derived from the {userId} parameter in the document path.
+     *
+     * Data Structure:
+     * All data is organized under the hierarchy: /artifacts/{appId}/users/{userId}/{collection}/{docId}.
+     * This ensures that one user's data is physically and logically separated from another's.
+     *
      * Key Security Decisions:
-     * 1. Authorization Independence: We use denormalized 'ownerId' fields on every document 
-     *    to allow for immediate, high-performance authorization without requiring costly get() 
-     *    lookups of parent documents.
-     * 2. Structural Segregation: By nesting all data under a userId-specific path, we 
-     *    ensure that list operations (queries) are naturally scoped to the authenticated user.
-     * 3. Immutability: Critical relational fields, specifically 'ownerId', are immutable 
-     *    once a document is created to prevent "ownership hijacking."
-     * 4. Prototyping Flexibility: While authorization is strict (who can access), 
-     *    data shape validation is relaxed (what is inside) to support rapid development.
+     * 1. Path-Based Authorization: We rely on the userId in the path matching the 
+     *    authenticated user's UID (request.auth.uid). This is the fastest and most secure 
+     *    method for user-owned data.
+     * 2. No Public Access: All collections are private. There are no public read or list operations.
+     * 3. Identity Anchoring: During document creation, we ensure the internal 'id' field 
+     *    of the document matches the Firestore Document ID to maintain relational integrity.
+     * 4. Immutable Identity: Once a document is created, its 'id' field is made immutable 
+     *    to prevent accidental or malicious re-parenting.
+     *
+     * Denormalization for Authorization:
+     * The ownership (userId) is "denormalized" directly into the URL path. This avoids 
+     * costly get() lookups on parent documents and allows for efficient, scalable rules.
      */
 
     // --- Helper Functions ---
 
-    /** @description Checks if the request is from an authenticated user. */
+    /**
+     * @description Checks if a user is authenticated with a valid Firebase Auth token.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the authenticated user's UID matches the provided userId. */
+    /**
+     * @description Verifies if the authenticated user matches the owner of the path.
+     * @param userId The UID extracted from the document path.
+     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** @description Combines ownership check with existence check for destructive operations. */
+    /**
+     * @description Combines ownership check with a check for document existence.
+     * Used for update and delete operations to ensure the target exists and is owned.
+     * @param userId The UID extracted from the document path.
+     */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /** @description Validates that the ownerId field in the new data matches the authorized user. */
-    function isValidOwnership(userId) {
-      return request.resource.data.ownerId == userId;
-    }
-
-    /** @description Ensures the ownerId field cannot be changed during an update. */
-    function isOwnershipImmutable() {
-      return request.resource.data.ownerId == resource.data.ownerId;
+      return resource != null && isOwner(userId);
     }
 
     // --- Collection Rules ---
 
-    match /artifacts/{appId}/users/{userId} {
-      
-      /**
-       * @description Rules for Property documents.
-       * @path /artifacts/{appId}/users/{userId}/properties/{propertyId}
-       * @allow (create) if authenticated as {userId} and ownerId in data matches {userId}.
-       * @deny (get) if authenticated as a different user.
-       * @principle Restricts property management to the authenticated owner via path and data consistency.
-       */
-      match /properties/{propertyId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidOwnership(userId);
-        allow update: if isExistingOwner(userId) && isOwnershipImmutable();
-        allow delete: if isExistingOwner(userId);
-      }
+    /**
+     * @description Security rules for the Propiedad collection.
+     * @path /artifacts/{appId}/users/{userId}/propiedades/{propiedadId}
+     * @allow (get, list, create, update, delete) if the authenticated user's UID matches {userId}.
+     * @deny (all) if the user is not logged in or tries to access another user's property data.
+     * @principle Restricts access to a user's own data tree and validates document ID consistency.
+     */
+    match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == propiedadId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
 
-      /**
-       * @description Rules for Tenant documents.
-       * @path /artifacts/{appId}/users/{userId}/tenants/{tenantId}
-       * @allow (list) if authenticated as {userId}.
-       * @deny (update) if attempting to change the 'ownerId' field.
-       * @principle Enforces private tenant database per user.
-       */
-      match /tenants/{tenantId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidOwnership(userId);
-        allow update: if isExistingOwner(userId) && isOwnershipImmutable();
-        allow delete: if isExistingOwner(userId);
-      }
+    /**
+     * @description Security rules for the Inquilino collection.
+     * @path /artifacts/{appId}/users/{userId}/inquilinos/{inquilinoId}
+     * @allow (create) if the user is the owner and the provided 'id' matches the document path ID.
+     * @deny (update) if the request attempts to change the internal 'id' field.
+     * @principle Enforces document ownership and relational consistency between path and data.
+     */
+    match /artifacts/{appId}/users/{userId}/inquilinos/{inquilinoId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == inquilinoId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
 
-      /**
-       * @description Rules for Contract documents.
-       * @path /artifacts/{appId}/users/{userId}/contracts/{contractId}
-       * @allow (update) if user owns the document and does not modify ownerId.
-       * @deny (delete) if document does not exist or user is not the owner.
-       * @principle Secures legal rental agreements through strict path-based ownership.
-       */
-      match /contracts/{contractId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidOwnership(userId);
-        allow update: if isExistingOwner(userId) && isOwnershipImmutable();
-        allow delete: if isExistingOwner(userId);
-      }
+    /**
+     * @description Security rules for the Factura collection.
+     * @path /artifacts/{appId}/users/{userId}/facturas/{facturaId}
+     * @allow (list) for the owner to retrieve their list of invoices.
+     * @deny (delete) if the document does not exist or belongs to another user.
+     * @principle Ensures financial records are isolated and protected by path-based ownership.
+     */
+    match /artifacts/{appId}/users/{userId}/facturas/{facturaId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == facturaId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
 
-      /**
-       * @description Rules for Invoice documents.
-       * @path /artifacts/{appId}/users/{userId}/invoices/{invoiceId}
-       * @allow (get) if user is the owner.
-       * @deny (create) if user tries to set an ownerId different from their auth UID.
-       * @principle Protects financial billing data from cross-user access.
-       */
-      match /invoices/{invoiceId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidOwnership(userId);
-        allow update: if isExistingOwner(userId) && isOwnershipImmutable();
-        allow delete: if isExistingOwner(userId);
-      }
+    /**
+     * @description Security rules for the Mantenimiento collection.
+     * @path /artifacts/{appId}/users/{userId}/mantenimiento/{mantenimientoId}
+     * @allow (update) if the owner modifies maintenance details without changing the ID.
+     * @deny (create) if the userId in the path does not match the authenticated UID.
+     * @principle Restricts maintenance tracking data to the authenticated creator.
+     */
+    match /artifacts/{appId}/users/{userId}/mantenimiento/{mantenimientoId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == mantenimientoId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
 
-      /**
-       * @description Rules for MaintenanceRecord documents.
-       * @path /artifacts/{appId}/users/{userId}/maintenanceRecords/{recordId}
-       * @allow (create) if path userId matches auth UID.
-       * @deny (list) if requesting data from another user's subcollection.
-       * @principle Ensures maintenance logs are only accessible to the managing user.
-       */
-      match /maintenanceRecords/{recordId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidOwnership(userId);
-        allow update: if isExistingOwner(userId) && isOwnershipImmutable();
-        allow delete: if isExistingOwner(userId);
-      }
+    /**
+     * @description Security rules for the LegalCase collection.
+     * @path /artifacts/{appId}/users/{userId}/legalCases/{legalCaseId}
+     * @allow (get) for the owner to view specific legal case details.
+     * @deny (list) if an unauthenticated user attempts to query the collection.
+     * @principle Protects sensitive legal information through strict user-isolation.
+     */
+    match /artifacts/{appId}/users/{userId}/legalCases/{legalCaseId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == legalCaseId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
 
-      /**
-       * @description Rules for LegalCase documents.
-       * @path /artifacts/{appId}/users/{userId}/legalCases/{caseId}
-       * @allow (delete) if user is owner and document exists.
-       * @deny (get) for unauthenticated users.
-       * @principle Safeguards sensitive legal and mediation information.
-       */
-      match /legalCases/{caseId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidOwnership(userId);
-        allow update: if isExistingOwner(userId) && isOwnershipImmutable();
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description Rules for Liquidation (financial settlement) documents.
-       * @path /artifacts/{appId}/users/{userId}/liquidations/{liquidationId}
-       * @allow (update) if ownerId remains unchanged.
-       * @deny (list) for anonymous users unless UID matches path.
-       * @principle Restricts owner payout reports to the authorized manager.
-       */
-      match /liquidations/{liquidationId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidOwnership(userId);
-        allow update: if isExistingOwner(userId) && isOwnershipImmutable();
-        allow delete: if isExistingOwner(userId);
-      }
+    /**
+     * @description Security rules for the Liquidacion collection.
+     * @path /artifacts/{appId}/users/{userId}/liquidaciones/{liquidacionId}
+     * @allow (create) if the owner creates a settlement record with a matching ID.
+     * @deny (delete) if the requester's UID does not match the path's userId.
+     * @principle Enforces ownership for settlement reports and ensures data path integrity.
+     */
+    match /artifacts/{appId}/users/{userId}/liquidaciones/{liquidacionId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == liquidacionId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
