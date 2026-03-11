@@ -22,7 +22,9 @@ import {
   TrendingUp,
   FileUp,
   Send,
-  AlertCircle
+  AlertCircle,
+  UploadCloud,
+  FileCheck
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -60,10 +62,12 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   const { toast } = useToast();
   const db = useFirestore();
   const arcaInputRef = useRef<HTMLInputElement>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
   const [isGeneratingRent, setIsGeneratingRent] = useState(false);
   const [uploadingArcaFor, setUploadingArcaFor] = useState<string | null>(null);
+  const [uploadingReceiptFor, setUploadingReceiptFor] = useState<string | null>(null);
 
   const peopleQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
@@ -145,6 +149,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     arcaInputRef.current?.click();
   };
 
+  const handleUploadReceipt = (invId: string) => {
+    setUploadingReceiptFor(invId);
+    receiptInputRef.current?.click();
+  };
+
   const handleArcaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadingArcaFor || !userId || !db) return;
@@ -158,8 +167,28 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
         status: 'Esperando Factura ARCA' 
       }, { merge: true });
       
-      toast({ title: "Factura Digitalizada", description: "El documento ha sido cargado." });
+      toast({ title: "Factura Cargada", description: "El documento legal ha sido vinculado." });
       setUploadingArcaFor(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadingReceiptFor || !userId || !db) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', uploadingReceiptFor);
+      setDocumentNonBlocking(docRef, { 
+        paymentReceiptUrl: event.target?.result as string,
+        paymentReceiptName: file.name,
+        status: 'Pagado',
+        paymentDate: new Date().toLocaleDateString('es-AR')
+      }, { merge: true });
+      
+      toast({ title: "Pago Registrado", description: "Comprobante de WhatsApp cargado exitosamente." });
+      setUploadingReceiptFor(null);
     };
     reader.readAsDataURL(file);
   };
@@ -247,6 +276,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={arcaInputRef} className="hidden" accept=".pdf,image/*" onChange={handleArcaFileChange} />
+      <input type="file" ref={receiptInputRef} className="hidden" accept=".pdf,image/*" onChange={handleReceiptFileChange} />
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-blue-50 border-blue-200 border shadow-none">
@@ -416,16 +446,36 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                   <TableCell>{getStatusBadge(i.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      {i.status !== 'Pagado' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-blue-600" 
+                          title="Cargar Pago (Manual/WhatsApp)"
+                          onClick={() => handleUploadReceipt(i.id)}
+                        >
+                          <UploadCloud className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      {i.paymentReceiptUrl && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-400" title="Ver Comprobante de Pago" onClick={() => window.open(i.paymentReceiptUrl)}>
+                          <FileCheck className="h-4 w-4" />
+                        </Button>
+                      )}
+
                       {i.arcaInvoiceUrl && (
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="Enviar Notificación" onClick={() => handleSendFormalInvoice(i)}>
                           <Send className="h-4 w-4" />
                         </Button>
                       )}
-                      {!i.arcaInvoiceUrl && !i.isFromOwner && (
+                      
+                      {!i.arcaInvoiceUrl && (
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-purple-600" title="Subir Factura ARCA" onClick={() => handleUploadArca(i.id)}>
                           <FileUp className="h-4 w-4" />
                         </Button>
                       )}
+                      
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id)); }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
