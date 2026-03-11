@@ -1,10 +1,7 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for drafting personalized communication messages or emails.
- *
- * - aiCommunicationAssistant - A function that handles the AI communication drafting process.
- * - AiCommunicationAssistantInput - The input type for the aiCommunicationAssistant function.
- * - AiCommunicationAssistantOutput - The return type for the aiCommunicationAssistant function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -19,6 +16,7 @@ const AiCommunicationAssistantInputSchema = z.object({
       'leaseAdjustment',
       'ownerLiquidationReport',
       'portalInvitation',
+      'maintenanceUpdate',
       'generalMessage',
     ])
     .describe('The type of communication to draft.'),
@@ -36,6 +34,9 @@ const AiCommunicationAssistantInputSchema = z.object({
     .string()
     .optional()
     .describe('End date of the current lease agreement.'),
+  maintenanceConcept: z.string().optional().describe('Concept of the repair/maintenance task.'),
+  maintenanceStatus: z.string().optional().describe('Current status of the repair.'),
+  maintenanceCost: z.string().optional().describe('Cost or budget for the repair.'),
   newLeaseTermOptions: z
     .string()
     .optional()
@@ -86,22 +87,13 @@ Tu misión es redactar mensajes elegantes, modernos, profesionales y, sobre todo
 4. **SALTOS DE LÍNEA**: Separa cada párrafo con DOS (2) saltos de línea (\n\n).
 
 ### INSTRUCCIONES POR TIPO:
-- **leaseAdjustment (Ajuste de Alquiler)**: 
-  - Comienza saludando amablemente.
-  - Como antecedente, menciona que el contrato iniciado el {{{currentLeaseStartDate}}} prevé ajustes periódicos.
-  - Informa el próximo aumento basado en el índice {{{adjustmentIndex}}}.
-  - Detalla el monto actual ({{{currentRentAmount}}}) y el nuevo valor ({{{newRentAmount}}}).
-  - Indica que entrará en vigencia a partir del próximo período.
-  - Finaliza agradeciendo la confianza y deseando un excelente día.
-  - Cumple con el deber de información de la Ley 24.240: sé veraz, detallado y claro.
-
-- **rentReminder (Recordatorio)**: Recordatorio cordial de pago para la propiedad {{{propertyName}}}. Indica monto ({{{amountDue}}}) y fecha de vencimiento ({{{dueDate}}}).
+- **leaseAdjustment**: Informar sobre el nuevo valor del alquiler basado en índices.
+- **maintenanceUpdate**: Informar al PROPIETARIO sobre una reparación en su unidad. Detalla el concepto ({{{maintenanceConcept}}}), el estado ({{{maintenanceStatus}}}) y el costo estimado/real ({{{maintenanceCost}}}). Justifica la necesidad del arreglo para mantener el valor del inmueble.
+- **rentReminder**: Recordatorio cordial de pago.
 
 ### CONTEXTO DE LOS DATOS:
 - Destinatario: {{#if tenantName}}{{tenantName}}{{else}}{{#if ownerName}}{{ownerName}}{{else}}Cliente{{/if}}{{/if}}
 - Propiedad: {{{propertyName}}}{{#if propertyAddress}} ({{{propertyAddress}}}){{/if}}
-- Fecha Inicio Contrato: {{{currentLeaseStartDate}}}
-- Fecha Fin Contrato: {{{currentLeaseEndDate}}}
 - Detalles adicionales: {{{additionalContext}}}
 
 Redacta el correo completo en ESPAÑOL, incluyendo un ASUNTO formal. El texto debe estar pensado para ser visualizado en formato JUSTIFICADO.`,

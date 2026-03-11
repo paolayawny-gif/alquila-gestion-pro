@@ -176,7 +176,9 @@ export interface MaintenanceTask {
   description: string;
   priority: 'Baja' | 'Media' | 'Alta' | 'Urgente';
   status: 'Pendiente' | 'Presupuestado' | 'En curso' | 'Completado' | 'Cerrado';
-  estimatedCost?: number;
+  estimatedCost: number;
+  actualCost: number;
+  contractorName?: string;
   photos?: string[];
   createdAt: string;
   updatedAt: string;
