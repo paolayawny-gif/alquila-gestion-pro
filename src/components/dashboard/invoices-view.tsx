@@ -26,7 +26,8 @@ import {
   AlertCircle,
   UploadCloud,
   FileCheck,
-  MessageSquare
+  MessageSquare,
+  Gavel
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -72,6 +73,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   const [uploadingArcaFor, setUploadingArcaFor] = useState<string | null>(null);
   const [uploadingReceiptFor, setUploadingReceiptFor] = useState<string | null>(null);
   
+  // Estado para punitorios manuales
+  const [isLateFeeDialogOpen, setIsLateFeeDialogOpen] = useState(false);
+  const [selectedInvForFee, setSelectedInvForFee] = useState<Invoice | null>(null);
+  const [manualFeeInput, setManualFeeInput] = useState<string>('');
+
   // Estado para el diálogo de confirmación de pago con notas
   const [isReceiptConfirmDialogOpen, setIsReceiptConfirmDialogOpen] = useState(false);
   const [receiptNote, setReceiptNote] = useState('');
@@ -106,6 +112,33 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
       'Anulado': 'bg-gray-100 text-gray-700 border-gray-200'
     };
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
+  };
+
+  const calculateInterest = (inv: Invoice) => {
+    // Si ya hay un punitorio guardado manualmente, usamos ese
+    if (inv.lateFees > 0) return inv.lateFees;
+
+    const contract = contracts.find(c => c.id === inv.contractId);
+    if (!contract || !contract.lateFeePercentage) return 0;
+
+    const [day, month, year] = inv.dueDate.split('/');
+    const dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const today = new Date();
+
+    if (today > dueDate && inv.status !== 'Pagado') {
+      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return (inv.totalAmount * (contract.lateFeePercentage / 100)) * diffDays;
+    }
+    return 0;
+  };
+
+  const handleSaveManualFee = () => {
+    if (!selectedInvForFee || !userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', selectedInvForFee.id);
+    setDocumentNonBlocking(docRef, { lateFees: parseFloat(manualFeeInput) || 0 }, { merge: true });
+    setIsLateFeeDialogOpen(false);
+    toast({ title: "Punitorio Actualizado", description: "Se ha registrado el monto manual de intereses." });
   };
 
   const handleGenerateMonthlyRent = async () => {
@@ -237,22 +270,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     } catch (e) {
       toast({ title: "Error", description: "No se pudo enviar el correo.", variant: "destructive" });
     }
-  };
-
-  const calculateInterest = (inv: Invoice) => {
-    const contract = contracts.find(c => c.id === inv.contractId);
-    if (!contract || !contract.lateFeePercentage) return 0;
-
-    const [day, month, year] = inv.dueDate.split('/');
-    const dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    const today = new Date();
-
-    if (today > dueDate && inv.status !== 'Pagado') {
-      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return (inv.totalAmount * (contract.lateFeePercentage / 100)) * diffDays;
-    }
-    return 0;
   };
 
   const handleValidatePayment = (inv: Invoice) => {
@@ -433,6 +450,8 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
           <TableBody>
             {invoices.map((i) => {
               const interest = calculateInterest(i);
+              const contract = contracts.find(c => c.id === i.contractId);
+              
               return (
                 <TableRow key={i.id} className="group hover:bg-muted/30">
                   <TableCell>
@@ -459,10 +478,27 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                         </div>
                       ))}
                       {interest > 0 && (
-                        <div className="flex justify-between text-[10px] py-0.5 text-red-600 font-bold px-1 bg-red-50">
-                          <span>Punitorios (Mora)</span>
-                          <span>$ {interest.toLocaleString('es-AR')}</span>
+                        <div className="flex justify-between text-[10px] py-0.5 text-red-600 font-bold px-1 bg-red-50 group/fee relative">
+                          <span>Intereses (Mora)</span>
+                          <div className="flex items-center gap-1">
+                            <span>$ {interest.toLocaleString('es-AR')}</span>
+                            <button 
+                              onClick={() => { setSelectedInvForFee(i); setManualFeeInput(interest.toString()); setIsLateFeeDialogOpen(true); }}
+                              className="text-primary hover:underline"
+                              title="Ajustar manualmente"
+                            >
+                              <Gavel className="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
+                      )}
+                      {interest === 0 && i.status !== 'Pagado' && (
+                        <button 
+                          onClick={() => { setSelectedInvForFee(i); setManualFeeInput('0'); setIsLateFeeDialogOpen(true); }}
+                          className="text-[9px] text-primary font-bold hover:underline w-fit"
+                        >
+                          + Cargar Punitorio Manual
+                        </button>
                       )}
                     </div>
                   </TableCell>
@@ -513,6 +549,37 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
           </TableBody>
         </Table>
       </Card>
+
+      {/* Diálogo de Punitorios Manuales */}
+      <Dialog open={isLateFeeDialogOpen} onOpenChange={setIsLateFeeDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ajustar Punitorios</DialogTitle>
+            <DialogDescription>
+              Fije un monto manual de intereses para esta factura.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Monto de Intereses (ARS)</Label>
+              <Input 
+                type="number" 
+                value={manualFeeInput} 
+                onChange={e => setManualFeeInput(e.target.value)} 
+                placeholder="0.00"
+                className="h-12 text-lg font-black text-red-600"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Este monto se sumará al total de la factura. Use 0 para anular punitorios calculados.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsLateFeeDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-primary font-black px-8" onClick={handleSaveManualFee}>Guardar Punitorio</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de Confirmación de Pago con Notas */}
       <Dialog open={isReceiptConfirmDialogOpen} onOpenChange={setIsReceiptConfirmDialogOpen}>
