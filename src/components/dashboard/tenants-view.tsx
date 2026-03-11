@@ -26,7 +26,8 @@ import {
   Download,
   FileSearch,
   MessageCircleQuestion,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -54,6 +55,7 @@ import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { sendEmail } from '@/services/email-service';
+import { fetchCurrentIndexCoefficient } from '@/services/index-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
@@ -87,6 +89,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isNotifyingAdjustment, setIsNotifyingAdjustment] = useState<string | null>(null);
+  const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
   const [aiResult, setAiResult] = useState<ExtractContractDataOutput | null>(null);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
   const [aiAnswer, setAiAnswer] = useState<{answer: string, sourceQuote?: string} | null>(null);
@@ -140,6 +143,25 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
     setSelectedAdjContract(contract);
     setNewRentValueInput('');
     setIsAdjNotifOpen(true);
+  };
+
+  const handleAutoCalculate = async () => {
+    if (!selectedAdjContract) return;
+    
+    setIsCalculatingIndex(true);
+    try {
+      const coef = await fetchCurrentIndexCoefficient(
+        (selectedAdjContract.adjustmentMechanism as any) || 'ICL', 
+        selectedAdjContract.adjustmentFrequencyMonths
+      );
+      const calculated = Math.round(selectedAdjContract.currentRentAmount * coef);
+      setNewRentValueInput(calculated.toString());
+      toast({ title: "Cálculo Realizado", description: `Se aplicó el coeficiente proyectado para ${selectedAdjContract.adjustmentMechanism}.` });
+    } catch (e) {
+      toast({ title: "Error de Cálculo", description: "No se pudieron obtener los índices oficiales.", variant: "destructive" });
+    } finally {
+      setIsCalculatingIndex(false);
+    }
   };
 
   const handleSendAdjNotification = async () => {
@@ -821,7 +843,19 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase text-primary">Nuevo Monto Calculado</Label>
+                <div className="flex justify-between items-end mb-1">
+                  <Label className="text-xs font-black uppercase text-primary">Nuevo Monto Calculado</Label>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="h-auto p-0 text-[10px] font-black uppercase flex gap-1 items-center text-blue-600 hover:text-blue-800"
+                    onClick={handleAutoCalculate}
+                    disabled={isCalculatingIndex}
+                  >
+                    {isCalculatingIndex ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    Calcular con Índices Oficiales
+                  </Button>
+                </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">{selectedAdjContract.currency}</span>
                   <Input 
@@ -833,7 +867,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                   />
                 </div>
                 <p className="text-[10px] text-muted-foreground italic leading-tight">
-                  Ingrese el valor final aplicando el índice {selectedAdjContract.adjustmentMechanism}. La IA redactará el mensaje basándose en este número.
+                  Ingrese el valor final o use el cálculo automático. La IA redactará el mensaje basándose en este número.
                 </p>
               </div>
             </div>
@@ -843,7 +877,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
             <Button variant="ghost" onClick={() => setIsAdjNotifOpen(false)}>Cancelar</Button>
             <Button 
               className="bg-primary text-white font-black gap-2 h-11 px-6 shadow-md"
-              disabled={!newRentValueInput || isNotifyingAdjustment !== null}
+              disabled={!newRentValueInput || isNotifyingAdjustment !== null || isCalculatingIndex}
               onClick={handleSendAdjNotification}
             >
               {isNotifyingAdjustment !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
