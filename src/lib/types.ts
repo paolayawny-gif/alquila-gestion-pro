@@ -97,6 +97,7 @@ export interface Contract {
   id: string;
   tenantId: string;
   tenantName?: string;
+  tenantEmail?: string;
   propertyId: string;
   propertyName?: string;
   guarantorIds: string[];
@@ -131,10 +132,14 @@ export interface Invoice {
   propertyName: string;
   period: string; 
   charges: { id: string; type: ChargeType; amount: number; imputedTo: ChargePayer }[];
+  lateFees: number;
   totalAmount: number;
   currency: Currency;
   dueDate: string;
   status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
+  lastReminderSent?: string;
+  reminderType?: string;
+  hasFile?: boolean;
 }
 
 export interface Liquidation {
@@ -148,6 +153,7 @@ export interface Liquidation {
   ingresoAlquiler: number;
   adminFeeDeduction: number;
   maintenanceDeductions: number;
+  expenseDeductions: number;
   netAmount: number;
   status: 'Pendiente' | 'Pagada';
   dateCreated: string;
@@ -159,7 +165,14 @@ export interface MaintenanceTask {
   propertyName: string;
   concept: string;
   description: string;
-  status: 'Pendiente' | 'En curso' | 'Completado' | 'Cerrado';
+  priority: 'Baja' | 'Media' | 'Alta' | 'Urgente';
+  status: 'Pendiente' | 'Presupuestado' | 'En curso' | 'Completado' | 'Cerrado';
+  estimatedCost?: number;
+  photos?: string[];
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  hasFile?: boolean;
 }
 
 export interface AppAlert {
@@ -169,6 +182,7 @@ export interface AppAlert {
   description: string;
   severity: 'low' | 'medium' | 'high';
   linkTab?: string;
+  date?: string;
 }
 
 export interface LegalCase {
@@ -176,5 +190,9 @@ export interface LegalCase {
   type: string;
   propertyId: string;
   propertyName: string;
-  status: string;
+  startDate: string;
+  attorney: string;
+  status: 'Iniciado' | 'En proceso' | 'Mediación' | 'Cerrado';
+  hasFile?: boolean;
+  ownerId: string;
 }
