@@ -19,7 +19,9 @@ import {
   Send,
   Eye,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Scale,
+  ThumbsUp
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,6 +47,7 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 
 interface MaintenanceViewProps {
   tasks: MaintenanceTask[];
@@ -76,7 +79,9 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     description: '',
     status: 'Pendiente',
     estimatedCost: 0,
-    actualCost: 0
+    actualCost: 0,
+    chargedTo: 'N/A',
+    isApprovedByOwner: false
   });
 
   const getStatusBadge = (status: MaintenanceTask['status']) => {
@@ -107,6 +112,8 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
       status: 'Pendiente',
       estimatedCost: newTicket.estimatedCost || 0,
       actualCost: 0,
+      chargedTo: 'N/A',
+      isApprovedByOwner: false,
       photos: [],
       createdAt: new Date().toLocaleDateString('es-AR'),
       updatedAt: new Date().toLocaleDateString('es-AR'),
@@ -255,7 +262,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
               <TableHead>Concepto / Unidad</TableHead>
               <TableHead>Prioridad</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Costo Est.</TableHead>
+              <TableHead>Responsable</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -277,8 +284,17 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                   </Badge>
                 </TableCell>
                 <TableCell>{getStatusBadge(t.status)}</TableCell>
-                <TableCell className="text-right font-mono text-xs">
-                  {t.estimatedCost > 0 ? `$ ${t.estimatedCost.toLocaleString('es-AR')}` : '-'}
+                <TableCell>
+                  {t.chargedTo === 'Propietario' ? (
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className="text-orange-600 border-orange-200">Propietario</Badge>
+                      {t.isApprovedByOwner ? <ThumbsUp className="h-3 w-3 text-green-600" /> : <AlertTriangle className="h-3 w-3 text-orange-400" />}
+                    </div>
+                  ) : t.chargedTo === 'Inquilino' ? (
+                    <Badge variant="outline" className="text-blue-600 border-blue-200">Inquilino</Badge>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground italic">No definido</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
@@ -306,12 +322,12 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
 
       {/* Diálogo de Gestión Detallada */}
       <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
           {selectedTask && (
             <>
               <div className="bg-primary p-6 text-white flex justify-between items-center">
                 <div>
-                  <Badge className="bg-white/20 text-white border-none mb-2 uppercase text-[9px] font-black">Ficha de Seguimiento</Badge>
+                  <Badge className="bg-white/20 text-white border-none mb-2 uppercase text-[9px] font-black">Ficha de Seguimiento y Costos</Badge>
                   <DialogTitle className="text-2xl font-black">{selectedTask.concept}</DialogTitle>
                   <p className="text-white/80 text-sm font-medium">{selectedTask.propertyName}</p>
                 </div>
@@ -322,14 +338,14 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
               </div>
 
               <div className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                   {/* Columna Izquierda: Datos y Costos */}
-                  <div className="md:col-span-7 space-y-6">
+                  <div className="lg:col-span-7 space-y-6">
                     <div className="p-4 bg-muted/30 rounded-xl border space-y-4">
-                      <h4 className="text-xs font-black uppercase text-primary flex items-center gap-2"><Settings2 className="h-4 w-4" /> Actualizar Estado</h4>
+                      <h4 className="text-xs font-black uppercase text-primary flex items-center gap-2"><Settings2 className="h-4 w-4" /> Configuración de Obra</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Nuevo Estado</Label>
+                          <Label>Estado del Reclamo</Label>
                           <Select 
                             value={selectedTask.status} 
                             onValueChange={(v: any) => setSelectedTask({...selectedTask, status: v})}
@@ -355,25 +371,57 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
-                        <Label className="text-blue-700 font-bold flex items-center gap-1"><DollarSign className="h-3 w-3" /> Costo Estimado</Label>
-                        <Input 
-                          type="number" 
-                          className="bg-white" 
-                          value={selectedTask.estimatedCost} 
-                          onChange={e => setSelectedTask({...selectedTask, estimatedCost: parseFloat(e.target.value) || 0})}
-                        />
+                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-4">
+                      <h4 className="text-xs font-black uppercase text-blue-700 flex items-center gap-2"><DollarSign className="h-4 w-4" /> Definición de Gastos</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-black">Asignar Responsable</Label>
+                          <Select 
+                            value={selectedTask.chargedTo || 'N/A'} 
+                            onValueChange={(v: any) => setSelectedTask({...selectedTask, chargedTo: v})}
+                          >
+                            <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="N/A">Sin definir / Sin costo</SelectItem>
+                              <SelectItem value="Inquilino">Cargo a Inquilino</SelectItem>
+                              <SelectItem value="Propietario">Deducción Propietario</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-black">Costo Final (ARS)</Label>
+                          <Input 
+                            type="number" 
+                            className="bg-white font-bold" 
+                            value={selectedTask.actualCost} 
+                            onChange={e => setSelectedTask({...selectedTask, actualCost: parseFloat(e.target.value) || 0})}
+                          />
+                        </div>
                       </div>
-                      <div className="p-4 bg-green-50 rounded-xl border border-green-100 space-y-2">
-                        <Label className="text-green-700 font-bold flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Costo Final (Cierre)</Label>
-                        <Input 
-                          type="number" 
-                          className="bg-white"
-                          value={selectedTask.actualCost}
-                          onChange={e => setSelectedTask({...selectedTask, actualCost: parseFloat(e.target.value) || 0})}
-                        />
-                      </div>
+
+                      {selectedTask.chargedTo === 'Propietario' && (
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                          <div className="space-y-0.5">
+                            <Label className="text-xs font-black text-orange-700 flex items-center gap-1">
+                              <ThumbsUp className="h-3 w-3" /> ¿Aprobado por el dueño?
+                            </Label>
+                            <p className="text-[9px] text-muted-foreground italic">Debe marcarse para habilitar el descuento en liquidación.</p>
+                          </div>
+                          <Switch 
+                            checked={selectedTask.isApprovedByOwner} 
+                            onCheckedChange={(checked) => setSelectedTask({...selectedTask, isApprovedByOwner: checked})} 
+                          />
+                        </div>
+                      )}
+
+                      {selectedTask.chargedTo === 'Inquilino' && (
+                        <div className="p-3 bg-blue-100/50 rounded-lg border border-blue-200 flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 text-blue-600 shrink-0" />
+                          <p className="text-[9px] text-blue-800 leading-tight">
+                            <strong>Recordatorio:</strong> Al ser cargo del inquilino, deberá cargarlo como "Otros" en la próxima factura mensual del mismo.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -387,20 +435,20 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                   </div>
 
                   {/* Columna Derecha: Comunicación IA */}
-                  <div className="md:col-span-5 space-y-6">
+                  <div className="lg:col-span-5 space-y-6">
                     <Card className="border-none shadow-sm bg-primary/5 border border-primary/10 overflow-hidden">
                       <CardHeader className="bg-primary/10 pb-4">
                         <CardTitle className="text-sm font-black uppercase text-primary flex items-center gap-2">
                           <Sparkles className="h-4 w-4" /> Informe al Propietario
                         </CardTitle>
-                        <CardDescription className="text-[10px]">Utilice la IA para notificar al dueño sobre la reparación y costos.</CardDescription>
+                        <CardDescription className="text-[10px]">Utilice la IA para notificar al dueño sobre la reparación y solicitar su aprobación si corresponde.</CardDescription>
                       </CardHeader>
                       <CardContent className="pt-6 space-y-4">
                         {!draft && !isDrafting ? (
                           <div className="text-center py-4 space-y-4">
-                            <p className="text-xs text-muted-foreground italic leading-relaxed">Se redactará un mensaje profesional justificando el arreglo y el presupuesto.</p>
+                            <p className="text-xs text-muted-foreground italic leading-relaxed">Se redactará un mensaje profesional informando el presupuesto y justificando la mejora del inmueble.</p>
                             <Button className="w-full bg-primary text-white font-bold h-11 gap-2" onClick={handleDraftNotification}>
-                              <Sparkles className="h-4 w-4" /> Redactar Informe IA
+                              <Sparkles className="h-4 w-4" /> Redactar Informe / Pedido
                             </Button>
                           </div>
                         ) : isDrafting ? (
@@ -433,10 +481,12 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                     </Card>
 
                     <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 flex items-start gap-3">
-                      <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
+                      <Scale className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase text-orange-700">Importante Liquidación</p>
-                        <p className="text-[9px] text-orange-800 leading-tight">Al cargar el "Costo Final", el sistema sugerirá descontar este monto en la próxima liquidación al propietario.</p>
+                        <p className="text-[10px] font-black uppercase text-orange-700">Criterio de Liquidación</p>
+                        <p className="text-[9px] text-orange-800 leading-tight">
+                          Solo los gastos marcados como "Deducción Propietario" y con el switch de "Aprobado" activo se restarán en la próxima liquidación mensual.
+                        </p>
                       </div>
                     </div>
                   </div>

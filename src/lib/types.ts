@@ -179,6 +179,8 @@ export interface MaintenanceTask {
   estimatedCost: number;
   actualCost: number;
   contractorName?: string;
+  chargedTo?: 'Inquilino' | 'Propietario' | 'N/A';
+  isApprovedByOwner?: boolean;
   photos?: string[];
   createdAt: string;
   updatedAt: string;

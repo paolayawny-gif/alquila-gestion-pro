@@ -12,11 +12,13 @@ import {
   Calculator,
   ArrowDownCircle,
   TrendingUp,
-  FileCheck
+  FileCheck,
+  Wrench,
+  CheckCircle2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Liquidation, Property, Person, Invoice } from '@/lib/types';
+import { Liquidation, Property, Person, Invoice, MaintenanceTask } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -58,15 +60,23 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
   
   const [isNewLiqOpen, setIsNewLiqOpen] = useState(false);
   const [selectedPropId, setSelectedPropId] = useState('');
-  const [period, setPeriod] = useState('Junio 2026');
+  const [period, setPeriod] = useState(new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }));
 
-  // Necesitamos las facturas para calcular deducciones automáticas
+  // Consultar facturas para deducciones de servicios
   const facturasQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'facturas'));
   }, [db, userId]);
   const { data: invoicesData } = useCollection<Invoice>(facturasQuery);
   const invoices = invoicesData || [];
+
+  // Consultar mantenimiento para deducciones de reparaciones
+  const mantenimientoQuery = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento'));
+  }, [db, userId]);
+  const { data: maintenanceData } = useCollection<MaintenanceTask>(mantenimientoQuery);
+  const tasks = maintenanceData || [];
 
   const handleCreateLiq = () => {
     if (!selectedPropId || !userId || !db) return;
@@ -76,26 +86,31 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
     
     const owner = people.find(p => p.id === property.owners[0]?.ownerId) || { id: 'dueño-ext', fullName: property.owners[0]?.name || 'Propietario' };
 
-    // Buscar facturas de esta propiedad en este período para ver deducciones (Cargos imputados al dueño)
+    // 1. Deducciones por Facturas (Servicios imputados al dueño)
     const propInvoices = invoices.filter(i => i.propertyName === property.name && i.period === period);
     
     let rentIncome = 0;
-    let ownerDeductions = 0;
-    let maintenanceExpenses = 0;
+    let serviceDeductions = 0;
 
     propInvoices.forEach(inv => {
       inv.charges.forEach(charge => {
         if (charge.type === 'Alquiler') rentIncome += charge.amount;
-        if (charge.imputedTo === 'Propietario') ownerDeductions += charge.amount;
-        if (charge.type === 'Luz/Gas' || charge.type === 'Otros') {
-           // Si el dueño paga servicios, es una deducción
-           if (charge.imputedTo === 'Propietario') maintenanceExpenses += charge.amount;
-        }
+        if (charge.imputedTo === 'Propietario') serviceDeductions += charge.amount;
       });
     });
 
+    // 2. Deducciones por Mantenimiento (Solo si responsable es Propietario Y está aprobado)
+    const approvedRepairs = tasks.filter(t => 
+      t.propertyId === selectedPropId && 
+      t.chargedTo === 'Propietario' && 
+      t.isApprovedByOwner === true &&
+      t.status === 'Cerrado' // Solo reparaciones finalizadas
+    );
+
+    const maintenanceDeductions = approvedRepairs.reduce((acc, t) => acc + t.actualCost, 0);
+
     const adminFee = rentIncome * 0.1; // 10% honorarios admin
-    const net = rentIncome - adminFee - ownerDeductions;
+    const net = rentIncome - adminFee - serviceDeductions - maintenanceDeductions;
 
     const docId = Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', docId);
@@ -110,8 +125,8 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       period: period,
       ingresoAlquiler: rentIncome,
       adminFeeDeduction: adminFee,
-      maintenanceDeductions: ownerDeductions,
-      expenseDeductions: 0,
+      maintenanceDeductions: maintenanceDeductions,
+      expenseDeductions: serviceDeductions,
       netAmount: net,
       status: 'Pendiente',
       dateCreated: new Date().toLocaleDateString('es-AR')
@@ -119,7 +134,10 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
 
     setDocumentNonBlocking(docRef, liqData, { merge: true });
     setIsNewLiqOpen(false);
-    toast({ title: "Liquidación Generada", description: "Se han aplicado deducciones automáticas." });
+    toast({ 
+      title: "Liquidación Generada", 
+      description: `Deducciones aplicadas: $${(serviceDeductions + maintenanceDeductions).toLocaleString('es-AR')}.` 
+    });
   };
 
   const handleDelete = (id: string) => {
@@ -144,7 +162,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-primary" /> Liquidación Mensual</DialogTitle>
-              <DialogDescription>El sistema calculará deducciones de expensas imputadas al dueño.</DialogDescription>
+              <DialogDescription>El sistema aplicará deducciones bajo reglas estrictas de responsabilidad.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
@@ -158,9 +176,17 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                 <Label>Período de Liquidación</Label>
                 <Input value={period} onChange={e => setPeriod(e.target.value)} placeholder="Ej: Junio 2026" />
               </div>
-              <div className="p-4 bg-muted/30 rounded-lg text-[11px] space-y-2">
-                <p className="font-bold uppercase text-primary flex items-center gap-2"><ArrowDownCircle className="h-3 w-3" /> Cálculo Automático</p>
-                <p className="text-muted-foreground leading-relaxed">Se restarán honorarios de administración (10%) y todos los cargos marcados como "Imputar a Propietario" en las facturas de este período.</p>
+              
+              <div className="space-y-3">
+                <div className="p-3 bg-blue-50 rounded-lg text-[10px] space-y-1 border border-blue-100">
+                  <p className="font-bold text-blue-700 flex items-center gap-1.5"><ArrowDownCircle className="h-3 w-3" /> Deducciones Fiscales/Servicios</p>
+                  <p className="text-blue-600 leading-tight">Se restarán automáticamente las facturas cargadas con la marca "Imputar a Propietario".</p>
+                </div>
+                
+                <div className="p-3 bg-orange-50 rounded-lg text-[10px] space-y-1 border border-orange-100">
+                  <p className="font-bold text-orange-700 flex items-center gap-1.5"><Wrench className="h-3 w-3" /> Deducciones Mantenimiento</p>
+                  <p className="text-orange-600 leading-tight">SOLO se restarán reparaciones cerradas, marcadas como "Cargo Propietario" y con aprobación explícita tildada.</p>
+                </div>
               </div>
             </div>
             <DialogFooter className="mt-4"><Button className="w-full h-11 font-black" onClick={handleCreateLiq}>Cerrar y Generar</Button></DialogFooter>
@@ -190,7 +216,12 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-medium text-xs">$ {l.ingresoAlquiler.toLocaleString('es-AR')}</TableCell>
-                <TableCell className="text-right text-orange-600 font-medium text-xs">$ {(l.adminFeeDeduction + l.maintenanceDeductions).toLocaleString('es-AR')}</TableCell>
+                <TableCell className="text-right text-orange-600 font-medium text-xs">
+                  <div className="flex flex-col items-end">
+                    <span>$ {(l.maintenanceDeductions + l.expenseDeductions + l.adminFeeDeduction).toLocaleString('es-AR')}</span>
+                    {l.maintenanceDeductions > 0 && <span className="text-[8px] flex items-center gap-0.5"><Wrench className="h-2 w-2" /> Reparaciones incl.</span>}
+                  </div>
+                </TableCell>
                 <TableCell className="text-right font-black text-green-700 text-base">$ {l.netAmount.toLocaleString('es-AR')}</TableCell>
                 <TableCell>
                    <Badge className={cn("border-none", l.status === 'Pagada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
