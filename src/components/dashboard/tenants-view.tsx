@@ -179,7 +179,9 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
         currentRentAmount: `$ ${selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}`,
         newRentAmount: `$ ${parseFloat(newRentValueInput).toLocaleString('es-AR')}`,
         adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'ICL',
-        additionalContext: `El contrato estipula ajustes cada ${selectedAdjContract.adjustmentFrequencyMonths} meses. El próximo rige a partir del mes que viene.`
+        currentLeaseStartDate: selectedAdjContract.startDate,
+        currentLeaseEndDate: selectedAdjContract.endDate,
+        additionalContext: `El ajuste corresponde al ciclo de ${selectedAdjContract.adjustmentFrequencyMonths} meses pactado en el contrato original firmado el ${selectedAdjContract.startDate}.`
       });
       setAdjDraft(draft);
     } catch (e) {

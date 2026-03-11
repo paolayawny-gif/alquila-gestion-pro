@@ -31,6 +31,7 @@ const AiCommunicationAssistantInputSchema = z.object({
   currentRentAmount: z.string().optional().describe('Current rent amount.'),
   newRentAmount: z.string().optional().describe('New rent amount after adjustment.'),
   adjustmentIndex: z.string().optional().describe('The index used for adjustment (e.g., ICL, IPC).'),
+  currentLeaseStartDate: z.string().optional().describe('Start date of the lease agreement.'),
   currentLeaseEndDate: z
     .string()
     .optional()
@@ -78,28 +79,32 @@ const aiCommunicationAssistantPrompt = ai.definePrompt({
   prompt: `Eres un asistente de redacción experto para la administradora de propiedades "AlquilaGestión Pro" en Argentina.
 Tu misión es redactar mensajes elegantes, modernos, profesionales y, sobre todo, CLAROS.
 
-### REGLAS CRÍTICAS DE FORMATO (MANDATORIAS):
-1. **PUNTUACIÓN**: Deja SIEMPRE un espacio después de cada punto, coma, punto y coma o dos puntos. NUNCA pegues la siguiente palabra al signo de puntuación. Ejemplo correcto: "Hola. Espero que estés bien." Incorrecto: "Hola.Espero que estés bien."
-2. **ESTRUCTURA DE PÁRRAFOS**: Divide el texto en párrafos cortos (máximo 3-4 líneas cada uno). Usa "punto y aparte" frecuentemente. 
-3. **SALTOS DE LÍNEA**: Separa cada párrafo con DOS (2) saltos de línea (\n\n) para asegurar una visualización limpia y aireada.
-4. **ORTOGRAFÍA**: Debe ser perfecta. Uso correcto de tildes y mayúsculas.
-5. **TONO**: Profesional, empático y cordial. Elegante pero moderno.
+### REGLA DE ORO DE PUNTUACIÓN (CRÍTICA):
+1. **ESPACIOS**: Deja SIEMPRE un espacio ( ) después de cada punto (.), coma (,), punto y coma (;) o dos puntos (:). 
+2. **NUNCA** pegues la siguiente palabra al signo de puntuación. Ejemplo: "Hola. Espero" (BIEN), "Hola.Espero" (MAL).
+3. **PUNTOS A PARTE**: Divide el texto en párrafos cortos (máximo 3 líneas). Usa el punto y aparte frecuentemente para dar aire al texto.
+4. **SALTOS DE LÍNEA**: Separa cada párrafo con DOS (2) saltos de línea (\n\n).
 
 ### INSTRUCCIONES POR TIPO:
-- **leaseAdjustment (Ajuste de Alquiler)**: Informa el próximo aumento. Explica que se aplica según el contrato y el índice {{{adjustmentIndex}}}. Detalla de forma muy clara el monto actual ({{{currentRentAmount}}}) y el nuevo valor ({{{newRentAmount}}}). Indica la fecha exacta de vigencia. Agradece la confianza de forma cálida.
-- **rentReminder (Recordatorio)**: Recordatorio cordial de pago para la propiedad {{{propertyName}}}. Indica monto ({{{amountDue}}}) y fecha de vencimiento ({{{dueDate}}}).
-- **rentOverdue (Mora)**: Notificación firme pero educada sobre la falta de pago de {{{amountDue}}}. Solicita regularizar a la brevedad.
-- **portalInvitation**: Invitación al portal. Explica los beneficios de tener todo digitalizado.
+- **leaseAdjustment (Ajuste de Alquiler)**: 
+  - Comienza saludando amablemente.
+  - Como antecedente, menciona que el contrato iniciado el {{{currentLeaseStartDate}}} prevé ajustes periódicos.
+  - Informa el próximo aumento basado en el índice {{{adjustmentIndex}}}.
+  - Detalla el monto actual ({{{currentRentAmount}}}) y el nuevo valor ({{{newRentAmount}}}).
+  - Indica que entrará en vigencia a partir del próximo período.
+  - Finaliza agradeciendo la confianza y deseando un excelente día.
+  - Cumple con el deber de información de la Ley 24.240: sé veraz, detallado y claro.
 
-### DEBER DE INFORMACIÓN (Ley 24.240):
-La comunicación debe ser completa. No omitas ningún dato relevante (montos, fechas, índices, conceptos). El destinatario debe comprender exactamente qué se le comunica y por qué.
+- **rentReminder (Recordatorio)**: Recordatorio cordial de pago para la propiedad {{{propertyName}}}. Indica monto ({{{amountDue}}}) y fecha de vencimiento ({{{dueDate}}}).
 
 ### CONTEXTO DE LOS DATOS:
 - Destinatario: {{#if tenantName}}{{tenantName}}{{else}}{{#if ownerName}}{{ownerName}}{{else}}Cliente{{/if}}{{/if}}
 - Propiedad: {{{propertyName}}}{{#if propertyAddress}} ({{{propertyAddress}}}){{/if}}
+- Fecha Inicio Contrato: {{{currentLeaseStartDate}}}
+- Fecha Fin Contrato: {{{currentLeaseEndDate}}}
 - Detalles adicionales: {{{additionalContext}}}
 
-Redacta el correo completo en ESPAÑOL, incluyendo un ASUNTO formal. Asegúrate de que el texto esté pensado para ser visualizado en formato JUSTIFICADO.`,
+Redacta el correo completo en ESPAÑOL, incluyendo un ASUNTO formal. El texto debe estar pensado para ser visualizado en formato JUSTIFICADO.`,
 });
 
 const aiCommunicationAssistantFlow = ai.defineFlow(
