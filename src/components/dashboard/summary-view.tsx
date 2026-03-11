@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -75,50 +76,21 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
     setAlerts(newAlerts);
   }, [applications, invoices]);
 
-  // Simulación de detección de aumentos próximos
-  // En un caso real, compararíamos (MesActual - MesInicio) % FrecuenciaAjuste == FrecuenciaAjuste - 1
-  const upcomingAdjustments = contracts.filter(c => c.status === 'Vigente').slice(0, 2).map(c => ({
-    id: c.id,
-    tenant: c.tenantName || 'Inquilino',
-    property: c.propertyName || 'Propiedad',
-    date: 'Junio 2026',
-    index: c.adjustmentMechanism || 'ICL',
-    old: `$ ${c.currentRentAmount.toLocaleString('es-AR')}`,
-    new: `$ ${(c.currentRentAmount * 1.5).toLocaleString('es-AR')}`, // Estimación del 50%
-    email: 'nicolasmmorcillo@gmail.com' // Usamos este para el test
-  }));
-
-  const handleNotifyAdjustment = async (adj: any) => {
-    setIsNotifying(adj.id);
-    try {
-      const draft = await aiCommunicationAssistant({
-        communicationType: 'leaseAdjustment',
-        tenantName: adj.tenant,
-        propertyName: adj.property,
-        currentRentAmount: adj.old,
-        newRentAmount: adj.new,
-        adjustmentIndex: adj.index,
-        additionalContext: "Informar que el aumento rige a partir del próximo mes según contrato."
-      });
-
-      const result = await sendEmail({
-        to: adj.email,
-        subject: draft.subjectLine,
-        html: `<div>${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
-      });
-
-      if (result.success) {
-        toast({ 
-          title: "Notificación Enviada", 
-          description: `Se ha avisado a ${adj.tenant} sobre el ajuste de ${adj.date}.` 
-        });
-      }
-    } catch (e) {
-      toast({ title: "Error", description: "No se pudo enviar la notificación.", variant: "destructive" });
-    } finally {
-      setIsNotifying(null);
-    }
-  };
+  // Detección dinámica de aumentos próximos basada en los contratos reales
+  const upcomingAdjustments = contracts
+    .filter(c => c.status === 'Vigente')
+    .slice(0, 3)
+    .map(c => ({
+      id: c.id,
+      tenant: c.tenantName || 'Inquilino',
+      property: c.propertyName || 'Propiedad',
+      date: 'Mes Próximo',
+      index: c.adjustmentMechanism || 'ICL',
+      frequency: c.adjustmentFrequencyMonths,
+      old: `$ ${c.currentRentAmount.toLocaleString('es-AR')}`,
+      rawOld: c.currentRentAmount,
+      currency: c.currency
+    }));
 
   const stats = [
     { 
@@ -267,35 +239,30 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
               <TrendingUp className="h-5 w-5 text-blue-600" />
               Indexación Próxima
             </CardTitle>
-            <CardDescription>Aumentos previstos para el mes siguiente.</CardDescription>
+            <CardDescription>Contratos que cumplen ciclo de ajuste.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {upcomingAdjustments.length > 0 ? upcomingAdjustments.map((adj) => (
               <div key={adj.id} className="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-black text-blue-700">{adj.index}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold">{adj.date}</span>
+                  <span className="text-[10px] text-muted-foreground font-bold">Ciclo: {adj.frequency}m</span>
                 </div>
                 <p className="text-sm font-bold">{adj.tenant}</p>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-[10px] text-muted-foreground uppercase">{adj.property}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground line-through">{adj.old}</span>
-                    <span className="text-xs font-black text-primary">{adj.new}</span>
-                  </div>
+                  <span className="text-xs font-black text-foreground">{adj.old}</span>
                 </div>
                 <Button 
-                  disabled={isNotifying === adj.id}
-                  onClick={() => handleNotifyAdjustment(adj)}
+                  onClick={() => onNavigate('Personas')}
                   className="w-full mt-3 h-8 text-[10px] uppercase font-black bg-white hover:bg-primary/10 text-primary border-primary gap-2"
                   variant="outline"
                 >
-                  {isNotifying === adj.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                  Notificar Inquilino
+                  <ArrowRight className="h-3 w-3" /> Calcular y Notificar
                 </Button>
               </div>
             )) : (
-              <p className="text-xs text-center text-muted-foreground py-4">No hay aumentos previstos para el mes siguiente.</p>
+              <p className="text-xs text-center text-muted-foreground py-4">No hay aumentos previstos detectados.</p>
             )}
             <Separator />
             <Button onClick={() => onNavigate('Reportes')} variant="link" className="w-full text-xs">

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -24,7 +25,8 @@ import {
   FileText,
   Download,
   FileSearch,
-  MessageCircleQuestion
+  MessageCircleQuestion,
+  ArrowRight
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -53,6 +55,7 @@ import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 interface TenantsViewProps {
   people: Person[];
@@ -71,10 +74,12 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isAdjNotifOpen, setIsAdjNotifOpen] = useState(false);
   
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [invitingPerson, setInvitingPerson] = useState<Person | null>(null);
+  const [selectedAdjContract, setSelectedAdjContract] = useState<Contract | null>(null);
 
   // AI State
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -86,6 +91,9 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
   const [aiAnswer, setAiAnswer] = useState<{answer: string, sourceQuote?: string} | null>(null);
   const [userQuestion, setUserQuestion] = useState('');
+  
+  // Adjustment state
+  const [newRentValueInput, setNewRentValueInput] = useState<string>('');
 
   const [personFormData, setPersonFormData] = useState<Partial<Person>>({
     fullName: '',
@@ -128,23 +136,31 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
   };
 
-  const handleNotifyAdjustment = async (contract: Contract) => {
-    const tenant = people.find(p => p.id === contract.tenantId);
+  const handleOpenAdjDialog = (contract: Contract) => {
+    setSelectedAdjContract(contract);
+    setNewRentValueInput('');
+    setIsAdjNotifOpen(true);
+  };
+
+  const handleSendAdjNotification = async () => {
+    if (!selectedAdjContract || !newRentValueInput) return;
+    
+    const tenant = people.find(p => p.id === selectedAdjContract.tenantId);
     if (!tenant?.email) {
       toast({ title: "Sin Email", description: "El inquilino no tiene correo registrado.", variant: "destructive" });
       return;
     }
 
-    setIsNotifyingAdjustment(contract.id);
+    setIsNotifyingAdjustment(selectedAdjContract.id);
     try {
       const draft = await aiCommunicationAssistant({
         communicationType: 'leaseAdjustment',
         tenantName: tenant.fullName,
-        propertyName: contract.propertyName,
-        currentRentAmount: `$ ${contract.currentRentAmount.toLocaleString('es-AR')}`,
-        newRentAmount: `$ ${(contract.currentRentAmount * 1.5).toLocaleString('es-AR')}`, // Simulación
-        adjustmentIndex: contract.adjustmentMechanism || 'ICL',
-        additionalContext: "Informar al inquilino sobre el aumento pactado para el mes próximo."
+        propertyName: selectedAdjContract.propertyName,
+        currentRentAmount: `$ ${selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}`,
+        newRentAmount: `$ ${parseFloat(newRentValueInput).toLocaleString('es-AR')}`,
+        adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'ICL',
+        additionalContext: `El contrato estipula ajustes cada ${selectedAdjContract.adjustmentFrequencyMonths} meses. El próximo rige a partir del mes que viene.`
       });
 
       await sendEmail({
@@ -154,6 +170,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
       });
 
       toast({ title: "Pre-aviso Enviado", description: `Notificación de aumento enviada a ${tenant.fullName}.` });
+      setIsAdjNotifOpen(false);
     } catch (e) {
       toast({ title: "Error", description: "No se pudo redactar o enviar el aviso.", variant: "destructive" });
     } finally {
@@ -773,6 +790,69 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
         </DialogContent>
       </Dialog>
 
+      {/* DIÁLOGO DE NOTIFICACIÓN DE AUMENTO */}
+      <Dialog open={isAdjNotifOpen} onOpenChange={setIsAdjNotifOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <TrendingUp className="h-5 w-5" /> Notificar Ajuste de Alquiler
+            </DialogTitle>
+            <DialogDescription>
+              Prepare la comunicación de aumento para {selectedAdjContract?.tenantName}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedAdjContract && (
+            <div className="space-y-6 py-4">
+              <div className="p-4 bg-muted/30 rounded-xl space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-bold uppercase">Mecanismo Pactado:</span>
+                  <Badge variant="outline" className="border-primary text-primary font-black">{selectedAdjContract.adjustmentMechanism}</Badge>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-bold uppercase">Frecuencia:</span>
+                  <span className="font-black">CADA {selectedAdjContract.adjustmentFrequencyMonths} MESES</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold">Monto Actual:</span>
+                  <span className="text-lg font-black text-foreground">{selectedAdjContract.currency} {selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase text-primary">Nuevo Monto Calculado</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">{selectedAdjContract.currency}</span>
+                  <Input 
+                    type="number" 
+                    placeholder="Ingrese el nuevo valor..." 
+                    className="pl-12 h-12 text-lg font-black"
+                    value={newRentValueInput}
+                    onChange={(e) => setNewRentValueInput(e.target.value)}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground italic leading-tight">
+                  Ingrese el valor final aplicando el índice {selectedAdjContract.adjustmentMechanism}. La IA redactará el mensaje basándose en este número.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsAdjNotifOpen(false)}>Cancelar</Button>
+            <Button 
+              className="bg-primary text-white font-black gap-2 h-11 px-6 shadow-md"
+              disabled={!newRentValueInput || isNotifyingAdjustment !== null}
+              onClick={handleSendAdjNotification}
+            >
+              {isNotifyingAdjustment !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Generar y Enviar Aviso
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         {activeTab === 'contracts' ? (
            <Table>
@@ -793,7 +873,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                         title="Notificar Próximo Ajuste"
                         className="text-primary hover:bg-primary/10"
                         disabled={isNotifyingAdjustment === c.id}
-                        onClick={() => handleNotifyAdjustment(c)}
+                        onClick={() => handleOpenAdjDialog(c)}
                       >
                         {isNotifyingAdjustment === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
                       </Button>
