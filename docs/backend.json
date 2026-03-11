@@ -193,6 +193,23 @@
         "submittedAt": { "type": "string" }
       },
       "required": ["id", "applicantName", "applicantEmail", "status"]
+    },
+    "Contract": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Contract",
+      "type": "object",
+      "description": "Detailed rental contract information including economic clauses.",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "baseRentAmount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "tenantId", "propertyId", "baseRentAmount", "startDate"]
     }
   },
   "auth": {
@@ -251,6 +268,16 @@
             "$ref": "#/backend/entities/RentalApplication"
           },
           "description": "Collection for storing rental applications submitted by potential tenants."
+        }
+      },
+      {
+        "path": "artifacts/{appId}/users/{userId}/contratos/{contratoId}",
+        "definition": {
+          "entityName": "Contract",
+          "schema": {
+            "$ref": "#/backend/entities/Contract"
+          },
+          "description": "Collection for storing detailed rental contracts."
         }
       }
     ]

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -17,11 +18,14 @@ import {
   Send,
   MessageSquareShare,
   UserCheck,
-  TrendingUp
+  TrendingUp,
+  Landmark,
+  Calculator,
+  Calendar
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Contract, Person, Property, PersonType, Currency } from '@/lib/types';
+import { Contract, Person, Property, PersonType, Currency, AdjustmentMechanism } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -48,13 +52,12 @@ interface TenantsViewProps {
   people: Person[];
   userId?: string;
   contracts: Contract[];
-  setContracts: React.Dispatch<React.SetStateAction<Contract[]>>;
   properties: Property[];
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function TenantsView({ people, userId, contracts, setContracts, properties }: TenantsViewProps) {
+export function TenantsView({ people, userId, contracts, properties }: TenantsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -300,7 +303,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
   };
 
   const handleSaveContract = () => {
-    if (!contractFormData.tenantId || !contractFormData.propertyId || !contractFormData.baseRentAmount || !userId) {
+    if (!contractFormData.tenantId || !contractFormData.propertyId || !contractFormData.baseRentAmount || !userId || !db) {
       toast({ title: "Error", description: "Complete los campos obligatorios.", variant: "destructive" });
       return;
     }
@@ -308,21 +311,20 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     const tenant = people.find(p => p.id === contractFormData.tenantId);
     const property = properties.find(p => p.id === contractFormData.propertyId);
 
-    const newContract = {
+    const docId = editingContract?.id || Math.random().toString(36).substr(2, 9);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'contratos', docId);
+
+    const newContract: Contract = {
       ...contractFormData,
-      id: editingContract?.id || Math.random().toString(36).substr(2, 9),
+      id: docId,
       tenantName: tenant?.fullName,
       propertyName: property?.name,
-      currentRentAmount: contractFormData.baseRentAmount,
+      currentRentAmount: contractFormData.currentRentAmount || contractFormData.baseRentAmount || 0,
       ownerId: userId,
       documents: contractFormData.documents || { mainContractUrl: '', versions: [], annexes: [] }
     } as Contract;
 
-    if (editingContract) {
-      setContracts(contracts.map(c => c.id === editingContract.id ? newContract : c));
-    } else {
-      setContracts([...contracts, newContract]);
-    }
+    setDocumentNonBlocking(docRef, newContract, { merge: true });
     
     toast({ title: "Contrato Guardado", description: "Registro actualizado exitosamente." });
     setIsContractDialogOpen(false);
@@ -354,9 +356,9 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     setContractFormData(prev => ({
       ...prev,
       baseRentAmount: aiResult.baseRentAmount,
-      currency: aiResult.currency,
+      currency: aiResult.currency as Currency,
       adjustmentFrequencyMonths: aiResult.adjustmentFrequencyMonths,
-      adjustmentMechanism: aiResult.adjustmentMechanism,
+      adjustmentMechanism: aiResult.adjustmentMechanism as AdjustmentMechanism,
       currentRentAmount: aiResult.baseRentAmount,
       startDate: aiResult.startDate || prev.startDate,
       endDate: aiResult.endDate || prev.endDate,
@@ -371,6 +373,13 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', id);
     deleteDocumentNonBlocking(docRef);
     toast({ title: "Persona eliminada", description: "El registro ha sido removido." });
+  };
+
+  const handleDeleteContract = (id: string) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'contratos', id);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: "Contrato eliminado", description: "El registro ha sido removido." });
   };
 
   return (
@@ -405,6 +414,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                     <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
                     <TabsTrigger value="documents">Documentos</TabsTrigger>
                   </TabsList>
+                  
                   <TabsContent value="general" className="space-y-4 pt-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -422,7 +432,71 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                         </Select>
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Fecha de Inicio</Label>
+                        <Input type="date" value={contractFormData.startDate} onChange={e => setContractFormData({...contractFormData, startDate: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Fecha de Finalización</Label>
+                        <Input type="date" value={contractFormData.endDate} onChange={e => setContractFormData({...contractFormData, endDate: e.target.value})} />
+                      </div>
+                    </div>
                   </TabsContent>
+
+                  <TabsContent value="economic" className="space-y-4 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Monto Base Alquiler</Label>
+                        <Input 
+                          type="number" 
+                          value={contractFormData.baseRentAmount} 
+                          onChange={e => setContractFormData({...contractFormData, baseRentAmount: parseFloat(e.target.value) || 0})} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Moneda</Label>
+                        <Select value={contractFormData.currency} onValueChange={(v: Currency) => setContractFormData({...contractFormData, currency: v})}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ARS">Pesos Argentinos (ARS)</SelectItem>
+                            <SelectItem value="USD">Dólares (USD)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Mecanismo Ajuste</Label>
+                        <Select value={contractFormData.adjustmentMechanism} onValueChange={(v: AdjustmentMechanism) => setContractFormData({...contractFormData, adjustmentMechanism: v})}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ICL">ICL (Banco Central)</SelectItem>
+                            <SelectItem value="IPC">IPC (INDEC)</SelectItem>
+                            <SelectItem value="Fixed">Escalonado Fijo</SelectItem>
+                            <SelectItem value="CasaPropia">Casa Propia</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Frecuencia (Meses)</Label>
+                        <Input 
+                          type="number" 
+                          value={contractFormData.adjustmentFrequencyMonths} 
+                          onChange={e => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Depósito Garantía</Label>
+                        <Input 
+                          type="number" 
+                          value={contractFormData.depositAmount} 
+                          onChange={e => setContractFormData({...contractFormData, depositAmount: parseFloat(e.target.value) || 0})} 
+                        />
+                      </div>
+                    </div>
+                  </TabsContent>
+
                   <TabsContent value="documents" className="pt-4">
                     <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
                     {!aiResult && !isAiProcessing && (
@@ -431,16 +505,28 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                         <p className="text-sm">Analizar Contrato con IA</p>
                       </div>
                     )}
-                    {isAiProcessing && <Loader2 className="h-8 w-8 mx-auto animate-spin" />}
+                    {isAiProcessing && (
+                      <div className="flex flex-col items-center py-8 space-y-4">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-xs font-bold text-muted-foreground">La IA está extrayendo los datos del contrato...</p>
+                      </div>
+                    )}
                     {aiResult && (
-                      <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-4">
-                        <p className="text-xs font-bold">{aiResult.summary}</p>
-                        <Button className="w-full" onClick={applyAiData}>Confirmar y Autocompletar</Button>
+                      <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-4 animate-in fade-in">
+                        <div className="flex items-center gap-3">
+                          <Sparkles className="h-5 w-5 text-primary" />
+                          <p className="text-sm font-bold text-primary">¡Datos extraídos con éxito!</p>
+                        </div>
+                        <p className="text-xs leading-relaxed text-muted-foreground">{aiResult.summary}</p>
+                        <Button className="w-full bg-primary text-white font-bold" onClick={applyAiData}>Confirmar y Autocompletar Formulario</Button>
                       </div>
                     )}
                   </TabsContent>
                 </Tabs>
-                <DialogFooter className="mt-6"><Button onClick={handleSaveContract}>Guardar</Button></DialogFooter>
+                <DialogFooter className="mt-6 border-t pt-4">
+                  <Button variant="outline" onClick={() => setIsContractDialogOpen(false)}>Cancelar</Button>
+                  <Button onClick={handleSaveContract}>Guardar Contrato</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           ) : (
@@ -471,7 +557,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
               </Select>
             </div>
           </div>
-          <DialogFooter className="mt-6"><Button onClick={handleSavePerson}>Guardar</Button></DialogFooter>
+          <DialogFooter className="mt-6 border-t pt-4"><Button onClick={handleSavePerson}>Guardar Persona</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -538,10 +624,16 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                         {isNotifyingAdjustment === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleOpenContractDialog(c)}><Edit2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteContract(c.id)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
+              {contracts.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">No hay contratos registrados aún.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         ) : (
@@ -573,6 +665,11 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                   </TableCell>
                 </TableRow>
               ))}
+              {people.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-20 text-muted-foreground italic">No hay personas registradas aún.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         )}

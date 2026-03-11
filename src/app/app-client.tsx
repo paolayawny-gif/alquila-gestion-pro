@@ -50,6 +50,7 @@ import {
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, query } from 'firebase/firestore';
+import { Contract } from '@/lib/types';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal';
@@ -98,6 +99,11 @@ export default function AppClient() {
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'inquilinos'));
   }, [db, user]);
 
+  const contratosQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos'));
+  }, [db, user]);
+
   const facturasQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'facturas'));
@@ -126,6 +132,7 @@ export default function AppClient() {
   // Suscripción a los datos de Firestore
   const { data: propertiesData } = useCollection(propiedadesQuery);
   const { data: peopleData } = useCollection(inquilinosQuery);
+  const { data: contractsData } = useCollection<Contract>(contratosQuery);
   const { data: invoicesData } = useCollection(facturasQuery);
   const { data: tasksData } = useCollection(mantenimientoQuery);
   const { data: legalCasesData } = useCollection(legalQuery);
@@ -135,13 +142,12 @@ export default function AppClient() {
   // Asegurar arreglos para evitar errores de null
   const properties = propertiesData || [];
   const people = peopleData || [];
+  const contracts = contractsData || [];
   const invoices = invoicesData || [];
   const tasks = tasksData || [];
   const legalCases = legalCasesData || [];
   const liquidations = liquidationsData || [];
   const applications = applicationsData || [];
-
-  const [contracts, setContracts] = useState<any[]>([]);
 
   if (!isMounted) return null;
 
@@ -178,7 +184,6 @@ export default function AppClient() {
           people={people} 
           userId={user?.uid}
           contracts={contracts} 
-          setContracts={setContracts} 
           properties={properties} 
         />
       );
