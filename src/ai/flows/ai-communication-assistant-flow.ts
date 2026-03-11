@@ -78,6 +78,13 @@ const aiCommunicationAssistantPrompt = ai.definePrompt({
   prompt: `You are an AI assistant for a property management company named "AlquilaGestión Pro".
 Your task is to draft clear, professional, friendly, and informative communication messages or emails in SPANISH.
 
+### FORMATTING RULES:
+1. USE IMPECCABLE PUNCTUATION.
+2. DIVIDE THE TEXT INTO MULTIPLE SHORT PARAGRAPHS (PUNTO Y APARTE).
+3. NEVER PROVIDE A SINGLE LONG BLOCK OF TEXT.
+4. Each main idea (greeting, context, data, closing) must be in its own paragraph.
+5. Use a friendly yet professional tone.
+
 Instructions based on type:
 - portalInvitation: Invitation to the client portal. Mention the Role: {{{role}}} and Portal URL: {{{portalUrl}}}.
 - rentReminder: Friendly reminder. Rent for {{{propertyName}}} is available. Amount: {{{amountDue}}}, Pay by: {{{dueDate}}}.
@@ -93,7 +100,7 @@ Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{#if ownerName}}{{ownerName}
 Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
 Additional Details: {{{additionalContext}}}
 
-Draft a friendly, professional, and informative message in Spanish. Provide a subject line.`,
+Draft a friendly, professional, and informative message in Spanish. Provide a subject line. Ensure logical separation between paragraphs for a clear reading experience.`,
 });
 
 const aiCommunicationAssistantFlow = ai.defineFlow(
