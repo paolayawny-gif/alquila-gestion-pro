@@ -111,6 +111,7 @@ export interface Contract {
   adjustmentType: 'Index' | 'Percentage' | 'Scale' | 'Fixed';
   adjustmentMechanism?: AdjustmentMechanism;
   adjustmentFrequencyMonths: number;
+  lateFeePercentage?: number; // Tasa diaria por mora
   depositAmount: number;
   depositCurrency: Currency;
   commissionAmount: number; 
@@ -136,14 +137,16 @@ export interface Invoice {
   totalAmount: number;
   currency: Currency;
   dueDate: string;
-  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado' | 'Pago Informado';
+  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado' | 'Pago Informado' | 'Esperando Factura ARCA';
+  arcaInvoiceUrl?: string;
+  arcaInvoiceName?: string;
   lastReminderSent?: string;
   reminderType?: string;
   hasFile?: boolean;
   paymentReceiptUrl?: string;
   paymentReceiptName?: string;
   paymentDate?: string;
-  isFromOwner?: boolean; // Indica si la cargó el dueño para que el admin la impute
+  isFromOwner?: boolean; 
   ownerId?: string;
 }
 

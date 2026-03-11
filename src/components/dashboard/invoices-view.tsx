@@ -20,7 +20,10 @@ import {
   UserMinus,
   CheckCircle2,
   FileText,
-  TrendingUp
+  TrendingUp,
+  FileUp,
+  Send,
+  AlertCircle
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -58,9 +61,12 @@ const CHARGE_TYPES: ChargeType[] = ['Alquiler', 'Expensa Ordinaria', 'Expensa Ex
 export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const arcaInputRef = useRef<HTMLInputElement>(null);
+  
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
   const [isGeneratingRent, setIsGeneratingRent] = useState(false);
   const [analyzingInvId, setAnalyzingInvId] = useState<string | null>(null);
+  const [uploadingArcaFor, setUploadingArcaFor] = useState<string | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<Record<string, { payer: ChargePayer, reason: string }>>({});
 
   const peopleQuery = useMemoFirebase(() => {
@@ -88,6 +94,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
       'Vencido': 'bg-red-100 text-red-700 border-red-200',
       'Pendiente': 'bg-orange-100 text-orange-700 border-orange-200',
       'Pago Informado': 'bg-blue-100 text-blue-700 border-blue-200',
+      'Esperando Factura ARCA': 'bg-purple-100 text-purple-700 border-purple-200',
       'Anulado': 'bg-gray-100 text-gray-700 border-gray-200'
     };
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
@@ -101,7 +108,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
 
     let count = 0;
     contracts.filter(c => c.status === 'Vigente').forEach(contract => {
-      // Evitar duplicados para el mismo mes
       const exists = invoices.find(i => i.contractId === contract.id && i.period === currentMonth && i.charges.some(ch => ch.type === 'Alquiler'));
       if (!exists) {
         const docId = Math.random().toString(36).substr(2, 9);
@@ -134,82 +140,75 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     setIsGeneratingRent(false);
     toast({ 
       title: "Proceso Completado", 
-      description: `Se han generado ${count} facturas de alquiler para ${currentMonth}.` 
+      description: `Se han generado ${count} facturas de alquiler para ${currentMonth}. Se informará el monto por canal informal hasta subir Factura ARCA.` 
     });
   };
 
-  const handleAnalyzeWithAI = async (inv: Invoice) => {
-    if (!userId || !db) return;
-    setAnalyzingInvId(inv.id);
-    
-    try {
-      const contract = contracts.find(c => c.propertyName === inv.propertyName && c.status === 'Vigente');
-      if (!contract || !contract.fullTranscription) {
-        toast({ title: "Sin datos", description: "No hay contrato transcrito para analizar responsabilidades.", variant: "destructive" });
-        return;
-      }
-
-      const chargeType = inv.charges[0]?.type || 'servicio';
-      const prompt = `Según el contrato, ¿quién debe pagar el concepto de "${chargeType}"? Responde solo con una palabra: "Inquilino" o "Propietario".`;
-      
-      const result = await queryContract({
-        contractTranscription: contract.fullTranscription,
-        question: prompt
-      });
-
-      const suggestion = result.answer.includes('Inquilino') ? 'Inquilino' : 'Propietario';
-      setAiSuggestions(prev => ({ ...prev, [inv.id]: { payer: suggestion as ChargePayer, reason: result.sourceQuote || '' } }));
-      
-      toast({ title: "Análisis IA", description: `Sugerencia: Imputar a ${suggestion}.` });
-    } catch (e) {
-      toast({ title: "Error", description: "La IA no pudo determinar la responsabilidad.", variant: "destructive" });
-    } finally {
-      setAnalyzingInvId(null);
-    }
+  const handleUploadArca = (invId: string) => {
+    setUploadingArcaFor(invId);
+    arcaInputRef.current?.click();
   };
 
-  const handleProcessOwnerBill = async (inv: Invoice, manualPayer?: ChargePayer) => {
+  const handleArcaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadingArcaFor || !userId || !db) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', uploadingArcaFor);
+      setDocumentNonBlocking(docRef, { 
+        arcaInvoiceUrl: event.target?.result as string,
+        arcaInvoiceName: file.name,
+        status: 'Esperando Factura ARCA' // Actualizar a estado listo para enviar
+      }, { merge: true });
+      
+      toast({ title: "Factura ARCA Vinculada", description: "Ya puede enviar el comprobante formal al inquilino." });
+      setUploadingArcaFor(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSendFormalInvoice = async (inv: Invoice) => {
     if (!userId || !db) return;
-    const contract = contracts.find(c => c.propertyName === inv.propertyName && c.status === 'Vigente');
-    if (!contract) {
-      toast({ title: "Error", description: "No hay contrato vigente para esta propiedad.", variant: "destructive" });
-      return;
-    }
+    const contract = contracts.find(c => c.id === inv.contractId);
+    if (!contract) return;
 
-    const payer = manualPayer || aiSuggestions[inv.id]?.payer || 'Inquilino';
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
-    
-    const updatedCharges = inv.charges.map(c => ({ ...c, imputedTo: payer }));
-    const total = payer === 'Inquilino' ? inv.totalAmount : 0;
-
-    setDocumentNonBlocking(docRef, { 
-      contractId: contract.id, 
-      tenantName: contract.tenantName,
-      charges: updatedCharges,
-      totalAmount: total,
-      isFromOwner: false,
-      status: 'Pendiente'
-    }, { merge: true });
-
-    if (payer === 'Inquilino') {
+    try {
       const draft = await aiCommunicationAssistant({
         communicationType: 'generalMessage',
-        tenantName: contract.tenantName,
+        tenantName: inv.tenantName,
         propertyName: inv.propertyName,
-        additionalContext: `Se adjunta nueva factura de ${inv.charges[0]?.type || 'servicio'} por un valor de $ ${inv.totalAmount.toLocaleString('es-AR')} con vencimiento el ${inv.dueDate}.`
+        additionalContext: `Se adjunta la Factura Formal de Alquiler emitida por ARCA correspondiente al período ${inv.period} por un monto de ${inv.currency} ${inv.totalAmount.toLocaleString('es-AR')}.`
       });
 
-      const tenant = people?.find(p => p.id === contract.tenantId);
+      const tenant = people?.find(p => p.fullName === inv.tenantName);
       if (tenant?.email) {
         await sendEmail({
           to: tenant.email,
           subject: draft.subjectLine,
-          html: `<div style="text-align: justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
+          html: `<div style="text-align: justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div><br/><p>Puede descargar su factura formal desde su portal personal.</p>`
         });
+        toast({ title: "Email Enviado", description: "El inquilino ha recibido la factura formal." });
       }
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo enviar el correo.", variant: "destructive" });
     }
+  };
 
-    toast({ title: "Factura Procesada", description: `Imputada a ${payer} correctamente.` });
+  const calculateInterest = (inv: Invoice) => {
+    const contract = contracts.find(c => c.id === inv.contractId);
+    if (!contract || !contract.lateFeePercentage) return 0;
+
+    const [day, month, year] = inv.dueDate.split('/');
+    const dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const today = new Date();
+
+    if (today > dueDate && inv.status !== 'Pagado') {
+      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return (inv.totalAmount * (contract.lateFeePercentage / 100)) * diffDays;
+    }
+    return 0;
   };
 
   const handleValidatePayment = (inv: Invoice) => {
@@ -257,11 +256,13 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <input type="file" ref={arcaInputRef} className="hidden" accept=".pdf,image/*" onChange={handleArcaFileChange} />
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {informedPayments.length > 0 && (
           <Card className="bg-blue-50 border-blue-200 border shadow-none">
             <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-blue-600" /><p className="text-xs font-black text-blue-700 uppercase tracking-tight">Pagos Informados por Inquilinos</p></div>
+              <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-blue-600" /><p className="text-xs font-black text-blue-700 uppercase tracking-tight">Pagos Informados (Validación)</p></div>
               {informedPayments.map(p => (
                 <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm">
                   <div className="flex flex-col">
@@ -269,7 +270,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                     <span className="text-[9px] text-muted-foreground">{p.period} • $ {p.totalAmount.toLocaleString('es-AR')}</span>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => window.open(p.paymentReceiptUrl)} title="Ver Comprobante"><Eye className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => window.open(p.paymentReceiptUrl)} title="Ver Transferencia"><Eye className="h-4 w-4" /></Button>
                     <Button size="sm" className="h-7 bg-blue-600 text-white text-[10px] px-3 font-bold" onClick={() => handleValidatePayment(p)}>Validar</Button>
                   </div>
                 </div>
@@ -278,57 +279,25 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
           </Card>
         )}
 
-        {ownerSubmissions.length > 0 && (
-          <Card className="bg-orange-50 border-orange-200 border shadow-none">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2"><FileSearch className="h-4 w-4 text-orange-600" /><p className="text-xs font-black text-orange-700 uppercase tracking-tight">Facturas Entrantes de Dueños</p></div>
-              {ownerSubmissions.map(p => (
-                <div key={p.id} className="flex flex-col bg-white p-3 rounded-lg border shadow-sm gap-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black text-foreground">{p.propertyName}</span>
-                      <span className="text-[10px] text-muted-foreground">{p.charges[0]?.type} • $ {p.totalAmount.toLocaleString('es-AR')}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-orange-600" onClick={() => window.open(p.paymentReceiptUrl)}><Eye className="h-4 w-4" /></Button>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className={cn("h-7 w-7", aiSuggestions[p.id] ? "text-primary bg-primary/10" : "text-muted-foreground")}
-                        onClick={() => handleAnalyzeWithAI(p)}
-                        disabled={analyzingInvId === p.id}
-                      >
-                        {analyzingInvId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {aiSuggestions[p.id] && (
-                    <div className="p-2 bg-primary/5 rounded border border-primary/10 flex items-start gap-2">
-                      <Zap className="h-3 w-3 text-primary mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-[9px] font-bold text-primary">Sugerencia IA: Imputar a {aiSuggestions[p.id].payer}</p>
-                        <p className="text-[8px] text-muted-foreground leading-tight italic line-clamp-1">"{aiSuggestions[p.id].reason}"</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px] gap-1 font-bold border-muted-foreground/20" onClick={() => handleProcessOwnerBill(p, 'Propietario')}><UserMinus className="h-3 w-3" /> Dueño</Button>
-                    <Button size="sm" className="flex-1 h-7 text-[10px] gap-1 font-bold bg-primary" onClick={() => handleProcessOwnerBill(p, 'Inquilino')}><UserCheck className="h-3 w-3" /> Inquilino</Button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        <Card className="bg-purple-50 border-purple-200 border shadow-none">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-purple-600" /><p className="text-xs font-black text-purple-700 uppercase tracking-tight">Pendiente Factura ARCA (Digitalización)</p></div>
+            <p className="text-[10px] text-purple-600 italic">Cargue aquí los PDFs que emite en ARCA para que el sistema los envíe formalmente.</p>
+            {invoices.filter(i => i.charges.some(c => c.type === 'Alquiler') && !i.arcaInvoiceUrl && i.status !== 'Pagado').slice(0, 3).map(p => (
+              <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm">
+                <span className="font-bold truncate max-w-[120px]">{p.tenantName}</span>
+                <Button size="sm" variant="outline" className="h-7 border-purple-600 text-purple-600 text-[10px] gap-1 font-bold" onClick={() => handleUploadArca(p.id)}><FileUp className="h-3 w-3" /> Subir PDF ARCA</Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border shadow-sm">
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar..." className="pl-9 h-10 border-none bg-muted/50" />
+            <Input placeholder="Buscar facturas..." className="pl-9 h-10 border-none bg-muted/50" />
           </div>
         </div>
         
@@ -340,7 +309,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
             disabled={isGeneratingRent}
           >
             {isGeneratingRent ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
-            Generar Alquileres Mes
+            Generar Alquileres
           </Button>
 
           <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
@@ -411,65 +380,72 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
             <TableRow className="bg-muted/50">
               <TableHead className="w-[250px]">Inquilino / Unidad</TableHead>
               <TableHead>Detalle de Cargos</TableHead>
-              <TableHead className="text-right">Total a Cobrar</TableHead>
+              <TableHead className="text-right">Total (con Mora)</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead className="text-right">Digitalización / Envío</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.filter(i => !i.isFromOwner).map((i) => (
-              <TableRow key={i.id} className="group hover:bg-muted/30">
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-black text-foreground">{i.tenantName}</span>
-                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{i.propertyName} • {i.period}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-1 max-w-[300px]">
-                    {i.charges.map((c, idx) => (
-                      <div key={idx} className={cn(
-                        "flex justify-between text-[10px] py-0.5 border-b border-dashed px-1",
-                        c.imputedTo === 'Propietario' ? "text-orange-600 bg-orange-50/50" : "text-foreground"
-                      )}>
-                        <span className="flex items-center gap-1">
-                          {c.type === 'Alquiler' ? <FileText className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}
-                          {c.type} {c.imputedTo === 'Propietario' && "(Deducción)"}
-                        </span>
-                        <span className="font-bold">$ {c.amount.toLocaleString('es-AR')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-black text-primary text-base">$ {i.totalAmount.toLocaleString('es-AR')}</TableCell>
-                <TableCell>{getStatusBadge(i.status)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"><Eye className="h-4 w-4" /></Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-destructive" 
-                      onClick={() => {
-                        if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id));
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {invoices.filter(i => !i.isFromOwner).length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-24">
-                  <div className="flex flex-col items-center justify-center text-muted-foreground opacity-40 space-y-2">
-                    <TrendingUp className="h-12 w-12" />
-                    <p className="text-sm font-bold">No hay facturas generadas. Pulsa "Generar Alquileres" para comenzar.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
+            {invoices.filter(i => !i.isFromOwner).map((i) => {
+              const interest = calculateInterest(i);
+              return (
+                <TableRow key={i.id} className="group hover:bg-muted/30">
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-black text-foreground">{i.tenantName}</span>
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{i.propertyName} • {i.period}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1 max-w-[300px]">
+                      {i.charges.map((c, idx) => (
+                        <div key={idx} className={cn(
+                          "flex justify-between text-[10px] py-0.5 border-b border-dashed px-1",
+                          c.imputedTo === 'Propietario' ? "text-orange-600 bg-orange-50/50" : "text-foreground"
+                        )}>
+                          <span>{c.type}</span>
+                          <span className="font-bold">$ {c.amount.toLocaleString('es-AR')}</span>
+                        </div>
+                      ))}
+                      {interest > 0 && (
+                        <div className="flex justify-between text-[10px] py-0.5 text-red-600 font-bold px-1 bg-red-50">
+                          <span>Punitorios (Mora)</span>
+                          <span>$ {interest.toLocaleString('es-AR')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-black text-primary text-base">
+                    $ {(i.totalAmount + interest).toLocaleString('es-AR')}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(i.status)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {i.charges.some(c => c.type === 'Alquiler') && !i.arcaInvoiceUrl && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-purple-600" title="Subir Factura ARCA" onClick={() => handleUploadArca(i.id)}>
+                          <FileUp className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {i.arcaInvoiceUrl && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="Enviar Factura Formal" onClick={() => handleSendFormalInvoice(i)}>
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-destructive" 
+                        onClick={() => {
+                          if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id));
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Card>
