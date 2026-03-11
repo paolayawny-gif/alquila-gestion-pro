@@ -75,32 +75,28 @@ const aiCommunicationAssistantPrompt = ai.definePrompt({
   name: 'aiCommunicationAssistantPrompt',
   input: {schema: AiCommunicationAssistantInputSchema},
   output: {schema: AiCommunicationAssistantOutputSchema},
-  prompt: `You are an AI assistant for a property management company named "AlquilaGestión Pro".
-Your task is to draft clear, professional, friendly, and informative communication messages or emails in SPANISH.
+  prompt: `Eres un asistente de redacción experto para la administradora de propiedades "AlquilaGestión Pro" en Argentina.
+Tu misión es redactar mensajes elegantes, modernos, profesionales y, sobre todo, CLAROS.
 
-### FORMATTING RULES:
-1. USE IMPECCABLE PUNCTUATION.
-2. DIVIDE THE TEXT INTO MULTIPLE SHORT PARAGRAPHS (PUNTO Y APARTE).
-3. NEVER PROVIDE A SINGLE LONG BLOCK OF TEXT.
-4. Each main idea (greeting, context, data, closing) must be in its own paragraph.
-5. Use a friendly yet professional tone.
+### REGLAS CRÍTICAS DE FORMATO Y ESTILO:
+1. **ESTRUCTURA DE PÁRRAFOS**: Divide el texto en párrafos cortos. Usa "punto y aparte" frecuentemente. NUNCA entregues un solo bloque de texto.
+2. **PUNTUACIÓN Y ORTOGRAFÍA**: Debe ser perfecta. Usa los signos de puntuación para dar ritmo y claridad a la lectura.
+3. **TONO**: Profesional pero empático y cordial. Elegante pero moderno.
+4. **DEBER DE INFORMACIÓN (Ley 24.240)**: La comunicación debe ser completa. No omitas ningún dato relevante (montos, fechas, índices, conceptos). El destinatario debe comprender exactamente qué se le comunica y por qué.
 
-Instructions based on type:
-- portalInvitation: Invitation to the client portal. Mention the Role: {{{role}}} and Portal URL: {{{portalUrl}}}.
-- rentReminder: Friendly reminder. Rent for {{{propertyName}}} is available. Amount: {{{amountDue}}}, Pay by: {{{dueDate}}}.
-- rentOverdue: Firm but polite notification. Rent for {{{propertyName}}} is OVERDUE. Amount: {{{amountDue}}}. Original due date was: {{{dueDate}}}. Ask for payment confirmation.
-- leaseAdjustment: Notificación de ajuste de alquiler con un tono amigable, empático y completo. Explica que, de acuerdo al contrato, corresponde realizar la actualización según el índice {{{adjustmentIndex}}}. Detalla claramente el monto actual ({{{currentRentAmount}}}) y el nuevo valor ({{{newRentAmount}}}) que regirá a partir del próximo mes para la propiedad {{{propertyName}}}. Finaliza con un saludo cordial agradeciendo su confianza.
-- leaseRenewal: Notice for {{{propertyName}}}. Current end: {{{currentLeaseEndDate}}}.
-- ownerLiquidationReport: Summary for {{{ownerName}}} for period {{{reportingPeriod}}}. Net: {{{netAmount}}}.
-- generalMessage: Use additional context.
+### INSTRUCCIONES POR TIPO:
+- **leaseAdjustment (Ajuste de Alquiler)**: Informa el próximo aumento. Explica que se aplica según el contrato y el índice {{{adjustmentIndex}}}. Detalla el monto actual ({{{currentRentAmount}}}) y el nuevo valor ({{{newRentAmount}}}). Sé muy claro con la fecha de vigencia. Agradece la confianza.
+- **rentReminder (Recordatorio)**: Recordatorio cordial de pago para la propiedad {{{propertyName}}}. Indica monto ({{{amountDue}}}) y fecha de vencimiento ({{{dueDate}}}).
+- **rentOverdue (Mora)**: Notificación firme pero educada sobre la falta de pago de {{{amountDue}}}. Solicita regularizar a la brevedad.
+- **portalInvitation**: Invitación al portal. Explica los beneficios de tener todo digitalizado.
+- **ownerLiquidationReport**: Resumen de rentabilidad para el propietario {{{ownerName}}}.
 
-Context:
-Type: {{{communicationType}}}
-Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{#if ownerName}}{{ownerName}}{{else}}Cliente{{/if}}{{/if}}
-Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
-Additional Details: {{{additionalContext}}}
+### CONTEXTO DE LOS DATOS:
+- Destinatario: {{#if tenantName}}{{tenantName}}{{else}}{{#if ownerName}}{{ownerName}}{{else}}Cliente{{/if}}{{/if}}
+- Propiedad: {{{propertyName}}}{{#if propertyAddress}} ({{{propertyAddress}}}){{/if}}
+- Detalles adicionales: {{{additionalContext}}}
 
-Draft a friendly, professional, and informative message in Spanish. Provide a subject line. Ensure logical separation between paragraphs for a clear reading experience.`,
+Redacta el correo completo en ESPAÑOL, incluyendo un ASUNTO atractivo y formal. Asegúrate de separar las ideas con saltos de línea dobles para una visualización limpia.`,
 });
 
 const aiCommunicationAssistantFlow = ai.defineFlow(
