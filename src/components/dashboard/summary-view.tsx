@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -16,12 +15,18 @@ import {
   BellRing,
   ArrowUpRight,
   Building2,
-  Users2
+  Users2,
+  Loader2,
+  Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AppAlert, Property, Contract, Invoice, MaintenanceTask, RentalApplication } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
+import { sendEmail } from '@/services/email-service';
+import { Separator } from '@/components/ui/separator';
 
 interface SummaryViewProps {
   onNavigate: (tab: string) => void;
@@ -33,14 +38,14 @@ interface SummaryViewProps {
 }
 
 export function SummaryView({ onNavigate, properties = [], contracts = [], invoices = [], tasks = [], applications = [] }: SummaryViewProps) {
+  const { toast } = useToast();
   const [dolarMep, setDolarMep] = useState<number | null>(null);
-  
+  const [isNotifying, setIsNotifying] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
 
   useEffect(() => {
     setDolarMep(1185);
     
-    // Generar alertas dinámicas basadas en datos reales
     const newAlerts: AppAlert[] = [];
     
     if (applications.filter(a => a.status === 'Nueva').length > 0) {
@@ -69,6 +74,51 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
 
     setAlerts(newAlerts);
   }, [applications, invoices]);
+
+  // Simulación de detección de aumentos próximos
+  // En un caso real, compararíamos (MesActual - MesInicio) % FrecuenciaAjuste == FrecuenciaAjuste - 1
+  const upcomingAdjustments = contracts.filter(c => c.status === 'Vigente').slice(0, 2).map(c => ({
+    id: c.id,
+    tenant: c.tenantName || 'Inquilino',
+    property: c.propertyName || 'Propiedad',
+    date: 'Junio 2026',
+    index: c.adjustmentMechanism || 'ICL',
+    old: `$ ${c.currentRentAmount.toLocaleString('es-AR')}`,
+    new: `$ ${(c.currentRentAmount * 1.5).toLocaleString('es-AR')}`, // Estimación del 50%
+    email: 'nicolasmmorcillo@gmail.com' // Usamos este para el test
+  }));
+
+  const handleNotifyAdjustment = async (adj: any) => {
+    setIsNotifying(adj.id);
+    try {
+      const draft = await aiCommunicationAssistant({
+        communicationType: 'leaseAdjustment',
+        tenantName: adj.tenant,
+        propertyName: adj.property,
+        currentRentAmount: adj.old,
+        newRentAmount: adj.new,
+        adjustmentIndex: adj.index,
+        additionalContext: "Informar que el aumento rige a partir del próximo mes según contrato."
+      });
+
+      const result = await sendEmail({
+        to: adj.email,
+        subject: draft.subjectLine,
+        html: `<div>${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
+      });
+
+      if (result.success) {
+        toast({ 
+          title: "Notificación Enviada", 
+          description: `Se ha avisado a ${adj.tenant} sobre el ajuste de ${adj.date}.` 
+        });
+      }
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo enviar la notificación.", variant: "destructive" });
+    } finally {
+      setIsNotifying(null);
+    }
+  };
 
   const stats = [
     { 
@@ -99,10 +149,6 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
       trend: 'Por evaluar', 
       color: 'text-blue-500' 
     },
-  ];
-
-  const upcomingAdjustments = [
-    { id: '1', tenant: 'Carlos Sosa', property: 'Heras 4B', date: '15 Abr 2026', index: 'ICL', old: '$120k', new: '$185k' }
   ];
 
   return (
@@ -219,12 +265,12 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-600" />
-              Indexación ICL/IPC
+              Indexación Próxima
             </CardTitle>
-            <CardDescription>Aumentos programados para este mes.</CardDescription>
+            <CardDescription>Aumentos previstos para el mes siguiente.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {upcomingAdjustments.map((adj) => (
+            {upcomingAdjustments.length > 0 ? upcomingAdjustments.map((adj) => (
               <div key={adj.id} className="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-black text-blue-700">{adj.index}</span>
@@ -238,11 +284,20 @@ export function SummaryView({ onNavigate, properties = [], contracts = [], invoi
                     <span className="text-xs font-black text-primary">{adj.new}</span>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="w-full mt-3 h-8 text-[10px] uppercase font-black bg-white">
+                <Button 
+                  disabled={isNotifying === adj.id}
+                  onClick={() => handleNotifyAdjustment(adj)}
+                  className="w-full mt-3 h-8 text-[10px] uppercase font-black bg-white hover:bg-primary/10 text-primary border-primary gap-2"
+                  variant="outline"
+                >
+                  {isNotifying === adj.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                   Notificar Inquilino
                 </Button>
               </div>
-            ))}
+            )) : (
+              <p className="text-xs text-center text-muted-foreground py-4">No hay aumentos previstos para el mes siguiente.</p>
+            )}
+            <Separator />
             <Button onClick={() => onNavigate('Reportes')} variant="link" className="w-full text-xs">
               Ver analítica avanzada <ArrowRight className="h-3 w-3 ml-1" />
             </Button>

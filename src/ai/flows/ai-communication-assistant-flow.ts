@@ -16,6 +16,7 @@ const AiCommunicationAssistantInputSchema = z.object({
       'rentReminder',
       'rentOverdue',
       'leaseRenewal',
+      'leaseAdjustment',
       'ownerLiquidationReport',
       'portalInvitation',
       'generalMessage',
@@ -27,6 +28,9 @@ const AiCommunicationAssistantInputSchema = z.object({
   ownerName: z.string().optional().describe('Name of the property owner.'),
   dueDate: z.string().optional().describe('Due date for rent or other payments.'),
   amountDue: z.string().optional().describe('Amount due for rent or other payments.'),
+  currentRentAmount: z.string().optional().describe('Current rent amount.'),
+  newRentAmount: z.string().optional().describe('New rent amount after adjustment.'),
+  adjustmentIndex: z.string().optional().describe('The index used for adjustment (e.g., ICL, IPC).'),
   currentLeaseEndDate: z
     .string()
     .optional()
@@ -76,15 +80,16 @@ Your task is to draft clear, professional, and personalized communication messag
 
 Instructions based on type:
 - portalInvitation: Invitation to the client portal. Mention the Role: {{{role}}} and Portal URL: {{{portalUrl}}}.
-- rentReminder: Friendly reminder. Rent for {{{propertyName}}} is available. Amount: {{{amountDue}}}, Pay by: {{{dueDate}}} (Usually between 1st and 10th).
+- rentReminder: Friendly reminder. Rent for {{{propertyName}}} is available. Amount: {{{amountDue}}}, Pay by: {{{dueDate}}}.
 - rentOverdue: Firm but polite notification. Rent for {{{propertyName}}} is OVERDUE. Amount: {{{amountDue}}}. Original due date was: {{{dueDate}}}. Ask for payment confirmation.
+- leaseAdjustment: Notification of rent increase. Mention that starting next month, the rent for {{{propertyName}}} will be adjusted based on the {{{adjustmentIndex}}} index. Current: {{{currentRentAmount}}}, NEW: {{{newRentAmount}}}.
 - leaseRenewal: Notice for {{{propertyName}}}. Current end: {{{currentLeaseEndDate}}}.
 - ownerLiquidationReport: Summary for {{{ownerName}}} for period {{{reportingPeriod}}}. Net: {{{netAmount}}}.
 - generalMessage: Use additional context.
 
 Context:
 Type: {{{communicationType}}}
-Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{ownerName}}{{/if}}
+Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{ownerName}}{{if ownerName}}{{else}}Cliente{{/if}}{{/if}}
 Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
 Additional Details: {{{additionalContext}}}
 

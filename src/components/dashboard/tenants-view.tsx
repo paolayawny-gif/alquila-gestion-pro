@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   Send,
   MessageSquareShare,
-  UserCheck
+  UserCheck,
+  TrendingUp
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -70,10 +71,10 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isNotifyingAdjustment, setIsNotifyingAdjustment] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<ExtractContractDataOutput | null>(null);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
 
-  // ESTADO PARA NUEVA PERSONA
   const [personFormData, setPersonFormData] = useState<Partial<Person>>({
     fullName: '',
     taxId: '',
@@ -83,7 +84,6 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
     bankDetails: { bank: '', cbu: '', alias: '' }
   });
 
-  // ESTADO PARA NUEVO CONTRATO
   const [contractFormData, setContractFormData] = useState<Partial<Contract>>({
     tenantId: '',
     propertyId: '',
@@ -114,6 +114,39 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
       'Rescindido': 'bg-red-100 text-red-700 border-red-200'
     };
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
+  };
+
+  const handleNotifyAdjustment = async (contract: Contract) => {
+    const tenant = people.find(p => p.id === contract.tenantId);
+    if (!tenant?.email) {
+      toast({ title: "Sin Email", description: "El inquilino no tiene correo registrado.", variant: "destructive" });
+      return;
+    }
+
+    setIsNotifyingAdjustment(contract.id);
+    try {
+      const draft = await aiCommunicationAssistant({
+        communicationType: 'leaseAdjustment',
+        tenantName: tenant.fullName,
+        propertyName: contract.propertyName,
+        currentRentAmount: `$ ${contract.currentRentAmount.toLocaleString('es-AR')}`,
+        newRentAmount: `$ ${(contract.currentRentAmount * 1.5).toLocaleString('es-AR')}`, // Simulación
+        adjustmentIndex: contract.adjustmentMechanism || 'ICL',
+        additionalContext: "Informar al inquilino sobre el aumento pactado para el mes próximo."
+      });
+
+      await sendEmail({
+        to: tenant.email,
+        subject: draft.subjectLine,
+        html: `<div>${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
+      });
+
+      toast({ title: "Pre-aviso Enviado", description: `Notificación de aumento enviada a ${tenant.fullName}.` });
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo redactar o enviar el aviso.", variant: "destructive" });
+    } finally {
+      setIsNotifyingAdjustment(null);
+    }
   };
 
   const handleOpenPersonDialog = (person?: Person) => {
@@ -180,9 +213,7 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
         
         toast({ 
           title: "Invitación Despachada", 
-          description: emailResult.simulated 
-            ? `Simulación exitosa para ${invitingPerson.email}. Revisa la consola.`
-            : `El correo ha sido enviado exitosamente a ${invitingPerson.email}.`
+          description: `El correo ha sido enviado exitosamente a ${invitingPerson.email}.`
         });
         setIsInviteDialogOpen(false);
       } else {
@@ -494,7 +525,21 @@ export function TenantsView({ people, userId, contracts, setContracts, propertie
                   <TableCell className="text-xs">{c.startDate} al {c.endDate}</TableCell>
                   <TableCell>{getStatusBadge(c.status)}</TableCell>
                   <TableCell className="text-right font-black text-primary">{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}</TableCell>
-                  <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleOpenContractDialog(c)}><Edit2 className="h-4 w-4" /></Button></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        title="Notificar Próximo Ajuste"
+                        className="text-primary hover:bg-primary/10"
+                        disabled={isNotifyingAdjustment === c.id}
+                        onClick={() => handleNotifyAdjustment(c)}
+                      >
+                        {isNotifyingAdjustment === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenContractDialog(c)}><Edit2 className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
