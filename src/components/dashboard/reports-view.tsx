@@ -24,53 +24,83 @@ import {
   Building,
   AlertCircle,
   Clock,
-  ArrowUpRight
+  ArrowUpRight,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import { Invoice, Person, Property } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
 
-const INGRESO_DATA = [
-  { name: 'Ene', ingreso: 1250000 },
-  { name: 'Feb', ingreso: 1350000 },
-  { name: 'Mar', ingreso: 1680000 },
-  { name: 'Abr', ingreso: 1845000 },
-];
-
-const OCCUPANCY_DATA = [
-  { name: 'Ocupadas', value: 94 },
-  { name: 'Vacantes', value: 6 },
-];
-
-const PROPERTY_RANKING = [
-  { id: '1', name: 'Las Heras 4B', owner: 'Juan Pérez', ingreso: 185000, margin: '95%' },
-  { id: '2', name: 'Florida Local', owner: 'Jorge Paez', ingreso: 450000, margin: '92%' },
-  { id: '3', name: 'Quinta del Sol', owner: 'Marta Rodriguez', ingreso: 250000, margin: '88%' },
-];
-
+const APP_ID = "alquilagestion-pro";
 const COLORS = ['#f97316', '#e2e8f0'];
 
 export function ReportsView() {
+  const { user } = useUser();
+  const db = useFirestore();
+
+  const facturasQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'facturas'));
+  }, [db, user]);
+  const { data: facturas } = useCollection<Invoice>(facturasQuery);
+
+  const peopleQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'inquilinos'));
+  }, [db, user]);
+  const { data: people } = useCollection<Person>(peopleQuery);
+
   const exportToCSV = (type: string) => {
     try {
       let content = "";
-      if (type === 'ranking') {
-        content = "ID,Propiedad,Propietario,Ingreso,Margen\n" + 
-          PROPERTY_RANKING.map(p => `${p.id},${p.name},${p.owner},${p.ingreso},${p.margin}`).join("\n");
+      let filename = `reporte_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+
+      if (type === 'afip_rg3645') {
+        // Reporte simplificado para AFIP RG 3645 (Inmuebles destinados a vivienda)
+        content = "CUIT Inquilino,Nombre Inquilino,Unidad,Monto Alquiler,Periodo\n";
+        facturas?.forEach(inv => {
+          const rentCharge = inv.charges.find(c => c.type === 'Alquiler');
+          const person = people?.find(p => p.fullName === inv.tenantName);
+          if (rentCharge) {
+            content += `${person?.taxId || 'N/A'},${inv.tenantName},${inv.propertyName},${rentCharge.amount},${inv.period}\n`;
+          }
+        });
+      } else {
+        content = "ID,Propiedad,Monto,Estado\n";
+        facturas?.forEach(f => {
+          content += `${f.id},${f.propertyName},${f.totalAmount},${f.status}\n`;
+        });
       }
       
       const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute("download", `reporte_${type}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute("download", filename);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      toast({ title: "Reporte Generado", description: `Archivo ${filename} descargado.` });
     } catch (e) {
       console.error("Error exporting CSV:", e);
     }
   };
+
+  const INGRESO_DATA = [
+    { name: 'Ene', ingreso: 1250000 },
+    { name: 'Feb', ingreso: 1350000 },
+    { name: 'Mar', ingreso: 1680000 },
+    { name: 'Abr', ingreso: 1845000 },
+  ];
+
+  const OCCUPANCY_DATA = [
+    { name: 'Ocupadas', value: 94 },
+    { name: 'Vacantes', value: 6 },
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -124,7 +154,7 @@ export function ReportsView() {
           <CardContent className="p-4">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Churn de Contratos</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Rescisiones</p>
                 <h3 className="text-2xl font-black">1.8%</h3>
               </div>
               <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Bajo</Badge>
@@ -164,124 +194,40 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white">
+        {/* MÓDULO EXPORTACIÓN AFIP */}
+        <Card className="border-none shadow-sm bg-primary/5 border-t-4 border-t-primary">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building className="h-5 w-5 text-blue-600" />
-              Ocupación del Portafolio
+            <CardTitle className="flex items-center gap-2 text-primary font-black uppercase tracking-tighter">
+              <ShieldCheck className="h-5 w-5" /> Regímenes Informativos
             </CardTitle>
-            <CardDescription>Porcentaje de unidades alquiladas vs vacantes.</CardDescription>
+            <CardDescription>Exportación de datos para cumplimiento fiscal (Argentina).</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center">
-            <div className="h-[300px] w-full flex flex-col items-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={OCCUPANCY_DATA}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {OCCUPANCY_DATA.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex gap-4 mt-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-primary" />
-                  <span className="text-xs text-muted-foreground font-medium">Ocupadas (94%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-slate-200" />
-                  <span className="text-xs text-muted-foreground font-medium">Vacantes (6%)</span>
+          <CardContent className="space-y-6">
+            <div className="p-4 bg-white rounded-xl border border-primary/20 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg text-primary"><FileText className="h-4 w-4" /></div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">RG 3645 - Registro de Operaciones Inmobiliarias</p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">Genera un CSV con CUIT de inquilinos, montos devengados y períodos para facilitar la carga en aplicativos AFIP.</p>
                 </div>
               </div>
+              <Button onClick={() => exportToCSV('afip_rg3645')} className="w-full bg-primary text-white font-bold h-10 gap-2">
+                <Download className="h-4 w-4" /> Exportar Datos RG 3645
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-none shadow-sm bg-white">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Top Unidades por Rentabilidad</CardTitle>
-              <CardDescription>Propiedades con mejor flujo de caja y cumplimiento.</CardDescription>
+            <div className="p-4 bg-white rounded-xl border border-muted-foreground/10 space-y-3 opacity-50">
+              <div className="flex items-start gap-3">
+                <div className="bg-muted p-2 rounded-lg text-muted-foreground"><FileSpreadsheet className="h-4 w-4" /></div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">RG 4004 - Locaciones de Inmuebles</p>
+                  <p className="text-[10px] text-muted-foreground">Reporte detallado de locaciones (Próximamente).</p>
+                </div>
+              </div>
+              <Button disabled variant="outline" className="w-full h-10 gap-2">
+                <Download className="h-4 w-4" /> No disponible
+              </Button>
             </div>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => exportToCSV('ranking')}>
-              <FileSpreadsheet className="h-4 w-4" /> Exportar CSV
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Propiedad</TableHead>
-                  <TableHead>Propietario</TableHead>
-                  <TableHead className="text-right">Ingreso Mensual</TableHead>
-                  <TableHead className="text-right">Margen Neto</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {PROPERTY_RANKING.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-bold">{p.name}</TableCell>
-                    <TableCell className="text-xs">{p.owner}</TableCell>
-                    <TableCell className="text-right font-black text-primary">$ {p.ingreso.toLocaleString('es-AR')}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1 text-green-600 font-bold">
-                        {p.margin} <ArrowUpRight className="h-3 w-3" />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
-              Reporte de Antigüedad Mora
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Vencido 0-30 días</span>
-                <span className="font-black text-orange-600">$ 188.700</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 rounded-full">
-                <div className="h-full bg-orange-400 rounded-full" style={{ width: '70%' }} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Vencido 31-60 días</span>
-                <span className="font-black text-red-500">$ 45.000</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 rounded-full">
-                <div className="h-full bg-red-500 rounded-full" style={{ width: '20%' }} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Vencido +61 días</span>
-                <span className="font-black text-red-700">$ 12.000</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 rounded-full">
-                <div className="h-full bg-red-800 rounded-full" style={{ width: '10%' }} />
-              </div>
-            </div>
-            <Button variant="ghost" className="w-full text-xs text-primary gap-2 mt-4">
-              Descargar Informe de Deuda Detallado <Download className="h-3 w-3" />
-            </Button>
           </CardContent>
         </Card>
       </div>

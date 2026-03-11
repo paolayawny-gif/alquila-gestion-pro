@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -7,15 +8,14 @@ import {
   Plus, 
   Search, 
   MoreHorizontal,
-  CreditCard,
-  Send,
   Sparkles,
   Loader2,
-  Upload,
-  DollarSign,
-  BellRing,
+  MailCheck,
   AlertTriangle,
-  MailCheck
+  BellRing,
+  FileText,
+  Trash2,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -39,7 +39,8 @@ import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-
 import { sendEmail } from '@/services/email-service';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, query, collection } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Separator } from '@/components/ui/separator';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -48,6 +49,16 @@ interface InvoicesViewProps {
 }
 
 const APP_ID = "alquilagestion-pro";
+
+const CHARGE_TYPES: ChargeType[] = [
+  'Alquiler', 
+  'Expensa Ordinaria', 
+  'Expensa Extraordinaria', 
+  'TGI/ABL', 
+  'Aguas', 
+  'Luz/Gas', 
+  'Otros'
+];
 
 export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps) {
   const { toast } = useToast();
@@ -66,7 +77,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
 
   const [manualCharge, setManualCharge] = useState({
     contractId: '',
-    type: 'Otros' as ChargeType,
+    type: 'Expensa Ordinaria' as ChargeType,
     description: '',
     amount: 0,
     imputedTo: 'Inquilino' as ChargePayer,
@@ -74,7 +85,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     dueDate: '2026-05-10'
   });
 
-  // Necesitamos datos de personas para obtener emails
   const peopleQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos'));
@@ -93,29 +103,23 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
 
   const handleBulkReminders = async (type: 'initial' | 'overdue') => {
     if (!userId || !db || !people) return;
-    
     setIsBulkLoading(true);
     let sentCount = 0;
-    
     try {
       const targets = invoices.filter(inv => {
         if (type === 'initial') return inv.status === 'Pendiente';
         if (type === 'overdue') return inv.status === 'Vencido';
         return false;
       });
-
       if (targets.length === 0) {
         toast({ title: "Sin facturas", description: "No hay documentos que requieran este aviso." });
         setIsBulkLoading(false);
         return;
       }
-
       for (const inv of targets) {
         const contract = contracts.find(c => c.id === inv.contractId);
         const tenant = people.find(p => p.id === contract?.tenantId);
-        
         if (tenant?.email) {
-          // 1. IA redacta
           const draft = await aiCommunicationAssistant({
             communicationType: type === 'initial' ? 'rentReminder' : 'rentOverdue',
             tenantName: tenant.fullName,
@@ -123,31 +127,22 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
             amountDue: `$ ${inv.totalAmount.toLocaleString('es-AR')}`,
             dueDate: inv.dueDate,
           });
-
-          // 2. Enviar email real
           await sendEmail({
             to: tenant.email,
             subject: draft.subjectLine,
             html: `<div>${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
           });
-
-          // 3. Marcar en Firestore
           const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
           setDocumentNonBlocking(docRef, { 
             lastReminderSent: new Date().toLocaleDateString('es-AR'),
             reminderType: type
           }, { merge: true });
-
           sentCount++;
         }
       }
-
-      toast({ 
-        title: "Proceso Completado", 
-        description: `Se enviaron ${sentCount} correos de ${type === 'initial' ? 'aviso' : 'intimación'}.` 
-      });
+      toast({ title: "Proceso Completado", description: `Se enviaron ${sentCount} correos.` });
     } catch (error) {
-      toast({ title: "Error en proceso masivo", description: "Hubo un fallo en la redacción o envío.", variant: "destructive" });
+      toast({ title: "Error", description: "Fallo en el proceso masivo.", variant: "destructive" });
     } finally {
       setIsBulkLoading(false);
     }
@@ -156,7 +151,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = async (e) => {
       const dataUri = e.target?.result as string;
@@ -178,18 +172,15 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     if (!aiResult || !selectedContractId || !userId || !db) return;
     const contract = contracts.find(c => c.id === selectedContractId);
     if (!contract) return;
-
-    const periodStr = aiResult.period || "Actual 2026";
     const charge: ChargeItem = {
       id: Math.random().toString(36).substr(2, 9),
       type: aiResult.serviceType as ChargeType,
-      description: `IA: ${aiResult.serviceType}`,
+      description: `IA: ${aiResult.serviceType} - ${aiResult.period || 'Período actual'}`,
       amount: aiResult.amount,
       imputedTo: imputedTo,
       isPaid: false
     };
-
-    saveToFirestore(contract, charge, periodStr, aiResult.dueDate || '2026-05-10');
+    saveToFirestore(contract, charge, aiResult.period || 'Actual 2026', aiResult.dueDate || '2026-05-10');
     setAiResult(null);
     setIsAiDialogOpen(false);
   };
@@ -198,30 +189,25 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     if (!manualCharge.contractId || !userId || !db) return;
     const contract = contracts.find(c => c.id === manualCharge.contractId);
     if (!contract) return;
-
     const charge: ChargeItem = {
       id: Math.random().toString(36).substr(2, 9),
       type: manualCharge.type,
-      description: manualCharge.description || `${manualCharge.type} - ${manualCharge.period}`,
+      description: manualCharge.description || `${manualCharge.type}`,
       amount: manualCharge.amount,
       imputedTo: manualCharge.imputedTo,
       isPaid: false
     };
-
-    saveToFirestore(contract, charge, manualCharge.period, manualCharge.dueDate);
+    saveToFirestore(contract, charge, manualCharge.period || 'General 2026', manualCharge.dueDate);
     setIsManualDialogOpen(false);
   };
 
   const saveToFirestore = (contract: Contract, charge: ChargeItem, period: string, dueDate: string) => {
     if (!userId || !db) return;
-    
     const existing = invoices.find(i => i.contractId === contract.id && i.period === period);
     const docId = existing?.id || Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', docId);
-
     const updatedCharges = existing ? [...existing.charges, charge] : [charge];
-    const total = updatedCharges.reduce((acc, c) => acc + (c.imputedTo === 'Inquilino' ? c.amount : -c.amount), 0);
-
+    const total = updatedCharges.reduce((acc, c) => acc + (c.imputedTo === 'Inquilino' ? c.amount : 0), 0);
     const invoiceData: Invoice = {
       id: docId,
       contractId: contract.id,
@@ -236,40 +222,33 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
       status: existing?.status || 'Pendiente',
       hasFile: true
     };
-
     setDocumentNonBlocking(docRef, invoiceData, { merge: true });
-    toast({ title: "Factura Guardada", description: "Registro sincronizado con la nube." });
+    toast({ title: "Registro Guardado", description: "Concepto imputado correctamente." });
+  };
+
+  const handleDeleteInvoice = (id: string) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', id);
+    deleteDocumentNonBlocking(docRef);
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* SECCIÓN DE GESTIÓN DE COBRANZAS MASIVAS */}
-      <Card className="bg-primary/5 border-primary/20 border">
+      <Card className="bg-primary/5 border-primary/20 border shadow-none">
         <CardContent className="p-4 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-full">
-              <BellRing className="h-5 w-5 text-primary" />
-            </div>
+            <div className="p-2 bg-primary/10 rounded-full"><BellRing className="h-5 w-5 text-primary" /></div>
             <div>
-              <p className="text-sm font-black text-primary uppercase">Gestión de Cobranzas Inteligente</p>
-              <p className="text-xs text-muted-foreground">Envía recordatorios masivos por Gmail usando IA.</p>
+              <p className="text-sm font-black text-primary uppercase">Cobranzas Inteligentes</p>
+              <p className="text-xs text-muted-foreground">Automatice avisos e intimaciones por email.</p>
             </div>
           </div>
           <div className="flex gap-2 w-full md:w-auto">
-            <Button 
-              disabled={isBulkLoading}
-              onClick={() => handleBulkReminders('initial')}
-              className="flex-1 md:flex-none bg-white border-primary text-primary hover:bg-primary/10 gap-2 h-9 text-xs font-bold"
-              variant="outline"
-            >
+            <Button disabled={isBulkLoading} onClick={() => handleBulkReminders('initial')} className="flex-1 md:flex-none bg-white border-primary text-primary hover:bg-primary/10 text-xs font-bold h-9" variant="outline">
               {isBulkLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MailCheck className="h-3 w-3" />}
-              Enviar Avisos (Día 1)
+              Avisos (Día 1)
             </Button>
-            <Button 
-              disabled={isBulkLoading}
-              onClick={() => handleBulkReminders('overdue')}
-              className="flex-1 md:flex-none bg-red-600 text-white hover:bg-red-700 gap-2 h-9 text-xs font-bold"
-            >
+            <Button disabled={isBulkLoading} onClick={() => handleBulkReminders('overdue')} className="flex-1 md:flex-none bg-red-600 text-white hover:bg-red-700 text-xs font-bold h-9">
               {isBulkLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
               Intimar Mora
             </Button>
@@ -280,47 +259,98 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Filtrar facturas..." className="pl-9 bg-white" />
+          <Input placeholder="Buscar por inquilino o unidad..." className="pl-9 bg-white" />
         </div>
         
         <div className="flex gap-2 w-full sm:w-auto">
           <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 border-primary text-primary"><Sparkles className="h-4 w-4" /> IA Factura</Button>
+              <Button variant="outline" className="gap-2 border-primary text-primary"><Sparkles className="h-4 w-4" /> Carga IA</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Análisis con IA</DialogTitle></DialogHeader>
-              <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
-              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed p-8 text-center cursor-pointer">
-                {isAiProcessing ? <Loader2 className="animate-spin mx-auto" /> : <p>Subir Factura</p>}
-              </div>
-              {aiResult && (
-                <div className="space-y-4 pt-4">
-                  <Select value={selectedContractId} onValueChange={setSelectedContractId}>
-                    <SelectTrigger><SelectValue placeholder="Contrato..." /></SelectTrigger>
-                    <SelectContent>{contracts.map(c => <SelectItem key={c.id} value={c.id}>{c.propertyName}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <Button className="w-full" onClick={handleApplyAiService}>Guardar</Button>
+              <DialogHeader><DialogTitle>Análisis de Expensa/Servicio</DialogTitle></DialogHeader>
+              <div className="space-y-6 pt-4">
+                <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
+                <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed p-10 text-center cursor-pointer hover:bg-muted/50 transition-colors">
+                  {isAiProcessing ? (
+                    <div className="space-y-2"><Loader2 className="animate-spin mx-auto text-primary" /><p className="text-xs">Extrayendo datos...</p></div>
+                  ) : (
+                    <div className="space-y-2"><Plus className="mx-auto h-8 w-8 text-muted-foreground" /><p className="text-sm font-medium">Subir PDF o Imagen</p></div>
+                  )}
                 </div>
-              )}
+                {aiResult && (
+                  <div className="p-4 bg-muted/30 rounded-lg space-y-4 animate-in fade-in">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1"><Label className="text-[10px] uppercase font-bold">Tipo Detectado</Label><Badge className="w-full justify-center">{aiResult.serviceType}</Badge></div>
+                      <div className="space-y-1"><Label className="text-[10px] uppercase font-bold">Monto</Label><p className="font-black text-primary">$ {aiResult.amount.toLocaleString('es-AR')}</p></div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Imputar cargo a:</Label>
+                      <Select value={imputedTo} onValueChange={(v: ChargePayer) => setImputedTo(v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="Inquilino">Inquilino (Suma al total)</SelectItem><SelectItem value="Propietario">Propietario (Deduce de liquidación)</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Asignar a Contrato/Unidad</Label>
+                      <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                        <SelectContent>{contracts.map(c => <SelectItem key={c.id} value={c.id}>{c.propertyName} - {c.tenantName}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="w-full" onClick={handleApplyAiService}>Confirmar Imputación</Button>
+                  </div>
+                )}
+              </div>
             </DialogContent>
           </Dialog>
 
           <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary text-white gap-2"><Plus className="h-4 w-4" /> Cargo Manual</Button>
+              <Button className="bg-primary text-white gap-2 shadow-sm"><Plus className="h-4 w-4" /> Cargo Manual</Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Nuevo Cargo Manual</DialogTitle></DialogHeader>
-              <div className="space-y-4 pt-4">
-                <Select value={manualCharge.contractId} onValueChange={(v) => setManualCharge({...manualCharge, contractId: v})}>
-                  <SelectTrigger><SelectValue placeholder="Contrato..." /></SelectTrigger>
-                  <SelectContent>{contracts.map(c => <SelectItem key={c.id} value={c.id}>{c.propertyName}</SelectItem>)}</SelectContent>
-                </Select>
-                <Input type="number" placeholder="Monto" onChange={(e) => setManualCharge({...manualCharge, amount: parseFloat(e.target.value)})} />
-                <Input placeholder="Periodo (Mayo 2026)" onChange={(e) => setManualCharge({...manualCharge, period: e.target.value})} />
-                <Button className="w-full" onClick={handleSaveManualCharge}>Generar</Button>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader><DialogTitle>Nuevo Cargo Directo</DialogTitle></DialogHeader>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Contrato / Unidad</Label>
+                    <Select value={manualCharge.contractId} onValueChange={(v) => setManualCharge({...manualCharge, contractId: v})}>
+                      <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                      <SelectContent>{contracts.map(c => <SelectItem key={c.id} value={c.id}>{c.propertyName}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Concepto</Label>
+                    <Select value={manualCharge.type} onValueChange={(v: ChargeType) => setManualCharge({...manualCharge, type: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{CHARGE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Monto</Label>
+                    <Input type="number" placeholder="ARS" onChange={(e) => setManualCharge({...manualCharge, amount: parseFloat(e.target.value)})} />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Período (Mes/Año)</Label>
+                    <Input placeholder="Ej: Mayo 2026" onChange={(e) => setManualCharge({...manualCharge, period: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Responsable del Pago</Label>
+                    <Select value={manualCharge.imputedTo} onValueChange={(v: ChargePayer) => setManualCharge({...manualCharge, imputedTo: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="Inquilino">Inquilino</SelectItem><SelectItem value="Propietario">Propietario</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descripción Breve</Label>
+                    <Input placeholder="Opcional..." onChange={(e) => setManualCharge({...manualCharge, description: e.target.value})} />
+                  </div>
+                </div>
               </div>
+              <DialogFooter className="mt-4"><Button className="w-full" onClick={handleSaveManualCharge}>Generar Cargo</Button></DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
@@ -330,41 +360,62 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead>Inquilino / Periodo</TableHead>
-              <TableHead>Vencimiento</TableHead>
-              <TableHead className="text-right">Total Final</TableHead>
-              <TableHead>Estado / Notificación</TableHead>
+              <TableHead>Inquilino / Unidad / Período</TableHead>
+              <TableHead>Composición de Cargos</TableHead>
+              <TableHead className="text-right">Total Inquilino</TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {invoices.map((i) => (
-              <TableRow key={i.id}>
+              <TableRow key={i.id} className="group">
                 <TableCell>
-                  <span className="font-bold">{i.tenantName}</span><br/>
-                  <span className="text-[10px] text-muted-foreground">{i.propertyName} • {i.period}</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-foreground">{i.tenantName}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase font-black">{i.propertyName} • {i.period}</span>
+                    <span className="text-[9px] text-muted-foreground">Vence: {i.dueDate}</span>
+                  </div>
                 </TableCell>
-                <TableCell className="text-xs">{i.dueDate}</TableCell>
-                <TableCell className="text-right font-black text-primary">$ {i.totalAmount.toLocaleString('es-AR')}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-1">
+                    {i.charges.map((c, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-4 text-[10px] border-b border-dashed last:border-none pb-1">
+                        <span className="flex items-center gap-1">
+                          <Badge variant="ghost" className={cn("h-4 p-0 text-[8px] font-black uppercase", c.imputedTo === 'Inquilino' ? "text-blue-600" : "text-orange-600")}>
+                            {c.imputedTo[0]}
+                          </Badge>
+                          {c.type}
+                        </span>
+                        <span className="font-mono">$ {c.amount.toLocaleString('es-AR')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell className="text-right font-black text-primary text-base">$ {i.totalAmount.toLocaleString('es-AR')}</TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     {getStatusBadge(i.status)}
-                    {(i as any).lastReminderSent && (
-                      <span className="text-[9px] text-blue-600 font-bold flex items-center gap-1">
-                        <MailCheck className="h-2 w-2" /> Notificado: {(i as any).lastReminderSent}
-                      </span>
+                    {i.lastReminderSent && (
+                      <span className="text-[8px] text-blue-600 font-bold flex items-center gap-1"><MailCheck className="h-3 w-3" /> {i.lastReminderSent}</span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteInvoice(i.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
-            {invoices.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-8">No hay facturas.</TableCell></TableRow>}
+            {invoices.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay registros para este período.</TableCell></TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
     </div>
   );
 }
+
