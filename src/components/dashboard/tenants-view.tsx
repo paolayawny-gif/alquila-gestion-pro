@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -27,7 +26,8 @@ import {
   FileSearch,
   MessageCircleQuestion,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Eye
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -92,6 +92,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
   const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
   const [aiResult, setAiResult] = useState<ExtractContractDataOutput | null>(null);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
+  const [adjDraft, setAdjDraft] = useState<AiCommunicationAssistantOutput | null>(null);
   const [aiAnswer, setAiAnswer] = useState<{answer: string, sourceQuote?: string} | null>(null);
   const [userQuestion, setUserQuestion] = useState('');
   
@@ -142,6 +143,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
   const handleOpenAdjDialog = (contract: Contract) => {
     setSelectedAdjContract(contract);
     setNewRentValueInput('');
+    setAdjDraft(null);
     setIsAdjNotifOpen(true);
   };
 
@@ -164,8 +166,31 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
     }
   };
 
-  const handleSendAdjNotification = async () => {
+  const handleGenerateAdjDraft = async () => {
     if (!selectedAdjContract || !newRentValueInput) return;
+    
+    const tenant = people.find(p => p.id === selectedAdjContract.tenantId);
+    setIsNotifyingAdjustment(selectedAdjContract.id);
+    try {
+      const draft = await aiCommunicationAssistant({
+        communicationType: 'leaseAdjustment',
+        tenantName: tenant?.fullName || 'Inquilino',
+        propertyName: selectedAdjContract.propertyName,
+        currentRentAmount: `$ ${selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}`,
+        newRentAmount: `$ ${parseFloat(newRentValueInput).toLocaleString('es-AR')}`,
+        adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'ICL',
+        additionalContext: `El contrato estipula ajustes cada ${selectedAdjContract.adjustmentFrequencyMonths} meses. El próximo rige a partir del mes que viene.`
+      });
+      setAdjDraft(draft);
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo redactar el borrador.", variant: "destructive" });
+    } finally {
+      setIsNotifyingAdjustment(null);
+    }
+  };
+
+  const handleSendAdjEmail = async () => {
+    if (!selectedAdjContract || !adjDraft) return;
     
     const tenant = people.find(p => p.id === selectedAdjContract.tenantId);
     if (!tenant?.email) {
@@ -173,30 +198,20 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
       return;
     }
 
-    setIsNotifyingAdjustment(selectedAdjContract.id);
+    setIsSendingEmail(true);
     try {
-      const draft = await aiCommunicationAssistant({
-        communicationType: 'leaseAdjustment',
-        tenantName: tenant.fullName,
-        propertyName: selectedAdjContract.propertyName,
-        currentRentAmount: `$ ${selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}`,
-        newRentAmount: `$ ${parseFloat(newRentValueInput).toLocaleString('es-AR')}`,
-        adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'ICL',
-        additionalContext: `El contrato estipula ajustes cada ${selectedAdjContract.adjustmentFrequencyMonths} meses. El próximo rige a partir del mes que viene.`
-      });
-
       await sendEmail({
         to: tenant.email,
-        subject: draft.subjectLine,
-        html: `<div>${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
+        subject: adjDraft.subjectLine,
+        html: `<div style="text-align: justify; line-height: 1.6; font-family: Arial, sans-serif; color: #333;">${adjDraft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
       });
 
-      toast({ title: "Pre-aviso Enviado", description: `Notificación de aumento enviada a ${tenant.fullName}.` });
+      toast({ title: "Pre-aviso Enviado", description: `Notificación enviada a ${tenant.fullName}.` });
       setIsAdjNotifOpen(false);
     } catch (e) {
-      toast({ title: "Error", description: "No se pudo redactar o enviar el aviso.", variant: "destructive" });
+      toast({ title: "Error", description: "No se pudo enviar el correo.", variant: "destructive" });
     } finally {
-      setIsNotifyingAdjustment(null);
+      setIsSendingEmail(false);
     }
   };
 
@@ -250,7 +265,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
       const emailResult = await sendEmail({
         to: invitingPerson.email,
         subject: invitationDraft.subjectLine,
-        html: `<div>${invitationDraft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
+        html: `<div style="text-align: justify; line-height: 1.6; font-family: Arial, sans-serif; color: #333;">${invitationDraft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
       });
 
       if (emailResult.success) {
@@ -792,7 +807,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                   <Label className="text-[10px] uppercase font-black text-muted-foreground mb-1 block">Asunto</Label>
                   <p className="font-bold text-sm">{invitationDraft.subjectLine}</p>
                 </div>
-                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10 text-sm whitespace-pre-wrap min-h-[150px]">
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10 text-sm whitespace-pre-wrap min-h-[150px] text-justify">
                   {invitationDraft.draftedMessage}
                 </div>
               </div>
@@ -812,19 +827,19 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE NOTIFICACIÓN DE AUMENTO */}
+      {/* DIÁLOGO DE NOTIFICACIÓN DE AUMENTO CON PREVISUALIZACIÓN */}
       <Dialog open={isAdjNotifOpen} onOpenChange={setIsAdjNotifOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className={cn("transition-all duration-500", adjDraft ? "max-w-3xl" : "max-w-md")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-primary">
               <TrendingUp className="h-5 w-5" /> Notificar Ajuste de Alquiler
             </DialogTitle>
             <DialogDescription>
-              Prepare la comunicación de aumento para {selectedAdjContract?.tenantName}.
+              {adjDraft ? "Revise el borrador antes de enviarlo por correo electrónico." : "Prepare la comunicación de aumento para " + selectedAdjContract?.tenantName}
             </DialogDescription>
           </DialogHeader>
           
-          {selectedAdjContract && (
+          {selectedAdjContract && !adjDraft && (
             <div className="space-y-6 py-4">
               <div className="p-4 bg-muted/30 rounded-xl space-y-3">
                 <div className="flex justify-between items-center text-xs">
@@ -867,22 +882,55 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                   />
                 </div>
                 <p className="text-[10px] text-muted-foreground italic leading-tight">
-                  Ingrese el valor final o use el cálculo automático. La IA redactará el mensaje basándose en este número.
+                  La IA redactará el mensaje basándose en este número. Usted podrá revisar el texto antes de enviarlo.
                 </p>
               </div>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsAdjNotifOpen(false)}>Cancelar</Button>
-            <Button 
-              className="bg-primary text-white font-black gap-2 h-11 px-6 shadow-md"
-              disabled={!newRentValueInput || isNotifyingAdjustment !== null || isCalculatingIndex}
-              onClick={handleSendAdjNotification}
-            >
-              {isNotifyingAdjustment !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Generar y Enviar Aviso
-            </Button>
+          {adjDraft && (
+            <div className="space-y-4 py-4 animate-in fade-in slide-in-from-bottom-2">
+              <div className="p-3 bg-muted/30 rounded-lg border">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground mb-1 block">Asunto del Correo</Label>
+                <p className="font-bold text-sm">{adjDraft.subjectLine}</p>
+              </div>
+              <ScrollArea className="h-[300px] border rounded-lg p-6 bg-white shadow-inner">
+                <div className="text-sm leading-relaxed text-foreground text-justify whitespace-pre-wrap font-body">
+                  {adjDraft.draftedMessage}
+                </div>
+              </ScrollArea>
+              <p className="text-[10px] text-center text-muted-foreground">
+                <Sparkles className="h-3 w-3 inline mr-1" /> Mensaje redactado según Ley 24.240 y reglas de puntuación estrictas.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            {adjDraft ? (
+              <>
+                <Button variant="outline" onClick={() => setAdjDraft(null)} disabled={isSendingEmail}>Atrás</Button>
+                <Button 
+                  className="bg-primary text-white font-black gap-2 h-11 px-8 shadow-md"
+                  onClick={handleSendAdjEmail}
+                  disabled={isSendingEmail}
+                >
+                  {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {isSendingEmail ? "Enviando Correo..." : "Enviar Correo Real"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => setIsAdjNotifOpen(false)}>Cancelar</Button>
+                <Button 
+                  className="bg-primary text-white font-black gap-2 h-11 px-6 shadow-md"
+                  disabled={!newRentValueInput || isNotifyingAdjustment !== null || isCalculatingIndex}
+                  onClick={handleGenerateAdjDraft}
+                >
+                  {isNotifyingAdjustment !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                  Generar Previsualización
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

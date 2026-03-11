@@ -157,7 +157,7 @@ export function AIAssistantView() {
                 <Label className="text-xs uppercase text-muted-foreground font-bold mb-1 block">Asunto</Label>
                 <p className="font-semibold text-foreground">{result.subjectLine}</p>
               </div>
-              <div className="p-4 bg-muted/10 rounded-lg border whitespace-pre-wrap leading-relaxed text-foreground min-h-[250px]">
+              <div className="p-6 bg-muted/10 rounded-lg border whitespace-pre-wrap leading-relaxed text-foreground min-h-[250px] text-justify font-body">
                 {result.draftedMessage}
               </div>
               <Button className="w-full gap-2">
