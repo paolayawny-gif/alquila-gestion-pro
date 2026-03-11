@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -36,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 interface OwnerPortalViewProps {
   properties: Property[];
@@ -55,29 +55,15 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
   
   const [newInvoice, setNewInvoice] = useState({
     propertyId: '',
-    type: 'Luz/Gas' as ChargeType,
+    type: 'Alquiler' as ChargeType,
     amount: 0,
     period: new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
     fileName: '',
     fileUrl: ''
   });
 
-  // El dueño ve las solicitudes para sus propiedades
-  const solicitudesQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    // En un sistema real, adminId vendría de una configuración. Para el MVP usamos un ID de referencia.
-    return query(collection(db, 'artifacts', APP_ID, 'users', 'W1b1I6DKA7fEluL5gugUyKBuSvD3', 'solicitudes'));
-  }, [db]);
-  const { data: applicationsData } = useCollection<RentalApplication>(solicitudesQuery);
-  
-  const facturasQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', 'W1b1I6DKA7fEluL5gugUyKBuSvD3', 'facturas'));
-  }, [db]);
-  const { data: invoicesData } = useCollection<Invoice>(facturasQuery);
-
-  const applications = applicationsData || [];
-  const invoices = invoicesData || [];
+  // El administrador de referencia para este prototipo
+  const ADMIN_ID = "W1b1I6DKA7fEluL5gugUyKBuSvD3";
 
   const myProperties = properties.filter(p => 
     p.owners.some(o => o.email.toLowerCase() === user?.email?.toLowerCase())
@@ -88,7 +74,14 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
     myProperties.some(p => p.id === l.propertyId)
   );
 
-  const myInvoices = invoices.filter(inv => 
+  // Consultar facturas para ver morosidad
+  const facturasQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', ADMIN_ID, 'facturas'));
+  }, [db]);
+  const { data: allInvoices } = useCollection<Invoice>(facturasQuery);
+
+  const myInvoices = (allInvoices || []).filter(inv => 
     myProperties.some(p => p.name === inv.propertyName)
   );
 
@@ -113,40 +106,42 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
   };
 
   const handleSubmitInvoice = () => {
-    if (!newInvoice.propertyId || !newInvoice.amount || !newInvoice.fileUrl || !db) return;
+    if (!newInvoice.propertyId || !newInvoice.amount || !newInvoice.fileUrl || !db) {
+      toast({ title: "Datos incompletos", description: "Por favor complete el monto y suba el archivo.", variant: "destructive" });
+      return;
+    }
     
     const prop = properties.find(p => p.id === newInvoice.propertyId);
     const docId = Math.random().toString(36).substr(2, 9);
-    const adminId = "W1b1I6DKA7fEluL5gugUyKBuSvD3"; // Admin de referencia
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', adminId, 'facturas', docId);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', ADMIN_ID, 'facturas', docId);
 
     const invoiceData: Partial<Invoice> = {
       id: docId,
       contractId: 'pending_admin',
-      tenantName: 'Administrador Procesará',
+      tenantName: 'Pendiente Vincular',
       propertyName: prop?.name || 'Unidad',
       period: newInvoice.period || 'Actual',
       totalAmount: newInvoice.amount,
       currency: 'ARS',
-      status: 'Pendiente',
+      status: 'Esperando Factura ARCA', // Lo ponemos en este estado para que el admin lo vea
       dueDate: new Date().toLocaleDateString('es-AR'),
-      paymentReceiptUrl: newInvoice.fileUrl,
-      paymentReceiptName: newInvoice.fileName,
+      arcaInvoiceUrl: newInvoice.fileUrl, // La guardamos como factura formal directamente
+      arcaInvoiceName: newInvoice.fileName,
       isFromOwner: true,
       ownerId: user?.uid,
       charges: [{
         id: 'c1',
         type: newInvoice.type,
-        description: `${newInvoice.type} enviado por dueño`,
+        description: `${newInvoice.type} enviado por el dueño`,
         amount: newInvoice.amount,
-        imputedTo: 'Inquilino' // El admin lo verificará vía IA
+        imputedTo: 'Inquilino'
       }]
     };
 
     setDocumentNonBlocking(docRef, invoiceData, { merge: true });
-    toast({ title: "Factura Enviada", description: "El administrador la imputará según el contrato." });
+    toast({ title: "Factura Enviada", description: "El administrador ha sido notificado y la enviará al inquilino." });
     setIsInvoiceDialogOpen(false);
-    setNewInvoice({ propertyId: '', type: 'Luz/Gas', amount: 0, period: '', fileName: '', fileUrl: '' });
+    setNewInvoice({ propertyId: '', type: 'Alquiler', amount: 0, period: '', fileName: '', fileUrl: '' });
   };
 
   return (
@@ -191,7 +186,7 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
         <Card className="border-none shadow-sm bg-primary/5 border-primary/20 border">
           <CardContent className="p-6 flex flex-col justify-center">
             <Button size="sm" className="w-full gap-2 font-black h-11 bg-primary text-white shadow-md hover:bg-primary/90" onClick={() => setIsInvoiceDialogOpen(true)}>
-              <FileUp className="h-4 w-4" /> Cargar Comprobante/Factura
+              <FileUp className="h-4 w-4" /> Cargar Mi Factura
             </Button>
           </CardContent>
         </Card>
@@ -273,43 +268,43 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
       <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><FileUp className="h-5 w-5 text-primary" /> Cargar Documento</DialogTitle>
-            <DialogDescription>Suba facturas de servicios, impuestos o reparaciones para que el administrador las procese.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><FileUp className="h-5 w-5 text-primary" /> Cargar Mi Factura</DialogTitle>
+            <DialogDescription>Suba su factura de alquiler (ARCA) o facturas de servicios para que el administrador las procese y envíe al inquilino.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Propiedad Asociada</Label>
+              <Label>Unidad Asociada</Label>
               <Select value={newInvoice.propertyId} onValueChange={(v) => setNewInvoice({ ...newInvoice, propertyId: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Seleccione unidad..." /></SelectTrigger>
                 <SelectContent>{myProperties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Tipo de Cargo</Label>
+                <Label>Tipo de Documento</Label>
                 <Select value={newInvoice.type} onValueChange={(v: any) => setNewInvoice({ ...newInvoice, type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Alquiler">Factura Alquiler (Fiscal)</SelectItem>
-                    <SelectItem value="Luz/Gas">Luz / Gas</SelectItem>
-                    <SelectItem value="Aguas">Aguas</SelectItem>
-                    <SelectItem value="TGI/ABL">ABL / TGI</SelectItem>
-                    <SelectItem value="Expensa Ordinaria">Expensas</SelectItem>
-                    <SelectItem value="Otros">Otros (Reparaciones)</SelectItem>
+                    <SelectItem value="Alquiler">Factura Alquiler (ARCA)</SelectItem>
+                    <SelectItem value="Luz/Gas">Factura de Luz / Gas</SelectItem>
+                    <SelectItem value="Aguas">Factura de Aguas</SelectItem>
+                    <SelectItem value="TGI/ABL">Factura de ABL / TGI</SelectItem>
+                    <SelectItem value="Expensa Ordinaria">Factura Expensas</SelectItem>
+                    <SelectItem value="Otros">Otros (Reparaciones/IVA)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Monto Total</Label>
-                <Input type="number" placeholder="ARS" onChange={e => setNewInvoice({ ...newInvoice, amount: parseFloat(e.target.value) || 0 })} />
+                <Input type="number" placeholder="Monto ARS" onChange={e => setNewInvoice({ ...newInvoice, amount: parseFloat(e.target.value) || 0 })} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Período / Mes</Label>
+              <Label>Período (Mes/Año)</Label>
               <Input placeholder="Ej: Junio 2024" value={newInvoice.period} onChange={e => setNewInvoice({ ...newInvoice, period: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Archivo Digital</Label>
+              <Label>Archivo Digital (PDF o Foto)</Label>
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
               <div 
                 onClick={() => fileInputRef.current?.click()} 
@@ -325,8 +320,8 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
                 ) : (
                   <>
                     <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-xs font-bold">Pulse para subir el archivo</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">PDF o Imagen (Máx 1MB)</p>
+                    <p className="text-xs font-bold">Pulse para subir factura</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Formatos: PDF, JPG, PNG</p>
                   </>
                 )}
               </div>

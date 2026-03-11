@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -43,7 +42,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
-import { queryContract } from '@/ai/flows/query-contract-flow';
 import { sendEmail } from '@/services/email-service';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, query, collection } from 'firebase/firestore';
@@ -65,9 +63,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
   const [isGeneratingRent, setIsGeneratingRent] = useState(false);
-  const [analyzingInvId, setAnalyzingInvId] = useState<string | null>(null);
   const [uploadingArcaFor, setUploadingArcaFor] = useState<string | null>(null);
-  const [aiSuggestions, setAiSuggestions] = useState<Record<string, { payer: ChargePayer, reason: string }>>({});
 
   const peopleQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
@@ -76,7 +72,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   const { data: people } = useCollection<Person>(peopleQuery);
 
   const informedPayments = invoices.filter(i => i.status === 'Pago Informado');
-  const ownerSubmissions = invoices.filter(i => i.isFromOwner);
+  const ownerSubmissions = invoices.filter(i => i.isFromOwner && i.status === 'Esperando Factura ARCA');
 
   const [manualCharge, setManualCharge] = useState({
     contractId: '',
@@ -140,7 +136,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     setIsGeneratingRent(false);
     toast({ 
       title: "Proceso Completado", 
-      description: `Se han generado ${count} facturas de alquiler para ${currentMonth}. Se informará el monto por canal informal hasta subir Factura ARCA.` 
+      description: `Se han generado ${count} recordatorios de alquiler para ${currentMonth}.` 
     });
   };
 
@@ -159,10 +155,10 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
       setDocumentNonBlocking(docRef, { 
         arcaInvoiceUrl: event.target?.result as string,
         arcaInvoiceName: file.name,
-        status: 'Esperando Factura ARCA' // Actualizar a estado listo para enviar
+        status: 'Esperando Factura ARCA' 
       }, { merge: true });
       
-      toast({ title: "Factura ARCA Vinculada", description: "Ya puede enviar el comprobante formal al inquilino." });
+      toast({ title: "Factura Digitalizada", description: "El documento ha sido cargado." });
       setUploadingArcaFor(null);
     };
     reader.readAsDataURL(file);
@@ -170,15 +166,12 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
 
   const handleSendFormalInvoice = async (inv: Invoice) => {
     if (!userId || !db) return;
-    const contract = contracts.find(c => c.id === inv.contractId);
-    if (!contract) return;
-
     try {
       const draft = await aiCommunicationAssistant({
         communicationType: 'generalMessage',
         tenantName: inv.tenantName,
         propertyName: inv.propertyName,
-        additionalContext: `Se adjunta la Factura Formal de Alquiler emitida por ARCA correspondiente al período ${inv.period} por un monto de ${inv.currency} ${inv.totalAmount.toLocaleString('es-AR')}.`
+        additionalContext: `Se remite el comprobante fiscal formal por ${inv.period} ($ ${inv.totalAmount.toLocaleString('es-AR')}). El mismo ya se encuentra disponible en su portal.`
       });
 
       const tenant = people?.find(p => p.fullName === inv.tenantName);
@@ -186,9 +179,9 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
         await sendEmail({
           to: tenant.email,
           subject: draft.subjectLine,
-          html: `<div style="text-align: justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div><br/><p>Puede descargar su factura formal desde su portal personal.</p>`
+          html: `<div style="text-align: justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div><br/><p>Puede ver y descargar su factura desde su portal personal.</p>`
         });
-        toast({ title: "Email Enviado", description: "El inquilino ha recibido la factura formal." });
+        toast({ title: "Email Enviado", description: "El inquilino ha sido notificado formalmente." });
       }
     } catch (e) {
       toast({ title: "Error", description: "No se pudo enviar el correo.", variant: "destructive" });
@@ -223,15 +216,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     const contract = contracts.find(c => c.id === manualCharge.contractId);
     if (!contract) return;
     
-    const charge: ChargeItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: manualCharge.type,
-      description: manualCharge.description || `${manualCharge.type}`,
-      amount: manualCharge.amount,
-      imputedTo: manualCharge.imputedTo,
-      isPaid: false
-    };
-
     const docId = Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', docId);
     
@@ -241,7 +225,13 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
       tenantName: contract.tenantName || 'Inquilino',
       propertyName: contract.propertyName || 'Propiedad',
       period: manualCharge.period,
-      charges: [charge],
+      charges: [{
+        id: Math.random().toString(36).substr(2, 9),
+        type: manualCharge.type,
+        description: manualCharge.description || `${manualCharge.type}`,
+        amount: manualCharge.amount,
+        imputedTo: manualCharge.imputedTo
+      }],
       lateFees: 0,
       totalAmount: manualCharge.imputedTo === 'Inquilino' ? manualCharge.amount : 0,
       currency: contract.currency,
@@ -258,37 +248,46 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     <div className="space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={arcaInputRef} className="hidden" accept=".pdf,image/*" onChange={handleArcaFileChange} />
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {informedPayments.length > 0 && (
-          <Card className="bg-blue-50 border-blue-200 border shadow-none">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-blue-600" /><p className="text-xs font-black text-blue-700 uppercase tracking-tight">Pagos Informados (Validación)</p></div>
-              {informedPayments.map(p => (
-                <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-blue-50 border-blue-200 border shadow-none">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-blue-600" /><p className="text-xs font-black text-blue-700 uppercase tracking-tight">Pagos Informados (Inquilinos)</p></div>
+            {informedPayments.length === 0 && <p className="text-[10px] text-muted-foreground italic">Sin pagos nuevos.</p>}
+            {informedPayments.map(p => (
+              <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm">
+                <span className="font-bold truncate max-w-[100px]">{p.tenantName}</span>
+                <div className="flex gap-1">
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => window.open(p.paymentReceiptUrl)} title="Ver Transferencia"><Eye className="h-4 w-4" /></Button>
+                  <Button size="sm" className="h-7 bg-blue-600 text-white text-[10px] px-3 font-bold" onClick={() => handleValidatePayment(p)}>Validar</Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-purple-50 border-purple-200 border shadow-none md:col-span-2">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-purple-600" /><p className="text-xs font-black text-purple-700 uppercase tracking-tight">Pendiente Digitalización (Dueños / Propios)</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {ownerSubmissions.map(p => (
+                <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm border-l-4 border-l-purple-500">
                   <div className="flex flex-col">
-                    <span className="font-bold">{p.tenantName}</span>
-                    <span className="text-[9px] text-muted-foreground">{p.period} • $ {p.totalAmount.toLocaleString('es-AR')}</span>
+                    <span className="font-bold truncate max-w-[120px]">{p.propertyName}</span>
+                    <span className="text-[9px] text-muted-foreground">Cargado por Dueño</span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => window.open(p.paymentReceiptUrl)} title="Ver Transferencia"><Eye className="h-4 w-4" /></Button>
-                    <Button size="sm" className="h-7 bg-blue-600 text-white text-[10px] px-3 font-bold" onClick={() => handleValidatePayment(p)}>Validar</Button>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-purple-600" onClick={() => window.open(p.arcaInvoiceUrl)} title="Ver Documento"><Eye className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="outline" className="h-7 border-purple-600 text-purple-600 text-[10px] gap-1 font-bold" onClick={() => handleSendFormalInvoice(p)}>Notificar</Button>
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="bg-purple-50 border-purple-200 border shadow-none">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-purple-600" /><p className="text-xs font-black text-purple-700 uppercase tracking-tight">Pendiente Factura ARCA (Digitalización)</p></div>
-            <p className="text-[10px] text-purple-600 italic">Cargue aquí los PDFs que emite en ARCA para que el sistema los envíe formalmente.</p>
-            {invoices.filter(i => i.charges.some(c => c.type === 'Alquiler') && !i.arcaInvoiceUrl && i.status !== 'Pagado').slice(0, 3).map(p => (
-              <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm">
-                <span className="font-bold truncate max-w-[120px]">{p.tenantName}</span>
-                <Button size="sm" variant="outline" className="h-7 border-purple-600 text-purple-600 text-[10px] gap-1 font-bold" onClick={() => handleUploadArca(p.id)}><FileUp className="h-3 w-3" /> Subir PDF ARCA</Button>
-              </div>
-            ))}
+              {invoices.filter(i => i.charges.some(c => c.type === 'Alquiler') && !i.arcaInvoiceUrl && i.status !== 'Pagado' && !i.isFromOwner).slice(0, 2).map(p => (
+                <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm">
+                  <span className="font-bold truncate max-w-[100px]">{p.tenantName}</span>
+                  <Button size="sm" variant="outline" className="h-7 border-purple-600 text-purple-600 text-[10px] gap-1 font-bold" onClick={() => handleUploadArca(p.id)}><FileUp className="h-3 w-3" /> Subir ARCA</Button>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -302,14 +301,9 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
         </div>
         
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button 
-            variant="outline" 
-            className="border-primary text-primary hover:bg-primary/5 gap-2 font-bold"
-            onClick={handleGenerateMonthlyRent}
-            disabled={isGeneratingRent}
-          >
+          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 gap-2 font-bold" onClick={handleGenerateMonthlyRent} disabled={isGeneratingRent}>
             {isGeneratingRent ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
-            Generar Alquileres
+            Generar Mensuales
           </Button>
 
           <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
@@ -382,11 +376,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
               <TableHead>Detalle de Cargos</TableHead>
               <TableHead className="text-right">Total (con Mora)</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Digitalización / Envío</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.filter(i => !i.isFromOwner).map((i) => {
+            {invoices.map((i) => {
               const interest = calculateInterest(i);
               return (
                 <TableRow key={i.id} className="group hover:bg-muted/30">
@@ -394,6 +388,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                     <div className="flex flex-col">
                       <span className="font-black text-foreground">{i.tenantName}</span>
                       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{i.propertyName} • {i.period}</span>
+                      {i.isFromOwner && <Badge className="w-fit text-[8px] bg-purple-100 text-purple-700 h-4 px-1 mt-1">Enviado por Dueño</Badge>}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -421,24 +416,17 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                   <TableCell>{getStatusBadge(i.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      {i.charges.some(c => c.type === 'Alquiler') && !i.arcaInvoiceUrl && (
+                      {i.arcaInvoiceUrl && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="Enviar Notificación" onClick={() => handleSendFormalInvoice(i)}>
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {!i.arcaInvoiceUrl && !i.isFromOwner && (
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-purple-600" title="Subir Factura ARCA" onClick={() => handleUploadArca(i.id)}>
                           <FileUp className="h-4 w-4" />
                         </Button>
                       )}
-                      {i.arcaInvoiceUrl && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="Enviar Factura Formal" onClick={() => handleSendFormalInvoice(i)}>
-                          <Send className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-destructive" 
-                        onClick={() => {
-                          if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id));
-                        }}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id)); }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
