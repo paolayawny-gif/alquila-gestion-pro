@@ -136,10 +136,15 @@ export interface Invoice {
   totalAmount: number;
   currency: Currency;
   dueDate: string;
-  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
+  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado' | 'Pago Informado';
   lastReminderSent?: string;
   reminderType?: string;
   hasFile?: boolean;
+  paymentReceiptUrl?: string;
+  paymentReceiptName?: string;
+  paymentDate?: string;
+  isFromOwner?: boolean; // Indica si la cargó el dueño para que el admin la impute
+  ownerId?: string;
 }
 
 export interface Liquidation {

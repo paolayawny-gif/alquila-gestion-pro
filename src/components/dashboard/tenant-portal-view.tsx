@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -16,7 +16,10 @@ import {
   Bell,
   Eye,
   FileCheck,
-  Plus
+  Plus,
+  Upload,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -53,17 +56,22 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [isClaimDialogOpen, setIsClaimDialogOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [newClaim, setNewClaim] = useState({ concept: '', description: '' });
+  const [isUploading, setIsUploading] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<{name: string, url: string} | null>(null);
 
-  // Filtrado de datos por el correo del usuario logueado
   const myContract = contracts.find(c => 
     c.tenantEmail?.toLowerCase() === user?.email?.toLowerCase() || 
     c.tenantName?.toLowerCase().includes(user?.email?.split('@')[0].toLowerCase() || '---')
   );
   
   const myProperty = properties.find(p => p.id === myContract?.propertyId);
-  const myInvoices = invoices.filter(i => i.contractId === myContract?.id);
+  const myInvoices = invoices.filter(i => i.contractId === myContract?.id && !i.isFromOwner);
   const myTasks = tasks.filter(t => t.propertyId === myProperty?.id);
 
   const pendingInvoices = myInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
@@ -71,13 +79,9 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
 
   const handleCreateClaim = () => {
     if (!myProperty || !db || !user || !newClaim.concept) return;
-
     const claimId = Math.random().toString(36).substr(2, 9);
-    // Nota: El ID del administrador (ownerId) lo tomamos del contrato para saber a quién enviarle el reclamo
     const adminId = myContract?.ownerId || "W1b1I6DKA7fEluL5gugUyKBuSvD3"; 
-    
     const docRef = doc(db, 'artifacts', APP_ID, 'users', adminId, 'mantenimiento', claimId);
-    
     const task: MaintenanceTask = {
       id: claimId,
       propertyId: myProperty.id,
@@ -89,27 +93,60 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
       createdAt: new Date().toLocaleDateString('es-AR'),
       updatedAt: new Date().toLocaleDateString('es-AR'),
     };
-
     setDocumentNonBlocking(docRef, task, { merge: true });
     setIsClaimDialogOpen(false);
     setNewClaim({ concept: '', description: '' });
     toast({ title: "Reclamo Enviado", description: "La administración ha sido notificada." });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setReceiptFile({
+        name: file.name,
+        url: event.target?.result as string
+      });
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleInformPayment = () => {
+    if (!selectedInvoice || !receiptFile || !db) return;
+    const adminId = myContract?.ownerId || "W1b1I6DKA7fEluL5gugUyKBuSvD3";
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', adminId, 'facturas', selectedInvoice.id);
+    
+    setDocumentNonBlocking(docRef, {
+      status: 'Pago Informado',
+      paymentReceiptUrl: receiptFile.url,
+      paymentReceiptName: receiptFile.name,
+      paymentDate: new Date().toLocaleDateString('es-AR')
+    }, { merge: true });
+
+    toast({ title: "Pago Informado", description: "El administrador verificará tu comprobante pronto." });
+    setIsPaymentDialogOpen(false);
+    setReceiptFile(null);
+    setSelectedInvoice(null);
+  };
+
   const downloadFile = (file: { name?: string, url?: string }) => {
-    if (!file.url) return;
+    if (!file.url || file.url === '#') {
+      toast({ title: "No disponible", description: "El archivo no está cargado en el servidor." });
+      return;
+    }
     const link = document.createElement('a');
     link.href = file.url;
     link.download = file.name || 'documento.pdf';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast({ title: "Descargando", description: `Iniciando descarga de ${file.name}` });
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Sistema de Notificaciones del Inquilino */}
       {totalDue > 0 && (
         <div className="bg-primary/10 border border-primary/20 p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -119,11 +156,20 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
             <div className="space-y-1">
               <p className="text-sm font-bold text-primary">Saldo Pendiente de Pago</p>
               <p className="text-xs text-primary/80">
-                Tienes {pendingInvoices.length} factura(s) que requieren atención por un total de $ {totalDue.toLocaleString('es-AR')}.
+                Tienes {pendingInvoices.length} factura(s) por un total de $ {totalDue.toLocaleString('es-AR')}.
               </p>
             </div>
           </div>
-          <Button size="sm" className="bg-primary text-white hover:bg-primary/90 whitespace-nowrap font-bold">Ver Medios de Pago</Button>
+          <Button 
+            size="sm" 
+            className="bg-primary text-white hover:bg-primary/90 whitespace-nowrap font-bold"
+            onClick={() => {
+              setSelectedInvoice(pendingInvoices[0]);
+              setIsPaymentDialogOpen(true);
+            }}
+          >
+            Informar Pago Ahora
+          </Button>
         </div>
       )}
 
@@ -133,8 +179,7 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
           <div className="max-w-md">
             <h3 className="text-lg font-bold">Sin contrato vinculado</h3>
             <p className="text-sm text-muted-foreground">
-              No hemos encontrado un contrato activo vinculado a tu correo electrónico ({user?.email}). 
-              Si acabas de firmar, la administración podría estar procesando tus datos.
+              No hemos encontrado un contrato activo vinculado a {user?.email}.
             </p>
           </div>
         </Card>
@@ -160,7 +205,14 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                   ))}
                   {pendingInvoices.length === 0 && <p className="text-green-600 font-bold flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> No tienes deudas pendientes</p>}
                 </div>
-                <Button className="w-full bg-primary/10 text-primary hover:bg-primary/20 gap-2 border-none font-bold">
+                <Button 
+                  disabled={pendingInvoices.length === 0}
+                  className="w-full bg-primary/10 text-primary hover:bg-primary/20 gap-2 border-none font-bold"
+                  onClick={() => {
+                    setSelectedInvoice(pendingInvoices[0]);
+                    setIsPaymentDialogOpen(true);
+                  }}
+                >
                   <CreditCard className="h-4 w-4" /> Informar Pago
                 </Button>
               </CardContent>
@@ -202,11 +254,9 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
               <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Historial de Pagos y Facturas</CardTitle>
-                    <CardDescription>Consulta tus cuotas de alquiler, expensas y servicios.</CardDescription>
-                  </div>
+                <CardHeader>
+                  <CardTitle>Historial de Pagos y Facturas</CardTitle>
+                  <CardDescription>Consulta tus cuotas de alquiler, expensas y servicios.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -228,7 +278,6 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                                 {inv.charges.map((c, idx) => (
                                   <Badge key={idx} variant="outline" className="text-[8px] py-0 px-1 border-primary/20">{c.type}</Badge>
                                 ))}
-                                {inv.lateFees > 0 && <Badge variant="outline" className="text-[8px] py-0 px-1 border-red-200 text-red-600">Intereses</Badge>}
                               </div>
                             </div>
                           </TableCell>
@@ -237,55 +286,30 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                             <Badge className={cn(
                               "border-none font-bold",
                               inv.status === 'Pagado' ? "bg-green-100 text-green-700" : 
+                              inv.status === 'Pago Informado' ? "bg-blue-100 text-blue-700" :
                               inv.status === 'Vencido' ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
                             )}>
                               {inv.status}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => downloadFile({ name: `Recibo_${inv.period}.pdf`, url: '#' })}>
-                              <Download className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              {inv.paymentReceiptUrl && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" title="Ver Comprobante Enviado" onClick={() => downloadFile({name: inv.paymentReceiptName, url: inv.paymentReceiptUrl})}>
+                                  <ImageIcon className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => downloadFile({ name: `Recibo_${inv.period}.pdf`, url: '#' })}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
-                      {myInvoices.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">No hay registros cargados aún.</TableCell>
-                        </TableRow>
-                      )}
                     </TableBody>
                   </Table>
                 </CardContent>
               </Card>
-
-              {myTasks.length > 0 && (
-                <Card className="border-none shadow-sm bg-white">
-                  <CardHeader><CardTitle>Seguimiento de Reclamos</CardTitle></CardHeader>
-                  <CardContent>
-                     <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead>Concepto</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Última Act.</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {myTasks.map(t => (
-                            <TableRow key={t.id}>
-                              <TableCell className="font-bold text-xs">{t.concept}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-[10px] border-primary/50 text-primary">{t.status}</Badge>
-                              </TableCell>
-                              <TableCell className="text-right text-[10px] text-muted-foreground">{t.updatedAt}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                     </Table>
-                  </CardContent>
-                </Card>
-              )}
             </div>
 
             <div className="space-y-6">
@@ -296,48 +320,16 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                 </CardHeader>
                 <CardContent className="space-y-4 pt-6">
                   <div className="p-4 bg-muted/20 rounded-lg flex flex-col gap-3">
-                    <div className="flex justify-between text-xs border-b border-dashed pb-2">
-                      <span className="text-muted-foreground">Dirección:</span>
-                      <span className="font-bold text-right">{myProperty?.address}</span>
-                    </div>
-                    <div className="flex justify-between text-xs border-b border-dashed pb-2">
-                      <span className="text-muted-foreground">Vencimiento:</span>
-                      <span className="font-bold">{myContract.endDate}</span>
-                    </div>
-                    <div className="flex justify-between text-xs border-b border-dashed pb-2">
-                      <span className="text-muted-foreground">Depósito:</span>
-                      <span className="font-bold">{myContract.depositCurrency} {myContract.depositAmount.toLocaleString('es-AR')}</span>
-                    </div>
+                    <div className="flex justify-between text-xs border-b border-dashed pb-2"><span className="text-muted-foreground">Dirección:</span><span className="font-bold text-right">{myProperty?.address}</span></div>
+                    <div className="flex justify-between text-xs border-b border-dashed pb-2"><span className="text-muted-foreground">Vencimiento:</span><span className="font-bold">{myContract.endDate}</span></div>
                   </div>
-                  
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase text-muted-foreground">Documentos Digitales</p>
-                    <Button variant="outline" className="w-full justify-between h-10 border-primary/20 group hover:border-primary" onClick={() => downloadFile({ name: 'Contrato_Principal.pdf', url: myContract.documents.mainContractUrl })}>
+                    <Button variant="outline" className="w-full justify-between h-10 border-primary/20 group hover:border-primary" onClick={() => downloadFile({ name: 'Contrato.pdf', url: myContract.documents.mainContractUrl })}>
                       <span className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Contrato Locación</span>
                       <Download className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Button>
-                    {myContract.documents.annexes.map((anexo, idx) => (
-                      <Button key={idx} variant="outline" className="w-full justify-between h-10 border-primary/20 group hover:border-primary" onClick={() => downloadFile(anexo)}>
-                        <span className="flex items-center gap-2"><FileCheck className="h-4 w-4 text-green-600" /> {anexo.name}</span>
-                        <Download className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </Button>
-                    ))}
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm bg-primary/5 border-t-4 border-t-primary">
-                <CardHeader>
-                  <CardTitle className="text-lg">Atención al Inquilino</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button variant="ghost" className="w-full justify-start gap-3 h-14 hover:bg-white bg-white/50 border-none shadow-sm">
-                    <MessageSquare className="h-5 w-5 text-primary" />
-                    <div className="text-left">
-                      <p className="text-sm font-bold">Chat Administrativo</p>
-                      <p className="text-[10px] text-muted-foreground uppercase">Lun a Vie 09:00 a 18:00</p>
-                    </div>
-                  </Button>
                 </CardContent>
               </Card>
             </div>
@@ -345,30 +337,73 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
         </>
       )}
 
-      {/* Dialogo para Nuevo Reclamo */}
+      {/* Dialogo: Informar Pago */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" /> Informar Pago</DialogTitle>
+            <DialogDescription>Sube una foto o PDF de tu transferencia para que la administración valide el pago.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="p-4 bg-muted/30 rounded-xl">
+              <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Período Seleccionado</p>
+              <p className="font-bold">{selectedInvoice?.period}</p>
+              <p className="text-2xl font-black text-primary">$ {selectedInvoice?.totalAmount.toLocaleString('es-AR')}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Comprobante de Pago (PDF o Imagen)</Label>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-all border-primary/20"
+              >
+                {isUploading ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                ) : receiptFile ? (
+                  <div className="text-center">
+                    <FileCheck className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-green-700">{receiptFile.name}</p>
+                    <p className="text-[10px] text-muted-foreground">Click para cambiar archivo</p>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-sm font-medium">Subir comprobante</p>
+                    <p className="text-[10px] text-muted-foreground">Formatos aceptados: JPG, PNG, PDF</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
+            <Button 
+              className="bg-primary text-white font-black px-8" 
+              disabled={!receiptFile || isUploading}
+              onClick={handleInformPayment}
+            >
+              Enviar a Administración
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogo: Nuevo Reclamo */}
       <Dialog open={isClaimDialogOpen} onOpenChange={setIsClaimDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Informar Incidencia / Reclamo</DialogTitle>
-            <DialogDescription>Describe el problema para que el equipo de mantenimiento pueda gestionarlo.</DialogDescription>
+            <DialogDescription>Describe el problema para mantenimiento.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Concepto Breve</Label>
-              <Input 
-                placeholder="Ej: Filtración en baño, Falla eléctrica..." 
-                value={newClaim.concept}
-                onChange={e => setNewClaim({...newClaim, concept: e.target.value})}
-              />
+              <Label>Concepto</Label>
+              <Input placeholder="Ej: Filtración en baño" value={newClaim.concept} onChange={e => setNewClaim({...newClaim, concept: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label>Descripción Detallada</Label>
-              <Textarea 
-                placeholder="Indica cuándo comenzó el problema y cualquier detalle relevante."
-                className="min-h-[100px]"
-                value={newClaim.description}
-                onChange={e => setNewClaim({...newClaim, description: e.target.value})}
-              />
+              <Label>Descripción</Label>
+              <Textarea placeholder="Indica detalles relevantes..." className="min-h-[100px]" value={newClaim.description} onChange={e => setNewClaim({...newClaim, description: e.target.value})} />
             </div>
           </div>
           <DialogFooter className="mt-4">

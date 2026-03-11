@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -19,23 +19,32 @@ import {
   AlertTriangle,
   ArrowUpRight,
   BarChart3,
-  CalendarDays
+  CalendarDays,
+  Plus,
+  Upload,
+  Loader2,
+  FileUp
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Property, Liquidation, RentalApplication, DocumentInfo, Invoice } from '@/lib/types';
+import { Property, Liquidation, RentalApplication, DocumentInfo, Invoice, ChargeType } from '@/lib/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { query, collection } from 'firebase/firestore';
+import { query, collection, doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogDescription 
+  DialogDescription,
+  DialogFooter
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface OwnerPortalViewProps {
   properties: Property[];
@@ -48,11 +57,22 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
   const { toast } = useToast();
   const { user } = useUser();
   const db = useFirestore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedApp, setSelectedApp] = useState<RentalApplication | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const [newInvoice, setNewInvoice] = useState({
+    propertyId: '',
+    type: 'Luz/Gas' as ChargeType,
+    amount: 0,
+    period: '',
+    fileName: '',
+    fileUrl: ''
+  });
 
-  // El administrador asocia solicitudes, aquí las recuperamos
   const solicitudesQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', 'W1b1I6DKA7fEluL5gugUyKBuSvD3', 'solicitudes'));
@@ -68,7 +88,6 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
   const applications = applicationsData || [];
   const invoices = invoicesData || [];
 
-  // FILTRADO DINÁMICO POR DUEÑO
   const myProperties = properties.filter(p => 
     p.owners.some(o => o.email.toLowerCase() === user?.email?.toLowerCase())
   );
@@ -83,7 +102,6 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
     myProperties.some(p => p.id === app.propertyId)
   );
 
-  // Cálculo de Morosidad para el Dueño
   const myInvoices = invoices.filter(inv => 
     myProperties.some(p => p.name === inv.propertyName)
   );
@@ -95,6 +113,54 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
     .filter(l => l.status === 'Pagada')
     .reduce((acc, l) => acc + l.netAmount, 0);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setNewInvoice({ ...newInvoice, fileName: file.name, fileUrl: event.target?.result as string });
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitInvoice = () => {
+    if (!newInvoice.propertyId || !newInvoice.amount || !newInvoice.fileUrl || !db) return;
+    
+    const prop = properties.find(p => p.id === newInvoice.propertyId);
+    const docId = Math.random().toString(36).substr(2, 9);
+    const adminId = "W1b1I6DKA7fEluL5gugUyKBuSvD3";
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', adminId, 'facturas', docId);
+
+    const invoiceData: Partial<Invoice> = {
+      id: docId,
+      contractId: 'pending',
+      tenantName: 'Administrador Procesará',
+      propertyName: prop?.name || 'Unidad',
+      period: newInvoice.period || 'Actual',
+      totalAmount: newInvoice.amount,
+      currency: 'ARS',
+      status: 'Pendiente',
+      dueDate: new Date().toLocaleDateString('es-AR'),
+      paymentReceiptUrl: newInvoice.fileUrl,
+      paymentReceiptName: newInvoice.fileName,
+      isFromOwner: true,
+      ownerId: user?.uid,
+      charges: [{
+        id: 'c1',
+        type: newInvoice.type,
+        amount: newInvoice.amount,
+        imputedTo: 'Inquilino'
+      }]
+    };
+
+    setDocumentNonBlocking(docRef, invoiceData, { merge: true });
+    toast({ title: "Factura Cargada", description: "El administrador la imputará al inquilino pronto." });
+    setIsInvoiceDialogOpen(false);
+    setNewInvoice({ propertyId: '', type: 'Luz/Gas', amount: 0, period: '', fileName: '', fileUrl: '' });
+  };
+
   const viewDocument = (doc: DocumentInfo) => {
     if (doc.url) {
       const newWindow = window.open();
@@ -102,30 +168,6 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
         newWindow.document.write(`<html><body style="margin:0; background: #333; display: flex; align-items: center; justify-content: center;"><img src="${doc.url}" style="max-width: 100%; max-height: 100vh; object-fit: contain;" /></body></html>`);
       }
     }
-  };
-
-  const exportOwnerReport = () => {
-    const csvRows = [
-      ["Propiedad", "Periodo", "Ingreso Alquiler", "Deducciones Admin", "Deducciones Mant.", "Neto Cobrado", "Estado"],
-      ...myLiquidations.map(l => [
-        l.propertyName,
-        l.period,
-        l.ingresoAlquiler.toString(),
-        l.adminFeeDeduction.toString(),
-        l.maintenanceDeductions.toString(),
-        l.netAmount.toString(),
-        l.status
-      ])
-    ];
-    const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Reporte_Duenio_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: "Reporte Generado", description: "Exportando historial de liquidaciones." });
   };
 
   return (
@@ -169,70 +211,26 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
 
         <Card className="border-none shadow-sm bg-primary/5 border-primary/20 border">
           <CardContent className="p-6">
-            <p className="text-[10px] uppercase font-black text-primary mb-1">Acciones Rápidas</p>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Button size="sm" variant="outline" className="text-[9px] h-8 gap-1 font-bold border-primary/20 text-primary" onClick={exportOwnerReport}>
-                <Download className="h-3 w-3" /> Reporte CSV
-              </Button>
-              <Button size="sm" variant="outline" className="text-[9px] h-8 gap-1 font-bold border-primary/20 text-primary">
-                <BarChart3 className="h-3 w-3" /> Analítica
-              </Button>
-            </div>
+            <p className="text-[10px] uppercase font-black text-primary mb-1">Cargas Rápidas</p>
+            <Button size="sm" className="w-full gap-2 font-bold h-9 bg-primary text-white" onClick={() => setIsInvoiceDialogOpen(true)}>
+              <FileUp className="h-4 w-4" /> Cargar Factura de Servicio
+            </Button>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          {/* SECCIÓN DE AUDITORÍA DE SOLICITUDES */}
-          {myApprovedApps.length > 0 && (
-            <Card className="border-none shadow-sm bg-white overflow-hidden">
-              <CardHeader className="bg-primary/5">
-                <CardTitle className="flex items-center gap-2"><Users2 className="h-5 w-5 text-primary" /> Nuevos Inquilinos Evaluados</CardTitle>
-                <CardDescription>Candidatos aprobados por la administración para sus unidades.</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {myApprovedApps.map((app) => (
-                    <div key={app.id} className="p-4 border rounded-xl hover:border-primary/50 transition-all group">
-                      <div className="flex justify-between items-start">
-                        <div className="overflow-hidden">
-                          <p className="font-black text-base truncate">{app.applicantName}</p>
-                          <p className="text-[10px] text-muted-foreground font-black uppercase tracking-tighter truncate">{app.propertyName}</p>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setSelectedApp(app); setIsDetailOpen(true); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Badge className={cn("font-black text-[9px]", (app.aiAnalysis?.score || 0) > 70 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
-                          Score IA: {app.aiAnalysis?.score}/100
-                        </Badge>
-                        <Badge variant="outline" className="border-primary/20 text-primary text-[9px] font-bold">
-                          Ingreso: $ {app.ingreso.toLocaleString('es-AR')}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           <Card className="border-none shadow-sm bg-white">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Historial de Liquidaciones</CardTitle>
-                <CardDescription>Detalle de transferencias recibidas de la administración.</CardDescription>
-              </div>
+            <CardHeader>
+              <CardTitle>Historial de Liquidaciones</CardTitle>
+              <CardDescription>Detalle de transferencias recibidas de la administración.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Unidad / Periodo</TableHead>
-                    <TableHead className="text-right">Bruto Alquiler</TableHead>
-                    <TableHead className="text-right text-orange-600">Deducciones</TableHead>
                     <TableHead className="text-right">Neto Liquidado</TableHead>
                     <TableHead>Estado</TableHead>
                   </TableRow>
@@ -246,8 +244,6 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
                           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">{l.period}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right text-xs">$ {l.ingresoAlquiler.toLocaleString('es-AR')}</TableCell>
-                      <TableCell className="text-right text-orange-600 text-xs">$ {(l.adminFeeDeduction + l.maintenanceDeductions).toLocaleString('es-AR')}</TableCell>
                       <TableCell className="text-right font-black text-green-700">$ {l.netAmount.toLocaleString('es-AR')}</TableCell>
                       <TableCell>
                         <Badge className={cn("border-none font-bold", l.status === 'Pagada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
@@ -256,9 +252,6 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
                       </TableCell>
                     </TableRow>
                   ))}
-                  {myLiquidations.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">No se han registrado liquidaciones.</TableCell></TableRow>
-                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -275,44 +268,69 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
                 <div key={p.id} className="p-4 bg-white rounded-xl border hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-black truncate max-w-[150px]">{p.name}</p>
-                    <Badge className={cn(
-                      "text-[9px] font-black uppercase px-2 py-0 h-4",
-                      p.status === 'Alquilada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                    )}>
+                    <Badge className={cn("text-[9px] font-black uppercase px-2 py-0 h-4", p.status === 'Alquilada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
                       {p.status}
                     </Badge>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate mb-4">{p.address}</p>
-                  
-                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-dashed">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] text-muted-foreground uppercase font-bold">Estado Pago</span>
-                      <span className={cn("text-[10px] font-black", myInvoices.some(inv => inv.propertyName === p.name && inv.status === 'Vencido') ? "text-red-600" : "text-green-600")}>
-                        {myInvoices.some(inv => inv.propertyName === p.name && inv.status === 'Vencido') ? "Deuda Pendiente" : "Al Día"}
-                      </span>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6"><ArrowUpRight className="h-4 w-4" /></Button>
-                  </div>
                 </div>
               ))}
-              {myProperties.length === 0 && <p className="text-center text-xs text-muted-foreground py-8 italic">No tiene propiedades vinculadas.</p>}
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-muted/20 border-t-4 border-t-muted-foreground">
-            <CardHeader><CardTitle className="text-lg">Próximos Cobros</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border">
-                <CalendarDays className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-xs font-bold text-foreground">Ciclo 1 al 10 de Mes</p>
-                  <p className="text-[10px] text-muted-foreground">Las liquidaciones se emiten tras la cobranza.</p>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Dialogo: Cargar Factura Propietario */}
+      <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cargar Factura de Servicio</DialogTitle>
+            <DialogDescription>Sube una factura recibida para que la administración la traslade al inquilino.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Propiedad</Label>
+              <Select value={newInvoice.propertyId} onValueChange={(v) => setNewInvoice({ ...newInvoice, propertyId: v })}>
+                <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                <SelectContent>{myProperties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de Servicio</Label>
+                <Select value={newInvoice.type} onValueChange={(v: any) => setNewInvoice({ ...newInvoice, type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Luz/Gas">Luz/Gas</SelectItem>
+                    <SelectItem value="Aguas">Aguas</SelectItem>
+                    <SelectItem value="TGI/ABL">TGI/ABL</SelectItem>
+                    <SelectItem value="Otros">Otros (Reparaciones, etc)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Monto Total</Label>
+                <Input type="number" placeholder="ARS" onChange={e => setNewInvoice({ ...newInvoice, amount: parseFloat(e.target.value) || 0 })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Mes / Período</Label>
+              <Input placeholder="Ej: Mayo 2024" value={newInvoice.period} onChange={e => setNewInvoice({ ...newInvoice, period: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Archivo de la Factura</Label>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
+              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:bg-muted/50 border-primary/20">
+                {isUploading ? <Loader2 className="animate-spin mx-auto text-primary" /> : newInvoice.fileName ? <p className="text-xs font-bold text-primary">{newInvoice.fileName}</p> : <><Upload className="mx-auto h-6 w-6 text-muted-foreground mb-1" /><p className="text-[10px]">Click para subir PDF/JPG</p></>}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsInvoiceDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-primary text-white font-black" disabled={!newInvoice.fileUrl || isUploading} onClick={handleSubmitInvoice}>Informar a Administración</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -328,37 +346,6 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
                     <h4 className="text-xs font-black uppercase text-primary mb-3 flex items-center gap-2"><Sparkles className="h-4 w-4" /> Informe del Analista IA</h4>
                     <p className="text-sm font-bold text-green-700 mb-2">{selectedApp.aiAnalysis?.recommendation}</p>
                     <p className="text-xs leading-relaxed text-foreground/80 italic">"{selectedApp.aiAnalysis?.reasoning}"</p>
-                  </div>
-                  
-                  {selectedApp.adminNotes && (
-                    <div className="p-4 bg-muted/30 rounded-xl border">
-                      <h4 className="text-[10px] font-black uppercase text-muted-foreground mb-2">Observaciones de Administración</h4>
-                      <p className="text-xs leading-relaxed">{selectedApp.adminNotes}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col items-center justify-center p-6 bg-green-50 rounded-2xl border border-green-100">
-                    <p className="text-[10px] font-black uppercase text-green-700 mb-1">Capacidad de Pago</p>
-                    <p className="text-3xl font-black text-green-900">$ {selectedApp.ingreso.toLocaleString('es-AR')}</p>
-                    <p className="text-[9px] text-green-600 mt-1">Ingreso mensual neto declarado</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2"><FileText className="h-4 w-4" /> Carpeta de Documentación</h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    {selectedApp.documents?.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-primary/50 group transition-all">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <FileCheck className="h-4 w-4 text-primary" />
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-[10px] font-bold truncate max-w-[200px]">{doc.name}</span>
-                            <span className="text-[8px] text-muted-foreground uppercase font-black">{doc.type}</span>
-                          </div>
-                        </div>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 text-primary" onClick={() => viewDocument(doc)}><Eye className="h-3 w-3" /></Button>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
