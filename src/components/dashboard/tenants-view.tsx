@@ -23,7 +23,8 @@ import {
   Calendar,
   FileText,
   Download,
-  FileSearch
+  FileSearch,
+  MessageCircleQuestion
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,6 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { extractContractData, ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
+import { queryContract } from '@/ai/flows/query-contract-flow';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -76,11 +78,14 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
 
   // AI State
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [isAiQuerying, setIsAiQuerying] = useState(false);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isNotifyingAdjustment, setIsNotifyingAdjustment] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<ExtractContractDataOutput | null>(null);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
+  const [aiAnswer, setAiAnswer] = useState<{answer: string, sourceQuote?: string} | null>(null);
+  const [userQuestion, setUserQuestion] = useState('');
 
   const [personFormData, setPersonFormData] = useState<Partial<Person>>({
     fullName: '',
@@ -276,6 +281,8 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
   };
 
   const handleOpenContractDialog = (contract?: Contract) => {
+    setAiAnswer(null);
+    setUserQuestion('');
     if (contract) {
       setEditingContract(contract);
       setContractFormData(contract);
@@ -346,7 +353,6 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
         const result = await extractContractData({ documentDataUri: dataUri });
         setAiResult(result);
         
-        // Almacenamos el archivo temporalmente en el form
         setContractFormData(prev => ({
           ...prev,
           documents: {
@@ -378,10 +384,29 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
       startDate: aiResult.startDate || prev.startDate,
       endDate: aiResult.endDate || prev.endDate,
       fullTranscription: aiResult.fullTranscription,
-      // Mantenemos el mainContractUrl que ya seteamos en handleFileUpload
     }));
     setAiResult(null);
     toast({ title: "Autocompletado", description: "Datos y transcripción aplicados correctamente." });
+  };
+
+  const handleAskAI = async () => {
+    if (!userQuestion || !contractFormData.fullTranscription) {
+      toast({ title: "Atención", description: "Debe escribir una pregunta y tener la transcripción del contrato.", variant: "destructive" });
+      return;
+    }
+
+    setIsAiQuerying(true);
+    try {
+      const result = await queryContract({
+        contractTranscription: contractFormData.fullTranscription,
+        question: userQuestion
+      });
+      setAiAnswer(result);
+    } catch (e) {
+      toast({ title: "Error de consulta", description: "La IA no pudo procesar tu pregunta.", variant: "destructive" });
+    } finally {
+      setIsAiQuerying(false);
+    }
   };
 
   const handleDownloadContract = () => {
@@ -433,15 +458,18 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                   <Plus className="h-4 w-4" /> Nuevo Contrato
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingContract ? 'Editar Contrato' : 'Alta de Contrato'}</DialogTitle>
                 </DialogHeader>
                 <Tabs defaultValue="general" className="mt-4">
-                  <TabsList className="grid w-full grid-cols-3 bg-muted/50">
+                  <TabsList className="grid w-full grid-cols-4 bg-muted/50">
                     <TabsTrigger value="general">Datos Generales</TabsTrigger>
                     <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
-                    <TabsTrigger value="documents">Documentos y Transcripción</TabsTrigger>
+                    <TabsTrigger value="documents">Transcripción</TabsTrigger>
+                    <TabsTrigger value="ai-query" className="flex gap-2 items-center text-primary font-bold">
+                      <MessageCircleQuestion className="h-4 w-4" /> Consultas IA
+                    </TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="general" className="space-y-4 pt-4">
@@ -592,22 +620,85 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                             </div>
                           )}
                         </ScrollArea>
-                        {contractFormData.fullTranscription && (
-                          <div className="flex justify-end">
-                             <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-primary h-7 gap-1" onClick={() => {
-                               navigator.clipboard.writeText(contractFormData.fullTranscription || '');
-                               toast({ title: "Copiado", description: "Transcripción copiada al portapapeles." });
-                             }}>
-                               Copiar Texto
-                             </Button>
-                          </div>
-                        )}
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="ai-query" className="pt-4 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                      <div className="md:col-span-5 space-y-4">
+                        <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                          <h4 className="text-sm font-black text-primary mb-2 flex items-center gap-2">
+                            <Sparkles className="h-4 w-4" /> Consultor Inteligente
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            Pregunte cualquier cosa sobre las cláusulas de este contrato. La IA responderá <strong>exclusivamente</strong> basándose en el texto transcrito.
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold uppercase text-muted-foreground">¿Qué desea saber?</Label>
+                          <Textarea 
+                            placeholder="Ej: ¿Quién debe pagar el impuesto inmobiliario según este contrato?"
+                            value={userQuestion}
+                            onChange={e => setUserQuestion(e.target.value)}
+                            className="min-h-[100px] text-sm"
+                          />
+                          <Button 
+                            className="w-full bg-primary text-white font-black gap-2 h-11 shadow-md"
+                            disabled={isAiQuerying || !contractFormData.fullTranscription}
+                            onClick={handleAskAI}
+                          >
+                            {isAiQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircleQuestion className="h-4 w-4" />}
+                            Consultar Contrato
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-7">
+                        <Card className="border-none shadow-none bg-muted/20 h-full min-h-[300px]">
+                          <CardContent className="p-6">
+                            {!aiAnswer && !isAiQuerying && (
+                              <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 space-y-4 py-12">
+                                <FileSearch className="h-12 w-12" />
+                                <p className="text-sm">Realice una pregunta a la izquierda para ver la respuesta aquí.</p>
+                              </div>
+                            )}
+
+                            {isAiQuerying && (
+                              <div className="h-full flex flex-col items-center justify-center space-y-4 py-12">
+                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                <p className="text-xs font-bold text-primary animate-pulse uppercase">Analizando cláusulas...</p>
+                              </div>
+                            )}
+
+                            {aiAnswer && !isAiQuerying && (
+                              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+                                <div className="space-y-2">
+                                  <Badge className="bg-primary text-white">Respuesta IA</Badge>
+                                  <p className="text-sm leading-relaxed font-medium text-foreground bg-white p-4 rounded-lg border shadow-sm">
+                                    {aiAnswer.answer}
+                                  </p>
+                                </div>
+
+                                {aiAnswer.sourceQuote && (
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Evidencia en el texto:</Label>
+                                    <div className="p-3 bg-white/50 rounded border border-dashed border-muted-foreground/30 italic text-[11px] text-muted-foreground">
+                                      "{aiAnswer.sourceQuote}"
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
                       </div>
                     </div>
                   </TabsContent>
                 </Tabs>
                 <DialogFooter className="mt-6 border-t pt-4">
-                  <Button variant="outline" onClick={() => setIsContractDialogOpen(false)}>Cancelar</Button>
+                  <Button variant="outline" onClick={() => setIsContractDialogOpen(false)}>Cerrar</Button>
                   <Button onClick={handleSaveContract}>Guardar Contrato</Button>
                 </DialogFooter>
               </DialogContent>
