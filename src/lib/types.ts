@@ -148,6 +148,7 @@ export interface Invoice {
   paymentDate?: string;
   isFromOwner?: boolean; 
   ownerId?: string;
+  internalNotes?: string;
 }
 
 export interface Liquidation {

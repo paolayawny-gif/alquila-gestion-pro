@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -24,7 +25,8 @@ import {
   Send,
   AlertCircle,
   UploadCloud,
-  FileCheck
+  FileCheck,
+  MessageSquare
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -41,6 +43,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
@@ -68,6 +71,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   const [isGeneratingRent, setIsGeneratingRent] = useState(false);
   const [uploadingArcaFor, setUploadingArcaFor] = useState<string | null>(null);
   const [uploadingReceiptFor, setUploadingReceiptFor] = useState<string | null>(null);
+  
+  // Estado para el diálogo de confirmación de pago con notas
+  const [isReceiptConfirmDialogOpen, setIsReceiptConfirmDialogOpen] = useState(false);
+  const [receiptNote, setReceiptNote] = useState('');
+  const [tempReceiptFile, setTempReceiptFile] = useState<{ url: string, name: string } | null>(null);
 
   const peopleQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
@@ -175,22 +183,36 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
 
   const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadingReceiptFor || !userId || !db) return;
+    if (!file || !uploadingReceiptFor) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', uploadingReceiptFor);
-      setDocumentNonBlocking(docRef, { 
-        paymentReceiptUrl: event.target?.result as string,
-        paymentReceiptName: file.name,
-        status: 'Pagado',
-        paymentDate: new Date().toLocaleDateString('es-AR')
-      }, { merge: true });
-      
-      toast({ title: "Pago Registrado", description: "Comprobante de WhatsApp cargado exitosamente." });
-      setUploadingReceiptFor(null);
+      setTempReceiptFile({
+        url: event.target?.result as string,
+        name: file.name
+      });
+      setIsReceiptConfirmDialogOpen(true);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleConfirmReceipt = () => {
+    if (!tempReceiptFile || !uploadingReceiptFor || !userId || !db) return;
+
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', uploadingReceiptFor);
+    setDocumentNonBlocking(docRef, { 
+      paymentReceiptUrl: tempReceiptFile.url,
+      paymentReceiptName: tempReceiptFile.name,
+      status: 'Pagado',
+      paymentDate: new Date().toLocaleDateString('es-AR'),
+      internalNotes: receiptNote
+    }, { merge: true });
+    
+    toast({ title: "Pago Registrado", description: "Comprobante cargado exitosamente." });
+    setIsReceiptConfirmDialogOpen(false);
+    setTempReceiptFile(null);
+    setUploadingReceiptFor(null);
+    setReceiptNote('');
   };
 
   const handleSendFormalInvoice = async (inv: Invoice) => {
@@ -235,9 +257,8 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
 
   const handleValidatePayment = (inv: Invoice) => {
     if (!userId || !db) return;
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
-    setDocumentNonBlocking(docRef, { status: 'Pagado' }, { merge: true });
-    toast({ title: "Pago Validado", description: "La cuenta ha sido actualizada." });
+    setUploadingReceiptFor(inv.id);
+    setIsReceiptConfirmDialogOpen(true);
   };
 
   const handleSaveManualCharge = () => {
@@ -419,6 +440,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                       <span className="font-black text-foreground">{i.tenantName}</span>
                       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{i.propertyName} • {i.period}</span>
                       {i.isFromOwner && <Badge className="w-fit text-[8px] bg-purple-100 text-purple-700 h-4 px-1 mt-1">Enviado por Dueño</Badge>}
+                      {i.internalNotes && (
+                        <div className="flex items-center gap-1 text-[9px] text-blue-600 mt-1 italic font-medium">
+                          <MessageSquare className="h-2.5 w-2.5" /> {i.internalNotes}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -487,6 +513,40 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
           </TableBody>
         </Table>
       </Card>
+
+      {/* Diálogo de Confirmación de Pago con Notas */}
+      <Dialog open={isReceiptConfirmDialogOpen} onOpenChange={setIsReceiptConfirmDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Registro de Pago</DialogTitle>
+            <DialogDescription>
+              Complete los detalles del pago recibido. El estado de la factura pasará a "Pagado".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {tempReceiptFile && (
+              <div className="p-3 bg-muted/30 rounded-lg flex items-center gap-2">
+                <FileCheck className="h-4 w-4 text-green-600" />
+                <span className="text-xs font-bold truncate">{tempReceiptFile.name}</span>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Observaciones Internas</Label>
+              <Textarea 
+                placeholder="Ej: Enviado por WhatsApp - Confirmado Banco" 
+                value={receiptNote}
+                onChange={e => setReceiptNote(e.target.value)}
+                className="min-h-[100px]"
+              />
+              <p className="text-[10px] text-muted-foreground italic">Esta nota solo es visible para la administración.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsReceiptConfirmDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-primary font-black px-8" onClick={handleConfirmReceipt}>Confirmar Pago</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
