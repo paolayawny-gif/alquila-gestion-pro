@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -21,7 +20,10 @@ import {
   TrendingUp,
   Landmark,
   Calculator,
-  Calendar
+  Calendar,
+  FileText,
+  Download,
+  FileSearch
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,6 +42,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { extractContractData, ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
@@ -47,6 +50,7 @@ import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { sendEmail } from '@/services/email-service';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TenantsViewProps {
   people: Person[];
@@ -106,7 +110,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
     status: 'Vigente',
     guarantorIds: [],
     ownerIds: [],
-    documents: { mainContractUrl: '', versions: [], annexes: [] }
+    documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
   });
 
   const getStatusBadge = (status: Contract['status']) => {
@@ -296,7 +300,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
         status: 'Vigente',
         guarantorIds: [],
         ownerIds: [],
-        documents: { mainContractUrl: '', versions: [], annexes: [] }
+        documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
       });
     }
     setIsContractDialogOpen(true);
@@ -321,7 +325,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
       propertyName: property?.name,
       currentRentAmount: contractFormData.currentRentAmount || contractFormData.baseRentAmount || 0,
       ownerId: userId,
-      documents: contractFormData.documents || { mainContractUrl: '', versions: [], annexes: [] }
+      documents: contractFormData.documents || { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
     } as Contract;
 
     setDocumentNonBlocking(docRef, newContract, { merge: true });
@@ -341,7 +345,18 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
       try {
         const result = await extractContractData({ documentDataUri: dataUri });
         setAiResult(result);
-        toast({ title: "Análisis Completo", description: "La IA ha extraído las cláusulas del archivo." });
+        
+        // Almacenamos el archivo temporalmente en el form
+        setContractFormData(prev => ({
+          ...prev,
+          documents: {
+            ...prev.documents!,
+            mainContractUrl: dataUri,
+            mainContractName: file.name
+          }
+        }));
+
+        toast({ title: "Análisis Completo", description: "La IA ha extraído las cláusulas y el texto completo." });
       } catch (error) {
         toast({ title: "Error de Análisis", description: "No se pudieron extraer los datos.", variant: "destructive" });
       } finally {
@@ -362,10 +377,24 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
       currentRentAmount: aiResult.baseRentAmount,
       startDate: aiResult.startDate || prev.startDate,
       endDate: aiResult.endDate || prev.endDate,
-      documents: { ...prev.documents!, mainContractUrl: 'ai_processed' }
+      fullTranscription: aiResult.fullTranscription,
+      // Mantenemos el mainContractUrl que ya seteamos en handleFileUpload
     }));
     setAiResult(null);
-    toast({ title: "Autocompletado", description: "Datos aplicados correctamente." });
+    toast({ title: "Autocompletado", description: "Datos y transcripción aplicados correctamente." });
+  };
+
+  const handleDownloadContract = () => {
+    if (!contractFormData.documents?.mainContractUrl) return;
+    
+    const link = document.createElement('a');
+    link.href = contractFormData.documents.mainContractUrl;
+    link.download = contractFormData.documents.mainContractName || `contrato_${contractFormData.tenantName?.replace(/\s+/g, '_')}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: "Descarga Iniciada", description: "El archivo se está guardando en su dispositivo." });
   };
 
   const handleDeletePerson = (id: string) => {
@@ -412,7 +441,7 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                   <TabsList className="grid w-full grid-cols-3 bg-muted/50">
                     <TabsTrigger value="general">Datos Generales</TabsTrigger>
                     <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
-                    <TabsTrigger value="documents">Documentos</TabsTrigger>
+                    <TabsTrigger value="documents">Documentos y Transcripción</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="general" className="space-y-4 pt-4">
@@ -497,30 +526,84 @@ export function TenantsView({ people, userId, contracts, properties }: TenantsVi
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="documents" className="pt-4">
-                    <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
-                    {!aiResult && !isAiProcessing && (
-                      <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50">
-                        <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm">Analizar Contrato con IA</p>
+                  <TabsContent value="documents" className="pt-4 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
+                        
+                        {!contractFormData.documents?.mainContractUrl && !isAiProcessing && (
+                          <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:bg-muted/50 transition-all border-primary/20 bg-primary/5">
+                            <Upload className="h-10 w-10 mx-auto text-primary mb-3" />
+                            <p className="text-sm font-bold text-primary">Subir Contrato para Transcripción IA</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Soporta PDF, JPG, PNG</p>
+                          </div>
+                        )}
+
+                        {isAiProcessing && (
+                          <div className="flex flex-col items-center py-12 space-y-4 bg-muted/30 rounded-lg border border-dashed">
+                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                            <p className="text-xs font-black uppercase text-primary animate-pulse">La IA está transcribiendo el documento...</p>
+                          </div>
+                        )}
+
+                        {contractFormData.documents?.mainContractUrl && (
+                          <Card className="border-primary/20 bg-white">
+                            <CardHeader className="p-4 pb-2">
+                              <CardTitle className="text-xs uppercase font-black text-muted-foreground flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-primary" /> Documento Original
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0 space-y-4">
+                              <div className="p-3 bg-muted/30 rounded-lg flex items-center justify-between">
+                                <span className="text-[11px] font-bold truncate max-w-[150px]">
+                                  {contractFormData.documents.mainContractName || 'Archivo_Contrato.pdf'}
+                                </span>
+                                <div className="flex gap-2">
+                                   <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={handleDownloadContract} title="Descargar Archivo">
+                                      <Download className="h-4 w-4" />
+                                   </Button>
+                                   <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={() => setContractFormData({...contractFormData, documents: {...contractFormData.documents!, mainContractUrl: ''}})}>
+                                      <Trash2 className="h-4 w-4" />
+                                   </Button>
+                                </div>
+                              </div>
+                              
+                              {aiResult && (
+                                <Button className="w-full bg-primary text-white font-black h-10 gap-2 shadow-md animate-bounce" onClick={applyAiData}>
+                                  <Sparkles className="h-4 w-4" /> Aplicar Transcripción IA
+                                </Button>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )}
                       </div>
-                    )}
-                    {isAiProcessing && (
-                      <div className="flex flex-col items-center py-8 space-y-4">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="text-xs font-bold text-muted-foreground">La IA está extrayendo los datos del contrato...</p>
+
+                      <div className="space-y-4">
+                        <Label className="flex items-center gap-2 text-xs font-black uppercase text-muted-foreground">
+                          <FileSearch className="h-4 w-4" /> Transcripción del Texto
+                        </Label>
+                        <ScrollArea className="h-[250px] w-full border rounded-lg p-4 bg-white font-mono text-[10px] leading-relaxed">
+                          {contractFormData.fullTranscription ? (
+                            <div className="whitespace-pre-wrap">{contractFormData.fullTranscription}</div>
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-40 text-center px-4">
+                              <FileSearch className="h-8 w-8 mb-2" />
+                              <p>Suba un documento y use la IA para ver la transcripción completa aquí.</p>
+                            </div>
+                          )}
+                        </ScrollArea>
+                        {contractFormData.fullTranscription && (
+                          <div className="flex justify-end">
+                             <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-primary h-7 gap-1" onClick={() => {
+                               navigator.clipboard.writeText(contractFormData.fullTranscription || '');
+                               toast({ title: "Copiado", description: "Transcripción copiada al portapapeles." });
+                             }}>
+                               Copiar Texto
+                             </Button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {aiResult && (
-                      <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-4 animate-in fade-in">
-                        <div className="flex items-center gap-3">
-                          <Sparkles className="h-5 w-5 text-primary" />
-                          <p className="text-sm font-bold text-primary">¡Datos extraídos con éxito!</p>
-                        </div>
-                        <p className="text-xs leading-relaxed text-muted-foreground">{aiResult.summary}</p>
-                        <Button className="w-full bg-primary text-white font-bold" onClick={applyAiData}>Confirmar y Autocompletar Formulario</Button>
-                      </div>
-                    )}
+                    </div>
                   </TabsContent>
                 </Tabs>
                 <DialogFooter className="mt-6 border-t pt-4">

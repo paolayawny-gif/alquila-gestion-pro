@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A Genkit flow for extracting structured data from rental contracts.
@@ -31,6 +30,7 @@ const ExtractContractDataOutputSchema = z.object({
   endDate: z.string().optional().describe('End date of the contract in YYYY-MM-DD format.'),
   confidenceScore: z.number().describe('AI confidence score for the extraction (0 to 1).'),
   summary: z.string().describe('Un breve resumen en ESPAÑOL de las cláusulas económicas y generales encontradas.'),
+  fullTranscription: z.string().describe('A complete, verbatim transcription of the text content found in the document in SPANISH.'),
 });
 export type ExtractContractDataOutput = z.infer<typeof ExtractContractDataOutputSchema>;
 
@@ -51,6 +51,7 @@ Your task is to analyze the provided document and extract the key economic and g
 - tenantName: Extract the FULL name of the "Locatario".
 - propertyAddress: Extract the FULL address of the property.
 - startDate / endDate: ALWAYS format as YYYY-MM-DD.
+- fullTranscription: Provide a complete, structured, and verbatim transcription of all readable text in the document. Do not summarize this field; transcribe it.
 
 Pay special attention to:
 1. The initial rent amount (monto inicial).
@@ -61,7 +62,7 @@ Pay special attention to:
 6. The address of the property (Inmueble).
 7. The contract period dates (Fecha de inicio y finalización).
 
-The summary MUST be in SPANISH.
+The summary and fullTranscription MUST be in SPANISH.
 If the text is in Spanish, parse it carefully.
 Document: {{media url=documentDataUri}}`,
 });

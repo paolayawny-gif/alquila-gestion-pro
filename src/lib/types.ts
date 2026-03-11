@@ -123,8 +123,11 @@ export interface Contract {
   
   status: 'Vigente' | 'Próximo a Vencer' | 'Finalizado' | 'Rescindido';
   
+  fullTranscription?: string;
+
   documents: {
     mainContractUrl: string;
+    mainContractName?: string;
     versions: DocumentInfo[];
     annexes: DocumentInfo[];
   };
