@@ -76,24 +76,24 @@ const aiCommunicationAssistantPrompt = ai.definePrompt({
   input: {schema: AiCommunicationAssistantInputSchema},
   output: {schema: AiCommunicationAssistantOutputSchema},
   prompt: `You are an AI assistant for a property management company named "AlquilaGestión Pro".
-Your task is to draft clear, professional, and personalized communication messages or emails in SPANISH.
+Your task is to draft clear, professional, friendly, and informative communication messages or emails in SPANISH.
 
 Instructions based on type:
 - portalInvitation: Invitation to the client portal. Mention the Role: {{{role}}} and Portal URL: {{{portalUrl}}}.
 - rentReminder: Friendly reminder. Rent for {{{propertyName}}} is available. Amount: {{{amountDue}}}, Pay by: {{{dueDate}}}.
 - rentOverdue: Firm but polite notification. Rent for {{{propertyName}}} is OVERDUE. Amount: {{{amountDue}}}. Original due date was: {{{dueDate}}}. Ask for payment confirmation.
-- leaseAdjustment: Notification of rent increase. Mention that starting next month, the rent for {{{propertyName}}} will be adjusted based on the {{{adjustmentIndex}}} index. Current: {{{currentRentAmount}}}, NEW: {{{newRentAmount}}}.
+- leaseAdjustment: Notificación de ajuste de alquiler con un tono amigable, empático y completo. Explica que, de acuerdo al contrato, corresponde realizar la actualización según el índice {{{adjustmentIndex}}}. Detalla claramente el monto actual ({{{currentRentAmount}}}) y el nuevo valor ({{{newRentAmount}}}) que regirá a partir del próximo mes para la propiedad {{{propertyName}}}. Finaliza con un saludo cordial agradeciendo su confianza.
 - leaseRenewal: Notice for {{{propertyName}}}. Current end: {{{currentLeaseEndDate}}}.
 - ownerLiquidationReport: Summary for {{{ownerName}}} for period {{{reportingPeriod}}}. Net: {{{netAmount}}}.
 - generalMessage: Use additional context.
 
 Context:
 Type: {{{communicationType}}}
-Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{ownerName}}{{if ownerName}}{{else}}Cliente{{/if}}{{/if}}
+Recipient: {{#if tenantName}}{{tenantName}}{{else}}{{#if ownerName}}{{ownerName}}{{else}}Cliente{{/if}}{{/if}}
 Property: {{propertyName}}{{#if propertyAddress}} ({{propertyAddress}}){{/if}}
 Additional Details: {{{additionalContext}}}
 
-Draft a professional message in Spanish. Provide a subject line.`,
+Draft a friendly, professional, and informative message in Spanish. Provide a subject line.`,
 });
 
 const aiCommunicationAssistantFlow = ai.defineFlow(
