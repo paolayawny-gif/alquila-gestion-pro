@@ -1,3 +1,4 @@
+
 export type PropertyType = 'Departamento' | 'Casa' | 'Local' | 'Cochera' | 'Oficina' | 'Depósito' | 'Terreno';
 export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industrial';
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
@@ -7,6 +8,13 @@ export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Dep
 export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Otros';
 export type ChargePayer = 'Inquilino' | 'Propietario';
 export type ApplicationStatus = 'Nueva' | 'En análisis' | 'Aprobada' | 'Rechazada' | 'Pendiente de documentación';
+
+export interface IndexRecord {
+  id: string;
+  month: string; // YYYY-MM
+  type: AdjustmentMechanism;
+  value: number;
+}
 
 export interface DocumentInfo {
   id: string;
@@ -42,7 +50,7 @@ export interface Person {
 export interface PropertyOwner {
   ownerId?: string;
   name: string;
-  email: string; // Vínculo para el portal
+  email: string;
   percentage: number;
 }
 
@@ -85,11 +93,6 @@ export interface RentalApplication {
   };
 }
 
-export interface AdjustmentScale {
-  month: number;
-  amount: number;
-}
-
 export interface Contract {
   id: string;
   tenantId: string;
@@ -101,47 +104,24 @@ export interface Contract {
   startDate: string;
   endDate: string;
   paymentPeriodDays: number;
-  
-  // Cláusulas Económicas
   baseRentAmount: number;
   currentRentAmount: number;
   currency: Currency;
-  
   adjustmentType: 'Index' | 'Percentage' | 'Scale' | 'Fixed';
   adjustmentMechanism?: AdjustmentMechanism;
   adjustmentFrequencyMonths: number;
-  adjustmentPercentage?: number;
-  adjustmentScales?: AdjustmentScale[];
-  
   depositAmount: number;
   depositCurrency: Currency;
   commissionAmount: number; 
-  
-  lateFeeType: 'DailyPercentage' | 'MonthlyPercentage' | 'Fixed';
-  lateFeeValue: number;
-  lateFeeCapPercentage?: number;
-  
   status: 'Vigente' | 'Próximo a Vencer' | 'Finalizado' | 'Rescindido';
-  
   fullTranscription?: string;
-
   documents: {
     mainContractUrl: string;
     mainContractName?: string;
     versions: DocumentInfo[];
     annexes: DocumentInfo[];
   };
-  
   ownerId: string;
-}
-
-export interface ChargeItem {
-  id: string;
-  type: ChargeType;
-  description: string;
-  amount: number;
-  imputedTo: ChargePayer;
-  isPaid: boolean;
 }
 
 export interface Invoice {
@@ -150,19 +130,11 @@ export interface Invoice {
   tenantName: string;
   propertyName: string;
   period: string; 
-  charges: ChargeItem[];
-  lateFees: number;
+  charges: { id: string; type: ChargeType; amount: number; imputedTo: ChargePayer }[];
   totalAmount: number;
   currency: Currency;
   dueDate: string;
-  paymentDate?: string;
-  paymentMethod?: PaymentMethod;
-  reference?: string; 
   status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
-  hasFile: boolean;
-  isAutomated?: boolean;
-  lastReminderSent?: string;
-  reminderType?: 'initial' | 'overdue';
 }
 
 export interface Liquidation {
@@ -171,47 +143,31 @@ export interface Liquidation {
   propertyName: string;
   ownerId: string;
   ownerName: string;
-  ownerEmail?: string; // Para filtrado
+  ownerEmail?: string;
   period: string; 
   ingresoAlquiler: number;
   adminFeeDeduction: number;
   maintenanceDeductions: number;
-  expenseDeductions: number; 
   netAmount: number;
   status: 'Pendiente' | 'Pagada';
   dateCreated: string;
-  paymentReference?: string;
 }
 
 export interface MaintenanceTask {
   id: string;
   propertyId: string;
   propertyName: string;
-  tenantId?: string;
-  tenantName?: string;
-  contractId?: string;
   concept: string;
   description: string;
-  priority: 'Baja' | 'Media' | 'Alta' | 'Crítica';
-  status: 'Pendiente' | 'Presupuestado' | 'En curso' | 'Completado' | 'Cerrado';
-  providerId?: string;
-  providerName?: string;
-  estimatedCost: number;
-  actualCost?: number;
-  photos: string[];
-  createdAt: string;
-  updatedAt: string;
-  closedAt?: string;
-  hasFile: boolean;
+  status: 'Pendiente' | 'En curso' | 'Completado' | 'Cerrado';
 }
 
 export interface AppAlert {
   id: string;
-  type: 'contract_expiry' | 'overdue_debt' | 'maintenance_delay' | 'rent_adjustment';
+  type: string;
   title: string;
   description: string;
   severity: 'low' | 'medium' | 'high';
-  date: string;
   linkTab?: string;
 }
 
@@ -220,9 +176,5 @@ export interface LegalCase {
   type: string;
   propertyId: string;
   propertyName: string;
-  startDate: string;
-  attorney: string;
-  status: 'En proceso' | 'Acuerdo firmado' | 'Cerrado' | 'Resuelto';
-  hasFile: boolean;
-  ownerId: string;
+  status: string;
 }

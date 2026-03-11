@@ -7,192 +7,41 @@
       "type": "object",
       "description": "Represents a rental property managed by the application, including its address and owner information.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Propiedad entity."
-        },
-        "nombre": {
-          "type": "string",
-          "description": "A descriptive name or reference for the property (e.g., 'Edificio Centro', 'Casa Frentista')."
-        },
-        "direccion": {
-          "type": "string",
-          "description": "The street address of the property (e.g., 'Sarmiento 299')."
-        },
-        "dpto": {
-          "type": "string",
-          "description": "Apartment or unit number, or a dash '-' if it's a house without units (e.g., 'PB A')."
-        },
-        "dueno": {
-          "type": "string",
-          "description": "The full name of the property owner (e.g., 'Roberto Gómez')."
-        }
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "direccion": { "type": "string" },
+        "dpto": { "type": "string" },
+        "dueno": { "type": "string" }
       },
-      "required": [
-        "id",
-        "nombre",
-        "direccion",
-        "dueno"
-      ]
+      "required": ["id", "nombre", "direccion", "dueno"]
     },
     "Inquilino": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Inquilino",
       "type": "object",
-      "description": "Represents a tenant renting a specific property, including contact and contract details.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Inquilino entity."
-        },
-        "nombre": {
-          "type": "string",
-          "description": "The full name of the tenant."
-        },
-        "propiedadId": {
-          "type": "string",
-          "description": "Reference to the Propiedad entity that this tenant is renting. (Relationship: Propiedad 1:N Inquilino)"
-        },
-        "telefono": {
-          "type": "string",
-          "description": "The contact phone number of the tenant."
-        },
-        "vencimiento": {
-          "type": "string",
-          "description": "The contract expiration date for the tenant in 'DD/MM/AAAA' format."
-        },
-        "estado": {
-          "type": "string",
-          "description": "The current payment status of the tenant's rent.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "tieneContrato": {
-          "type": "boolean",
-          "description": "A flag indicating whether a contract file for this tenant has been uploaded."
-        }
-      },
-      "required": [
-        "id",
-        "nombre",
-        "propiedadId",
-        "vencimiento",
-        "estado"
-      ]
-    },
-    "Factura": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Factura",
-      "type": "object",
-      "description": "Represents a bill or service invoice related to properties, such as utilities or communal expenses.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Factura entity."
-        },
-        "propiedadId": {
-          "type": "string",
-          "description": "Reference to the Propiedad entity this invoice is associated with. Optional if the invoice is for general administration. (Relationship: Propiedad 1:N Factura)"
-        },
-        "concepto": {
-          "type": "string",
-          "description": "A brief description of the invoice's concept (e.g., 'Luz (Edenor) - Espacios Comunes')."
-        },
-        "importe": {
-          "type": "string",
-          "description": "The monetary amount of the invoice, including currency symbol (e.g., '$ 45.000')."
-        },
-        "vencimiento": {
-          "type": "string",
-          "description": "The due date for the invoice payment in 'DD/MM/AAAA' format."
-        },
-        "estado": {
-          "type": "string",
-          "description": "The current payment status of the invoice.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "tieneArchivo": {
-          "type": "boolean",
-          "description": "A flag indicating whether an associated receipt or document has been uploaded for this invoice."
-        }
-      },
-      "required": [
-        "id",
-        "concepto",
-        "importe",
-        "vencimiento",
-        "estado"
-      ]
-    },
-    "Mantenimiento": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Mantenimiento",
-      "type": "object",
-      "description": "Represents a maintenance task or repair record for a property, including costs and status.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Mantenimiento entity."
-        },
-        "propiedadId": {
-          "type": "string",
-          "description": "Reference to the Propiedad entity where the maintenance was performed. (Relationship: Propiedad 1:N Mantenimiento)"
-        },
-        "concepto": {
-          "type": "string",
-          "description": "A description of the maintenance task or repair (e.g., 'Plomería - Reparación caño PB')."
-        },
-        "importe": {
-          "type": "string",
-          "description": "The cost of the maintenance, including currency symbol (e.g., '$ 85.000')."
-        },
-        "vencimiento": {
-          "type": "string",
-          "description": "The due date for payment or expected completion date of the maintenance task in 'DD/MM/AAAA' format."
-        },
-        "estado": {
-          "type": "string",
-          "description": "The current status of the maintenance task.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "tieneArchivo": {
-          "type": "boolean",
-          "description": "A flag indicating whether an associated document (e.g., invoice, photo) has been uploaded for this maintenance record."
-        }
-      },
-      "required": [
-        "id",
-        "propiedadId",
-        "concepto",
-        "importe",
-        "vencimiento",
-        "estado"
-      ]
-    },
-    "RentalApplication": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "RentalApplication",
-      "type": "object",
-      "description": "Represents a rental application submitted by a potential tenant.",
+      "description": "Represents a tenant renting a specific property.",
       "properties": {
         "id": { "type": "string" },
-        "propertyId": { "type": "string" },
-        "applicantName": { "type": "string" },
-        "applicantEmail": { "type": "string" },
-        "applicantPhone": { "type": "string" },
-        "ingreso": { "type": "number" },
-        "status": { "type": "string" },
-        "submittedAt": { "type": "string" }
+        "nombre": { "type": "string" },
+        "propiedadId": { "type": "string" },
+        "telefono": { "type": "string" },
+        "vencimiento": { "type": "string" },
+        "estado": { "type": "string" }
       },
-      "required": ["id", "applicantName", "applicantEmail", "status"]
+      "required": ["id", "nombre", "propiedadId", "vencimiento", "estado"]
+    },
+    "IndexRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "IndexRecord",
+      "type": "object",
+      "description": "Historical record of an economic index value for a specific month.",
+      "properties": {
+        "id": { "type": "string" },
+        "month": { "type": "string", "description": "Format YYYY-MM" },
+        "type": { "type": "string", "enum": ["ICL", "IPC", "CasaPropia"] },
+        "value": { "type": "number" }
+      },
+      "required": ["id", "month", "type", "value"]
     },
     "Contract": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -213,72 +62,25 @@
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
       {
         "path": "artifacts/{appId}/users/{userId}/propiedades/{propiedadId}",
-        "definition": {
-          "entityName": "Propiedad",
-          "schema": {
-            "$ref": "#/backend/entities/Propiedad"
-          },
-          "description": "Collection storing individual rental property details."
-        }
+        "definition": { "entityName": "Propiedad" }
       },
       {
         "path": "artifacts/{appId}/users/{userId}/inquilinos/{inquilinoId}",
-        "definition": {
-          "entityName": "Inquilino",
-          "schema": {
-            "$ref": "#/backend/entities/Inquilino"
-          },
-          "description": "Collection storing tenant information."
-        }
-      },
-      {
-        "path": "artifacts/{appId}/users/{userId}/facturas/{facturaId}",
-        "definition": {
-          "entityName": "Factura",
-          "schema": {
-            "$ref": "#/backend/entities/Factura"
-          },
-          "description": "Collection for recording bills and service invoices."
-        }
-      },
-      {
-        "path": "artifacts/{appId}/users/{userId}/mantenimiento/{mantenimientoId}",
-        "definition": {
-          "entityName": "Mantenimiento",
-          "schema": {
-            "$ref": "#/backend/entities/Mantenimiento"
-          },
-          "description": "Collection for tracking maintenance tasks."
-        }
-      },
-      {
-        "path": "artifacts/{appId}/users/{userId}/solicitudes/{solicitudId}",
-        "definition": {
-          "entityName": "RentalApplication",
-          "schema": {
-            "$ref": "#/backend/entities/RentalApplication"
-          },
-          "description": "Collection for storing rental applications submitted by potential tenants."
-        }
+        "definition": { "entityName": "Inquilino" }
       },
       {
         "path": "artifacts/{appId}/users/{userId}/contratos/{contratoId}",
-        "definition": {
-          "entityName": "Contract",
-          "schema": {
-            "$ref": "#/backend/entities/Contract"
-          },
-          "description": "Collection for storing detailed rental contracts."
-        }
+        "definition": { "entityName": "Contract" }
+      },
+      {
+        "path": "artifacts/{appId}/users/{userId}/indices/{indexId}",
+        "definition": { "entityName": "IndexRecord" }
       }
     ]
   }
