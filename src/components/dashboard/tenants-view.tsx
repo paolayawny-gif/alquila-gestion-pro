@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -16,7 +16,6 @@ import {
   Loader2,
   CheckCircle2,
   Send,
-  MessageSquareShare,
   UserCheck,
   TrendingUp,
   Landmark,
@@ -35,7 +34,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Contract, Person, Property, PersonType, Currency, AdjustmentMechanism, IndexRecord } from '@/lib/types';
+import { Contract, Person, Property, IndexRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -59,7 +58,6 @@ import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-
 import { queryContract } from '@/ai/flows/query-contract-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 
 interface TenantsViewProps {
   people: Person[];
@@ -84,9 +82,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [selectedAdjContract, setSelectedAdjContract] = useState<Contract | null>(null);
   const [selectedQAContract, setSelectedQAContract] = useState<Contract | null>(null);
   
-  // Estados para Q&A
   const [qaQuestion, setQAQuestion] = useState('');
-  const [qaAnswer, setQAAnswer] = useState<{answer: string, quote?: string} | null>(null);
+  const [qaAnswer, setQAAnswer] = useState<{answer: string, sourceQuote?: string} | null>(null);
   const [isAsking, setIsAsking] = useState(false);
 
   const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
@@ -314,9 +311,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl space-y-3">
                   <p className="text-sm leading-relaxed text-foreground font-medium">{qaAnswer.answer}</p>
-                  {qaAnswer.quote && (
+                  {qaAnswer.sourceQuote && (
                     <div className="p-3 bg-white/50 border-l-4 border-primary rounded text-[11px] italic text-muted-foreground">
-                      "{qaAnswer.quote}"
+                      "{qaAnswer.sourceQuote}"
                     </div>
                   )}
                 </div>

@@ -1,12 +1,13 @@
+
 "use client";
 
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, MessageSquareShare, Sparkles, Loader2, Send } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Property, PropertyStatus, PropertyOwner, PropertyType } from '@/lib/types';
+import { Property, PropertyStatus, PropertyOwner } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -370,7 +371,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                             className="text-primary opacity-0 group-hover/owner:opacity-100 transition-opacity"
                             title="Enviar Invitación"
                           >
-                            <MessageSquareShare className="h-3 w-3" />
+                            <MessageSquare className="h-3 w-3" />
                           </button>
                         )}
                       </div>

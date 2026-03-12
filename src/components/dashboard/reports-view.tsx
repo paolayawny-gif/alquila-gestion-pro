@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -14,8 +15,6 @@ import {
   PieChart, 
   Pie, 
   Cell,
-  LineChart,
-  Line,
   AreaChart,
   Area
 } from 'recharts';
@@ -29,15 +28,14 @@ import {
   Calendar,
   Building,
   Users,
-  ArrowUpRight,
   TrendingDown,
-  ChevronRight
+  Clock
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { Invoice, Person, Property, Contract } from '@/lib/types';
+import { Invoice, Person, Property } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 const APP_ID = "alquilagestion-pro";
@@ -107,7 +105,6 @@ export function ReportsView() {
     }
   };
 
-  // Datos para gráficos simulados basados en promedios reales
   const INGRESO_DATA = [
     { name: 'Ene', ingreso: 1250000, cobrado: 1100000 },
     { name: 'Feb', ingreso: 1350000, cobrado: 1280000 },
@@ -126,7 +123,6 @@ export function ReportsView() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* KPIs DE CABECERA */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white border-none shadow-sm overflow-hidden">
           <CardContent className="p-4">
@@ -192,7 +188,6 @@ export function ReportsView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* GRÁFICO DE RECAUDACIÓN */}
         <Card className="lg:col-span-2 border-none shadow-sm bg-white">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -231,7 +226,6 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        {/* DISTRIBUCIÓN DE MOROSIDAD */}
         <Card className="border-none shadow-sm bg-white">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -275,7 +269,6 @@ export function ReportsView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* RANKING DE RENTABILIDAD */}
         <Card className="border-none shadow-sm bg-white">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -321,7 +314,6 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        {/* REGÍMENES INFORMATIVOS AFIP */}
         <Card className="border-none shadow-sm bg-primary/5 border-t-4 border-t-primary">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-primary font-black uppercase tracking-tighter">

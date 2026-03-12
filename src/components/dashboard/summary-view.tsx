@@ -32,10 +32,7 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell
+  ResponsiveContainer
 } from 'recharts';
 
 interface SummaryViewProps {
@@ -124,7 +121,6 @@ export function SummaryView({
   const totalOverdue = invoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
   const occupancyRate = properties.length > 0 ? (properties.filter(p => p.status === 'Alquilada').length / properties.length) * 100 : 0;
 
-  // Datos de proyección realistas para el especialista
   const CASHFLOW_DATA = [
     { name: 'Semana 1', cobrado: totalCollected * 0.4, proyectado: totalProjected * 0.3 },
     { name: 'Semana 2', cobrado: totalCollected * 0.7, proyectado: totalProjected * 0.6 },
@@ -134,7 +130,6 @@ export function SummaryView({
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-      {/* KPIs SUPERIORES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-none shadow-sm bg-white border-t-4 border-t-primary">
           <CardContent className="p-6">
@@ -190,7 +185,6 @@ export function SummaryView({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* PANEL DE PROYECCIÓN FINANCIERA (NOVEL) */}
         <Card className="lg:col-span-8 shadow-sm border-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
             <div>
@@ -230,7 +224,7 @@ export function SummaryView({
                   <span className="text-[10px] font-black text-muted-foreground uppercase">Ya Cobrado</span>
                   <span className="text-lg font-black text-primary">$ {totalCollected.toLocaleString('es-AR')}</span>
                 </div>
-                <Separator orientation="vertical" className="h-10" />
+                <Separator orientation="vertical" className="h-10 mx-2" />
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-muted-foreground uppercase">Restante Mes</span>
                   <span className="text-lg font-black text-foreground">$ {(totalProjected - totalCollected).toLocaleString('es-AR')}</span>
@@ -243,7 +237,6 @@ export function SummaryView({
           </CardContent>
         </Card>
 
-        {/* CENTRO DE NOTIFICACIONES */}
         <Card className="lg:col-span-4 shadow-sm border-none bg-white">
           <CardHeader className="border-b pb-4 mb-4">
             <CardTitle className="flex items-center gap-2 text-base">
