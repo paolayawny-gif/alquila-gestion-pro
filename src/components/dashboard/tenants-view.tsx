@@ -30,7 +30,9 @@ import {
   Eye,
   Percent,
   MessageSquare,
-  Scale
+  Scale,
+  Phone,
+  User
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -79,6 +81,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [isQAOpen, setIsQAOpen] = useState(false);
   
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  
   const [selectedAdjContract, setSelectedAdjContract] = useState<Contract | null>(null);
   const [selectedQAContract, setSelectedQAContract] = useState<Contract | null>(null);
   
@@ -107,6 +111,64 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     status: 'Vigente',
     documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
   });
+
+  const [personFormData, setPersonFormData] = useState<Partial<Person>>({
+    fullName: '',
+    taxId: '',
+    email: '',
+    phone: '',
+    type: 'Inquilino',
+    documents: []
+  });
+
+  const handleOpenPersonDialog = (person?: Person) => {
+    if (person) {
+      setEditingPerson(person);
+      setPersonFormData(person);
+    } else {
+      setEditingPerson(null);
+      setPersonFormData({
+        fullName: '',
+        taxId: '',
+        email: '',
+        phone: '',
+        type: 'Inquilino',
+        documents: []
+      });
+    }
+    setIsPersonDialogOpen(true);
+  };
+
+  const handleSavePerson = () => {
+    if (!personFormData.fullName || !userId || !db) {
+      toast({ title: "Error", description: "Complete los datos obligatorios.", variant: "destructive" });
+      return;
+    }
+
+    const docId = editingPerson?.id || Math.random().toString(36).substr(2, 9);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', docId);
+
+    const personData: Person = {
+      ...personFormData,
+      id: docId,
+      ownerId: userId,
+      documents: personFormData.documents || []
+    } as Person;
+
+    setDocumentNonBlocking(docRef, personData, { merge: true });
+    setIsPersonDialogOpen(false);
+    toast({ 
+      title: editingPerson ? "Persona actualizada" : "Persona creada", 
+      description: `${personFormData.fullName} se ha guardado correctamente.` 
+    });
+  };
+
+  const handleDeletePerson = (id: string) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', id);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: "Persona eliminada", description: "El registro ha sido removido." });
+  };
 
   const handleAskContract = async () => {
     if (!selectedQAContract || !qaQuestion || !selectedQAContract.fullTranscription) return;
@@ -217,7 +279,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
           ) : (
-            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => setIsPersonDialogOpen(true)}>
+            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => handleOpenPersonDialog()}>
               <UserPlus className="h-4 w-4" /> Nueva Persona
             </Button>
           )}
@@ -277,6 +339,71 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             </TabsContent>
           </Tabs>
           <DialogFooter className="mt-6 pt-4 border-t"><Button onClick={handleSaveContract} className="font-black px-12">Guardar Contrato</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPersonDialogOpen} onOpenChange={setIsPersonDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingPerson ? 'Editar Persona' : 'Alta de Persona'}</DialogTitle>
+            <DialogDescription>Complete los datos de contacto y fiscales.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nombre Completo</Label>
+              <Input 
+                placeholder="Ej: Juan Pérez" 
+                value={personFormData.fullName} 
+                onChange={e => setPersonFormData({...personFormData, fullName: e.target.value})} 
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>CUIT / DNI</Label>
+                <Input 
+                  placeholder="20-XXXXXXXX-0" 
+                  value={personFormData.taxId} 
+                  onChange={e => setPersonFormData({...personFormData, taxId: e.target.value})} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Rol</Label>
+                <Select 
+                  value={personFormData.type} 
+                  onValueChange={(v: any) => setPersonFormData({...personFormData, type: v})}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Inquilino">Inquilino</SelectItem>
+                    <SelectItem value="Propietario">Propietario</SelectItem>
+                    <SelectItem value="Garante">Garante</SelectItem>
+                    <SelectItem value="Proveedor">Proveedor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input 
+                type="email" 
+                placeholder="correo@ejemplo.com" 
+                value={personFormData.email} 
+                onChange={e => setPersonFormData({...personFormData, email: e.target.value})} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono</Label>
+              <Input 
+                placeholder="+54 9 ..." 
+                value={personFormData.phone} 
+                onChange={e => setPersonFormData({...personFormData, phone: e.target.value})} 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPersonDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-primary font-bold px-8" onClick={handleSavePerson}>Guardar Persona</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -427,7 +554,21 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Rol en Sistema</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
             <TableBody>
               {people.map(p => (
-                <TableRow key={p.id}><TableCell className="font-bold">{p.fullName}</TableCell><TableCell>{p.taxId}</TableCell><TableCell><Badge variant="outline" className="border-primary/30 text-primary">{p.type}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon"><Edit2 className="h-4 w-4" /></Button></TableCell></TableRow>
+                <TableRow key={p.id}>
+                  <TableCell className="font-bold">{p.fullName}</TableCell>
+                  <TableCell>{p.taxId}</TableCell>
+                  <TableCell><Badge variant="outline" className="border-primary/30 text-primary">{p.type}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
               {people.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">No hay personas registradas.</TableCell></TableRow>}
             </TableBody>
