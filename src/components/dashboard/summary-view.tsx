@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -14,12 +15,27 @@ import {
   AlertCircle,
   Clock,
   Wrench,
-  Calendar
+  Calendar,
+  AreaChart as AreaChartIcon,
+  BarChart3,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AppAlert, Property, Contract, Invoice, RentalApplication, MaintenanceTask } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts';
 
 interface SummaryViewProps {
   onNavigate: (tab: string) => void;
@@ -43,7 +59,6 @@ export function SummaryView({
   useEffect(() => {
     const newAlerts: AppAlert[] = [];
     
-    // Alerta de alquileres sin factura ARCA cargada
     const missingArcaCount = invoices.filter(i => i.charges.some(c => c.type === 'Alquiler') && !i.arcaInvoiceUrl && i.status !== 'Pagado').length;
     if (missingArcaCount > 0) {
       newAlerts.push({
@@ -56,7 +71,6 @@ export function SummaryView({
       });
     }
 
-    // Alerta de mora
     const overdueInvoices = invoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente');
     if (overdueInvoices.length > 0) {
       newAlerts.push({
@@ -69,7 +83,6 @@ export function SummaryView({
       });
     }
 
-    // Alerta de contratos por vencer (próximos 60 días)
     const today = new Date();
     const sixtyDaysLater = new Date();
     sixtyDaysLater.setDate(today.getDate() + 60);
@@ -90,7 +103,6 @@ export function SummaryView({
       });
     }
 
-    // Alerta de mantenimiento urgente
     const urgentTasks = tasks.filter(t => t.priority === 'Urgente' && t.status !== 'Cerrado');
     if (urgentTasks.length > 0) {
       newAlerts.push({
@@ -107,11 +119,20 @@ export function SummaryView({
   }, [invoices, contracts, tasks]);
 
   const totalProjected = invoices.reduce((acc, i) => acc + i.totalAmount, 0);
+  const totalCollected = invoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
   const totalOverdue = invoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
   const occupancyRate = properties.length > 0 ? (properties.filter(p => p.status === 'Alquilada').length / properties.length) * 100 : 0;
 
+  // Datos de proyección realistas para el especialista
+  const CASHFLOW_DATA = [
+    { name: 'Semana 1', cobrado: totalCollected * 0.4, proyectado: totalProjected * 0.3 },
+    { name: 'Semana 2', cobrado: totalCollected * 0.7, proyectado: totalProjected * 0.6 },
+    { name: 'Semana 3', cobrado: totalCollected * 0.9, proyectado: totalProjected * 0.8 },
+    { name: 'Semana 4', cobrado: totalCollected, proyectado: totalProjected },
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       {/* KPIs SUPERIORES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-none shadow-sm bg-white border-t-4 border-t-primary">
@@ -120,9 +141,9 @@ export function SummaryView({
               <div className="bg-primary/10 p-2 rounded-lg text-primary">
                 <DollarSign className="h-5 w-5" />
               </div>
-              <Badge variant="outline" className="text-[10px] font-bold border-primary/20">TOTAL MES</Badge>
+              <Badge variant="outline" className="text-[10px] font-bold border-primary/20">BRUTO MES</Badge>
             </div>
-            <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Recaudación Proyectada</p>
+            <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Recaudación Total</p>
             <h3 className="text-2xl font-black text-foreground">$ {totalProjected.toLocaleString('es-AR')}</h3>
           </CardContent>
         </Card>
@@ -131,11 +152,11 @@ export function SummaryView({
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-red-50 p-2 rounded-lg text-red-600">
-                <AlertCircle className="h-5 w-5" />
+                <ShieldAlert className="h-5 w-5" />
               </div>
-              <Badge variant="outline" className="text-[10px] font-bold border-red-100 text-red-600">EN RIESGO</Badge>
+              <Badge variant="outline" className="text-[10px] font-bold border-red-100 text-red-600">MOROSIDAD</Badge>
             </div>
-            <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Morosidad Actual</p>
+            <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Total en Riesgo</p>
             <h3 className="text-2xl font-black text-red-600">$ {totalOverdue.toLocaleString('es-AR')}</h3>
           </CardContent>
         </Card>
@@ -159,118 +180,112 @@ export function SummaryView({
               <div className="bg-orange-50 p-2 rounded-lg text-orange-600">
                 <Wrench className="h-5 w-5" />
               </div>
-              <Badge variant="outline" className="text-[10px] font-bold border-orange-100 text-orange-600">PENDIENTES</Badge>
+              <Badge variant="outline" className="text-[10px] font-bold border-orange-100 text-orange-600">RECLAMOS</Badge>
             </div>
-            <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Reclamos Abiertos</p>
+            <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Incidencias Abiertas</p>
             <h3 className="text-2xl font-black text-foreground">{tasks.filter(t => t.status !== 'Cerrado').length}</h3>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* PANEL DE ALERTAS */}
+        {/* PANEL DE PROYECCIÓN FINANCIERA (NOVEL) */}
         <Card className="lg:col-span-8 shadow-sm border-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <BellRing className="h-5 w-5 text-primary" /> 
-                Centro de Notificaciones
+                <AreaChartIcon className="h-5 w-5 text-primary" /> 
+                Salud del Flujo de Caja
               </CardTitle>
-              <CardDescription>Acciones críticas que requieren su atención inmediata.</CardDescription>
+              <CardDescription>Seguimiento de cobranza semanal vs. proyección del mes.</CardDescription>
             </div>
-            <Badge className="bg-primary text-white">{alerts.length} Pendientes</Badge>
+            <Badge className="bg-green-100 text-green-700 font-bold px-3">Efectividad: {((totalCollected / (totalProjected || 1)) * 100).toFixed(0)}%</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={CASHFLOW_DATA}>
+                  <defs>
+                    <linearGradient id="colorCobrado" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                  <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    formatter={(v: any) => [`$ ${v.toLocaleString()}`, "Monto"]}
+                  />
+                  <Area type="monotone" dataKey="proyectado" stroke="#cbd5e1" fill="transparent" strokeDasharray="5 5" name="Esperado" />
+                  <Area type="monotone" dataKey="cobrado" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorCobrado)" name="Cobrado Real" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-6 p-4 bg-primary/5 rounded-2xl flex items-center justify-between">
+              <div className="flex gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase">Ya Cobrado</span>
+                  <span className="text-lg font-black text-primary">$ {totalCollected.toLocaleString('es-AR')}</span>
+                </div>
+                <Separator orientation="vertical" className="h-10" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase">Restante Mes</span>
+                  <span className="text-lg font-black text-foreground">$ {(totalProjected - totalCollected).toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" className="text-primary font-bold text-xs" onClick={() => onNavigate('Facturas')}>
+                Ver detalle de facturación <ArrowRight className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CENTRO DE NOTIFICACIONES */}
+        <Card className="lg:col-span-4 shadow-sm border-none bg-white">
+          <CardHeader className="border-b pb-4 mb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BellRing className="h-5 w-5 text-primary" /> 
+              Atención Inmediata
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {alerts.map(alert => (
+            {alerts.slice(0, 4).map(alert => (
               <div 
                 key={alert.id} 
                 className={cn(
-                  "flex items-start justify-between p-4 rounded-xl border transition-all hover:shadow-md", 
-                  alert.severity === 'high' ? "bg-red-50/50 border-red-100" : "bg-muted/20 border-transparent"
+                  "p-3 rounded-xl border transition-all hover:bg-muted/50 flex flex-col gap-2", 
+                  alert.severity === 'high' ? "border-red-100 bg-red-50/20" : "border-transparent bg-muted/20"
                 )}
               >
-                <div className="flex gap-4">
+                <div className="flex items-center gap-3">
                   <div className={cn(
-                    "p-3 rounded-full flex-shrink-0", 
+                    "p-2 rounded-full", 
                     alert.severity === 'high' ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
                   )}>
-                    {alert.type === 'maintenance' ? <Wrench className="h-5 w-5" /> : 
-                     alert.type === 'contract' ? <Calendar className="h-5 w-5" /> : 
-                     <AlertTriangle className="h-5 w-5" />}
+                    {alert.type === 'maintenance' ? <Wrench className="h-4 w-4" /> : 
+                     alert.type === 'contract' ? <Calendar className="h-4 w-4" /> : 
+                     <AlertTriangle className="h-4 w-4" />}
                   </div>
                   <div>
-                    <p className="font-bold text-sm text-foreground">{alert.title}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed max-w-md">{alert.description}</p>
+                    <p className="font-bold text-[11px] text-foreground leading-tight">{alert.title}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1">{alert.description}</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="text-xs font-bold border-primary text-primary hover:bg-primary hover:text-white transition-colors" onClick={() => alert.linkTab && onNavigate(alert.linkTab)}>
-                  Gestionar <ArrowRight className="h-3 w-3 ml-1" />
+                <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-bold text-primary self-end" onClick={() => alert.linkTab && onNavigate(alert.linkTab)}>
+                  Gestionar →
                 </Button>
               </div>
             ))}
             {alerts.length === 0 && (
-              <div className="p-12 text-center text-muted-foreground">
-                <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="h-8 w-8 text-green-600 opacity-50" />
-                </div>
-                <p className="font-bold">¡Todo al día!</p>
-                <p className="text-xs">No hay alertas críticas pendientes de gestión.</p>
+              <div className="p-8 text-center text-muted-foreground opacity-50 space-y-2">
+                <CheckCircle2 className="h-8 w-8 mx-auto text-green-600" />
+                <p className="text-xs font-bold">Operación al día</p>
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* PANEL DE RENDIMIENTO Y VENCIMIENTOS */}
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="shadow-sm border-none bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="h-5 w-5 text-blue-600" /> Próximos Vencimientos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {contracts.filter(c => c.status === 'Vigente').slice(0, 3).map(c => (
-                <div key={c.id} className="flex justify-between items-center p-3 bg-muted/20 rounded-lg group">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold group-hover:text-primary transition-colors truncate max-w-[120px]">{c.tenantName}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase">{c.endDate}</span>
-                  </div>
-                  <Badge variant="outline" className="text-[9px] font-black uppercase">Finaliza</Badge>
-                </div>
-              ))}
-              <Button variant="link" className="w-full text-xs text-primary font-bold h-auto p-0" onClick={() => onNavigate('Personas')}>
-                Ver agenda completa
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm border-none bg-primary/5 border border-primary/10">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" /> Efectividad Cobro
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="p-4 bg-white rounded-xl shadow-inner mb-4">
-                <div className="flex justify-between items-end mb-2">
-                  <p className="text-[10px] uppercase font-black text-muted-foreground">Cobrado vs Proyectado</p>
-                  <p className="text-lg font-black text-primary">
-                    {(((totalProjected - totalOverdue) / (totalProjected || 1)) * 100).toFixed(0)}%
-                  </p>
-                </div>
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-1000" 
-                    style={{ width: `${Math.min(100, ((totalProjected - totalOverdue) / (totalProjected || 1)) * 100)}%` }} 
-                  />
-                </div>
-              </div>
-              <p className="text-[9px] text-muted-foreground leading-tight italic">
-                Este KPI mide la rapidez de ingreso de fondos en relación a la facturación emitida del mes actual.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

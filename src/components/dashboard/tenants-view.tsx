@@ -29,7 +29,9 @@ import {
   ArrowRight,
   RefreshCw,
   Eye,
-  Percent
+  Percent,
+  MessageSquare,
+  Scale
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -54,8 +56,10 @@ import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
+import { queryContract } from '@/ai/flows/query-contract-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 interface TenantsViewProps {
   people: Person[];
@@ -74,9 +78,17 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
   const [isAdjNotifOpen, setIsAdjNotifOpen] = useState(false);
+  const [isQAOpen, setIsQAOpen] = useState(false);
   
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [selectedAdjContract, setSelectedAdjContract] = useState<Contract | null>(null);
+  const [selectedQAContract, setSelectedQAContract] = useState<Contract | null>(null);
+  
+  // Estados para Q&A
+  const [qaQuestion, setQAQuestion] = useState('');
+  const [qaAnswer, setQAAnswer] = useState<{answer: string, quote?: string} | null>(null);
+  const [isAsking, setIsAsking] = useState(false);
+
   const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
   const [adjDraft, setAdjDraft] = useState<any>(null);
   const [newRentValueInput, setNewRentValueInput] = useState<string>('');
@@ -98,6 +110,23 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     status: 'Vigente',
     documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
   });
+
+  const handleAskContract = async () => {
+    if (!selectedQAContract || !qaQuestion || !selectedQAContract.fullTranscription) return;
+    setIsAsking(true);
+    setQAAnswer(null);
+    try {
+      const result = await queryContract({
+        contractTranscription: selectedQAContract.fullTranscription,
+        question: qaQuestion
+      });
+      setQAAnswer(result);
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo consultar al asistente legal.", variant: "destructive" });
+    } finally {
+      setIsAsking(false);
+    }
+  };
 
   const handleAutoCalculate = () => {
     if (!selectedAdjContract || !selectedAdjContract.adjustmentMechanism) return;
@@ -187,11 +216,11 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         </Tabs>
         <div className="flex gap-2 w-full sm:w-auto">
           {activeTab === 'contracts' ? (
-            <Button className="bg-primary text-white gap-2" onClick={() => { setEditingContract(null); setIsContractDialogOpen(true); }}>
+            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setIsContractDialogOpen(true); }}>
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
           ) : (
-            <Button className="bg-primary text-white gap-2" onClick={() => setIsPersonDialogOpen(true)}>
+            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => setIsPersonDialogOpen(true)}>
               <UserPlus className="h-4 w-4" /> Nueva Persona
             </Button>
           )}
@@ -200,24 +229,24 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
 
       <Dialog open={isContractDialogOpen} onOpenChange={setIsContractDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Ficha de Contrato</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Ficha Técnica del Contrato</DialogTitle></DialogHeader>
           <Tabs defaultValue="general" className="mt-4">
             <TabsList className="grid w-full grid-cols-3 bg-muted/50">
               <TabsTrigger value="general">Datos Generales</TabsTrigger>
               <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
-              <TabsTrigger value="documents">Documentación</TabsTrigger>
+              <TabsTrigger value="documents">Transcripción Legal</TabsTrigger>
             </TabsList>
             <TabsContent value="general" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Unidad</Label>
+                  <Label>Unidad / Propiedad</Label>
                   <Select value={contractFormData.propertyId} onValueChange={(v) => setContractFormData({...contractFormData, propertyId: v})}>
                     <SelectTrigger><SelectValue placeholder="Propiedad..." /></SelectTrigger>
                     <SelectContent>{properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Inquilino</Label>
+                  <Label>Inquilino (Locatario)</Label>
                   <Select value={contractFormData.tenantId} onValueChange={(v) => setContractFormData({...contractFormData, tenantId: v})}>
                     <SelectTrigger><SelectValue placeholder="Persona..." /></SelectTrigger>
                     <SelectContent>{people.filter(p => p.type === 'Inquilino').map(p => <SelectItem key={p.id} value={p.id}>{p.fullName}</SelectItem>)}</SelectContent>
@@ -225,8 +254,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Fecha Inicio</Label><Input type="date" value={contractFormData.startDate} onChange={e => setContractFormData({...contractFormData, startDate: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Fecha Fin</Label><Input type="date" value={contractFormData.endDate} onChange={e => setContractFormData({...contractFormData, endDate: e.target.value})} /></div>
+                <div className="space-y-2"><Label>Fecha de Inicio</Label><Input type="date" value={contractFormData.startDate} onChange={e => setContractFormData({...contractFormData, startDate: e.target.value})} /></div>
+                <div className="space-y-2"><Label>Fecha de Finalización</Label><Input type="date" value={contractFormData.endDate} onChange={e => setContractFormData({...contractFormData, endDate: e.target.value})} /></div>
               </div>
             </TabsContent>
             <TabsContent value="economic" className="space-y-4 pt-4">
@@ -235,16 +264,79 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                 <div className="space-y-2"><Label>Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select></div>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2"><Label>Mecanismo</Label><Select value={contractFormData.adjustmentMechanism} onValueChange={(v: any) => setContractFormData({...contractFormData, adjustmentMechanism: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ICL">ICL</SelectItem><SelectItem value="IPC">IPC</SelectItem><SelectItem value="Fixed">Fijo</SelectItem></SelectContent></Select></div>
-                <div className="space-y-2"><Label>Punitorios Diarios (%)</Label><Input type="number" step="0.1" value={contractFormData.lateFeePercentage} onChange={e => setContractFormData({...contractFormData, lateFeePercentage: parseFloat(e.target.value) || 0})} /></div>
+                <div className="space-y-2"><Label>Mecanismo de Ajuste</Label><Select value={contractFormData.adjustmentMechanism} onValueChange={(v: any) => setContractFormData({...contractFormData, adjustmentMechanism: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ICL">ICL (Alquileres)</SelectItem><SelectItem value="IPC">IPC (Inflación)</SelectItem><SelectItem value="Fixed">Monto Fijo</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>Mora Diaria (%)</Label><Input type="number" step="0.1" value={contractFormData.lateFeePercentage} onChange={e => setContractFormData({...contractFormData, lateFeePercentage: parseFloat(e.target.value) || 0})} /></div>
                 <div className="space-y-2"><Label>Frecuencia (Meses)</Label><Input type="number" value={contractFormData.adjustmentFrequencyMonths} onChange={e => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})} /></div>
               </div>
             </TabsContent>
             <TabsContent value="documents" className="pt-4 space-y-4">
-              <ScrollArea className="h-[200px] border rounded p-4 font-mono text-[10px]">{contractFormData.fullTranscription || "Sin transcripción cargada"}</ScrollArea>
+              <p className="text-[10px] text-muted-foreground italic">Pegue aquí el texto completo del contrato para habilitar el Asistente Legal por IA.</p>
+              <Textarea 
+                placeholder="Transcripción del contrato..." 
+                className="h-[300px] font-mono text-[10px] bg-muted/10" 
+                value={contractFormData.fullTranscription}
+                onChange={e => setContractFormData({...contractFormData, fullTranscription: e.target.value})}
+              />
             </TabsContent>
           </Tabs>
-          <DialogFooter className="mt-6 pt-4 border-t"><Button onClick={handleSaveContract}>Guardar Cambios</Button></DialogFooter>
+          <DialogFooter className="mt-6 pt-4 border-t"><Button onClick={handleSaveContract} className="font-black px-12">Guardar Contrato</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isQAOpen} onOpenChange={setIsQAOpen}>
+        <DialogContent className="max-w-2xl bg-white border-none shadow-2xl">
+          <DialogHeader>
+            <div className="bg-primary/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-2">
+              <Scale className="h-6 w-6 text-primary" />
+            </div>
+            <DialogTitle className="text-xl font-black">Asistente Legal de Cláusulas</DialogTitle>
+            <DialogDescription>Consulte cualquier duda sobre los términos del contrato de {selectedQAContract?.tenantName}.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase text-muted-foreground">Tu pregunta al contrato</Label>
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Ej: ¿Quién paga el impuesto inmobiliario? ¿Cuál es la multa por rescisión?" 
+                  value={qaQuestion}
+                  onChange={e => setQAQuestion(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAskContract()}
+                  className="h-12"
+                />
+                <Button onClick={handleAskContract} disabled={isAsking || !qaQuestion} className="bg-primary h-12 px-6">
+                  {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircleQuestion className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {qaAnswer && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl space-y-3">
+                  <p className="text-sm leading-relaxed text-foreground font-medium">{qaAnswer.answer}</p>
+                  {qaAnswer.quote && (
+                    <div className="p-3 bg-white/50 border-l-4 border-primary rounded text-[11px] italic text-muted-foreground">
+                      "{qaAnswer.quote}"
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <p className="text-[10px] font-bold text-muted-foreground w-full uppercase mb-1">Consultas Sugeridas:</p>
+              {["¿Quién paga el ABL?", "¿Mascotas permitidas?", "¿Multa por rescisión?", "¿Periodo de gracia?"].map(q => (
+                <Badge 
+                  key={q} 
+                  variant="outline" 
+                  className="cursor-pointer hover:bg-primary/5 text-[9px] font-bold py-1 border-primary/20"
+                  onClick={() => setQAQuestion(q)}
+                >
+                  {q}
+                </Badge>
+              ))}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -285,31 +377,62 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         {activeTab === 'contracts' ? (
           <Table>
-            <TableHeader><TableRow className="bg-muted/50"><TableHead>Inquilino</TableHead><TableHead>Mora Pactada</TableHead><TableHead>Próximo Ajuste</TableHead><TableHead className="text-right">Alquiler</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow className="bg-muted/50"><TableHead>Inquilino / Unidad</TableHead><TableHead>Mora Pactada</TableHead><TableHead>Ajuste</TableHead><TableHead className="text-right">Alquiler Actual</TableHead><TableHead className="text-right">Herramientas</TableHead></TableRow></TableHeader>
             <TableBody>
               {contracts.map(c => (
-                <TableRow key={c.id}>
-                  <TableCell><span className="font-bold">{c.tenantName}</span><br/><span className="text-[10px]">{c.propertyName}</span></TableCell>
-                  <TableCell><Badge variant="outline" className="text-red-600 border-red-200">{c.lateFeePercentage || 0.5}% diario</Badge></TableCell>
-                  <TableCell><div className="flex items-center gap-1 text-xs"><Calendar className="h-3 w-3" /> {c.adjustmentMechanism} - {c.adjustmentFrequencyMonths}m</div></TableCell>
-                  <TableCell className="text-right font-black text-primary">{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}</TableCell>
+                <TableRow key={c.id} className="group">
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-foreground">{c.tenantName}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-black tracking-tight">{c.propertyName}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell><Badge variant="outline" className="text-red-600 border-red-200 font-bold">{c.lateFeePercentage || 0.5}% diario</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1 text-[10px] font-black text-primary uppercase"><Calendar className="h-3 w-3" /> {c.adjustmentMechanism}</div>
+                      <span className="text-[9px] text-muted-foreground">Ciclo: {c.adjustmentFrequencyMonths} meses</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-black text-primary text-base">{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="text-primary" onClick={() => { setSelectedAdjContract(c); setAdjDraft(null); setNewRentValueInput(''); setIsAdjNotifOpen(true); }}><TrendingUp className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => { setEditingContract(c); setContractFormData(c); setIsContractDialogOpen(true); }}><Edit2 className="h-4 w-4" /></Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-primary hover:bg-primary/10" 
+                        title="Consultar al Contrato (IA)"
+                        onClick={() => { setSelectedQAContract(c); setQAAnswer(null); setQAQuestion(''); setIsQAOpen(true); }}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-orange-600 hover:bg-orange-50" 
+                        title="Notificar Próximo Ajuste"
+                        onClick={() => { setSelectedAdjContract(c); setAdjDraft(null); setNewRentValueInput(''); setIsAdjNotifOpen(true); }}
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => { setEditingContract(c); setContractFormData(c); setIsContractDialogOpen(true); }}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
+              {contracts.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay contratos activos.</TableCell></TableRow>}
             </TableBody>
           </Table>
         ) : (
           <Table>
-            <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre</TableHead><TableHead>CUIT/DNI</TableHead><TableHead>Rol</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Rol en Sistema</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
             <TableBody>
               {people.map(p => (
-                <TableRow key={p.id}><TableCell className="font-bold">{p.fullName}</TableCell><TableCell>{p.taxId}</TableCell><TableCell><Badge variant="outline">{p.type}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon"><Edit2 className="h-4 w-4" /></Button></TableCell></TableRow>
+                <TableRow key={p.id}><TableCell className="font-bold">{p.fullName}</TableCell><TableCell>{p.taxId}</TableCell><TableCell><Badge variant="outline" className="border-primary/30 text-primary">{p.type}</Badge></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon"><Edit2 className="h-4 w-4" /></Button></TableCell></TableRow>
               ))}
+              {people.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">No hay personas registradas.</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}
