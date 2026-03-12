@@ -73,12 +73,10 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   const [uploadingArcaFor, setUploadingArcaFor] = useState<string | null>(null);
   const [uploadingReceiptFor, setUploadingReceiptFor] = useState<string | null>(null);
   
-  // Estado para punitorios manuales
   const [isLateFeeDialogOpen, setIsLateFeeDialogOpen] = useState(false);
   const [selectedInvForFee, setSelectedInvForFee] = useState<Invoice | null>(null);
   const [manualFeeInput, setManualFeeInput] = useState<string>('');
 
-  // Estado para el diálogo de confirmación de pago con notas
   const [isReceiptConfirmDialogOpen, setIsReceiptConfirmDialogOpen] = useState(false);
   const [receiptNote, setReceiptNote] = useState('');
   const [tempReceiptFile, setTempReceiptFile] = useState<{ url: string, name: string } | null>(null);
@@ -115,7 +113,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   };
 
   const calculateInterest = (inv: Invoice) => {
-    // Si ya hay un punitorio guardado manualmente, usamos ese
     if (inv.lateFees > 0) return inv.lateFees;
 
     const contract = contracts.find(c => c.id === inv.contractId);
@@ -325,7 +322,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
               <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border text-xs shadow-sm">
                 <span className="font-bold truncate max-w-[100px]">{p.tenantName}</span>
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => window.open(p.paymentReceiptUrl)} title="Ver Transferencia"><Eye className="h-4 w-4" /></Button>
+                  {p.paymentReceiptUrl && <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => window.open(p.paymentReceiptUrl)} title="Ver Transferencia"><Eye className="h-4 w-4" /></Button>}
                   <Button size="sm" className="h-7 bg-blue-600 text-white text-[10px] px-3 font-bold" onClick={() => handleValidatePayment(p)}>Validar</Button>
                 </div>
               </div>
@@ -344,7 +341,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                     <span className="text-[9px] text-muted-foreground">Cargado por Dueño</span>
                   </div>
                   <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-purple-600" onClick={() => window.open(p.arcaInvoiceUrl)} title="Ver Documento"><Eye className="h-4 w-4" /></Button>
+                    {p.arcaInvoiceUrl && <Button size="icon" variant="ghost" className="h-7 w-7 text-purple-600" onClick={() => window.open(p.arcaInvoiceUrl)} title="Ver Documento"><Eye className="h-4 w-4" /></Button>}
                     <Button size="sm" variant="outline" className="h-7 border-purple-600 text-purple-600 text-[10px] gap-1 font-bold" onClick={() => handleSendFormalInvoice(p)}>Notificar</Button>
                   </div>
                 </div>
@@ -450,7 +447,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
           <TableBody>
             {invoices.map((i) => {
               const interest = calculateInterest(i);
-              const contract = contracts.find(c => c.id === i.contractId);
               
               return (
                 <TableRow key={i.id} className="group hover:bg-muted/30">
@@ -550,14 +546,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
         </Table>
       </Card>
 
-      {/* Diálogo de Punitorios Manuales */}
       <Dialog open={isLateFeeDialogOpen} onOpenChange={setIsLateFeeDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Ajustar Punitorios</DialogTitle>
-            <DialogDescription>
-              Fije un monto manual de intereses para esta factura.
-            </DialogDescription>
+            <DialogDescription>Fije un monto manual de intereses para esta factura.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -569,9 +562,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                 placeholder="0.00"
                 className="h-12 text-lg font-black text-red-600"
               />
-              <p className="text-[10px] text-muted-foreground">
-                Este monto se sumará al total de la factura. Use 0 para anular punitorios calculados.
-              </p>
             </div>
           </div>
           <DialogFooter>
@@ -581,14 +571,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo de Confirmación de Pago con Notas */}
       <Dialog open={isReceiptConfirmDialogOpen} onOpenChange={setIsReceiptConfirmDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Confirmar Registro de Pago</DialogTitle>
-            <DialogDescription>
-              Complete los detalles del pago recibido. El estado de la factura pasará a "Pagado".
-            </DialogDescription>
+            <DialogDescription>Complete los detalles del pago recibido.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {tempReceiptFile && (
@@ -605,7 +592,6 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                 onChange={e => setReceiptNote(e.target.value)}
                 className="min-h-[100px]"
               />
-              <p className="text-[10px] text-muted-foreground italic">Esta nota solo es visible para la administración.</p>
             </div>
           </div>
           <DialogFooter>

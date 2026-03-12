@@ -67,7 +67,6 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
   const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null);
   
   // Estado para notificación al propietario
-  const [isNotifyingOwner, setIsNotifyingOwner] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
   const [draft, setDraft] = useState<AiCommunicationAssistantOutput | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -144,7 +143,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     setDraft(null);
     try {
       const property = properties.find(p => p.id === selectedTask.propertyId);
-      const ownerName = property?.owners[0]?.name || 'Propietario';
+      const ownerName = property?.owners?.[0]?.name || 'Propietario';
       
       const res = await aiCommunicationAssistant({
         communicationType: 'maintenanceUpdate',
@@ -170,7 +169,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
   const handleSendEmail = async () => {
     if (!draft || !selectedTask) return;
     const property = properties.find(p => p.id === selectedTask.propertyId);
-    const ownerEmail = property?.owners[0]?.email;
+    const ownerEmail = property?.owners?.[0]?.email;
     
     if (!ownerEmail) {
       toast({ title: "Email no encontrado", description: "El propietario no tiene un email configurado.", variant: "destructive" });
@@ -339,7 +338,6 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
 
               <div className="p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Columna Izquierda: Datos y Costos */}
                   <div className="lg:col-span-7 space-y-6">
                     <div className="p-4 bg-muted/30 rounded-xl border space-y-4">
                       <h4 className="text-xs font-black uppercase text-primary flex items-center gap-2"><Settings2 className="h-4 w-4" /> Configuración de Obra</h4>
@@ -434,7 +432,6 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                     </div>
                   </div>
 
-                  {/* Columna Derecha: Comunicación IA */}
                   <div className="lg:col-span-5 space-y-6">
                     <Card className="border-none shadow-sm bg-primary/5 border border-primary/10 overflow-hidden">
                       <CardHeader className="bg-primary/10 pb-4">

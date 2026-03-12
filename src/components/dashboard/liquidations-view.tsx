@@ -56,13 +56,11 @@ const APP_ID = "alquilagestion-pro";
 export function LiquidationsView({ liquidations, userId, properties, people }: LiquidationsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
-  const { user } = useUser();
   
   const [isNewLiqOpen, setIsNewLiqOpen] = useState(false);
   const [selectedPropId, setSelectedPropId] = useState('');
   const [period, setPeriod] = useState(new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }));
 
-  // Consultar facturas para deducciones de servicios
   const facturasQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'facturas'));
@@ -70,7 +68,6 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
   const { data: invoicesData } = useCollection<Invoice>(facturasQuery);
   const invoices = invoicesData || [];
 
-  // Consultar mantenimiento para deducciones de reparaciones
   const mantenimientoQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento'));
@@ -84,9 +81,8 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
     const property = properties.find(p => p.id === selectedPropId);
     if (!property) return;
     
-    const owner = people.find(p => p.id === property.owners[0]?.ownerId) || { id: 'dueño-ext', fullName: property.owners[0]?.name || 'Propietario' };
+    const owner = people.find(p => p.id === property.owners?.[0]?.ownerId) || { id: 'dueño-ext', fullName: property.owners?.[0]?.name || 'Propietario' };
 
-    // 1. Deducciones por Facturas (Servicios imputados al dueño)
     const propInvoices = invoices.filter(i => i.propertyName === property.name && i.period === period);
     
     let rentIncome = 0;
@@ -99,17 +95,16 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       });
     });
 
-    // 2. Deducciones por Mantenimiento (Solo si responsable es Propietario Y está aprobado)
     const approvedRepairs = tasks.filter(t => 
       t.propertyId === selectedPropId && 
       t.chargedTo === 'Propietario' && 
       t.isApprovedByOwner === true &&
-      t.status === 'Cerrado' // Solo reparaciones finalizadas
+      t.status === 'Cerrado'
     );
 
-    const maintenanceDeductions = approvedRepairs.reduce((acc, t) => acc + t.actualCost, 0);
+    const maintenanceDeductions = approvedRepairs.reduce((acc, t) => acc + (t.actualCost || 0), 0);
 
-    const adminFee = rentIncome * 0.1; // 10% honorarios admin
+    const adminFee = rentIncome * 0.1;
     const net = rentIncome - adminFee - serviceDeductions - maintenanceDeductions;
 
     const docId = Math.random().toString(36).substr(2, 9);
@@ -121,7 +116,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       propertyName: property.name,
       ownerId: owner.id,
       ownerName: owner.fullName,
-      ownerEmail: property.owners[0]?.email,
+      ownerEmail: property.owners?.[0]?.email,
       period: period,
       ingresoAlquiler: rentIncome,
       adminFeeDeduction: adminFee,
