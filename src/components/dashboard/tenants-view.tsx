@@ -101,6 +101,24 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [newRentValueInput, setNewRentValueInput] = useState<string>('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  const handleOpenPersonDialog = (person?: Person) => {
+    if (person) {
+      setEditingPerson(person);
+      setPersonFormData(person);
+    } else {
+      setEditingPerson(null);
+      setPersonFormData({
+        fullName: '',
+        taxId: '',
+        email: '',
+        phone: '',
+        type: 'Inquilino',
+        documents: []
+      });
+    }
+    setIsPersonDialogOpen(true);
+  };
+
   const [contractFormData, setContractFormData] = useState<Partial<Contract>>({
     tenantId: '',
     propertyId: '',
@@ -126,24 +144,6 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     type: 'Inquilino',
     documents: []
   });
-
-  const handleOpenPersonDialog = (person?: Person) => {
-    if (person) {
-      setEditingPerson(person);
-      setPersonFormData(person);
-    } else {
-      setEditingPerson(null);
-      setPersonFormData({
-        fullName: '',
-        taxId: '',
-        email: '',
-        phone: '',
-        type: 'Inquilino',
-        documents: []
-      });
-    }
-    setIsPersonDialogOpen(true);
-  };
 
   const handleSavePerson = () => {
     if (!personFormData.fullName || !userId || !db) {
@@ -207,7 +207,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       setNewRentValueInput(calculated.toString());
       toast({ title: "Cálculo Realizado", description: `Coeficiente aplicado: ${coef.toFixed(4)}.` });
     } else {
-      toast({ title: "Datos Faltantes", description: "No hay registros suficientes en el historial para calcular.", variant: "destructive" });
+      toast({ title: "Datos Faltantes", description: "No hay registros suficientes en el historial para calcular el ajuste exacto.", variant: "destructive" });
     }
     setIsCalculatingIndex(false);
   };
@@ -223,11 +223,12 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         newRentAmount: `${selectedAdjContract.currency} ${parseFloat(newRentValueInput).toLocaleString('es-AR')}`,
         adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'Fijo',
         currentLeaseStartDate: selectedAdjContract.startDate,
-        currentLeaseEndDate: selectedAdjContract.endDate
+        currentLeaseEndDate: selectedAdjContract.endDate,
+        additionalContext: "Informar al inquilino que debido a la actualización por índice prevista en el contrato, el valor del alquiler mensual subirá a partir del próximo mes."
       });
       setAdjDraft(draft);
     } catch (e) {
-      toast({ title: "Error IA", description: "No se pudo redactar el borrador.", variant: "destructive" });
+      toast({ title: "Error IA", description: "No se pudo redactar el borrador de aumento.", variant: "destructive" });
     }
   };
 
@@ -250,7 +251,10 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const handleSendAdjEmail = async () => {
     if (!selectedAdjContract || !adjDraft) return;
     const tenant = people.find(p => p.id === selectedAdjContract.tenantId);
-    if (!tenant?.email) return;
+    if (!tenant?.email) {
+      toast({ title: "Email Faltante", description: "El inquilino no tiene correo registrado.", variant: "destructive" });
+      return;
+    }
     setIsSendingEmail(true);
     try {
       await sendEmail({
@@ -258,7 +262,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         subject: adjDraft.subjectLine,
         html: `<div style="text-align: justify;">${adjDraft.draftedMessage.replace(/\n/g, '<br/>')}</div>`
       });
-      toast({ title: "Notificación Enviada", description: "El inquilino ha sido avisado del nuevo monto." });
+      toast({ title: "Aviso de Aumento Enviado", description: "El inquilino ha sido notificado formalmente del nuevo valor." });
       setIsAdjNotifOpen(false);
     } catch (e) {
       toast({ title: "Error", description: "Fallo el envío de email.", variant: "destructive" });
@@ -328,7 +332,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         </div>
       </div>
 
-      {/* DIÁLOGOS DE CONTRATO Y PERSONA */}
+      {/* DIÁLOGO DE CONTRATO */}
       <Dialog open={isContractDialogOpen} onOpenChange={setIsContractDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Ficha Técnica del Contrato</DialogTitle></DialogHeader>
@@ -493,40 +497,49 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO NOTIFICACIÓN AJUSTE (Monto Alquiler) */}
+      {/* DIÁLOGO NOTIFICACIÓN AUMENTO (Aviso de suba de alquiler) */}
       <Dialog open={isAdjNotifOpen} onOpenChange={setIsAdjNotifOpen}>
         <DialogContent className={cn("transition-all duration-500", adjDraft ? "max-w-3xl" : "max-w-md")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" /> Notificar Cambio de Valor
+              <TrendingUp className="h-5 w-5 text-orange-600" /> Aviso de Aumento de Alquiler
             </DialogTitle>
-            <DialogDescription>Aviso formal de actualización de alquiler por índices.</DialogDescription>
+            <DialogDescription>Notificar formalmente al inquilino sobre la suba del valor mensual.</DialogDescription>
           </DialogHeader>
           {selectedAdjContract && !adjDraft && (
             <div className="space-y-6 py-4">
               <div className="p-4 bg-muted/30 rounded-xl space-y-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase">Monto Actual</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase">Monto Mensual Actual</p>
                 <p className="text-2xl font-black text-primary">{selectedAdjContract.currency} {selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}</p>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-end mb-1">
-                  <Label className="text-[10px] font-black uppercase text-primary">Nuevo Valor a Notificar</Label>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-black flex gap-1" onClick={handleAutoCalculate} disabled={isCalculatingIndex}>
-                    {isCalculatingIndex ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Calcular con ICL/IPC
+                  <Label className="text-[10px] font-black uppercase text-orange-600">Nuevo Valor a Notificar</Label>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-black flex gap-1 text-primary" onClick={handleAutoCalculate} disabled={isCalculatingIndex}>
+                    {isCalculatingIndex ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Autocalcular con {selectedAdjContract.adjustmentMechanism}
                   </Button>
                 </div>
-                <Input type="number" className="h-12 text-lg font-black" value={newRentValueInput} onChange={e => setNewRentValueInput(e.target.value)} />
+                <Input type="number" className="h-12 text-lg font-black border-orange-200 focus:border-orange-500" value={newRentValueInput} onChange={e => setNewRentValueInput(e.target.value)} placeholder="0.00" />
               </div>
-              <Button className="w-full h-11 font-black" onClick={handleGenerateAdjDraft} disabled={!newRentValueInput}>Generar Previsualización de Ajuste</Button>
+              <Button className="w-full h-11 font-black bg-orange-600 hover:bg-orange-700 text-white" onClick={handleGenerateAdjDraft} disabled={!newRentValueInput}>
+                Generar Notificación de Aumento
+              </Button>
             </div>
           )}
           {adjDraft && (
             <div className="space-y-4 py-4">
-              <div className="p-3 bg-muted/30 rounded-lg border"><Label className="text-[10px] font-black block mb-1 uppercase">Asunto Generado</Label><p className="font-bold text-sm">{adjDraft.subjectLine}</p></div>
-              <ScrollArea className="h-[300px] border rounded-lg p-6 bg-white shadow-inner text-sm leading-relaxed text-justify whitespace-pre-wrap">{adjDraft.draftedMessage}</ScrollArea>
+              <div className="p-3 bg-orange-50 border border-orange-100 rounded-lg">
+                <Label className="text-[10px] font-black block mb-1 uppercase text-orange-700">Asunto de Notificación</Label>
+                <p className="font-bold text-sm text-orange-900">{adjDraft.subjectLine}</p>
+              </div>
+              <ScrollArea className="h-[300px] border rounded-lg p-6 bg-white shadow-inner text-sm leading-relaxed text-justify whitespace-pre-wrap">
+                {adjDraft.draftedMessage}
+              </ScrollArea>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setAdjDraft(null)}>Atrás</Button>
-                <Button className="bg-primary font-black gap-2 h-11 px-8" onClick={handleSendAdjEmail} disabled={isSendingEmail}>{isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar Aviso de Ajuste</Button>
+                <Button className="bg-orange-600 hover:bg-orange-700 text-white font-black gap-2 h-11 px-8" onClick={handleSendAdjEmail} disabled={isSendingEmail}>
+                  {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar Aviso de Aumento Real
+                </Button>
               </div>
             </div>
           )}
@@ -538,16 +551,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         <DialogContent className={cn("transition-all duration-500", renewalDraft ? "max-w-3xl" : "max-w-md")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-accent" /> Aviso de Vencimiento
+              <CalendarClock className="h-5 w-5 text-accent" /> Aviso de Vencimiento de Contrato
             </DialogTitle>
-            <DialogDescription>Recordatorio de fin de contrato y términos de renovación.</DialogDescription>
+            <DialogDescription>Informar sobre el fin del contrato y próximos pasos.</DialogDescription>
           </DialogHeader>
           {selectedRenewalContract && !renewalDraft && (
             <div className="space-y-6 py-4">
               <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl space-y-2">
                 <p className="text-xs font-bold text-accent uppercase">Fecha de Finalización</p>
                 <p className="text-2xl font-black text-accent">{selectedRenewalContract.endDate}</p>
-                <p className="text-[10px] text-muted-foreground italic">El sistema redactará una comunicación profesional sobre los pasos a seguir.</p>
+                <p className="text-[10px] text-muted-foreground italic">Se redactará un mensaje profesional para coordinar renovación o entrega de llaves.</p>
               </div>
               <Button className="w-full h-11 font-black bg-accent hover:bg-accent/90 text-white" onClick={handleGenerateRenewalDraft}>
                 Generar Borrador de Vencimiento
@@ -557,7 +570,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           {renewalDraft && (
             <div className="space-y-4 py-4">
               <div className="p-3 bg-muted/30 rounded-lg border">
-                <Label className="text-[10px] font-black block mb-1 uppercase">Asunto Renovación</Label>
+                <Label className="text-[10px] font-black block mb-1 uppercase">Asunto de Vencimiento</Label>
                 <p className="font-bold text-sm">{renewalDraft.subjectLine}</p>
               </div>
               <ScrollArea className="h-[300px] border rounded-lg p-6 bg-white shadow-inner text-sm leading-relaxed text-justify whitespace-pre-wrap italic">
@@ -566,7 +579,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setRenewalDraft(null)}>Atrás</Button>
                 <Button className="bg-accent font-black gap-2 h-11 px-8 text-white" onClick={handleSendRenewalEmail} disabled={isSendingEmail}>
-                  {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar Aviso de Renovación
+                  {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar Aviso de Vencimiento
                 </Button>
               </div>
             </div>
@@ -606,7 +619,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                         variant="ghost" 
                         size="icon" 
                         className="text-primary hover:bg-primary/10" 
-                        title="Consultar al Contrato (IA)"
+                        title="Asistente Legal (Preguntar al Contrato)"
                         onClick={() => { setSelectedQAContract(c); setQAAnswer(null); setQAQuestion(''); setIsQAOpen(true); }}
                       >
                         <MessageSquare className="h-4 w-4" />
@@ -616,7 +629,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                         variant="ghost" 
                         size="icon" 
                         className="text-orange-600 hover:bg-orange-50" 
-                        title="Notificar Próximo Ajuste de Valor"
+                        title="Notificar Aumento de Alquiler (Próxima Suba)"
                         onClick={() => { setSelectedAdjContract(c); setAdjDraft(null); setNewRentValueInput(''); setIsAdjNotifOpen(true); }}
                       >
                         <TrendingUp className="h-4 w-4" />
