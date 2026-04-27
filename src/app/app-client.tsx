@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  Building, 
-  Users, 
-  FileSpreadsheet, 
-  Wrench, 
-  Scale, 
-  Calculator, 
+import {
+  LayoutDashboard,
+  Building,
+  Users,
+  FileSpreadsheet,
+  Wrench,
+  Scale,
+  Calculator,
   MessageSquareCode,
   LogOut,
   ChevronLeft,
@@ -18,7 +18,15 @@ import {
   ArrowLeftRight,
   BarChart3,
   UserPlus,
-  LineChart
+  LineChart,
+  BrainCircuit,
+  Search,
+  Bell,
+  Bot,
+  TrendingUp,
+  BookOpen,
+  FilePen,
+  ShieldPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -29,6 +37,11 @@ import { MaintenanceView } from '@/components/dashboard/maintenance-view';
 import { LegalView } from '@/components/dashboard/legal-view';
 import { LiquidationsView } from '@/components/dashboard/liquidations-view';
 import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
+import { AIAnalyticsView } from '@/components/dashboard/ai-analytics-view';
+import { PredictiveMaintenanceView } from '@/components/dashboard/predictive-maintenance-view';
+import { ROISimulatorView } from '@/components/dashboard/roi-simulator-view';
+import { FinancialLedgerView } from '@/components/dashboard/financial-ledger-view';
+import { ContractGeneratorView } from '@/components/dashboard/contract-generator-view';
 import { ApplicationsView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
 import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
@@ -54,18 +67,24 @@ import { collection, query } from 'firebase/firestore';
 import { Contract } from '@/lib/types';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Mi Portal' | 'Índices';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices';
 
 const ADMIN_MENU = [
-  { id: 'Resumen', icon: LayoutDashboard, label: 'Resumen' },
+  { id: 'Resumen', icon: LayoutDashboard, label: 'Panel de Control' },
   { id: 'Propiedades', icon: Building, label: 'Propiedades' },
   { id: 'Personas', icon: Users, label: 'Personas y Contratos' },
+  { id: 'Generador Contratos', icon: FilePen, label: 'Generador de Contratos' },
   { id: 'Solicitudes', icon: UserPlus, label: 'Gestión de Solicitudes' },
   { id: 'Facturas', icon: FileSpreadsheet, label: 'Facturas y Servicios' },
-  { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento / Reclamos' },
+  { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento' },
+  { id: 'Mantenimiento Predictivo', icon: ShieldPlus, label: 'Mantenimiento Predictivo' },
+  { id: 'Legales', icon: Scale, label: 'Casos Legales' },
   { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
   { id: 'Índices', icon: LineChart, label: 'Índices Oficiales' },
+  { id: 'Libro Mayor', icon: BookOpen, label: 'Libro Mayor' },
+  { id: 'Simulador ROI', icon: TrendingUp, label: 'Simulador de Rentabilidad' },
   { id: 'Reportes', icon: BarChart3, label: 'Reportes y Analítica' },
+  { id: 'Análisis IA', icon: BrainCircuit, label: 'Análisis IA' },
   { id: 'Asistente IA', icon: MessageSquareCode, label: 'Asistente IA' },
 ];
 
@@ -129,6 +148,11 @@ export default function AppClient() {
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'indices'));
   }, [db, user]);
 
+  const legalesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'legales'));
+  }, [db, user]);
+
   const { data: propertiesData } = useCollection(propiedadesQuery);
   const { data: peopleData } = useCollection(inquilinosQuery);
   const { data: contractsData } = useCollection<Contract>(contratosQuery);
@@ -137,6 +161,7 @@ export default function AppClient() {
   const { data: liquidationsData } = useCollection(liquidacionesQuery);
   const { data: applicationsData } = useCollection(solicitudesQuery);
   const { data: indicesData } = useCollection(indicesQuery);
+  const { data: legalesData } = useCollection(legalesQuery);
 
   const properties = propertiesData || [];
   const people = peopleData || [];
@@ -146,6 +171,7 @@ export default function AppClient() {
   const liquidations = liquidationsData || [];
   const applications = applicationsData || [];
   const indexRecords = indicesData || [];
+  const legalCases = legalesData || [];
 
   if (!isMounted) return null;
 
@@ -164,9 +190,15 @@ export default function AppClient() {
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;
       case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
+      case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
+      case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
+      case 'Simulador ROI': return <ROISimulatorView />;
+      case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} />;
+      case 'Legales': return <LegalView legalCases={legalCases as any} userId={user?.uid} properties={properties} />;
       case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} />;
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
       case 'Reportes': return <ReportsView />;
+      case 'Análisis IA': return <AIAnalyticsView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
       case 'Asistente IA': return <AIAssistantView />;
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
     }
@@ -224,14 +256,28 @@ export default function AppClient() {
         </button>
       </aside>
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
-        <header className="h-20 border-b flex items-center justify-between px-8 bg-white/50 backdrop-blur-md sticky top-0 z-10">
-          <h1 className="text-2xl font-bold text-foreground">{activeRole === 'Administrador' ? activeTab : `Portal de ${activeRole}`}</h1>
-          <div className="flex items-center gap-4">
+        <header className="h-16 border-b flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 gap-4">
+          <div className="relative hidden md:flex items-center w-72">
+            <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar propiedades, inquilinos..."
+              className="w-full pl-9 pr-4 h-9 rounded-lg bg-muted/50 border border-transparent focus:border-primary/30 focus:bg-white text-sm outline-none transition-all"
+            />
+          </div>
+          <h1 className="text-xl font-bold text-foreground md:hidden">{activeRole === 'Administrador' ? activeTab : `Portal de ${activeRole}`}</h1>
+          <div className="flex items-center gap-3 ml-auto">
+            <button className="relative h-9 w-9 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              {(tasks.filter(t => t.priority === 'Urgente' && t.status !== 'Cerrado').length > 0) && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </button>
             <div className="flex flex-col items-end hidden sm:flex">
-              <span className="text-sm font-bold text-foreground">{user?.email}</span>
-              <span className="text-xs text-muted-foreground">Rol: {activeRole}</span>
+              <span className="text-xs font-bold text-foreground">{user?.email}</span>
+              <span className="text-[10px] text-muted-foreground">Rol: {activeRole}</span>
             </div>
-            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase">{activeRole[0]}{activeRole[1]}</div>
+            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase">{activeRole[0]}{activeRole[1]}</div>
           </div>
         </header>
         <div className="p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">{renderContent()}</div>
