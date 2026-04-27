@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner } from '@/lib/types';
@@ -39,6 +39,8 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'available' | 'maintenance'>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -60,10 +62,22 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     owners: [{ name: '', email: '', percentage: 100 }]
   });
 
-  const filteredProperties = properties.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const tabFilteredProperties = useMemo(() => {
+    let base = properties;
+    if (activeTab === 'available') base = properties.filter(p => p.status === 'Disponible' || p.status === 'Reservada');
+    if (activeTab === 'maintenance') base = properties.filter(p => p.status === 'En Mantenimiento');
+    return base.filter(p =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.address.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [properties, activeTab, searchTerm]);
+
+  const filteredProperties = tabFilteredProperties;
+
+  const totalProperties = properties.length;
+  const occupiedCount = properties.filter(p => p.status === 'Alquilada').length;
+  const occupancyRate = totalProperties > 0 ? Math.round((occupiedCount / totalProperties) * 100) : 0;
+  const maintenanceCount = properties.filter(p => p.status === 'En Mantenimiento').length;
 
   const getStatusBadge = (status: PropertyStatus) => {
     const styles = {
@@ -182,21 +196,94 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Building2 className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Total de Propiedades</p>
+              <p className="text-2xl font-black">{totalProperties}</p>
+              {totalProperties > 0 && <p className="text-[10px] text-green-600 font-bold flex items-center gap-0.5"><TrendingUp className="h-3 w-3" /> +2 este mes</p>}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Tasa de Ocupación</p>
+              <p className="text-2xl font-black">{occupancyRate}%</p>
+              <p className="text-[10px] text-muted-foreground">{occupancyRate >= 90 ? '95% Objetivo cumplido' : `${occupiedCount} de ${totalProperties} ocupadas`}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={cn("border-none shadow-sm bg-white", maintenanceCount > 0 && "border-l-4 border-l-orange-400")}>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+              <Wrench className="h-5 w-5 text-orange-500" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Mantenimiento Activo</p>
+              <p className="text-2xl font-black">{maintenanceCount}</p>
+              {maintenanceCount > 0 && <p className="text-[10px] text-orange-500 font-bold">Requiere acción</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar propiedad..." 
-            className="pl-9 bg-white" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex items-center gap-2 flex-wrap">
+          {(['all', 'available', 'maintenance'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-sm font-bold transition-colors",
+                activeTab === tab
+                  ? "bg-primary text-white"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              {tab === 'all' ? 'Todas las Propiedades' : tab === 'available' ? 'Disponibles' : 'Mantenimiento'}
+            </button>
+          ))}
         </div>
 
-        <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenDialog()}>
-          <Plus className="h-4 w-4" />
-          Nueva Propiedad
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar propiedad..."
+              className="pl-9 bg-white w-56"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex border rounded-lg overflow-hidden bg-white">
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn("p-2 transition-colors", viewMode === 'list' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted")}
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={cn("p-2 transition-colors", viewMode === 'grid' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+          <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenDialog()}>
+            <Plus className="h-4 w-4" />
+            Agregar Propiedad
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

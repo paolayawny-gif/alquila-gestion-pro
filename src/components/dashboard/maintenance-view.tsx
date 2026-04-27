@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Plus, 
-  Wrench, 
-  Search, 
+import {
+  Plus,
+  Wrench,
+  Search,
   CheckCircle2,
   HardHat,
   Trash2,
@@ -21,7 +21,11 @@ import {
   Calendar,
   AlertTriangle,
   Scale,
-  ThumbsUp
+  ThumbsUp,
+  ClipboardList,
+  Zap,
+  Clock,
+  CheckSquare
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -61,7 +65,9 @@ const APP_ID = "alquilagestion-pro";
 export function MaintenanceView({ tasks, userId, properties, people }: MaintenanceViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
-  
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'inprogress' | 'resolved'>('all');
   const [isNewClaimOpen, setIsNewClaimOpen] = useState(false);
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null);
@@ -198,14 +204,85 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     deleteDocumentNonBlocking(docRef);
   };
 
+  const openTasks = tasks.filter(t => t.status !== 'Completado' && t.status !== 'Cerrado');
+  const urgentHighTasks = tasks.filter(t => (t.priority === 'Urgente' || t.priority === 'Alta') && t.status !== 'Cerrado');
+  const inProgressTasks = tasks.filter(t => t.status === 'En curso' || t.status === 'Presupuestado');
+  const resolvedLast7 = tasks.filter(t => t.status === 'Completado' || t.status === 'Cerrado');
+
+  const filteredTasks = useMemo(() => {
+    let base = tasks;
+    if (filterStatus === 'open') base = tasks.filter(t => t.status === 'Pendiente');
+    if (filterStatus === 'inprogress') base = tasks.filter(t => t.status === 'En curso' || t.status === 'Presupuestado');
+    if (filterStatus === 'resolved') base = tasks.filter(t => t.status === 'Completado' || t.status === 'Cerrado');
+    if (searchTerm) base = base.filter(t => t.concept.toLowerCase().includes(searchTerm.toLowerCase()) || t.propertyName.toLowerCase().includes(searchTerm.toLowerCase()));
+    return base.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [tasks, filterStatus, searchTerm]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all", filterStatus === 'all' && "ring-2 ring-primary")}
+          onClick={() => setFilterStatus('all')}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <ClipboardList className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground">Total Abiertos</p>
+              <p className="text-2xl font-black">{openTasks.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all border-l-4 border-l-red-400", filterStatus === 'open' && "ring-2 ring-red-400")}
+          onClick={() => setFilterStatus('open')}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <Zap className="h-5 w-5 text-red-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-red-600 font-bold">Urgente / Alto</p>
+              <p className="text-2xl font-black text-red-600">{urgentHighTasks.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all border-l-4 border-l-blue-400", filterStatus === 'inprogress' && "ring-2 ring-blue-400")}
+          onClick={() => setFilterStatus('inprogress')}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <Clock className="h-5 w-5 text-blue-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-blue-600 font-bold">En Progreso</p>
+              <p className="text-2xl font-black text-blue-600">{inProgressTasks.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all border-l-4 border-l-green-400", filterStatus === 'resolved' && "ring-2 ring-green-400")}
+          onClick={() => setFilterStatus('resolved')}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <CheckSquare className="h-5 w-5 text-green-600 shrink-0" />
+            <div>
+              <p className="text-[10px] text-green-600 font-bold">Resueltos (7d)</p>
+              <p className="text-2xl font-black text-green-600">{resolvedLast7.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex justify-between items-center gap-4">
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por concepto o unidad..." className="pl-9 bg-white" />
+          <Input
+            placeholder="Buscar por concepto o unidad..."
+            className="pl-9 bg-white"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
         </div>
-        
+
         <Dialog open={isNewClaimOpen} onOpenChange={setIsNewClaimOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary text-white gap-2 font-bold shadow-md">
@@ -266,7 +343,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tasks.sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map((t) => (
+            {filteredTasks.map((t) => (
               <TableRow key={t.id} className="group">
                 <TableCell>
                   <div className="flex flex-col">
@@ -312,8 +389,8 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                 </TableCell>
               </TableRow>
             ))}
-            {tasks.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay reclamos de mantenimiento registrados.</TableCell></TableRow>
+            {filteredTasks.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay reclamos en esta categoría.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

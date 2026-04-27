@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -105,19 +105,54 @@ export function ReportsView() {
     }
   };
 
-  const INGRESO_DATA = [
-    { name: 'Ene', ingreso: 1250000, cobrado: 1100000 },
-    { name: 'Feb', ingreso: 1350000, cobrado: 1280000 },
-    { name: 'Mar', ingreso: 1680000, cobrado: 1550000 },
-    { name: 'Abr', ingreso: 1845000, cobrado: 1720000 },
-  ];
+  const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-  const DELINQUENCY_DATA = [
-    { name: 'Al día', value: 85 },
-    { name: '1-10 días', value: 8 },
-    { name: '11-30 días', value: 4 },
-    { name: '30+ días', value: 3 },
-  ];
+  const INGRESO_DATA = useMemo(() => {
+    if (!facturas || facturas.length === 0) {
+      return MONTHS_SHORT.slice(0, 6).map((name, i) => ({
+        name,
+        ingreso: 800000 + i * 80000,
+        cobrado: 720000 + i * 70000,
+      }));
+    }
+    const byMonth: Record<number, { ingreso: number; cobrado: number }> = {};
+    facturas.forEach(inv => {
+      const dateStr = inv.period || inv.dueDate || '';
+      const parts = dateStr.split('/');
+      const month = parts.length >= 2 ? parseInt(parts[1], 10) - 1 : new Date().getMonth();
+      if (!byMonth[month]) byMonth[month] = { ingreso: 0, cobrado: 0 };
+      byMonth[month].ingreso += inv.totalAmount;
+      if (inv.status === 'Pagado') byMonth[month].cobrado += inv.totalAmount;
+    });
+    const now = new Date().getMonth();
+    const last6 = Array.from({ length: 6 }, (_, i) => (now - 5 + i + 12) % 12);
+    return last6.map(m => ({
+      name: MONTHS_SHORT[m],
+      ingreso: byMonth[m]?.ingreso || 0,
+      cobrado: byMonth[m]?.cobrado || 0,
+    }));
+  }, [facturas]);
+
+  const DELINQUENCY_DATA = useMemo(() => {
+    if (!facturas || facturas.length === 0) {
+      return [
+        { name: 'Al día', value: 85 },
+        { name: '1-10 días', value: 8 },
+        { name: '11-30 días', value: 4 },
+        { name: '30+ días', value: 3 },
+      ];
+    }
+    const total = facturas.length;
+    const paid = facturas.filter(i => i.status === 'Pagado').length;
+    const pending = facturas.filter(i => i.status === 'Pendiente').length;
+    const overdue = facturas.filter(i => i.status === 'Vencido').length;
+    const rest = total - paid - pending - overdue;
+    return [
+      { name: 'Al día', value: total > 0 ? Math.round(((paid + rest) / total) * 100) : 85 },
+      { name: 'Pendiente', value: total > 0 ? Math.round((pending / total) * 100) : 8 },
+      { name: 'Vencido', value: total > 0 ? Math.round((overdue / total) * 100) : 7 },
+    ].filter(d => d.value > 0);
+  }, [facturas]);
 
   const occupancyRate = properties ? (properties.filter(p => p.status === 'Alquilada').length / (properties.length || 1)) * 100 : 0;
 
@@ -145,13 +180,13 @@ export function ReportsView() {
               <div>
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Morosidad Global</p>
                 <h3 className="text-2xl font-black text-red-600">
-                  {((DELINQUENCY_DATA[1].value + DELINQUENCY_DATA[2].value + DELINQUENCY_DATA[3].value)).toFixed(1)}%
+                  {DELINQUENCY_DATA.filter(d => d.name !== 'Al día').reduce((a, d) => a + d.value, 0)}%
                 </h3>
               </div>
               <div className="p-2 bg-red-50 rounded-full"><TrendingDown className="h-4 w-4 text-red-600" /></div>
             </div>
             <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Promedio 12 días de atraso
+              <Clock className="h-3 w-3" /> {facturas?.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').length || 0} facturas en mora
             </p>
           </CardContent>
         </Card>
@@ -160,13 +195,15 @@ export function ReportsView() {
           <CardContent className="p-4">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Ingreso Neto (Mes)</p>
-                <h3 className="text-2xl font-black text-primary">$ 1.84M</h3>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Recaudado (Mes)</p>
+                <h3 className="text-2xl font-black text-primary">
+                  $ {(facturas?.filter(i => i.status === 'Pagado').reduce((a, i) => a + i.totalAmount, 0) || 0).toLocaleString('es-AR')}
+                </h3>
               </div>
-              <Badge className="bg-primary/10 text-primary">+12% vs Mar</Badge>
+              <Badge className="bg-primary/10 text-primary">Cobrado</Badge>
             </div>
             <div className="mt-2 flex items-center gap-1 text-[10px] text-green-600 font-bold">
-              <TrendingUp className="h-3 w-3" /> Máximo histórico
+              <TrendingUp className="h-3 w-3" /> Facturas cobradas: {facturas?.filter(i => i.status === 'Pagado').length || 0}
             </div>
           </CardContent>
         </Card>
@@ -175,13 +212,15 @@ export function ReportsView() {
           <CardContent className="p-4">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Rescisiones</p>
-                <h3 className="text-2xl font-black text-orange-600">1.8%</h3>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Total Facturado</p>
+                <h3 className="text-2xl font-black text-orange-600">
+                  $ {(facturas?.reduce((a, i) => a + i.totalAmount, 0) || 0).toLocaleString('es-AR')}
+                </h3>
               </div>
-              <Badge variant="outline" className="text-orange-600 border-orange-100 uppercase text-[9px]">Bajo Riesgo</Badge>
+              <Badge variant="outline" className="text-orange-600 border-orange-100 uppercase text-[9px]">Acumulado</Badge>
             </div>
             <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Users className="h-3 w-3" /> 2 finalizaciones este mes
+              <Users className="h-3 w-3" /> {facturas?.length || 0} facturas totales
             </div>
           </CardContent>
         </Card>

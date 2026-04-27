@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle2, 
+import {
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
   DollarSign,
   ArrowRight,
   BellRing,
@@ -18,7 +18,8 @@ import {
   Calendar,
   AreaChart as AreaChartIcon,
   BarChart3,
-  ShieldAlert
+  ShieldAlert,
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -115,6 +116,58 @@ export function SummaryView({
 
     setAlerts(newAlerts);
   }, [invoices, contracts, tasks]);
+
+  const recentActivity = useMemo(() => {
+    const events: { id: string; icon: React.ReactNode; title: string; subtitle: string; time: string; color: string }[] = [];
+    invoices.slice(0, 3).forEach(inv => {
+      if (inv.status === 'Pagado') {
+        events.push({
+          id: `inv-${inv.id}`,
+          icon: <CheckCircle2 className="h-4 w-4" />,
+          title: `Pago recibido: $${inv.totalAmount.toLocaleString('es-AR')}`,
+          subtitle: inv.propertyName || 'Propiedad',
+          time: inv.period || 'Reciente',
+          color: 'text-green-600 bg-green-50'
+        });
+      } else if (inv.status === 'Vencido' || inv.status === 'Pendiente') {
+        events.push({
+          id: `inv-late-${inv.id}`,
+          icon: <AlertCircle className="h-4 w-4" />,
+          title: `Pago atrasado detectado`,
+          subtitle: inv.propertyName || 'Propiedad',
+          time: inv.dueDate || 'Vencido',
+          color: 'text-red-600 bg-red-50'
+        });
+      }
+    });
+    tasks.slice(0, 2).forEach(t => {
+      if (t.priority === 'Urgente' || t.priority === 'Alta') {
+        events.push({
+          id: `task-${t.id}`,
+          icon: <Wrench className="h-4 w-4" />,
+          title: `Nuevo reclamo: ${t.concept}`,
+          subtitle: t.propertyName,
+          time: t.createdAt,
+          color: 'text-orange-600 bg-orange-50'
+        });
+      }
+    });
+    contracts.slice(0, 1).forEach(c => {
+      const endDate = new Date(c.endDate);
+      const diff = (endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      if (diff > 0 && diff < 90) {
+        events.push({
+          id: `contract-${c.id}`,
+          icon: <FileText className="h-4 w-4" />,
+          title: `Contrato próximo a vencer`,
+          subtitle: c.propertyName || 'Contrato',
+          time: c.endDate,
+          color: 'text-blue-600 bg-blue-50'
+        });
+      }
+    });
+    return events.slice(0, 5);
+  }, [invoices, tasks, contracts]);
 
   const totalProjected = invoices.reduce((acc, i) => acc + i.totalAmount, 0);
   const totalCollected = invoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
@@ -237,49 +290,82 @@ export function SummaryView({
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4 shadow-sm border-none bg-white">
-          <CardHeader className="border-b pb-4 mb-4">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BellRing className="h-5 w-5 text-primary" /> 
-              Atención Inmediata
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {alerts.slice(0, 4).map(alert => (
-              <div 
-                key={alert.id} 
-                className={cn(
-                  "p-3 rounded-xl border transition-all hover:bg-muted/50 flex flex-col gap-2", 
-                  alert.severity === 'high' ? "border-red-100 bg-red-50/20" : "border-transparent bg-muted/20"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-2 rounded-full", 
-                    alert.severity === 'high' ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
-                  )}>
-                    {alert.type === 'maintenance' ? <Wrench className="h-4 w-4" /> : 
-                     alert.type === 'contract' ? <Calendar className="h-4 w-4" /> : 
-                     <AlertTriangle className="h-4 w-4" />}
+        <div className="lg:col-span-4 space-y-4">
+          <Card className="shadow-sm border-none bg-white">
+            <CardHeader className="border-b pb-3 mb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BellRing className="h-5 w-5 text-primary" />
+                Atención Inmediata
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {alerts.slice(0, 3).map(alert => (
+                <div
+                  key={alert.id}
+                  className={cn(
+                    "p-3 rounded-xl border transition-all hover:bg-muted/50 flex flex-col gap-1.5",
+                    alert.severity === 'high' ? "border-red-100 bg-red-50/20" : "border-transparent bg-muted/20"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "p-1.5 rounded-full",
+                      alert.severity === 'high' ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
+                    )}>
+                      {alert.type === 'maintenance' ? <Wrench className="h-3.5 w-3.5" /> :
+                       alert.type === 'contract' ? <Calendar className="h-3.5 w-3.5" /> :
+                       <AlertTriangle className="h-3.5 w-3.5" />}
+                    </div>
+                    <div>
+                      <p className="font-bold text-[11px] text-foreground leading-tight">{alert.title}</p>
+                      <p className="text-[10px] text-muted-foreground line-clamp-1">{alert.description}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-[11px] text-foreground leading-tight">{alert.title}</p>
-                    <p className="text-[10px] text-muted-foreground line-clamp-1">{alert.description}</p>
-                  </div>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-bold text-primary self-end" onClick={() => alert.linkTab && onNavigate(alert.linkTab)}>
+                    Gestionar →
+                  </Button>
                 </div>
-                <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-bold text-primary self-end" onClick={() => alert.linkTab && onNavigate(alert.linkTab)}>
-                  Gestionar →
+              ))}
+              {alerts.length === 0 && (
+                <div className="py-6 text-center text-muted-foreground opacity-50 space-y-1">
+                  <CheckCircle2 className="h-7 w-7 mx-auto text-green-600" />
+                  <p className="text-xs font-bold">Operación al día</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-none bg-white">
+            <CardHeader className="border-b pb-3 mb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Actividad Reciente
+                </CardTitle>
+                <Button variant="ghost" size="sm" className="text-xs text-primary font-bold h-auto p-0">
+                  Ver todo
                 </Button>
               </div>
-            ))}
-            {alerts.length === 0 && (
-              <div className="p-8 text-center text-muted-foreground opacity-50 space-y-2">
-                <CheckCircle2 className="h-8 w-8 mx-auto text-green-600" />
-                <p className="text-xs font-bold">Operación al día</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {recentActivity.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4 italic">Sin actividad reciente.</p>
+              )}
+              {recentActivity.map(event => (
+                <div key={event.id} className="flex items-start gap-3">
+                  <div className={cn("p-1.5 rounded-full shrink-0 mt-0.5", event.color)}>
+                    {event.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-foreground leading-tight">{event.title}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{event.subtitle}</p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{event.time}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
