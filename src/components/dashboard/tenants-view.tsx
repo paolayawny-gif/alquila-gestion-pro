@@ -63,6 +63,7 @@ import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-
 import { queryContract } from '@/ai/flows/query-contract-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 interface TenantsViewProps {
   people: Person[];
@@ -78,6 +79,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const { toast } = useToast();
   const db = useFirestore();
   const [activeTab, setActiveTab] = useState<'contracts' | 'people'>('contracts');
+  const contractFileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploadingContract, setIsUploadingContract] = useState(false);
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
   const [isAdjNotifOpen, setIsAdjNotifOpen] = useState(false);
@@ -291,6 +294,27 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     }
   };
 
+  const handleContractFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingContract(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setContractFormData(prev => ({
+        ...prev,
+        documents: {
+          ...((prev.documents as any) || {}),
+          mainContractUrl: event.target?.result as string,
+          mainContractName: file.name,
+        }
+      }));
+      toast({ title: "Archivo cargado", description: `"${file.name}" listo para guardar con el contrato.` });
+      setIsUploadingContract(false);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleSaveContract = () => {
     if (!contractFormData.tenantId || !contractFormData.propertyId || !userId || !db) return;
     const tenant = people.find(p => p.id === contractFormData.tenantId);
@@ -366,7 +390,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             </TabsContent>
             <TabsContent value="economic" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Monto Base Alquiler</Label><Input type="number" value={contractFormData.baseRentAmount} onChange={e => setContractFormData({...contractFormData, baseRentAmount: parseFloat(e.target.value) || 0})} /></div>
+                <div className="space-y-2"><Label>Monto Base Alquiler</Label><CurrencyInput value={contractFormData.baseRentAmount || 0} onChange={v => setContractFormData({...contractFormData, baseRentAmount: v, currentRentAmount: v})} placeholder="Ej: 150.000" /></div>
                 <div className="space-y-2"><Label>Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select></div>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -376,10 +400,38 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               </div>
             </TabsContent>
             <TabsContent value="documents" className="pt-4 space-y-4">
-              <p className="text-[10px] text-muted-foreground italic">Pegue aquí el texto completo del contrato para habilitar el Asistente Legal por IA.</p>
-              <Textarea 
-                placeholder="Transcripción del contrato..." 
-                className="h-[300px] font-mono text-[10px] bg-muted/10" 
+              {/* File upload */}
+              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center space-y-3 hover:border-primary/50 transition-colors">
+                {(contractFormData.documents as any)?.mainContractName ? (
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-bold text-green-700">{(contractFormData.documents as any).mainContractName}</span>
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500"
+                      onClick={() => setContractFormData(prev => ({ ...prev, documents: { ...(prev.documents as any), mainContractUrl: '', mainContractName: '' } }))}>
+                      Quitar
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
+                    <p className="text-sm font-bold text-foreground">Cargar archivo del contrato</p>
+                    <p className="text-xs text-muted-foreground">PDF, JPG, PNG — máx. 5MB</p>
+                  </>
+                )}
+                <Button variant="outline" size="sm" className="gap-2 font-bold"
+                  onClick={() => contractFileInputRef.current?.click()}
+                  disabled={isUploadingContract}>
+                  {isUploadingContract ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  {(contractFormData.documents as any)?.mainContractName ? 'Reemplazar archivo' : 'Seleccionar archivo'}
+                </Button>
+                <input ref={contractFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleContractFileChange} />
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">También podés pegar el texto del contrato para el Asistente Legal por IA.</p>
+              <Textarea
+                placeholder="Transcripción del contrato..."
+                className="h-[200px] font-mono text-[10px] bg-muted/10"
                 value={contractFormData.fullTranscription}
                 onChange={e => setContractFormData({...contractFormData, fullTranscription: e.target.value})}
               />
