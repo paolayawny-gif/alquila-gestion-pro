@@ -16,6 +16,7 @@ import {
   ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell
 } from 'recharts';
 import { cn } from '@/lib/utils';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 const SCENARIOS = [
   { id: 'tradicional', label: 'Alquiler Tradicional', icon: Home },
@@ -91,24 +92,24 @@ export function ROISimulatorView() {
               <Label className="text-[10px] uppercase font-black text-muted-foreground">PRECIO DE COMPRA ($)</Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="number" className="pl-9 font-bold" value={purchasePrice}
-                  onChange={e => setPurchasePrice(Number(e.target.value))} />
+                <CurrencyInput className="pl-9 font-bold" value={purchasePrice}
+                  onChange={setPurchasePrice} />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] uppercase font-black text-muted-foreground">REFORMA ESTIMADA ($)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground text-sm">🔧</span>
-                <Input type="number" className="pl-9 font-bold" value={renovation}
-                  onChange={e => setRenovation(Number(e.target.value))} />
+                <CurrencyInput className="pl-9 font-bold" value={renovation}
+                  onChange={setRenovation} />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] uppercase font-black text-muted-foreground">RENTA MENSUAL PROYECTADA ($)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">💰</span>
-                <Input type="number" className="pl-9 font-bold" value={monthlyRent}
-                  onChange={e => setMonthlyRent(Number(e.target.value))} />
+                <CurrencyInput className="pl-9 font-bold" value={monthlyRent}
+                  onChange={setMonthlyRent} />
               </div>
             </div>
 
@@ -128,11 +129,11 @@ export function ROISimulatorView() {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground">Notaría ($)</Label>
-                  <Input type="number" className="h-8 text-sm" value={notaria} onChange={e => setNotaria(Number(e.target.value))} />
+                  <CurrencyInput className="h-8 text-sm" value={notaria} onChange={setNotaria} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground">Agencia ($)</Label>
-                  <Input type="number" className="h-8 text-sm" value={agency} onChange={e => setAgency(Number(e.target.value))} />
+                  <CurrencyInput className="h-8 text-sm" value={agency} onChange={setAgency} />
                 </div>
               </div>
             )}

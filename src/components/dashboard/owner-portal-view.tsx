@@ -34,6 +34,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
@@ -296,7 +297,7 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
               </div>
               <div className="space-y-2">
                 <Label>Monto Total</Label>
-                <Input type="number" placeholder="Monto ARS" onChange={e => setNewInvoice({ ...newInvoice, amount: parseFloat(e.target.value) || 0 })} />
+                <CurrencyInput value={newInvoice.amount || 0} onChange={v => setNewInvoice({ ...newInvoice, amount: v })} placeholder="0" />
               </div>
             </div>
             <div className="space-y-2">

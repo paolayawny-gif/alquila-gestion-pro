@@ -63,6 +63,7 @@ import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-
 import { queryContract } from '@/ai/flows/query-contract-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 interface TenantsViewProps {
   people: Person[];
@@ -98,7 +99,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
   const [adjDraft, setAdjDraft] = useState<any>(null);
   const [renewalDraft, setRenewalDraft] = useState<any>(null);
-  const [newRentValueInput, setNewRentValueInput] = useState<string>('');
+  const [newRentValueInput, setNewRentValueInput] = useState<number>(0);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const handleOpenPersonDialog = (person?: Person) => {
@@ -220,7 +221,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         tenantName: selectedAdjContract.tenantName,
         propertyName: selectedAdjContract.propertyName,
         currentRentAmount: `${selectedAdjContract.currency} ${selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}`,
-        newRentAmount: `${selectedAdjContract.currency} ${parseFloat(newRentValueInput).toLocaleString('es-AR')}`,
+        newRentAmount: `${selectedAdjContract.currency} ${newRentValueInput.toLocaleString('es-AR')}`,
         adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'Fijo',
         currentLeaseStartDate: selectedAdjContract.startDate,
         currentLeaseEndDate: selectedAdjContract.endDate,
@@ -366,7 +367,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             </TabsContent>
             <TabsContent value="economic" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Monto Base Alquiler</Label><Input type="number" value={contractFormData.baseRentAmount} onChange={e => setContractFormData({...contractFormData, baseRentAmount: parseFloat(e.target.value) || 0})} /></div>
+                <div className="space-y-2"><Label>Monto Base Alquiler</Label><CurrencyInput value={contractFormData.baseRentAmount} onChange={v => setContractFormData({...contractFormData, baseRentAmount: v})} /></div>
                 <div className="space-y-2"><Label>Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select></div>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -519,7 +520,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                     {isCalculatingIndex ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Autocalcular con {selectedAdjContract.adjustmentMechanism}
                   </Button>
                 </div>
-                <Input type="number" className="h-12 text-lg font-black border-orange-200 focus:border-orange-500" value={newRentValueInput} onChange={e => setNewRentValueInput(e.target.value)} placeholder="0.00" />
+                <CurrencyInput className="h-12 text-lg font-black border-orange-200 focus:border-orange-500" value={newRentValueInput} onChange={setNewRentValueInput} placeholder="0" />
               </div>
               <Button className="w-full h-11 font-black bg-orange-600 hover:bg-orange-700 text-white" onClick={handleGenerateAdjDraft} disabled={!newRentValueInput}>
                 Generar Notificación de Aumento
