@@ -101,7 +101,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
   const [adjDraft, setAdjDraft] = useState<any>(null);
   const [renewalDraft, setRenewalDraft] = useState<any>(null);
-  const [newRentValueInput, setNewRentValueInput] = useState<string>('');
+  const [newRentValueInput, setNewRentValueInput] = useState<number>(0);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const handleOpenPersonDialog = (person?: Person) => {
@@ -223,7 +223,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         tenantName: selectedAdjContract.tenantName,
         propertyName: selectedAdjContract.propertyName,
         currentRentAmount: `${selectedAdjContract.currency} ${selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}`,
-        newRentAmount: `${selectedAdjContract.currency} ${parseFloat(newRentValueInput).toLocaleString('es-AR')}`,
+        newRentAmount: `${selectedAdjContract.currency} ${newRentValueInput.toLocaleString('es-AR')}`,
         adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'Fijo',
         currentLeaseStartDate: selectedAdjContract.startDate,
         currentLeaseEndDate: selectedAdjContract.endDate,
@@ -571,7 +571,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                     {isCalculatingIndex ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Autocalcular con {selectedAdjContract.adjustmentMechanism}
                   </Button>
                 </div>
-                <Input type="number" className="h-12 text-lg font-black border-orange-200 focus:border-orange-500" value={newRentValueInput} onChange={e => setNewRentValueInput(e.target.value)} placeholder="0.00" />
+                <CurrencyInput className="h-12 text-lg font-black border-orange-200 focus:border-orange-500" value={newRentValueInput} onChange={setNewRentValueInput} placeholder="0" />
               </div>
               <Button className="w-full h-11 font-black bg-orange-600 hover:bg-orange-700 text-white" onClick={handleGenerateAdjDraft} disabled={!newRentValueInput}>
                 Generar Notificación de Aumento

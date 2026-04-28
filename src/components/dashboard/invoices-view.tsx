@@ -30,6 +30,7 @@ import {
   Gavel
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Invoice, Contract, ChargeType, ChargePayer, ChargeItem, Person } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -75,7 +76,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   
   const [isLateFeeDialogOpen, setIsLateFeeDialogOpen] = useState(false);
   const [selectedInvForFee, setSelectedInvForFee] = useState<Invoice | null>(null);
-  const [manualFeeInput, setManualFeeInput] = useState<string>('');
+  const [manualFeeInput, setManualFeeInput] = useState<number>(0);
 
   const [isReceiptConfirmDialogOpen, setIsReceiptConfirmDialogOpen] = useState(false);
   const [receiptNote, setReceiptNote] = useState('');
@@ -133,7 +134,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
   const handleSaveManualFee = () => {
     if (!selectedInvForFee || !userId || !db) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', selectedInvForFee.id);
-    setDocumentNonBlocking(docRef, { lateFees: parseFloat(manualFeeInput) || 0 }, { merge: true });
+    setDocumentNonBlocking(docRef, { lateFees: manualFeeInput }, { merge: true });
     setIsLateFeeDialogOpen(false);
     toast({ title: "Punitorio Actualizado", description: "Se ha registrado el monto manual de intereses." });
   };
@@ -400,7 +401,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                   </div>
                   <div className="space-y-2">
                     <Label>Monto</Label>
-                    <Input type="number" placeholder="0.00" onChange={(e) => setManualCharge({...manualCharge, amount: parseFloat(e.target.value)})} />
+                    <CurrencyInput value={manualCharge.amount || 0} onChange={(v) => setManualCharge({...manualCharge, amount: v})} placeholder="0" />
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -555,11 +556,10 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Monto de Intereses (ARS)</Label>
-              <Input 
-                type="number" 
-                value={manualFeeInput} 
-                onChange={e => setManualFeeInput(e.target.value)} 
-                placeholder="0.00"
+              <CurrencyInput
+                value={manualFeeInput}
+                onChange={setManualFeeInput}
+                placeholder="0"
                 className="h-12 text-lg font-black text-red-600"
               />
             </div>

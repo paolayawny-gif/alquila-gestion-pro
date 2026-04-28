@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -465,11 +466,10 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black">Costo Final (ARS)</Label>
-                          <Input 
-                            type="number" 
-                            className="bg-white font-bold" 
-                            value={selectedTask.actualCost} 
-                            onChange={e => setSelectedTask({...selectedTask, actualCost: parseFloat(e.target.value) || 0})}
+                          <CurrencyInput
+                            className="bg-white font-bold"
+                            value={selectedTask.actualCost || 0}
+                            onChange={v => setSelectedTask({...selectedTask, actualCost: v})}
                           />
                         </div>
                       </div>
