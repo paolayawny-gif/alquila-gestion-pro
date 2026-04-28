@@ -10,70 +10,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
+    // Regla pública: cualquiera puede ver propiedades (para postulantes)
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
-      allow get: if true; // Permitir lectura pública para que los postulantes vean la unidad
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == propiedadId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get: if true;
+      allow list, create, update, delete: if isOwner(userId);
     }
 
-    match /artifacts/{appId}/users/{userId}/inquilinos/{inquilinoId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == inquilinoId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    match /artifacts/{appId}/users/{userId}/facturas/{facturaId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == facturaId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    match /artifacts/{appId}/users/{userId}/mantenimiento/{mantenimientoId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == mantenimientoId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
+    // Regla pública: cualquiera puede crear solicitudes (buzón de entrada)
     match /artifacts/{appId}/users/{userId}/solicitudes/{solicitudId} {
+      allow create: if true;
       allow get, list, update, delete: if isOwner(userId);
-      allow create: if true; // PERMITIR CREACIÓN PÚBLICA (Buzón de entrada)
     }
 
-    match /artifacts/{appId}/users/{userId}/legalCases/{legalCaseId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == legalCaseId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    match /artifacts/{appId}/users/{userId}/liquidaciones/{liquidacionId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == liquidacionId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    match /artifacts/{appId}/users/{userId}/contratos/{contratoId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == contratoId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    match /artifacts/{appId}/users/{userId}/indices/{indexId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == indexId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+    // Regla comodín: cubre todas las demás colecciones del usuario
+    match /artifacts/{appId}/users/{userId}/{collection}/{docId} {
+      allow read, write: if isOwner(userId);
     }
   }
 }

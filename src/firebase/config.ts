@@ -1,8 +1,9 @@
 export const firebaseConfig = {
-  "projectId": "studio-2174718446-d2df4",
-  "appId": "1:756848331173:web:4787898f0eb17b0ffa004c",
-  "apiKey": "AIzaSyDqR9jZmajeUU8Z6FWf84kse2beVNsvzVE",
-  "authDomain": "studio-2174718446-d2df4.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "756848331173"
+  apiKey: "AIzaSyDXI7z5UXo6Evi5a58vccgeieSJCivu2Iw",
+  authDomain: "alquila-gestion-pro.firebaseapp.com",
+  projectId: "alquila-gestion-pro",
+  storageBucket: "alquila-gestion-pro.firebasestorage.app",
+  messagingSenderId: "1057262048271",
+  appId: "1:1057262048271:web:17ecfdcb1bddd072cabf7a",
+  measurementId: "G-E410WKW5E2"
 };
