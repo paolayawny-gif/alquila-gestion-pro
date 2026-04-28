@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   TrendingUp, DollarSign, Calculator, Download, Save, ChevronDown,
-  ChevronUp, Home, Building2, Repeat, PieChart as PieChartIcon
+  ChevronUp, Home, Building2, Repeat, PieChart as PieChartIcon, Loader2
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -17,6 +17,12 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
+const APP_ID = 'alquilagestion-pro';
 
 const SCENARIOS = [
   { id: 'tradicional', label: 'Alquiler Tradicional', icon: Home },
@@ -26,7 +32,14 @@ const SCENARIOS = [
 
 const PIE_COLORS = ['#16a34a', '#f97316', '#94a3b8'];
 
-export function ROISimulatorView() {
+interface ROISimulatorViewProps {
+  userId?: string;
+}
+
+export function ROISimulatorView({ userId }: ROISimulatorViewProps) {
+  const { toast } = useToast();
+  const db = useFirestore();
+  const [isSaving, setIsSaving] = useState(false);
   const [purchasePrice, setPurchasePrice] = useState(150000);
   const [renovation, setRenovation] = useState(25000);
   const [monthlyRent, setMonthlyRent] = useState(1200);
@@ -74,8 +87,45 @@ export function ROISimulatorView() {
           <p className="text-sm text-muted-foreground mt-0.5">Evalúa escenarios de inversión inmobiliaria con precisión.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2 font-bold"><Download className="h-4 w-4" /> Exportar PDF</Button>
-          <Button className="bg-primary text-white gap-2 font-bold"><Save className="h-4 w-4" /> Guardar Simulación</Button>
+          <Button variant="outline" className="gap-2 font-bold" onClick={() => {
+            const rows = [
+              ['Parámetro', 'Valor'],
+              ['Precio de Compra', `$${purchasePrice}`],
+              ['Reforma', `$${renovation}`],
+              ['Renta Mensual', `$${monthlyRent}`],
+              ['Escenario', scenario],
+              ['Inversión Total', `$${Math.round(metrics.totalInvestment)}`],
+              ['Rentabilidad Bruta', `${metrics.grossYield.toFixed(2)}%`],
+              ['Rentabilidad Neta', `${metrics.netYield.toFixed(2)}%`],
+              ['Flujo de Caja Mensual', `$${Math.round(metrics.monthlyCashFlow)}`],
+              ['Punto de Equilibrio', `Año ${Math.ceil(metrics.breakevenYear)}`],
+            ];
+            const csv = rows.map(r => r.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `simulacion_roi_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+            toast({ title: "Exportado", description: "Simulación exportada como CSV." });
+          }}>
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Button className="bg-primary text-white gap-2 font-bold" disabled={isSaving} onClick={async () => {
+            if (!db || !userId) { toast({ title: "Error", description: "Debés iniciar sesión.", variant: "destructive" }); return; }
+            setIsSaving(true);
+            try {
+              const id = `sim_${Date.now()}`;
+              const docRef = doc(collection(db, 'artifacts', APP_ID, 'users', userId, 'simulaciones'), id);
+              setDocumentNonBlocking(docRef, {
+                id, purchasePrice, renovation, monthlyRent, scenario,
+                itp, notaria, agency, showExtras,
+                grossYield: metrics.grossYield, netYield: metrics.netYield,
+                totalInvestment: metrics.totalInvestment, monthlyCashFlow: metrics.monthlyCashFlow,
+                breakevenYear: metrics.breakevenYear, createdAt: new Date().toISOString(),
+              }, { merge: false });
+              toast({ title: "Simulación guardada", description: "Los parámetros fueron guardados correctamente." });
+            } finally { setIsSaving(false); }
+          }}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar Simulación
+          </Button>
         </div>
       </div>
 

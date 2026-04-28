@@ -1,11 +1,13 @@
 
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   TrendingUp,
   TrendingDown,
@@ -19,7 +21,9 @@ import {
   Zap,
   ArrowUpRight,
   ArrowDownRight,
-  Info
+  Info,
+  Download,
+  RefreshCw
 } from 'lucide-react';
 import {
   AreaChart,
@@ -46,6 +50,7 @@ const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', '
 
 export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAnalyticsViewProps) {
   const currentMonth = new Date().getMonth();
+  const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
 
   // Cash flow projection: past 6 months real + next 6 months projected
   const cashFlowData = useMemo(() => {
@@ -155,9 +160,26 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
                 Proyección a 12 meses basada en contratos actuales y tendencias del mercado.
               </CardDescription>
             </div>
-            <button className="text-muted-foreground hover:text-foreground transition-colors">
-              <MoreVertical className="h-4 w-4" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="text-muted-foreground hover:text-foreground transition-colors">
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => {
+                  const csv = cashFlowData.map(r => `${r.name},${r.projected},${r.real ?? ''}`).join('\n');
+                  const blob = new Blob([`Mes,Proyectado,Real\n${csv}`], { type: 'text/csv' });
+                  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                  a.download = 'flujo_caja.csv'; a.click();
+                }}>
+                  <Download className="h-4 w-4 mr-2" /> Exportar CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.location.reload()}>
+                  <RefreshCw className="h-4 w-4 mr-2" /> Actualizar datos
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="h-[280px] w-full">
@@ -268,7 +290,7 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
               </div>
             ))}
             {priceAdjustments.length > 0 && (
-              <Button variant="outline" className="w-full h-9 text-xs font-bold mt-2">
+              <Button variant="outline" className="w-full h-9 text-xs font-bold mt-2" onClick={() => setShowSuggestionsModal(true)}>
                 Revisar Todas las Sugerencias
               </Button>
             )}
@@ -346,6 +368,41 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showSuggestionsModal} onOpenChange={setShowSuggestionsModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" /> Sugerencias de Ajuste de Precios
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {priceAdjustments.map(p => (
+              <div key={p.id} className="flex items-center gap-4 p-4 rounded-xl border bg-muted/20">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm truncate">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">{p.status}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className={cn("flex items-center gap-0.5 font-black text-sm justify-end", p.changePercent > 0 ? "text-green-600" : "text-red-500")}>
+                    {p.changePercent > 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                    {p.changePercent > 0 ? '+' : ''}{p.changePercent}%
+                  </div>
+                  {p.suggestedAmount > 0 && (
+                    <p className="text-xs text-muted-foreground font-bold">${p.suggestedAmount.toLocaleString('es-AR')}/mes</p>
+                  )}
+                </div>
+              </div>
+            ))}
+            {priceAdjustments.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">Cargue propiedades y contratos para ver sugerencias.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

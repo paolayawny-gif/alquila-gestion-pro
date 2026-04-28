@@ -192,8 +192,8 @@ export default function AppClient() {
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
       case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
-      case 'Simulador ROI': return <ROISimulatorView />;
-      case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} />;
+      case 'Simulador ROI': return <ROISimulatorView userId={user?.uid} />;
+      case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} userId={user?.uid} />;
       case 'Legales': return <LegalView legalCases={legalCases as any} userId={user?.uid} properties={properties} />;
       case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} />;
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;

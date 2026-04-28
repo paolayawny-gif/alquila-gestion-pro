@@ -9,11 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Copy, Send, Sparkles, MessageSquareCode } from 'lucide-react';
 import { aiCommunicationAssistant, AiCommunicationAssistantInput, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
+import { sendEmail } from '@/services/email-service';
 import { useToast } from '@/hooks/use-toast';
 
 export function AIAssistantView() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [input, setInput] = useState<Partial<AiCommunicationAssistantInput>>({
     communicationType: 'rentReminder',
   });
@@ -43,6 +46,28 @@ export function AIAssistantView() {
     }
   };
 
+  const handleSend = async () => {
+    if (!result || !recipientEmail) {
+      toast({ title: "Falta el destinatario", description: "Ingresá el email del destinatario.", variant: "destructive" });
+      return;
+    }
+    setIsSending(true);
+    try {
+      const res = await sendEmail({
+        to: recipientEmail,
+        subject: result.subjectLine,
+        html: `<div style="font-family:sans-serif;line-height:1.7;white-space:pre-wrap;">${result.draftedMessage}</div>`,
+      });
+      if (res.success) {
+        toast({ title: "Mensaje enviado", description: `Email enviado correctamente a ${recipientEmail}.` });
+      } else {
+        toast({ title: "Error al enviar", description: "No se pudo enviar el email. Verificá las credenciales.", variant: "destructive" });
+      }
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <Card className="shadow-sm border-none bg-white h-fit">
@@ -56,8 +81,8 @@ export function AIAssistantView() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Tipo de Comunicación</Label>
-            <Select 
-              value={input.communicationType} 
+            <Select
+              value={input.communicationType}
               onValueChange={(v) => setInput({...input, communicationType: v as any})}
             >
               <SelectTrigger>
@@ -75,16 +100,16 @@ export function AIAssistantView() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Nombre Inquilino / Dueño</Label>
-              <Input 
-                placeholder="Ej: Carlos Sosa" 
-                onChange={e => setInput({...input, tenantName: e.target.value, ownerName: e.target.value})} 
+              <Input
+                placeholder="Ej: Carlos Sosa"
+                onChange={e => setInput({...input, tenantName: e.target.value, ownerName: e.target.value})}
               />
             </div>
             <div className="space-y-2">
               <Label>Propiedad</Label>
-              <Input 
-                placeholder="Ej: Edificio Central 4B" 
-                onChange={e => setInput({...input, propertyName: e.target.value})} 
+              <Input
+                placeholder="Ej: Edificio Central 4B"
+                onChange={e => setInput({...input, propertyName: e.target.value})}
               />
             </div>
           </div>
@@ -104,16 +129,16 @@ export function AIAssistantView() {
 
           <div className="space-y-2">
             <Label>Contexto Adicional (Opcional)</Label>
-            <Textarea 
-              placeholder="Ej: Mencionar que se reparó el aire acondicionado este mes." 
+            <Textarea
+              placeholder="Ej: Mencionar que se reparó el aire acondicionado este mes."
               className="h-24"
               onChange={e => setInput({...input, additionalContext: e.target.value})}
             />
           </div>
 
-          <Button 
-            onClick={handleGenerate} 
-            disabled={loading} 
+          <Button
+            onClick={handleGenerate}
+            disabled={loading}
             className="w-full bg-primary hover:bg-primary/90 text-white mt-4"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
@@ -157,12 +182,22 @@ export function AIAssistantView() {
                 <Label className="text-xs uppercase text-muted-foreground font-bold mb-1 block">Asunto</Label>
                 <p className="font-semibold text-foreground">{result.subjectLine}</p>
               </div>
-              <div className="p-6 bg-muted/10 rounded-lg border whitespace-pre-wrap leading-relaxed text-foreground min-h-[250px] text-justify font-body">
+              <div className="p-6 bg-muted/10 rounded-lg border whitespace-pre-wrap leading-relaxed text-foreground min-h-[200px] text-justify font-body">
                 {result.draftedMessage}
               </div>
-              <Button className="w-full gap-2">
-                <Send className="h-4 w-4" />
-                Enviar Mensaje (Simulado)
+              <div className="space-y-2">
+                <Label className="text-xs uppercase font-black text-muted-foreground">Email del Destinatario</Label>
+                <Input
+                  type="email"
+                  placeholder="inquilino@ejemplo.com"
+                  value={recipientEmail}
+                  onChange={e => setRecipientEmail(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <Button className="w-full gap-2 bg-primary text-white font-bold" onClick={handleSend} disabled={isSending}>
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isSending ? 'Enviando...' : 'Enviar Mensaje'}
               </Button>
             </div>
           )}
