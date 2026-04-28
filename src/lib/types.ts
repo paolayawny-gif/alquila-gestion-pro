@@ -2,7 +2,7 @@
 export type PropertyType = 'Departamento' | 'Casa' | 'Local' | 'Cochera' | 'Oficina' | 'Depósito' | 'Terreno';
 export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industrial';
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
-export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
+export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed' | 'CER';
 export type Currency = 'ARS' | 'USD';
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
 export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Otros';
@@ -11,7 +11,7 @@ export type ApplicationStatus = 'Nueva' | 'En análisis' | 'Aprobada' | 'Rechaza
 
 export interface IndexRecord {
   id: string;
-  month: string; // YYYY-MM
+  month: string; // YYYY-MM for monthly indices, YYYY-MM-DD for CER daily
   type: AdjustmentMechanism;
   value: number;
 }

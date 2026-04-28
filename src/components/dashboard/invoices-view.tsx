@@ -480,7 +480,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                           <div className="flex items-center gap-1">
                             <span>$ {interest.toLocaleString('es-AR')}</span>
                             <button 
-                              onClick={() => { setSelectedInvForFee(i); setManualFeeInput(interest.toString()); setIsLateFeeDialogOpen(true); }}
+                              onClick={() => { setSelectedInvForFee(i); setManualFeeInput(interest); setIsLateFeeDialogOpen(true); }}
                               className="text-primary hover:underline"
                               title="Ajustar manualmente"
                             >
@@ -491,7 +491,7 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                       )}
                       {interest === 0 && i.status !== 'Pagado' && (
                         <button 
-                          onClick={() => { setSelectedInvForFee(i); setManualFeeInput('0'); setIsLateFeeDialogOpen(true); }}
+                          onClick={() => { setSelectedInvForFee(i); setManualFeeInput(0); setIsLateFeeDialogOpen(true); }}
                           className="text-[9px] text-primary font-bold hover:underline w-fit"
                         >
                           + Cargar Punitorio Manual

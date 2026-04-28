@@ -199,18 +199,45 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const handleAutoCalculate = () => {
     if (!selectedAdjContract || !selectedAdjContract.adjustmentMechanism) return;
     setIsCalculatingIndex(true);
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const startMonth = selectedAdjContract.startDate.slice(0, 7);
-    const indexActual = indexRecords.find(r => r.month === currentMonth && r.type === selectedAdjContract.adjustmentMechanism);
-    const indexInicial = indexRecords.find(r => r.month === startMonth && r.type === selectedAdjContract.adjustmentMechanism);
+    const mechanism = selectedAdjContract.adjustmentMechanism;
 
-    if (indexActual && indexInicial) {
-      const coef = indexActual.value / indexInicial.value;
-      const calculated = Math.round(selectedAdjContract.currentRentAmount * coef);
-      setNewRentValueInput(calculated.toString());
-      toast({ title: "Cálculo Realizado", description: `Coeficiente aplicado: ${coef.toFixed(4)}.` });
+    if (mechanism === 'CER') {
+      // CER: ratio between daily index at adjustment date and at contract start date
+      const startDate = selectedAdjContract.startDate.slice(0, 10);
+      const cerRecords = [...indexRecords]
+        .filter(r => r.type === 'CER')
+        .sort((a, b) => b.month.localeCompare(a.month));
+
+      const cerLatest = cerRecords[0];
+      // Find CER closest to start date
+      const cerStart = indexRecords
+        .filter(r => r.type === 'CER' && r.month >= startDate)
+        .sort((a, b) => a.month.localeCompare(b.month))[0]
+        ?? indexRecords.filter(r => r.type === 'CER').sort((a, b) => b.month.localeCompare(a.month))[0];
+
+      if (cerLatest && cerStart && cerStart.value > 0) {
+        const coef = cerLatest.value / cerStart.value;
+        const calculated = Math.round(selectedAdjContract.baseRentAmount * coef);
+        setNewRentValueInput(calculated);
+        toast({ title: "Cálculo CER", description: `CER inicio: ${cerStart.value.toFixed(4)} (${cerStart.month}) → CER actual: ${cerLatest.value.toFixed(4)} (${cerLatest.month}) · Coef: ${coef.toFixed(4)}` });
+      } else {
+        toast({ title: "Datos Faltantes", description: "No hay suficientes registros CER. Cargalos en la sección Índices Oficiales.", variant: "destructive" });
+      }
     } else {
-      toast({ title: "Datos Faltantes", description: "No hay registros suficientes en el historial para calcular el ajuste exacto.", variant: "destructive" });
+      // ICL / IPC / CasaPropia: monthly percentage records
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const startMonth = selectedAdjContract.startDate.slice(0, 7);
+      const indexActual = indexRecords.find(r => r.month === currentMonth && r.type === mechanism);
+      const indexInicial = indexRecords.find(r => r.month === startMonth && r.type === mechanism);
+
+      if (indexActual && indexInicial && indexInicial.value > 0) {
+        const coef = indexActual.value / indexInicial.value;
+        const calculated = Math.round(selectedAdjContract.currentRentAmount * coef);
+        setNewRentValueInput(calculated);
+        toast({ title: "Cálculo Realizado", description: `Coeficiente ${mechanism} aplicado: ${coef.toFixed(4)}.` });
+      } else {
+        toast({ title: "Datos Faltantes", description: "No hay registros suficientes en el historial para calcular el ajuste.", variant: "destructive" });
+      }
     }
     setIsCalculatingIndex(false);
   };
@@ -394,7 +421,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                 <div className="space-y-2"><Label>Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select></div>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2"><Label>Mecanismo de Ajuste</Label><Select value={contractFormData.adjustmentMechanism} onValueChange={(v: any) => setContractFormData({...contractFormData, adjustmentMechanism: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ICL">ICL (Alquileres)</SelectItem><SelectItem value="IPC">IPC (Inflación)</SelectItem><SelectItem value="Fixed">Monto Fijo</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>Mecanismo de Ajuste</Label><Select value={contractFormData.adjustmentMechanism} onValueChange={(v: any) => setContractFormData({...contractFormData, adjustmentMechanism: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CER">CER (BCRA - Diario)</SelectItem><SelectItem value="ICL">ICL (Alquileres)</SelectItem><SelectItem value="IPC">IPC (Inflación)</SelectItem><SelectItem value="Fixed">Monto Fijo</SelectItem></SelectContent></Select></div>
                 <div className="space-y-2"><Label>Mora Diaria (%)</Label><Input type="number" step="0.1" value={contractFormData.lateFeePercentage} onChange={e => setContractFormData({...contractFormData, lateFeePercentage: parseFloat(e.target.value) || 0})} /></div>
                 <div className="space-y-2"><Label>Frecuencia (Meses)</Label><Input type="number" value={contractFormData.adjustmentFrequencyMonths} onChange={e => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})} /></div>
               </div>
@@ -682,7 +709,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                         size="icon" 
                         className="text-orange-600 hover:bg-orange-50" 
                         title="Notificar Aumento de Alquiler (Próxima Suba)"
-                        onClick={() => { setSelectedAdjContract(c); setAdjDraft(null); setNewRentValueInput(''); setIsAdjNotifOpen(true); }}
+                        onClick={() => { setSelectedAdjContract(c); setAdjDraft(null); setNewRentValueInput(0); setIsAdjNotifOpen(true); }}
                       >
                         <TrendingUp className="h-4 w-4" />
                       </Button>
