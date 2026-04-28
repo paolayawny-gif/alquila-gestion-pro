@@ -4,24 +4,31 @@
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Search, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  ExternalLink, 
-  Trash2, 
-  Sparkles, 
-  Loader2, 
-  Eye, 
-  FileCheck, 
+import {
+  Search,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ExternalLink,
+  Trash2,
+  Sparkles,
+  Loader2,
+  Eye,
+  FileCheck,
   ShieldCheck,
   Copy,
   ClipboardCheck,
   DollarSign,
   Upload,
   X,
-  FileText
+  FileText,
+  AlertTriangle,
+  Building2,
+  CreditCard,
+  RefreshCw,
+  ShieldAlert,
+  ShieldX,
+  Shield
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,9 +50,11 @@ import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { analyzeApplication } from '@/ai/flows/analyze-application-flow';
+import { fetchDeudaBcra, situacionLabel, situacionColor, BcraDeudaReport } from '@/ai/flows/fetch-deudas-bcra-action';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ApplicationsViewProps {
   applications: RentalApplication[];
@@ -67,6 +76,11 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  // BCRA Central de Deudores
+  const [bcraReport, setBcraReport] = useState<BcraDeudaReport | null>(null);
+  const [isFetchingBcra, setIsFetchingBcra] = useState(false);
+  const [cuitInput, setCuitInput] = useState('');
 
   const getStatusBadge = (status: ApplicationStatus) => {
     const styles = {
@@ -124,6 +138,41 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
       toast({ title: "Error de Análisis", description: "No se pudo conectar con el analista de IA.", variant: "destructive" });
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleConsultarBcra = async () => {
+    const cuit = cuitInput.replace(/\D/g, '') || selectedApp?.applicantTaxId?.replace(/\D/g, '') || '';
+    if (!cuit) {
+      toast({ title: 'Falta CUIT/CUIL', description: 'Ingresá el CUIT del postulante para consultar.', variant: 'destructive' });
+      return;
+    }
+    setIsFetchingBcra(true);
+    setBcraReport(null);
+    try {
+      const report = await fetchDeudaBcra(cuit);
+      setBcraReport(report);
+      // Persist CUIT and report summary to Firestore
+      if (selectedApp && userId && db) {
+        const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', selectedApp.id);
+        setDocumentNonBlocking(docRef, {
+          applicantTaxId: cuit,
+          bcraReport: {
+            denominacion: report.denominacion,
+            maxSituation: report.maxSituation,
+            latestPeriod: report.latestPeriod,
+            totalEntidades: report.totalEntidades,
+            hasRejectedChecks: report.hasRejectedChecks,
+            chequesCount: report.cheques.length,
+            consultedAt: report.consultedAt,
+          },
+        }, { merge: true });
+      }
+      toast({ title: 'Consulta BCRA completada', description: `Situación máxima: ${situacionLabel(report.maxSituation)}` });
+    } catch (e: any) {
+      toast({ title: 'Error BCRA', description: e.message ?? 'No se pudo consultar la Central de Deudores.', variant: 'destructive' });
+    } finally {
+      setIsFetchingBcra(false);
     }
   };
 
@@ -223,16 +272,16 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
         <TabsContent value="pending" className="mt-4">
           <ApplicationsTable 
             apps={pendingApps} 
-            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); }} 
+            onEval={(app) => { setSelectedApp(app); setBcraReport(null); setCuitInput(app.applicantTaxId ?? ''); setIsDetailOpen(true); }}
             onDelete={handleDelete}
             getStatusBadge={getStatusBadge}
           />
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
-          <ApplicationsTable 
-            apps={historyApps} 
-            onEval={(app) => { setSelectedApp(app); setIsDetailOpen(true); }} 
+          <ApplicationsTable
+            apps={historyApps}
+            onEval={(app) => { setSelectedApp(app); setBcraReport(null); setCuitInput(app.applicantTaxId ?? ''); setIsDetailOpen(true); }}
             onDelete={handleDelete}
             getStatusBadge={getStatusBadge}
           />
@@ -319,6 +368,71 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                   </div>
 
                   <div className="md:col-span-5 space-y-6">
+
+                    {/* ── BCRA Central de Deudores ── */}
+                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                      <CardHeader className="pb-3 bg-slate-50 border-b">
+                        <CardTitle className="text-sm font-black flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-primary" /> Central de Deudores BCRA
+                        </CardTitle>
+                        <CardDescription className="text-[10px]">Situación crediticia en el sistema financiero argentino.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-3">
+                        {/* CUIT input + button */}
+                        <div className="flex gap-2">
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-[10px] uppercase font-black">CUIT / CUIL</Label>
+                            <Input
+                              placeholder="20-12345678-9"
+                              value={cuitInput}
+                              onChange={e => setCuitInput(e.target.value)}
+                              className="h-9 font-mono text-sm"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <Button
+                              size="sm"
+                              className="h-9 gap-1.5 font-bold px-4"
+                              onClick={handleConsultarBcra}
+                              disabled={isFetchingBcra}
+                            >
+                              {isFetchingBcra
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <RefreshCw className="h-3.5 w-3.5" />}
+                              Consultar
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Saved report badge (from previous query) */}
+                        {!bcraReport && selectedApp?.bcraReport && (
+                          <BcraReportCard
+                            report={selectedApp.bcraReport}
+                            latestEntidades={[]}
+                            cheques={[]}
+                            isCompact
+                          />
+                        )}
+
+                        {/* Fresh report */}
+                        {bcraReport && (
+                          <BcraReportCard
+                            report={{
+                              denominacion: bcraReport.denominacion,
+                              maxSituation: bcraReport.maxSituation,
+                              latestPeriod: bcraReport.latestPeriod,
+                              totalEntidades: bcraReport.totalEntidades,
+                              hasRejectedChecks: bcraReport.hasRejectedChecks,
+                              chequesCount: bcraReport.cheques.length,
+                              consultedAt: bcraReport.consultedAt,
+                            }}
+                            latestEntidades={bcraReport.latestEntidades}
+                            cheques={bcraReport.cheques}
+                          />
+                        )}
+                      </CardContent>
+                    </Card>
+
                     <Card className="border-none bg-muted/10 shadow-none">
                       <CardHeader className="pb-4 flex flex-row items-center justify-between">
                         <CardTitle className="text-sm font-black uppercase flex items-center gap-2"><FileCheck className="h-4 w-4 text-primary" /> Documentación</CardTitle>
@@ -367,6 +481,124 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     </div>
   );
 }
+
+// ─── BCRA Report Card ────────────────────────────────────────────────────────
+
+interface BcraReportCardProps {
+  report: {
+    denominacion: string;
+    maxSituation: number;
+    latestPeriod: string;
+    totalEntidades: number;
+    hasRejectedChecks: boolean;
+    chequesCount: number;
+    consultedAt: string;
+  };
+  latestEntidades: { entidad: string; situacion: number; monto: number; diasAtrasoPago: number }[];
+  cheques: { nroCheque: number; fechaRechazo: string; monto: number; fechaPago: string | null }[];
+  isCompact?: boolean;
+}
+
+function BcraReportCard({ report, latestEntidades, cheques, isCompact }: BcraReportCardProps) {
+  const s = report.maxSituation;
+  const color = situacionColor(s);
+
+  const bgClass = color === 'green' ? 'bg-green-50 border-green-200' :
+    color === 'lime' ? 'bg-lime-50 border-lime-200' :
+    color === 'orange' ? 'bg-orange-50 border-orange-200' :
+    'bg-red-50 border-red-200';
+
+  const textClass = color === 'green' ? 'text-green-800' :
+    color === 'lime' ? 'text-lime-800' :
+    color === 'orange' ? 'text-orange-800' :
+    'text-red-800';
+
+  const Icon = s <= 1 ? Shield : s === 2 ? ShieldCheck : s === 3 ? ShieldAlert : ShieldX;
+
+  return (
+    <div className="space-y-2 animate-in fade-in duration-300">
+      {/* Summary banner */}
+      <div className={cn('rounded-xl border p-3 flex items-start gap-3', bgClass)}>
+        <Icon className={cn('h-5 w-5 shrink-0 mt-0.5', textClass)} />
+        <div className="flex-1 min-w-0">
+          <p className={cn('text-sm font-black truncate', textClass)}>
+            {report.denominacion || 'Sin denominación'}
+          </p>
+          <p className={cn('text-xs font-bold', textClass)}>
+            Situación: {situacionLabel(s)}
+          </p>
+          <div className="flex gap-3 mt-1 flex-wrap">
+            {report.latestPeriod && (
+              <span className="text-[10px] text-muted-foreground">Período: {report.latestPeriod}</span>
+            )}
+            <span className="text-[10px] text-muted-foreground">{report.totalEntidades} entidad{report.totalEntidades !== 1 ? 'es' : ''}</span>
+          </div>
+        </div>
+        <Badge className={cn('shrink-0 font-black text-white border-0', s <= 1 ? 'bg-green-600' : s === 2 ? 'bg-lime-600' : s === 3 ? 'bg-orange-600' : 'bg-red-600')}>
+          Sit. {s}
+        </Badge>
+      </div>
+
+      {/* Cheques rechazados warning */}
+      {report.hasRejectedChecks && (
+        <div className="flex items-center gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+          <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+          <p className="text-xs font-bold text-red-800">{report.chequesCount} cheque{report.chequesCount !== 1 ? 's' : ''} rechazado{report.chequesCount !== 1 ? 's' : ''}</p>
+        </div>
+      )}
+
+      {/* Entity detail (only when fresh data available) */}
+      {!isCompact && latestEntidades.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-black uppercase text-muted-foreground">Deudas — {report.latestPeriod}</p>
+          <ScrollArea className="max-h-40">
+            <div className="space-y-1 pr-2">
+              {latestEntidades.map((e, i) => (
+                <div key={i} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CreditCard className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <span className="truncate font-medium">{e.entidad}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-muted-foreground">$ {e.monto.toLocaleString('es-AR')}</span>
+                    <Badge variant="outline" className={cn('text-[9px] px-1.5 py-0 font-black border-0 text-white',
+                      e.situacion <= 1 ? 'bg-green-600' : e.situacion === 2 ? 'bg-lime-600' : e.situacion === 3 ? 'bg-orange-500' : 'bg-red-600'
+                    )}>S{e.situacion}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Rejected cheques detail */}
+      {!isCompact && cheques.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-black uppercase text-muted-foreground">Cheques rechazados</p>
+          <ScrollArea className="max-h-32">
+            <div className="space-y-1 pr-2">
+              {cheques.slice(0, 10).map((c, i) => (
+                <div key={i} className="flex items-center justify-between p-2 bg-red-50 rounded-lg text-xs">
+                  <span className="text-red-800 font-mono">#{c.nroCheque}</span>
+                  <span className="text-muted-foreground">{c.fechaRechazo}</span>
+                  <span className="font-bold text-red-800">$ {c.monto.toLocaleString('es-AR')}</span>
+                  {c.fechaPago && <span className="text-green-700 text-[10px]">Pagado</span>}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      <p className="text-[9px] text-muted-foreground text-right">
+        Consultado: {new Date(report.consultedAt).toLocaleString('es-AR')}
+      </p>
+    </div>
+  );
+}
+
+// ─── Applications Table ───────────────────────────────────────────────────────
 
 function ApplicationsTable({ apps, onEval, onDelete, getStatusBadge }: { apps: RentalApplication[], onEval: (app: RentalApplication) => void, onDelete: (id: string) => void, getStatusBadge: (status: ApplicationStatus) => React.ReactNode }) {
   return (

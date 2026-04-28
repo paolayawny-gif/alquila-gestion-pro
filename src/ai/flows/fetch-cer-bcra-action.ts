@@ -5,22 +5,27 @@ export interface CerDataPoint {
   value: number;
 }
 
+// BCRA API v4.0 - Serie 3540 (CER)
+// Response: { results: [{ idVariable: 3540, detalle: [{ fecha, valor }] }] }
 export async function fetchCerFromBcra(desde: string, hasta: string): Promise<CerDataPoint[]> {
-  const url = `https://api.bcra.gob.ar/estadisticas/v3.0/monetarias/3540?desde=${desde}&hasta=${hasta}`;
+  const params = new URLSearchParams({ Desde: desde, Hasta: hasta });
+  const url = `https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias/3540?${params}`;
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    next: { revalidate: 0 },
+    cache: 'no-store',
   });
 
   if (!res.ok) {
-    throw new Error(`BCRA API respondió con estado ${res.status}`);
+    throw new Error(`BCRA respondió ${res.status}. Verificá el rango de fechas.`);
   }
 
   const json = await res.json();
-  const results: { fecha: string; valor: number }[] = json.results ?? json.data ?? [];
+  // v4.0 wraps data inside results[0].detalle
+  const detalle: { fecha: string; valor: number }[] =
+    json.results?.[0]?.detalle ?? json.results ?? [];
 
-  return results.map(r => ({
-    date: r.fecha,    // already YYYY-MM-DD from BCRA
+  return detalle.map(r => ({
+    date: r.fecha,   // YYYY-MM-DD
     value: r.valor,
   }));
 }

@@ -78,6 +78,7 @@ export interface RentalApplication {
   applicantName: string;
   applicantEmail: string;
   applicantPhone: string;
+  applicantTaxId?: string;  // CUIT/CUIL 11 dígitos
   ingreso: number;
   references: string;
   documents: DocumentInfo[];
@@ -90,6 +91,15 @@ export interface RentalApplication {
     recommendation: string;
     reasoning: string;
     riskFactors: string[];
+  };
+  bcraReport?: {
+    denominacion: string;
+    maxSituation: number;
+    latestPeriod: string;
+    totalEntidades: number;
+    hasRejectedChecks: boolean;
+    chequesCount: number;
+    consultedAt: string;
   };
 }
 
