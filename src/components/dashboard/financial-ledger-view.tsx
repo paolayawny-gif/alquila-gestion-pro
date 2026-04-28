@@ -5,10 +5,13 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   TrendingUp, MapPin, Edit2, Download, PieChart as PieChartIcon,
-  Building2, AlertCircle, TrendingDown
+  Building2, Loader2
 } from 'lucide-react';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -16,18 +19,31 @@ import {
 } from 'recharts';
 import { Property, Invoice, Contract } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
+const APP_ID = 'alquilagestion-pro';
 
 interface FinancialLedgerViewProps {
   properties: Property[];
   invoices: Invoice[];
   contracts: Contract[];
+  userId?: string;
 }
 
 const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-export function FinancialLedgerView({ properties, invoices, contracts }: FinancialLedgerViewProps) {
+export function FinancialLedgerView({ properties, invoices, contracts, userId }: FinancialLedgerViewProps) {
+  const { toast } = useToast();
+  const db = useFirestore();
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editNotes, setEditNotes] = useState('');
+  const [editPurchasePrice, setEditPurchasePrice] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const selectedProperty = selectedPropertyId
     ? properties.find(p => p.id === selectedPropertyId)
@@ -110,7 +126,18 @@ export function FinancialLedgerView({ properties, invoices, contracts }: Financi
           <h2 className="text-2xl font-black text-foreground">Libro Mayor Financiero</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Rendimiento financiero detallado por propiedad.</p>
         </div>
-        <Button variant="outline" className="gap-2 font-bold"><Download className="h-4 w-4" /> Exportar</Button>
+        <Button variant="outline" className="gap-2 font-bold" onClick={() => {
+          const rows = [['Mes', 'Ingreso Alquiler', 'Reparaciones', 'Impuestos', 'Neto'],
+            ...ledgerRows.map(r => [r.month, r.rent, r.repairs, r.taxes, r.net]),
+            ['TOTAL', totals.rent, totals.repairs, totals.taxes, totals.net]];
+          const csv = rows.map(r => r.join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = `libro_mayor_${selectedProperty?.name || 'general'}_${new Date().getFullYear()}.csv`; a.click();
+          toast({ title: "Exportado", description: "Libro mayor descargado como CSV." });
+        }}>
+          <Download className="h-4 w-4" /> Exportar
+        </Button>
       </div>
 
       {/* Property selector */}
@@ -144,7 +171,11 @@ export function FinancialLedgerView({ properties, invoices, contracts }: Financi
             )}>
               {selectedProperty.status.toUpperCase()}
             </Badge>
-            <Button variant="outline" size="sm" className="gap-2 font-bold">
+            <Button variant="outline" size="sm" className="gap-2 font-bold" onClick={() => {
+              setEditNotes('');
+              setEditPurchasePrice(String(purchasePrice));
+              setShowEditDialog(true);
+            }}>
               <Edit2 className="h-3.5 w-3.5" /> Editar Detalles
             </Button>
           </div>
@@ -283,6 +314,45 @@ export function FinancialLedgerView({ properties, invoices, contracts }: Financi
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="h-5 w-5 text-primary" /> Editar Detalles — {selectedProperty?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase font-black text-muted-foreground">Precio de Compra ($)</Label>
+              <Input type="number" value={editPurchasePrice} onChange={e => setEditPurchasePrice(e.target.value)} placeholder="192500" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase font-black text-muted-foreground">Notas Financieras</Label>
+              <Input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Hipoteca, gastos notariales, etc." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancelar</Button>
+            <Button className="bg-primary text-white gap-2 font-bold" disabled={isSavingEdit} onClick={async () => {
+              if (!db || !userId || !selectedProperty) return;
+              setIsSavingEdit(true);
+              try {
+                const docRef = doc(collection(db, 'artifacts', APP_ID, 'users', userId, 'propiedades'), selectedProperty.id);
+                setDocumentNonBlocking(docRef, {
+                  ...selectedProperty,
+                  purchasePrice: Number(editPurchasePrice) || purchasePrice,
+                  financialNotes: editNotes,
+                }, { merge: true });
+                toast({ title: "Guardado", description: "Detalles financieros actualizados." });
+                setShowEditDialog(false);
+              } finally { setIsSavingEdit(false); }
+            }}>
+              {isSavingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <></>} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

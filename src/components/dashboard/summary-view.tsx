@@ -342,7 +342,7 @@ export function SummaryView({
                   <Activity className="h-5 w-5 text-primary" />
                   Actividad Reciente
                 </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs text-primary font-bold h-auto p-0">
+                <Button variant="ghost" size="sm" className="text-xs text-primary font-bold h-auto p-0" onClick={() => onNavigate('Reportes')}>
                   Ver todo
                 </Button>
               </div>
