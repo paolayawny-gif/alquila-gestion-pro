@@ -18,15 +18,15 @@ const QueryContractOutputSchema = z.object({
 });
 export type QueryContractOutput = z.infer<typeof QueryContractOutputSchema>;
 
-export async function queryContract(input: QueryContractInput): Promise<QueryContractOutput> {
-  return queryContractFlow(input);
-}
+export type QueryContractResult =
+  | { ok: true; data: QueryContractOutput }
+  | { ok: false; error: string };
 
 const queryContractPrompt = ai.definePrompt({
   name: 'queryContractPrompt',
   input: {schema: QueryContractInputSchema},
   output: {schema: QueryContractOutputSchema},
-  prompt: `You are a specialized legal assistant for Argentinian rental contracts. 
+  prompt: `You are a specialized legal assistant for Argentinian rental contracts.
 Your task is to answer the user's question accurately and ONLY using the information contained in the provided contract transcription.
 
 INSTRUCTIONS:
@@ -52,7 +52,20 @@ const queryContractFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await queryContractPrompt(input);
-    if (!output) throw new Error('Failed to query the contract.');
+    if (!output) throw new Error('La IA no devolvió respuesta.');
     return output;
   }
 );
+
+export async function queryContract(input: QueryContractInput): Promise<QueryContractResult> {
+  try {
+    const data = await queryContractFlow(input);
+    return { ok: true, data };
+  } catch (err: any) {
+    const msg: string = err?.message ?? '';
+    if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
+      return { ok: false, error: 'La clave API de IA no está configurada. Contactá al administrador.' };
+    }
+    return { ok: false, error: msg || 'No se pudo obtener respuesta de la IA.' };
+  }
+}

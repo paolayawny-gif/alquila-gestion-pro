@@ -1,10 +1,6 @@
 'use server';
 /**
  * @fileOverview A Genkit flow for extracting structured data from rental contracts.
- *
- * - extractContractData - A function that handles the AI extraction process from documents.
- * - ExtractContractDataInput - The input type for the extractContractData function.
- * - ExtractContractDataOutput - The return type for the extractContractData function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -34,11 +30,9 @@ const ExtractContractDataOutputSchema = z.object({
 });
 export type ExtractContractDataOutput = z.infer<typeof ExtractContractDataOutputSchema>;
 
-export async function extractContractData(
-  input: ExtractContractDataInput
-): Promise<ExtractContractDataOutput> {
-  return extractContractDataFlow(input);
-}
+export type ExtractContractResult =
+  | { ok: true; data: ExtractContractDataOutput }
+  | { ok: false; error: string };
 
 const extractContractDataPrompt = ai.definePrompt({
   name: 'extractContractDataPrompt',
@@ -51,7 +45,7 @@ Your task is to analyze the provided document and extract the key economic and g
 - tenantName: Extract the FULL name of the "Locatario".
 - propertyAddress: Extract the FULL address of the property.
 - startDate / endDate: ALWAYS format as YYYY-MM-DD.
-- fullTranscription: Provide a complete, structured, and verbatim transcription of all readable text in the document. Do not summarize this field; transcribe it.
+- fullTranscription: Provide a complete, structured, and verbatim transcription of ALL readable text in the document. Do NOT summarize this field; transcribe every clause word for word.
 
 Pay special attention to:
 1. The initial rent amount (monto inicial).
@@ -75,9 +69,23 @@ const extractContractDataFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await extractContractDataPrompt(input);
-    if (!output) {
-      throw new Error('Failed to extract data from the contract document.');
-    }
+    if (!output) throw new Error('La IA no pudo extraer datos del documento.');
     return output;
   }
 );
+
+export async function extractContractData(input: ExtractContractDataInput): Promise<ExtractContractResult> {
+  try {
+    const data = await extractContractDataFlow(input);
+    return { ok: true, data };
+  } catch (err: any) {
+    const msg: string = err?.message ?? '';
+    if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
+      return { ok: false, error: 'La clave API de IA no está configurada. Configurá GEMINI_API_KEY en Vercel.' };
+    }
+    if (msg.includes('size') || msg.includes('large') || msg.includes('payload')) {
+      return { ok: false, error: 'El archivo es demasiado grande para analizar. Intentá con un PDF más liviano o dividilo en páginas.' };
+    }
+    return { ok: false, error: msg || 'No se pudo analizar el documento.' };
+  }
+}

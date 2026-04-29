@@ -61,6 +61,7 @@ import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { queryContract } from '@/ai/flows/query-contract-flow';
+import { extractContractData } from '@/ai/flows/extract-contract-data-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -98,6 +99,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [qaAnswer, setQAAnswer] = useState<{answer: string, sourceQuote?: string} | null>(null);
   const [isAsking, setIsAsking] = useState(false);
 
+  const [isExtracting, setIsExtracting] = useState(false);
   const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
   const [adjDraft, setAdjDraft] = useState<any>(null);
   const [renewalDraft, setRenewalDraft] = useState<any>(null);
@@ -180,20 +182,58 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   };
 
   const handleAskContract = async () => {
-    if (!selectedQAContract || !qaQuestion || !selectedQAContract.fullTranscription) return;
+    if (!selectedQAContract || !qaQuestion) return;
+    if (!selectedQAContract.fullTranscription) {
+      toast({
+        title: "Sin transcripción",
+        description: "Este contrato no tiene texto cargado. Subí el archivo y usá \"Analizar con IA\" en la pestaña Documentos, o pegá el texto manualmente.",
+        variant: "destructive"
+      });
+      return;
+    }
     setIsAsking(true);
     setQAAnswer(null);
-    try {
-      const result = await queryContract({
-        contractTranscription: selectedQAContract.fullTranscription,
-        question: qaQuestion
-      });
-      setQAAnswer(result);
-    } catch (e) {
-      toast({ title: "Error", description: "No se pudo consultar al asistente legal.", variant: "destructive" });
-    } finally {
-      setIsAsking(false);
+    const result = await queryContract({
+      contractTranscription: selectedQAContract.fullTranscription,
+      question: qaQuestion
+    });
+    setIsAsking(false);
+    if (!result.ok) {
+      toast({ title: "Error del asistente", description: result.error, variant: "destructive" });
+      return;
     }
+    setQAAnswer(result.data);
+  };
+
+  const handleExtractContract = async () => {
+    const url = (contractFormData.documents as any)?.mainContractUrl;
+    if (!url) {
+      toast({ title: "Sin archivo", description: "Primero cargá el archivo del contrato.", variant: "destructive" });
+      return;
+    }
+    setIsExtracting(true);
+    const result = await extractContractData({ documentDataUri: url });
+    setIsExtracting(false);
+    if (!result.ok) {
+      toast({ title: "Error al analizar", description: result.error, variant: "destructive" });
+      return;
+    }
+    const d = result.data;
+    setContractFormData(prev => ({
+      ...prev,
+      fullTranscription: d.fullTranscription,
+      baseRentAmount: d.baseRentAmount || prev.baseRentAmount,
+      currentRentAmount: d.baseRentAmount || prev.currentRentAmount,
+      currency: d.currency || prev.currency,
+      adjustmentMechanism: d.adjustmentMechanism || prev.adjustmentMechanism,
+      adjustmentFrequencyMonths: d.adjustmentFrequencyMonths || prev.adjustmentFrequencyMonths,
+      startDate: d.startDate || prev.startDate,
+      endDate: d.endDate || prev.endDate,
+    }));
+    toast({
+      title: "Análisis completado",
+      description: `Confianza: ${Math.round((d.confidenceScore ?? 0) * 100)}%. Transcripción y datos cargados. Revisá y guardá el contrato.`,
+    });
   };
 
   const handleAutoCalculate = () => {
@@ -455,11 +495,33 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                 </Button>
                 <input ref={contractFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleContractFileChange} />
               </div>
-              <p className="text-[10px] text-muted-foreground italic">También podés pegar el texto del contrato para el Asistente Legal por IA.</p>
+
+              {/* Botón de análisis con IA */}
+              {(contractFormData.documents as any)?.mainContractUrl && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 font-bold border-primary/30 text-primary hover:bg-primary/5"
+                  onClick={handleExtractContract}
+                  disabled={isExtracting}
+                >
+                  {isExtracting
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Analizando documento con IA...</>
+                    : <><Sparkles className="h-4 w-4" /> Analizar con IA y extraer datos</>}
+                </Button>
+              )}
+
+              <div className="space-y-1">
+                <p className="text-[10px] text-muted-foreground italic font-bold uppercase">
+                  Transcripción del contrato (necesaria para el Asistente Legal)
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  Se completa automáticamente al usar "Analizar con IA", o podés pegar el texto manualmente.
+                </p>
+              </div>
               <Textarea
-                placeholder="Transcripción del contrato..."
+                placeholder="El texto del contrato aparecerá aquí después de usar 'Analizar con IA', o podés pegarlo manualmente..."
                 className="h-[200px] font-mono text-[10px] bg-muted/10"
-                value={contractFormData.fullTranscription}
+                value={contractFormData.fullTranscription ?? ''}
                 onChange={e => setContractFormData({...contractFormData, fullTranscription: e.target.value})}
               />
             </TabsContent>
@@ -545,17 +607,48 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <DialogDescription>Consulte cualquier duda sobre los términos del contrato de {selectedQAContract?.tenantName}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
+            {/* Warning si no hay transcripción */}
+            {!selectedQAContract?.fullTranscription && (
+              <div className="flex gap-3 items-start p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <span className="text-amber-500 text-lg leading-none mt-0.5">⚠️</span>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-amber-800">Este contrato no tiene texto cargado</p>
+                  <p className="text-xs text-amber-700">
+                    Para usar el Asistente Legal, necesitás cargar el texto del contrato. Hay dos formas:
+                  </p>
+                  <ul className="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+                    <li>Editá el contrato → pestaña <strong>Documentos</strong> → subí el PDF/imagen → botón <strong>"Analizar con IA"</strong></li>
+                    <li>O pegá el texto del contrato manualmente en el campo de transcripción</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {selectedQAContract?.fullTranscription && (
+              <div className="flex gap-2 items-center p-2 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                <p className="text-xs text-green-700 font-medium">
+                  Contrato con transcripción cargada — {selectedQAContract.fullTranscription.length.toLocaleString('es-AR')} caracteres
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase text-muted-foreground">Tu pregunta al contrato</Label>
               <div className="flex gap-2">
-                <Input 
-                  placeholder="Ej: ¿Quién paga el impuesto inmobiliario? ¿Cuál es la multa por rescisión?" 
+                <Input
+                  placeholder="Ej: ¿Quién paga el impuesto inmobiliario? ¿Cuál es la multa por rescisión?"
                   value={qaQuestion}
                   onChange={e => setQAQuestion(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAskContract()}
                   className="h-12"
+                  disabled={!selectedQAContract?.fullTranscription}
                 />
-                <Button onClick={handleAskContract} disabled={isAsking || !qaQuestion} className="bg-primary h-12 px-6">
+                <Button
+                  onClick={handleAskContract}
+                  disabled={isAsking || !qaQuestion || !selectedQAContract?.fullTranscription}
+                  className="bg-primary h-12 px-6"
+                >
                   {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircleQuestion className="h-4 w-4" />}
                 </Button>
               </div>
