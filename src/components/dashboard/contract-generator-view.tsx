@@ -1,24 +1,22 @@
-
 "use client";
 
-import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from '@/components/ui/separator';
 import {
-  FileText, Save, CheckCircle2, Mail, Home, Building2, Clock,
-  TrendingUp, Undo2, Redo2, Sparkles, Loader2
+  FileText, Download, Sparkles, Loader2, ChevronRight, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Property, Person, Contract } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { sendEmail } from '@/services/email-service';
+import { CONTRACT_TEMPLATES, ContractTemplate } from '@/lib/contract-templates-meta';
+import { fillAndDownloadDocx, numberToWords, formatDateParts, monthsToLabel } from '@/lib/docx-fill';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -29,404 +27,326 @@ interface ContractGeneratorViewProps {
   userId?: string;
 }
 
-const TEMPLATES = [
-  { id: 'vivienda', label: 'Vivienda Habitual', sub: 'LAU vigente', icon: Home },
-  { id: 'comercial', label: 'Local Comercial', sub: 'Uso distinto de vivienda', icon: Building2 },
-  { id: 'temporal', label: 'Alquiler Temporal', sub: 'Por meses / Temporada', icon: Clock },
-];
-
-const IPC_BASE = 'Oct \'23';
-const IPC_NEXT = 'Oct \'24';
-
-interface FieldSnapshot {
-  landlordName: string; landlordDni: string; landlordAddress: string;
-  tenantName: string; tenantDni: string; propertyAddress: string;
-}
-
-function HighlightedField({ value, status }: { value: string; status?: 'filled' | 'pending' | 'warning' }) {
-  return (
-    <span className={cn(
-      "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold mx-0.5",
-      status === 'filled' ? "bg-green-100 text-green-800" :
-      status === 'warning' ? "bg-orange-100 text-orange-800" :
-      "bg-yellow-100 text-yellow-800 border border-yellow-300 border-dashed"
-    )}>
-      {value}
-    </span>
-  );
-}
-
 export function ContractGeneratorView({ properties, people, contracts, userId }: ContractGeneratorViewProps) {
   const { toast } = useToast();
-  const db = useFirestore();
 
-  const [selectedTemplate, setSelectedTemplate] = useState('vivienda');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSendingSignature, setIsSendingSignature] = useState(false);
-  const [showSignatureDialog, setShowSignatureDialog] = useState(false);
-  const [tenantEmail, setTenantEmail] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('vivienda');
+  const [selectedContractId, setSelectedContractId] = useState<string>('');
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
 
-  const [landlordName, setLandlordName] = useState('');
-  const [landlordDni, setLandlordDni] = useState('');
-  const [landlordAddress, setLandlordAddress] = useState('');
-  const [tenantName, setTenantName] = useState('');
-  const [tenantDni, setTenantDni] = useState('');
-  const [propertyAddress, setPropertyAddress] = useState('');
-  const [contractDate] = useState(new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }));
+  const template = CONTRACT_TEMPLATES.find(t => t.id === selectedTemplateId)!;
+  const selectedContract = contracts.find(c => c.id === selectedContractId);
 
-  const [landlordSigned] = useState(true);
-  const [tenantSigned] = useState(false);
+  const contratos = CONTRACT_TEMPLATES.filter(t => t.category === 'contrato');
+  const anexos = CONTRACT_TEMPLATES.filter(t => t.category === 'anexo');
 
-  // Undo/Redo history
-  const history = useRef<FieldSnapshot[]>([{ landlordName: '', landlordDni: '', landlordAddress: '', tenantName: '', tenantDni: '', propertyAddress: '' }]);
-  const historyIndex = useRef(0);
-
-  const pushHistory = useCallback((snap: FieldSnapshot) => {
-    history.current = history.current.slice(0, historyIndex.current + 1);
-    history.current.push(snap);
-    historyIndex.current = history.current.length - 1;
-  }, []);
-
-  const currentSnap = (): FieldSnapshot => ({ landlordName, landlordDni, landlordAddress, tenantName, tenantDni, propertyAddress });
-
-  const handleUndo = () => {
-    if (historyIndex.current <= 0) return;
-    historyIndex.current--;
-    const snap = history.current[historyIndex.current];
-    setLandlordName(snap.landlordName); setLandlordDni(snap.landlordDni);
-    setLandlordAddress(snap.landlordAddress); setTenantName(snap.tenantName);
-    setTenantDni(snap.tenantDni); setPropertyAddress(snap.propertyAddress);
-  };
-
-  const handleRedo = () => {
-    if (historyIndex.current >= history.current.length - 1) return;
-    historyIndex.current++;
-    const snap = history.current[historyIndex.current];
-    setLandlordName(snap.landlordName); setLandlordDni(snap.landlordDni);
-    setLandlordAddress(snap.landlordAddress); setTenantName(snap.tenantName);
-    setTenantDni(snap.tenantDni); setPropertyAddress(snap.propertyAddress);
-  };
-
-  const handleFieldChange = (setter: (v: string) => void, value: string) => {
-    setter(value);
-    pushHistory({ ...currentSnap() });
-  };
-
+  // ─── Auto-fill from contract data ───────────────────────────────────────────
   const handleAutoFill = () => {
-    if (people.length > 0) {
-      const tenant = people.find(p => p.role === 'Inquilino') || people[0];
-      setTenantName(tenant.fullName);
-      setTenantDni(tenant.taxId || '—');
-    }
-    if (properties.length > 0) {
-      setPropertyAddress(properties[0].address);
-    }
-    pushHistory({ ...currentSnap() });
-  };
+    const today = new Date();
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-  const handleSaveDraft = async () => {
-    if (!db || !userId) {
-      toast({ title: "Error", description: "Debés iniciar sesión para guardar.", variant: "destructive" });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const id = `borrador_${Date.now()}`;
-      const docRef = doc(collection(db, 'artifacts', APP_ID, 'users', userId, 'contratos_borradores'), id);
-      setDocumentNonBlocking(docRef, {
-        id, template: selectedTemplate, landlordName, landlordDni, landlordAddress,
-        tenantName, tenantDni, propertyAddress, contractDate,
-        status: 'borrador', createdAt: new Date().toISOString(),
-      }, { merge: false });
-      toast({ title: "Borrador guardado", description: "El contrato fue guardado correctamente." });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    const filled: Record<string, string> = {};
 
-  const handleSendForSignature = async () => {
-    if (!tenantEmail) {
-      toast({ title: "Falta el email", description: "Ingresá el email del arrendatario.", variant: "destructive" });
-      return;
-    }
-    setIsSendingSignature(true);
-    try {
-      const templateTitle = selectedTemplate === 'vivienda' ? 'CONTRATO DE ARRENDAMIENTO DE VIVIENDA HABITUAL' :
-        selectedTemplate === 'comercial' ? 'CONTRATO DE ARRENDAMIENTO DE LOCAL COMERCIAL' :
-        'CONTRATO DE ALQUILER TEMPORAL';
+    // Date fields — always auto-fill with today
+    filled['today_day'] = String(today.getDate());
+    filled['today_month'] = meses[today.getMonth()];
+    filled['today_year'] = String(today.getFullYear());
 
-      const html = `
-        <div style="font-family:Georgia,serif;max-width:700px;margin:auto;padding:32px;line-height:1.8;">
-          <p style="font-weight:900;text-align:center;text-transform:uppercase;font-size:13px;letter-spacing:2px;">${templateTitle}</p>
-          <p>En la ciudad de <strong>${propertyAddress || 'N/A'}</strong>, a <strong>${contractDate}</strong>.</p>
-          <p><strong>REUNIDOS</strong></p>
-          <p>De una parte, <strong>${landlordName || '[Arrendador]'}</strong>, mayor de edad, con DNI/NIF <strong>${landlordDni || 'N/A'}</strong>, y domicilio en <strong>${landlordAddress || 'N/A'}</strong>. En adelante, "LA PARTE ARRENDADORA".</p>
-          <p>Y de otra, <strong>${tenantName || '[Arrendatario]'}</strong>, mayor de edad, con DNI/NIF <strong>${tenantDni || 'N/A'}</strong>. En adelante, "LA PARTE ARRENDATARIA".</p>
-          <hr style="margin:24px 0;" />
-          <p style="font-size:12px;color:#666;">Este documento fue generado por <strong>AlquilaGestión Pro</strong>. Por favor, revisá el contrato y respondé este email para confirmar tu conformidad.</p>
-        </div>
-      `;
+    if (selectedContract) {
+      const tenant = people.find(p => p.id === selectedContract.tenantId);
+      const property = properties.find(p => p.id === selectedContract.propertyId);
+      const guarantor = people.find(p => p.type === 'Garante');
+      const owner = people.find(p => p.type === 'Propietario');
 
-      const res = await sendEmail({
-        to: tenantEmail,
-        subject: `Solicitud de Firma — ${templateTitle}`,
-        html,
-      });
+      if (tenant)    filled['tenant_name'] = tenant.fullName;
+      if (guarantor) filled['guarantor_name'] = guarantor.fullName;
+      if (owner)     filled['owner_name'] = owner.fullName;
+      if (property)  filled['property_address'] = `${property.address}${property.unit ? ', ' + property.unit : ''}`;
 
-      if (res.success) {
-        toast({ title: "Enviado para firma", description: `Contrato enviado a ${tenantEmail}.` });
-        setShowSignatureDialog(false);
-        setTenantEmail('');
-      } else {
-        toast({ title: "Error al enviar", description: "No se pudo enviar el email.", variant: "destructive" });
+      // Contract dates
+      if (selectedContract.startDate) {
+        const { dia, mes, anio } = formatDateParts(selectedContract.startDate);
+        filled['start_date'] = `${dia} de ${mes} de ${anio}`;
       }
+      if (selectedContract.endDate) {
+        const { dia, mes, anio } = formatDateParts(selectedContract.endDate);
+        filled['end_date'] = `${dia} de ${mes} de ${anio}`;
+      }
+
+      // Rent
+      const rent = selectedContract.baseRentAmount || 0;
+      filled['rent_number'] = rent.toLocaleString('es-AR');
+      filled['rent_words'] = numberToWords(rent);
+
+      // Deposit
+      const deposit = selectedContract.depositAmount || 0;
+      filled['deposit_number'] = deposit.toLocaleString('es-AR');
+      filled['deposit_words'] = numberToWords(deposit);
+
+      // Duration
+      if (selectedContract.startDate && selectedContract.endDate) {
+        const start = new Date(selectedContract.startDate);
+        const end = new Date(selectedContract.endDate);
+        const months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+        filled['duration_label'] = monthsToLabel(months);
+      }
+
+      // Adjustment mechanism
+      const mech = selectedContract.adjustmentMechanism;
+      if (mech === 'IPC') filled['adjustment_label'] = 'Índice de Precios al Consumidor (IPC) publicado por el INDEC';
+      else if (mech === 'ICL') filled['adjustment_label'] = 'Índice para Contratos de Locación (ICL) publicado por el BCRA';
+      else if (mech) filled['adjustment_label'] = mech;
+    }
+
+    // Apply auto-fills to fieldValues for current template
+    const newValues: Record<string, string> = { ...fieldValues };
+    for (const variable of template.variables) {
+      if (variable.autoFill && filled[variable.autoFill]) {
+        newValues[variable.key] = filled[variable.autoFill];
+      }
+    }
+    setFieldValues(newValues);
+    setAutoFilled(true);
+    toast({ title: 'Campos completados', description: 'Revisá los datos antes de descargar.' });
+  };
+
+  // ─── Generate & download ────────────────────────────────────────────────────
+  const handleDownload = async () => {
+    setIsGenerating(true);
+    try {
+      // Build the variables map: placeholder text → value
+      const vars: Record<string, string> = {};
+      for (const variable of template.variables) {
+        const val = fieldValues[variable.key] ?? '';
+        vars[variable.key] = val;
+      }
+
+      const today = new Date();
+      const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      // Always replace date markers with today if not already set
+      if (!vars['Día']) vars['Día'] = String(today.getDate());
+      if (!vars['Mes']) vars['Mes'] = meses[today.getMonth()];
+      if (!vars['Año']) vars['Año'] = String(today.getFullYear());
+
+      const tenantSlug = fieldValues['NOMBRE COMPLETO DEL LOCATARIO']?.split(' ')[0] ?? 'Contrato';
+      const outputName = `${template.label} - ${tenantSlug} ${today.getFullYear()}.docx`;
+
+      await fillAndDownloadDocx(template.filename, vars, outputName);
+      toast({ title: 'Descarga iniciada', description: `${outputName} está listo para abrir en Word.` });
+    } catch (err: any) {
+      toast({ title: 'Error al generar', description: err?.message ?? 'No se pudo generar el documento.', variant: 'destructive' });
     } finally {
-      setIsSendingSignature(false);
+      setIsGenerating(false);
     }
   };
 
-  const contractPreview = useMemo(() => ({
-    city: propertyAddress || 'Madrid',
-    date: contractDate,
-    landlord: landlordName || '[Nombre del Arrendador]',
-    landlordDni: landlordDni || null,
-    landlordAddress: landlordAddress || null,
-    tenant: tenantName || '[Nombre del Arrendatario]',
-    tenantDni: tenantDni || '[DNI]',
-  }), [propertyAddress, contractDate, landlordName, landlordDni, landlordAddress, tenantName, tenantDni]);
-
-  const canUndo = historyIndex.current > 0;
-  const canRedo = historyIndex.current < history.current.length - 1;
+  const filledCount = template.variables.filter(v => fieldValues[v.key]?.trim()).length;
+  const totalCount = template.variables.length;
+  const allFilled = filledCount === totalCount;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-black text-foreground">Generador de Contratos</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Configuración y redacción automática de documentos legales.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Completá los datos y descargá el contrato en Word listo para imprimir y firmar.</p>
         </div>
-        <Button className="bg-primary text-white gap-2 font-bold" onClick={handleSaveDraft} disabled={isSaving}>
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Guardar Borrador
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-4">
-          <Card className="border-none shadow-sm bg-white">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-black flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" /> Editor Inteligente
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleUndo}
-                  disabled={!canUndo}
-                  className={cn("p-1.5 rounded hover:bg-muted transition-colors", canUndo ? "text-foreground" : "text-muted-foreground/30 cursor-not-allowed")}>
-                  <Undo2 className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={handleRedo}
-                  disabled={!canRedo}
-                  className={cn("p-1.5 rounded hover:bg-muted transition-colors", canRedo ? "text-foreground" : "text-muted-foreground/30 cursor-not-allowed")}>
-                  <Redo2 className="h-4 w-4" />
-                </button>
-                {people.length > 0 && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 font-bold" onClick={handleAutoFill}>
-                    <Sparkles className="h-3 w-3" /> Auto-rellenar
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted/20 rounded-xl p-6 text-sm leading-loose font-serif min-h-[320px] border border-border/50">
-                <p className="font-black text-center uppercase tracking-wide text-xs mb-6 text-foreground">
-                  {selectedTemplate === 'vivienda' ? 'CONTRATO DE ARRENDAMIENTO DE VIVIENDA HABITUAL' :
-                   selectedTemplate === 'comercial' ? 'CONTRATO DE ARRENDAMIENTO DE LOCAL COMERCIAL' :
-                   'CONTRATO DE ALQUILER TEMPORAL'}
-                </p>
-                <p className="text-foreground/80 mb-4">
-                  En la ciudad de{' '}
-                  <HighlightedField value={contractPreview.city} status="filled" />
-                  , a{' '}
-                  <HighlightedField value={contractPreview.date} status="filled" />
-                  .
-                </p>
-                <p className="font-black text-foreground mb-2">REUNIDOS</p>
-                <p className="text-foreground/80 mb-4">
-                  De una parte,{' '}
-                  <HighlightedField value={contractPreview.landlord} status={landlordName ? 'filled' : 'pending'} />
-                  , mayor de edad, con DNI/NIF{' '}
-                  <HighlightedField value={contractPreview.landlordDni || 'Pendiente de rellenar'} status={landlordDni ? 'filled' : 'warning'} />
-                  {contractPreview.landlordAddress ? (
-                    <>, y domicilio a efectos de notificaciones en{' '}
-                      <HighlightedField value={contractPreview.landlordAddress} status="filled" />
-                    </>
-                  ) : (
-                    <>, y domicilio a efectos de notificaciones en{' '}
-                      <HighlightedField value="[Dirección Arrendador]" status="pending" />
-                    </>
-                  )}
-                  . En adelante, "LA PARTE ARRENDADORA".
-                </p>
-                <p className="text-foreground/80 mb-6">
-                  Y de otra,{' '}
-                  <HighlightedField value={contractPreview.tenant} status={tenantName ? 'filled' : 'pending'} />
-                  , mayor de edad, con DNI/NIF{' '}
-                  <HighlightedField value={contractPreview.tenantDni} status={tenantDni ? 'filled' : 'pending'} />
-                  . En adelante, "LA PARTE ARRENDATARIA".
-                </p>
-                <p className="text-xs text-muted-foreground italic">
-                  Ambas partes se reconocen mutuamente la capacidad legal necesaria para el otorgamiento del presente contrato, y a tal efecto...
-                </p>
-              </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Nombre Arrendador</Label>
-                  <Input value={landlordName} onChange={e => handleFieldChange(setLandlordName, e.target.value)} placeholder="Tu nombre completo" className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">DNI / CUIT</Label>
-                  <Input value={landlordDni} onChange={e => handleFieldChange(setLandlordDni, e.target.value)} placeholder="XX.XXX.XXX-X" className="h-8 text-sm" />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Dirección Arrendador</Label>
-                  <Input value={landlordAddress} onChange={e => handleFieldChange(setLandlordAddress, e.target.value)} placeholder="Calle, número, ciudad..." className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Nombre Arrendatario</Label>
-                  <Input value={tenantName} onChange={e => handleFieldChange(setTenantName, e.target.value)} placeholder="Nombre del inquilino" className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">DNI / CUIT Arrendatario</Label>
-                  <Input value={tenantDni} onChange={e => handleFieldChange(setTenantDni, e.target.value)} placeholder="XX.XXX.XXX-X" className="h-8 text-sm" />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Ciudad / Dirección del Inmueble</Label>
-                  <Input value={propertyAddress} onChange={e => handleFieldChange(setPropertyAddress, e.target.value)} placeholder="Ciudad o dirección del inmueble" className="h-8 text-sm" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* ── Left: Template selector + data ── */}
+        <div className="xl:col-span-1 space-y-4">
 
-          <Card className="border-none shadow-sm bg-white">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                <TrendingUp className="h-5 w-5 text-orange-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-black text-sm">Actualización por IPC</p>
-                <p className="text-xs text-muted-foreground">Cláusula automática activada para revisión anual.</p>
-              </div>
-              <div className="flex gap-6 text-center">
-                <div>
-                  <p className="text-[9px] uppercase font-black text-muted-foreground">ÍNDICE BASE</p>
-                  <p className="text-lg font-black text-foreground">{IPC_BASE}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] uppercase font-black text-muted-foreground">PRÓXIMA REVISIÓN</p>
-                  <p className="text-lg font-black text-primary">{IPC_NEXT}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
+          {/* Template selector */}
           <Card className="border-none shadow-sm bg-white">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-black">Selector de Plantillas</CardTitle>
+              <CardTitle className="text-sm font-black uppercase text-muted-foreground tracking-wide">Tipo de documento</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {TEMPLATES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setSelectedTemplate(t.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
-                    selectedTemplate === t.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30 hover:bg-muted/20"
-                  )}
-                >
-                  <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", selectedTemplate === t.id ? "bg-primary/10" : "bg-muted/50")}>
-                    <t.icon className={cn("h-4 w-4", selectedTemplate === t.id ? "text-primary" : "text-muted-foreground")} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-sm font-bold", selectedTemplate === t.id ? "text-primary" : "text-foreground")}>{t.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{t.sub}</p>
-                  </div>
-                  {selectedTemplate === t.id && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
-                </button>
-              ))}
+              <Tabs defaultValue="contratos">
+                <TabsList className="w-full bg-muted/40">
+                  <TabsTrigger value="contratos" className="flex-1 text-xs font-bold">Contratos</TabsTrigger>
+                  <TabsTrigger value="anexos" className="flex-1 text-xs font-bold">Anexos</TabsTrigger>
+                </TabsList>
+                <TabsContent value="contratos" className="space-y-2 mt-3">
+                  {contratos.map(t => {
+                    const Icon = t.icon;
+                    const selected = selectedTemplateId === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); setAutoFilled(false); }}
+                        className={cn(
+                          "w-full text-left p-3 rounded-xl border transition-all",
+                          selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/30 hover:bg-muted/30"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn("p-1.5 rounded-lg mt-0.5", selected ? "bg-primary/10" : "bg-muted")}>
+                            <Icon className={cn("h-4 w-4", selected ? "text-primary" : "text-muted-foreground")} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs font-black leading-tight", selected ? "text-primary" : "text-foreground")}>{t.label}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{t.description}</p>
+                          </div>
+                          {selected && <ChevronRight className="h-4 w-4 text-primary shrink-0 mt-0.5" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </TabsContent>
+                <TabsContent value="anexos" className="space-y-2 mt-3">
+                  {anexos.map(t => {
+                    const Icon = t.icon;
+                    const selected = selectedTemplateId === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); setAutoFilled(false); }}
+                        className={cn(
+                          "w-full text-left p-3 rounded-xl border transition-all",
+                          selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/30 hover:bg-muted/30"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn("p-1.5 rounded-lg mt-0.5", selected ? "bg-primary/10" : "bg-muted")}>
+                            <Icon className={cn("h-4 w-4", selected ? "text-primary" : "text-muted-foreground")} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs font-black leading-tight", selected ? "text-primary" : "text-foreground")}>{t.label}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{t.description}</p>
+                          </div>
+                          {selected && <ChevronRight className="h-4 w-4 text-primary shrink-0 mt-0.5" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
 
+          {/* Link to existing contract */}
+          {contracts.length > 0 && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-black uppercase text-muted-foreground tracking-wide">Auto-completar desde contrato</CardTitle>
+                <CardDescription className="text-[11px]">Seleccioná un contrato y los campos se llenan automáticamente.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                  <SelectTrigger className="text-xs"><SelectValue placeholder="Seleccionar contrato…" /></SelectTrigger>
+                  <SelectContent>
+                    {contracts.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">
+                        {c.tenantName} — {c.propertyName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  className="w-full gap-2 font-bold bg-primary/90 hover:bg-primary"
+                  onClick={handleAutoFill}
+                  size="sm"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Auto-completar campos
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* ── Right: Form + Download ── */}
+        <div className="xl:col-span-2 space-y-4">
           <Card className="border-none shadow-sm bg-white">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-black">Estado de Firmas</CardTitle>
-              <Badge className={cn("font-bold border-none text-xs", tenantSigned && landlordSigned ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-600")}>
-                {tenantSigned && landlordSigned ? 'Firmado' : 'Pendiente'}
+            <CardHeader className="pb-3 flex flex-row items-start justify-between">
+              <div>
+                <CardTitle className="text-base font-black flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  {template.label}
+                </CardTitle>
+                <CardDescription className="text-xs mt-1">{template.description}</CardDescription>
+              </div>
+              {/* Progress badge */}
+              <Badge variant={allFilled ? 'default' : 'secondary'} className={cn("text-xs shrink-0", allFilled ? "bg-green-600" : "")}>
+                {filledCount}/{totalCount} campos
               </Badge>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/20">
-                <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center shrink-0 text-xs font-black text-primary">AR</div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold">Arrendador</p>
-                  <p className="text-[10px] text-muted-foreground">{landlordSigned ? 'Firmado hoy 10:24' : 'Pendiente de firma'}</p>
-                </div>
-                {landlordSigned ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" /> : <Mail className="h-4 w-4 text-muted-foreground shrink-0" />}
+            <CardContent>
+              {/* Progress bar */}
+              <div className="w-full bg-muted rounded-full h-1.5 mb-5">
+                <div
+                  className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${totalCount ? (filledCount / totalCount) * 100 : 0}%` }}
+                />
               </div>
 
-              <div className={cn("flex items-center gap-3 p-3 rounded-xl border", tenantSigned ? "bg-green-50 border-green-100" : "bg-muted/10 border-border border-dashed")}>
-                <div className="h-9 w-9 rounded-full bg-muted/60 flex items-center justify-center shrink-0 text-xs font-black text-muted-foreground">
-                  {(tenantName || 'AR').split(' ').slice(0, 2).map(w => w[0]).join('')}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-foreground">{tenantName || 'Arrendatario'}</p>
-                  <p className="text-[10px] text-muted-foreground">{tenantSigned ? 'Firmado' : 'Pendiente de firma'}</p>
-                </div>
-                {tenantSigned ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" /> : <Mail className="h-4 w-4 text-muted-foreground shrink-0" />}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {template.variables.map((variable) => {
+                  const val = fieldValues[variable.key] ?? '';
+                  const filled = val.trim().length > 0;
+                  return (
+                    <div key={variable.key} className="space-y-1.5">
+                      <Label className="text-[11px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
+                        {filled
+                          ? <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" />
+                          : <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
+                        }
+                        {variable.label}
+                      </Label>
+                      {variable.type === 'select' ? (
+                        <Select value={val} onValueChange={v => setFieldValues(prev => ({ ...prev, [variable.key]: v }))}>
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="Seleccioná…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {variable.options?.map(o => <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          className="h-9 text-xs"
+                          placeholder={variable.hint ?? `Ej: ${variable.label}…`}
+                          value={val}
+                          onChange={e => setFieldValues(prev => ({ ...prev, [variable.key]: e.target.value }))}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
-              {!tenantSigned && (
-                <Button className="w-full bg-primary text-white font-bold h-9 text-xs gap-2" onClick={() => setShowSignatureDialog(true)}>
-                  <Mail className="h-3.5 w-3.5" /> Enviar para Firma
+              <Separator className="my-6" />
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-foreground">Descargar como Word (.docx)</p>
+                  <p className="text-[11px] text-muted-foreground">El archivo se abre con Microsoft Word o Google Docs. Podés imprimirlo o enviarlo para firma.</p>
+                </div>
+                <Button
+                  className="gap-2 font-black bg-primary hover:bg-primary/90 shrink-0 px-6"
+                  onClick={handleDownload}
+                  disabled={isGenerating || filledCount === 0}
+                >
+                  {isGenerating
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
+                    : <><Download className="h-4 w-4" /> Descargar Contrato</>}
                 </Button>
+              </div>
+
+              {!allFilled && filledCount > 0 && (
+                <p className="text-[11px] text-amber-600 mt-3 flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Quedan {totalCount - filledCount} campo(s) sin completar. El documento se generará con espacios en blanco en esos lugares.
+                </p>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
-
-      <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-primary" /> Enviar Contrato para Firma
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">El contrato será enviado por email al arrendatario para su revisión y confirmación.</p>
-            <div className="space-y-2">
-              <Label className="text-xs uppercase font-black text-muted-foreground">Email del Arrendatario</Label>
-              <Input
-                type="email"
-                placeholder="inquilino@ejemplo.com"
-                value={tenantEmail}
-                onChange={e => setTenantEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSignatureDialog(false)}>Cancelar</Button>
-            <Button className="bg-primary text-white gap-2 font-bold" onClick={handleSendForSignature} disabled={isSendingSignature}>
-              {isSendingSignature ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Enviar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
