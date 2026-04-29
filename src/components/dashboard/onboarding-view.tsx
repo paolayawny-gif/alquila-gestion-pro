@@ -50,7 +50,7 @@ import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { analyzeApplication } from '@/ai/flows/analyze-application-flow';
-import { fetchDeudaBcra, situacionLabel, situacionColor, BcraDeudaReport } from '@/ai/flows/fetch-deudas-bcra-action';
+import { fetchDeudaBcra, situacionLabel, situacionColor, BcraDeudaReport, FetchDeudaResult } from '@/ai/flows/fetch-deudas-bcra-action';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -150,7 +150,12 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     setIsFetchingBcra(true);
     setBcraReport(null);
     try {
-      const report = await fetchDeudaBcra(cuit);
+      const res = await fetchDeudaBcra(cuit);
+      if (!res.ok) {
+        toast({ title: 'Error BCRA', description: res.error, variant: 'destructive' });
+        return;
+      }
+      const report = res.data;
       setBcraReport(report);
       // Persist CUIT and report summary to Firestore
       if (selectedApp && userId && db) {
@@ -170,7 +175,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
       }
       toast({ title: 'Consulta BCRA completada', description: `Situación máxima: ${situacionLabel(report.maxSituation)}` });
     } catch (e: any) {
-      toast({ title: 'Error BCRA', description: e.message ?? 'No se pudo consultar la Central de Deudores.', variant: 'destructive' });
+      toast({ title: 'Error inesperado', description: e.message ?? 'No se pudo consultar la Central de Deudores.', variant: 'destructive' });
     } finally {
       setIsFetchingBcra(false);
     }

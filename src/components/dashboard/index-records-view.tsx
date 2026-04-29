@@ -136,16 +136,16 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
     setIsFetchingBcra(true);
     setImportResult(null);
     try {
-      const points = await fetchCerFromBcra(bcraDesde, bcraHasta);
-      if (!points.length) {
-        toast({ title: 'Sin datos', description: 'La API del BCRA no devolvió datos para ese período.', variant: 'destructive' });
+      const res = await fetchCerFromBcra(bcraDesde, bcraHasta);
+      if (!res.ok) {
+        toast({ title: 'Error BCRA', description: res.error, variant: 'destructive' });
         return;
       }
-      const result = await batchSaveCer(points);
+      const result = await batchSaveCer(res.data);
       setImportResult(result);
       toast({ title: 'Importación completa', description: `${result.ok} valores guardados, ${result.skipped} ya existentes.` });
     } catch (e: any) {
-      toast({ title: 'Error BCRA', description: e.message ?? 'No se pudo conectar con la API del BCRA.', variant: 'destructive' });
+      toast({ title: 'Error inesperado', description: e.message ?? 'Error al importar desde BCRA.', variant: 'destructive' });
     } finally {
       setIsFetchingBcra(false);
     }
