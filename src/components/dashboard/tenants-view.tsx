@@ -62,6 +62,7 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { queryContract } from '@/ai/flows/query-contract-flow';
 import { extractContractData } from '@/ai/flows/extract-contract-data-flow';
+import { extractTextFromPdfDataUri, isPdfDataUri } from '@/lib/pdf-extract';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -179,6 +180,13 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', id);
     deleteDocumentNonBlocking(docRef);
     toast({ title: "Persona eliminada", description: "El registro ha sido removido." });
+  };
+
+  const handleDeleteContract = (id: string) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'contratos', id);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: "Contrato eliminado", description: "El contrato ha sido removido del sistema." });
   };
 
   const handleAskContract = async () => {
@@ -366,16 +374,38 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     if (!file) return;
     setIsUploadingContract(true);
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
+      const dataUri = event.target?.result as string;
       setContractFormData(prev => ({
         ...prev,
         documents: {
           ...((prev.documents as any) || {}),
-          mainContractUrl: event.target?.result as string,
+          mainContractUrl: dataUri,
           mainContractName: file.name,
         }
       }));
-      toast({ title: "Archivo cargado", description: `"${file.name}" listo para guardar con el contrato.` });
+
+      // Auto-extraer texto si es PDF (sin necesitar IA)
+      if (isPdfDataUri(dataUri)) {
+        toast({ title: "Extrayendo texto del PDF…", description: "Procesando el documento, un momento." });
+        try {
+          const text = await extractTextFromPdfDataUri(dataUri);
+          if (text.trim().length > 50) {
+            setContractFormData(prev => ({ ...prev, fullTranscription: text }));
+            toast({ title: "Texto extraído del PDF ✓", description: `${text.length.toLocaleString('es-AR')} caracteres listos para el Asistente Legal.` });
+          } else {
+            toast({
+              title: "PDF sin texto seleccionable",
+              description: "El PDF parece ser una imagen escaneada. Usá 'Analizar con IA' para hacer OCR.",
+              variant: "destructive"
+            });
+          }
+        } catch {
+          toast({ title: "No se pudo extraer el texto", description: "Usá 'Analizar con IA' como alternativa.", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Imagen cargada", description: `"${file.name}" listo. Usá 'Analizar con IA' para extraer el texto.` });
+      }
       setIsUploadingContract(false);
     };
     reader.readAsDataURL(file);
@@ -496,7 +526,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                 <input ref={contractFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleContractFileChange} />
               </div>
 
-              {/* Botón de análisis con IA */}
+              {/* Botón de análisis con IA (para imágenes o PDFs escaneados) */}
               {(contractFormData.documents as any)?.mainContractUrl && (
                 <Button
                   variant="outline"
@@ -505,8 +535,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                   disabled={isExtracting}
                 >
                   {isExtracting
-                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Analizando documento con IA...</>
-                    : <><Sparkles className="h-4 w-4" /> Analizar con IA y extraer datos</>}
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Analizando con IA (OCR)...</>
+                    : <><Sparkles className="h-4 w-4" /> Analizar con IA (para imágenes / PDF escaneado)</>}
                 </Button>
               )}
 
@@ -819,6 +849,19 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
 
                       <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => { setEditingContract(c); setContractFormData(c); setIsContractDialogOpen(true); }}>
                         <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:bg-destructive/10"
+                        title="Eliminar contrato"
+                        onClick={() => {
+                          if (confirm(`¿Eliminár el contrato de ${c.tenantName}? Esta acción no se puede deshacer.`)) {
+                            handleDeleteContract(c.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
