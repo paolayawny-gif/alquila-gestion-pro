@@ -231,28 +231,44 @@ export default function AppClient() {
         {/* Logo */}
         <div className="px-4 h-16 flex items-center border-b">
           {!isSidebarCollapsed ? (
-            <div className="flex items-center gap-2 overflow-hidden">
-              <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-                <path d="M20 6L4 18H8V34H18V26H22V34H32V18H36L20 6Z" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round" fill="none"/>
-                <circle cx="10" cy="30" r="2" fill="#16a34a"/>
-                <circle cx="18" cy="23" r="2" fill="#16a34a"/>
-                <circle cx="26" cy="20" r="2" fill="#16a34a"/>
-                <polyline points="10,30 18,23 26,20 34,14" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                <polyline points="30,14 34,14 34,18" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <div className="flex items-center gap-3 overflow-hidden">
+              {/* Ícono cuadrado: casa + barras + tendencia */}
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                <rect width="36" height="36" rx="9" fill="#1D9E75"/>
+                {/* Techo */}
+                <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                {/* Barras de crecimiento */}
+                <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
+                <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
+                <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
+                {/* Línea de tendencia */}
+                <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
+                <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
               </svg>
-              <div className="leading-tight overflow-hidden">
-                <span className="block text-[13px] font-semibold text-gray-600 truncate tracking-tight">AlquilaGestión</span>
-                <span className="block text-[13px] font-black text-green-700 tracking-tight">Pro</span>
+              {/* Wordmark */}
+              <div className="leading-none overflow-hidden flex-1 min-w-0">
+                <span className="block text-[9px] font-medium tracking-[0.22em] text-[#888780] uppercase mb-0.5">ALQUILA</span>
+                <div className="flex items-baseline gap-0">
+                  <span className="text-[17px] font-semibold text-[#1D9E75] leading-none">Gestión</span>
+                  <span className="text-[17px] font-semibold text-[#444441] leading-none">Pro</span>
+                </div>
+                <div className="flex mt-1 gap-[2px]">
+                  <div className="h-[2.5px] w-[52px] rounded-full bg-[#1D9E75]"/>
+                  <div className="h-[2.5px] w-[20px] rounded-full bg-[#444441]"/>
+                </div>
               </div>
             </div>
           ) : (
-            <svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto">
-              <path d="M20 6L4 18H8V34H18V26H22V34H32V18H36L20 6Z" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round" fill="none"/>
-              <circle cx="10" cy="30" r="2" fill="#16a34a"/>
-              <circle cx="18" cy="23" r="2" fill="#16a34a"/>
-              <circle cx="26" cy="20" r="2" fill="#16a34a"/>
-              <polyline points="10,30 18,23 26,20 34,14" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              <polyline points="30,14 34,14 34,18" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto">
+              <rect width="36" height="36" rx="9" fill="#1D9E75"/>
+              <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
+              <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
+              <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
+              <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
+              <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
             </svg>
           )}
         </div>
