@@ -28,7 +28,8 @@ import {
   ShieldPlus,
   Zap,
   PiggyBank,
-  Crown
+  Crown,
+  HardHat
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -51,6 +52,7 @@ import { ReportsView } from '@/components/dashboard/reports-view';
 import { IndexRecordsView } from '@/components/dashboard/index-records-view';
 import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
 import { DepositsView } from '@/components/dashboard/deposits-view';
+import { ProvidersView } from '@/components/dashboard/providers-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -76,7 +78,7 @@ import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Super Admin';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Super Admin';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -91,6 +93,7 @@ const ADMIN_MENU = [
   { id: 'Facturas', icon: FileSpreadsheet, label: 'Facturas y Servicios' },
   { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento' },
   { id: 'Mantenimiento Predictivo', icon: ShieldPlus, label: 'Mantenimiento Predictivo' },
+  { id: 'Proveedores', icon: HardHat, label: 'Directorio de Proveedores' },
   { id: 'Legales', icon: Scale, label: 'Casos Legales' },
   { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
   { id: 'Índices', icon: LineChart, label: 'Índices Oficiales' },
@@ -207,6 +210,7 @@ export default function AppClient() {
       case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
+      case 'Proveedores': return <ProvidersView tasks={tasks} properties={properties} userId={user?.uid} />;
       case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
       case 'Contratos Smart': return <SmartContractsView contracts={contracts} invoices={invoices} people={people} properties={properties} userId={user?.uid} />;
       case 'Garantías': return <DepositsView contracts={contracts} people={people} properties={properties} userId={user?.uid} />;
