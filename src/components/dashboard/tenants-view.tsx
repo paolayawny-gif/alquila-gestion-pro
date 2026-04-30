@@ -101,6 +101,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [isAsking, setIsAsking] = useState(false);
 
   const [isExtracting, setIsExtracting] = useState(false);
+  const [contractDialogTab, setContractDialogTab] = useState('general');
+  const [aiExtractedData, setAiExtractedData] = useState<Record<string,string> | null>(null);
   const [isCalculatingIndex, setIsCalculatingIndex] = useState(false);
   const [adjDraft, setAdjDraft] = useState<any>(null);
   const [renewalDraft, setRenewalDraft] = useState<any>(null);
@@ -238,9 +240,21 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       startDate: d.startDate || prev.startDate,
       endDate: d.endDate || prev.endDate,
     }));
+
+    // Store what was extracted so we can show it in the banner
+    setAiExtractedData({
+      tenantName: d.tenantName ?? '',
+      address: d.propertyAddress ?? '',
+      rent: d.baseRentAmount ? `${d.currency} ${d.baseRentAmount.toLocaleString('es-AR')}` : '',
+      confidence: `${Math.round((d.confidenceScore ?? 0) * 100)}%`,
+    });
+
+    // Jump to "Datos Generales" so the user sees the filled fields and can select Inquilino/Propiedad
+    setContractDialogTab('general');
+
     toast({
-      title: "Análisis completado",
-      description: `Confianza: ${Math.round((d.confidenceScore ?? 0) * 100)}%. Transcripción y datos cargados. Revisá y guardá el contrato.`,
+      title: `✓ Análisis completado (${Math.round((d.confidenceScore ?? 0) * 100)}% confianza)`,
+      description: 'Datos cargados. Revisá Datos Generales, seleccioná Inquilino y Propiedad, y guardá.',
     });
   };
 
@@ -392,7 +406,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           const text = await extractTextFromPdfDataUri(dataUri);
           if (text.trim().length > 50) {
             setContractFormData(prev => ({ ...prev, fullTranscription: text }));
-            toast({ title: "Texto extraído del PDF ✓", description: `${text.length.toLocaleString('es-AR')} caracteres listos para el Asistente Legal.` });
+            setAiExtractedData({ tenantName: '', address: '', rent: '', confidence: 'texto directo' });
+            setContractDialogTab('general');
+            toast({ title: "Texto extraído del PDF ✓", description: `${text.length.toLocaleString('es-AR')} caracteres cargados. Completá Inquilino y Propiedad y guardá.` });
           } else {
             toast({
               title: "PDF sin texto seleccionable",
@@ -413,22 +429,53 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   };
 
   const handleSaveContract = () => {
-    if (!contractFormData.tenantId || !contractFormData.propertyId || !userId || !db) return;
+    if (!userId || !db) return;
+
+    // Validate required fields with clear error messages
+    if (!contractFormData.tenantId) {
+      toast({ title: "Falta seleccionar el Inquilino", description: "Andá a la pestaña 'Datos Generales' y elegí el inquilino (Locatario) del contrato.", variant: "destructive" });
+      return;
+    }
+    if (!contractFormData.propertyId) {
+      toast({ title: "Falta seleccionar la Propiedad", description: "Andá a la pestaña 'Datos Generales' y elegí la propiedad.", variant: "destructive" });
+      return;
+    }
+
     const tenant = people.find(p => p.id === contractFormData.tenantId);
     const property = properties.find(p => p.id === contractFormData.propertyId);
     const docId = editingContract?.id || Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'contratos', docId);
+
+    // Strip the base64 PDF from documents before saving to Firestore
+    // (base64 PDFs are megabytes — Firestore has a 1MB document limit)
+    const docsRaw = contractFormData.documents as any;
+    const documentsSafe = {
+      mainContractUrl: '',           // don't store base64 in Firestore
+      mainContractName: docsRaw?.mainContractName ?? '',
+      versions: docsRaw?.versions ?? [],
+      annexes: docsRaw?.annexes ?? [],
+    };
+
+    // Truncate fullTranscription to 80,000 chars max (Firestore 1MB guard)
+    const MAX_TRANSCRIPTION = 80_000;
+    const fullTranscription = contractFormData.fullTranscription
+      ? contractFormData.fullTranscription.slice(0, MAX_TRANSCRIPTION)
+      : undefined;
+
     const newContract: Contract = {
       ...contractFormData,
       id: docId,
       tenantName: tenant?.fullName,
       propertyName: property?.name,
       currentRentAmount: contractFormData.currentRentAmount || contractFormData.baseRentAmount || 0,
+      documents: documentsSafe,
+      fullTranscription,
       ownerId: userId,
     } as Contract;
+
     setDocumentNonBlocking(docRef, newContract, { merge: true });
     setIsContractDialogOpen(false);
-    toast({ title: "Contrato Guardado", description: "Los términos han sido actualizados." });
+    toast({ title: "Contrato Guardado ✓", description: `${tenant?.fullName} — ${property?.name}` });
   };
 
   return (
@@ -442,7 +489,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         </Tabs>
         <div className="flex gap-2 w-full sm:w-auto">
           {activeTab === 'contracts' ? (
-            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setIsContractDialogOpen(true); }}>
+            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
           ) : (
@@ -454,10 +501,28 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       </div>
 
       {/* DIÁLOGO DE CONTRATO */}
-      <Dialog open={isContractDialogOpen} onOpenChange={setIsContractDialogOpen}>
+      <Dialog open={isContractDialogOpen} onOpenChange={(open) => { setIsContractDialogOpen(open); if (!open) setAiExtractedData(null); }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Ficha Técnica del Contrato</DialogTitle></DialogHeader>
-          <Tabs defaultValue="general" className="mt-4">
+
+          {/* Banner post-extracción IA */}
+          {aiExtractedData && (
+            <div className="flex gap-3 items-start p-3 bg-green-50 border border-green-200 rounded-xl mt-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1">
+                <p className="text-sm font-black text-green-800">IA extrajo los datos del contrato (confianza {aiExtractedData.confidence})</p>
+                <p className="text-xs text-green-700">
+                  {aiExtractedData.tenantName && <span>Inquilino detectado: <strong>{aiExtractedData.tenantName}</strong> · </span>}
+                  {aiExtractedData.rent && <span>Monto: <strong>{aiExtractedData.rent}</strong></span>}
+                </p>
+                <p className="text-xs font-bold text-amber-700 mt-1">
+                  ⚠️ Seleccioná el Inquilino y la Propiedad en los desplegables de abajo, luego hacé clic en "Guardar Contrato".
+                </p>
+              </div>
+            </div>
+          )}
+
+          <Tabs value={contractDialogTab} onValueChange={setContractDialogTab} className="mt-4">
             <TabsList className="grid w-full grid-cols-3 bg-muted/50">
               <TabsTrigger value="general">Datos Generales</TabsTrigger>
               <TabsTrigger value="economic">Cláusulas Económicas</TabsTrigger>
@@ -847,7 +912,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                         <CalendarClock className="h-4 w-4" />
                       </Button>
 
-                      <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => { setEditingContract(c); setContractFormData(c); setIsContractDialogOpen(true); }}>
+                      <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => { setEditingContract(c); setContractFormData(c); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button
