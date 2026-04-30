@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner } from '@/lib/types';
@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
@@ -316,10 +317,10 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                 </div>
                 <div className="space-y-2">
                   <Label>Dirección</Label>
-                  <Input 
-                    placeholder="Calle y número" 
-                    value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  <AddressAutocomplete
+                    placeholder="Calle y número"
+                    value={formData.address || ''}
+                    onChange={(val) => setFormData({ ...formData, address: val })}
                   />
                 </div>
               </div>
@@ -441,7 +442,26 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
           <TableBody>
             {filteredProperties.map((p) => (
               <TableRow key={p.id}>
-                <TableCell className="font-bold">{p.name}</TableCell>
+                <TableCell>
+                  <p className="font-bold">{p.name}</p>
+                  {p.address && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">
+                        {p.address}
+                      </p>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ver en Google Maps"
+                        onClick={e => e.stopPropagation()}
+                        className="shrink-0 text-primary/50 hover:text-primary transition-colors"
+                      >
+                        <MapPin className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-col">
                     <span className="text-xs">{p.type}</span>
