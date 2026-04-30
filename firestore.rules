@@ -10,6 +10,23 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Super Admin: solo el UID de paolayawny@gmail.com puede leer/escribir
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.uid == 'wYkBqQjJuSdQu7F20eFAHZ0qX9N2';
+    }
+
+    // ── Super Admin: gestión global de organizaciones ─────────────────────────
+    match /artifacts/{appId}/superadmin/data/organizations/{orgId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // Regla comodín superadmin (por si se agregan más colecciones admin)
+    match /artifacts/{appId}/superadmin/{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // ── Colecciones por usuario ───────────────────────────────────────────────
+
     // Regla pública: cualquiera puede ver propiedades (para postulantes)
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
       allow get: if true;
