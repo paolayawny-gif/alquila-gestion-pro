@@ -6,14 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   FileText, Download, Sparkles, Loader2, ChevronRight, CheckCircle2, AlertCircle,
-  Upload, Plus, Trash2, Edit2, FolderOpen, Save, Copy, BookOpen, PenLine
+  Upload, Plus, Trash2, Edit2, FolderOpen, Save, Copy, BookOpen, PenLine, Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Property, Person, Contract } from '@/lib/types';
@@ -24,6 +25,7 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import { CONTRACT_TEMPLATES } from '@/lib/contract-templates-meta';
 import { fillAndDownloadDocx, numberToWords, formatDateParts, monthsToLabel } from '@/lib/docx-fill';
 import { extractTemplateStructure } from '@/ai/flows/extract-template-structure-flow';
+import { generateContract } from '@/ai/flows/generate-contract-flow';
 import { extractTextFromPdfDataUri, isPdfDataUri } from '@/lib/pdf-extract';
 
 const APP_ID = 'alquilagestion-pro';
@@ -127,6 +129,22 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const [editorTitle, setEditorTitle] = useState('Nuevo Contrato');
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
+  // ── AI Generator Dialog ──
+  const [showAiDialog, setShowAiDialog] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiContractType, setAiContractType] = useState('Locación de Vivienda');
+  const [aiLocadorId, setAiLocadorId] = useState('');
+  const [aiLocatarioId, setAiLocatarioId] = useState('');
+  const [aiFiadorId, setAiFiadorId] = useState('');
+  const [aiPropiedadId, setAiPropiedadId] = useState('');
+  const [aiStartDate, setAiStartDate] = useState('');
+  const [aiEndDate, setAiEndDate] = useState('');
+  const [aiRentAmount, setAiRentAmount] = useState('');
+  const [aiCurrency, setAiCurrency] = useState('ARS');
+  const [aiDeposit, setAiDeposit] = useState('');
+  const [aiAdjustment, setAiAdjustment] = useState('');
+  const [aiDetails, setAiDetails] = useState('');
+
   // ── Tab: Mis Modelos ──
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [newModelName, setNewModelName] = useState('');
@@ -216,6 +234,47 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
       toast({ title: 'Error', description: err?.message ?? 'No se pudo generar el documento.', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // ── AI Dialog: generate contract ──
+  const handleGenerateWithAi = async () => {
+    setIsGeneratingAi(true);
+    toast({ title: 'Generando contrato con IA…', description: 'Esto puede tardar unos segundos.' });
+    try {
+      const locador = people.find(p => p.id === aiLocadorId);
+      const locatario = people.find(p => p.id === aiLocatarioId);
+      const fiador = people.find(p => p.id === aiFiadorId);
+      const prop = properties.find(p => p.id === aiPropiedadId);
+
+      const result = await generateContract({
+        contractType: aiContractType,
+        locador: locador?.fullName,
+        locatario: locatario?.fullName,
+        fiador: fiador?.fullName,
+        propertyAddress: prop ? `${prop.address}${prop.unit ? ', ' + prop.unit : ''}` : undefined,
+        startDate: aiStartDate || undefined,
+        endDate: aiEndDate || undefined,
+        rentAmount: aiRentAmount || undefined,
+        currency: aiCurrency || undefined,
+        depositAmount: aiDeposit || undefined,
+        adjustmentMechanism: aiAdjustment || undefined,
+        additionalDetails: aiDetails || undefined,
+      });
+
+      if (!result.ok) {
+        toast({ title: 'Error de IA', description: result.error, variant: 'destructive' });
+        return;
+      }
+
+      setEditorTitle(result.data.title || aiContractType);
+      setEditorContent(result.data.html);
+      setShowAiDialog(false);
+      toast({ title: '¡Contrato generado! ✓', description: 'El texto se cargó en el editor. Podés revisarlo y editarlo.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.message ?? 'No se pudo generar el contrato.', variant: 'destructive' });
+    } finally {
+      setIsGeneratingAi(false);
     }
   };
 
@@ -717,17 +776,21 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
 
             {/* Editor */}
             <div className="xl:col-span-3 space-y-3">
-              <div className="flex items-center gap-3">
-                <Input className="font-bold text-sm h-9 flex-1" value={editorTitle}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Input className="font-bold text-sm h-9 flex-1 min-w-[180px]" value={editorTitle}
                   onChange={e => setEditorTitle(e.target.value)} placeholder="Título del contrato…" />
-                <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9" onClick={handleCopyText}>
-                  <Copy className="h-3.5 w-3.5" /> Copiar texto
+                <Button size="sm" className="gap-1.5 font-black h-9 bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 shadow-md shrink-0"
+                  onClick={() => setShowAiDialog(true)}>
+                  <Wand2 className="h-3.5 w-3.5" /> Generar con IA
                 </Button>
-                <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9" onClick={handlePrint}>
-                  <Download className="h-3.5 w-3.5" /> Imprimir / PDF
+                <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9 shrink-0" onClick={handleCopyText}>
+                  <Copy className="h-3.5 w-3.5" /> Copiar
                 </Button>
-                <Button size="sm" className="gap-1.5 font-bold h-9 bg-primary" onClick={handleSaveDraft}>
-                  <Save className="h-3.5 w-3.5" /> Guardar borrador
+                <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9 shrink-0" onClick={handlePrint}>
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </Button>
+                <Button size="sm" className="gap-1.5 font-bold h-9 bg-primary shrink-0" onClick={handleSaveDraft}>
+                  <Save className="h-3.5 w-3.5" /> Guardar
                 </Button>
               </div>
               <RichTextEditor
@@ -844,6 +907,197 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ══════════════════════════════════════════════
+          DIALOG: Generar contrato con IA
+      ══════════════════════════════════════════════ */}
+      <Dialog open={showAiDialog} onOpenChange={setShowAiDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-black">
+              <Wand2 className="h-5 w-5 text-violet-600" /> Generar contrato con IA
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Describí el contrato que necesitás. La IA redacta el texto completo con lenguaje jurídico argentino y lo carga en el editor para que lo revises y edites.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Tipo de contrato */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black uppercase text-muted-foreground">Tipo de contrato</Label>
+              <Select value={aiContractType} onValueChange={setAiContractType}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Locación de Vivienda">Locación de Vivienda</SelectItem>
+                  <SelectItem value="Locación de Vivienda con Cochera">Locación de Vivienda con Cochera</SelectItem>
+                  <SelectItem value="Locación Comercial">Locación Comercial</SelectItem>
+                  <SelectItem value="Locación de Oficina">Locación de Oficina</SelectItem>
+                  <SelectItem value="Comodato">Comodato</SelectItem>
+                  <SelectItem value="Acuerdo de Rescisión">Acuerdo de Rescisión</SelectItem>
+                  <SelectItem value="Addenda / Modificación de Contrato">Addenda / Modificación de Contrato</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Partes */}
+            <div className="space-y-2">
+              <p className="text-xs font-black uppercase text-muted-foreground">Partes del contrato</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Locador */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">🏠 Locador (Propietario)</Label>
+                  {people.filter(p => p.type === 'Propietario').length > 0 ? (
+                    <Select value={aiLocadorId} onValueChange={setAiLocadorId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir propietario…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        {people.filter(p => p.type === 'Propietario').map(p => (
+                          <SelectItem key={p.id} value={p.id} className="text-xs">{p.fullName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input className="h-8 text-xs" placeholder="Nombre completo del locador…"
+                      value={aiLocadorId} onChange={e => setAiLocadorId(e.target.value)} />
+                  )}
+                </div>
+                {/* Locatario */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">🔑 Locatario (Inquilino)</Label>
+                  {people.filter(p => p.type === 'Inquilino').length > 0 ? (
+                    <Select value={aiLocatarioId} onValueChange={setAiLocatarioId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir inquilino…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        {people.filter(p => p.type === 'Inquilino').map(p => (
+                          <SelectItem key={p.id} value={p.id} className="text-xs">{p.fullName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input className="h-8 text-xs" placeholder="Nombre completo del locatario…"
+                      value={aiLocatarioId} onChange={e => setAiLocatarioId(e.target.value)} />
+                  )}
+                </div>
+                {/* Fiador */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">🛡️ Fiador (Garante)</Label>
+                  {people.filter(p => p.type === 'Garante').length > 0 ? (
+                    <Select value={aiFiadorId} onValueChange={setAiFiadorId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir garante…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        {people.filter(p => p.type === 'Garante').map(p => (
+                          <SelectItem key={p.id} value={p.id} className="text-xs">{p.fullName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input className="h-8 text-xs" placeholder="Nombre completo del fiador…"
+                      value={aiFiadorId} onChange={e => setAiFiadorId(e.target.value)} />
+                  )}
+                </div>
+                {/* Propiedad */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">📍 Inmueble</Label>
+                  {properties.length > 0 ? (
+                    <Select value={aiPropiedadId} onValueChange={setAiPropiedadId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir propiedad…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        {properties.map(p => (
+                          <SelectItem key={p.id} value={p.id} className="text-xs">{p.address}{p.unit ? ` · ${p.unit}` : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input className="h-8 text-xs" placeholder="Dirección del inmueble…"
+                      value={aiPropiedadId} onChange={e => setAiPropiedadId(e.target.value)} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Condiciones */}
+            <div className="space-y-2">
+              <p className="text-xs font-black uppercase text-muted-foreground">Condiciones</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">Fecha de inicio</Label>
+                  <Input type="date" className="h-8 text-xs" value={aiStartDate} onChange={e => setAiStartDate(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">Fecha de fin</Label>
+                  <Input type="date" className="h-8 text-xs" value={aiEndDate} onChange={e => setAiEndDate(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">Moneda</Label>
+                  <Select value={aiCurrency} onValueChange={setAiCurrency}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ARS" className="text-xs">$ Pesos (ARS)</SelectItem>
+                      <SelectItem value="USD" className="text-xs">U$D Dólares (USD)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">Canon mensual</Label>
+                  <Input className="h-8 text-xs" placeholder="Ej: 150000" value={aiRentAmount} onChange={e => setAiRentAmount(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">Depósito</Label>
+                  <Input className="h-8 text-xs" placeholder="Ej: 300000" value={aiDeposit} onChange={e => setAiDeposit(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-muted-foreground">Ajuste</Label>
+                  <Select value={aiAdjustment} onValueChange={setAiAdjustment}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="" className="text-xs">— Sin especificar —</SelectItem>
+                      <SelectItem value="IPC (INDEC)" className="text-xs">IPC (INDEC)</SelectItem>
+                      <SelectItem value="ICL (BCRA)" className="text-xs">ICL (BCRA)</SelectItem>
+                      <SelectItem value="Libre negociación" className="text-xs">Libre negociación</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Instrucciones adicionales */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black uppercase text-muted-foreground">
+                Instrucciones y cláusulas especiales
+              </Label>
+              <Textarea
+                className="text-sm min-h-[110px] resize-none"
+                placeholder={`Describí libremente lo que necesitás. Por ejemplo:\n• "Incluir cláusula de prohibición de mascotas"\n• "El locatario puede subarrendar con autorización escrita"\n• "Contrato con opción de compra al finalizar"\n• "Agregar cláusula de penalidad por mora del 2% mensual"\n• "El locador se compromete a pintar el inmueble antes de la entrega"`}
+                value={aiDetails}
+                onChange={e => setAiDetails(e.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground">Mientras más detalles des, mejor será el resultado.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAiDialog(false)} disabled={isGeneratingAi}>
+              Cancelar
+            </Button>
+            <Button
+              className="gap-2 font-black bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 min-w-[160px]"
+              onClick={handleGenerateWithAi}
+              disabled={isGeneratingAi}
+            >
+              {isGeneratingAi
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
+                : <><Wand2 className="h-4 w-4" /> Generar contrato</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
