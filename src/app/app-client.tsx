@@ -28,7 +28,9 @@ import {
   FilePen,
   ShieldPlus,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Zap,
+  PiggyBank
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -49,6 +51,8 @@ import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
 import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
 import { ReportsView } from '@/components/dashboard/reports-view';
 import { IndexRecordsView } from '@/components/dashboard/index-records-view';
+import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
+import { DepositsView } from '@/components/dashboard/deposits-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -72,13 +76,15 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías';
 
 const ADMIN_MENU = [
   { id: 'Resumen', icon: LayoutDashboard, label: 'Panel de Control' },
   { id: 'Propiedades', icon: Building, label: 'Propiedades' },
   { id: 'Personas', icon: Users, label: 'Personas y Contratos' },
   { id: 'Generador Contratos', icon: FilePen, label: 'Generador de Contratos' },
+  { id: 'Contratos Smart', icon: Zap, label: 'Contratos Smart' },
+  { id: 'Garantías', icon: PiggyBank, label: 'Garantías y Depósitos' },
   { id: 'Solicitudes', icon: UserPlus, label: 'Gestión de Solicitudes' },
   { id: 'Facturas', icon: FileSpreadsheet, label: 'Facturas y Servicios' },
   { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento' },
@@ -245,6 +251,8 @@ export default function AppClient() {
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
       case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
+      case 'Contratos Smart': return <SmartContractsView contracts={contracts} invoices={invoices} people={people} properties={properties} userId={user?.uid} />;
+      case 'Garantías': return <DepositsView contracts={contracts} people={people} properties={properties} userId={user?.uid} />;
       case 'Simulador ROI': return <ROISimulatorView userId={user?.uid} />;
       case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} userId={user?.uid} />;
       case 'Legales': return <LegalView legalCases={legalCases as any} userId={user?.uid} properties={properties} />;
