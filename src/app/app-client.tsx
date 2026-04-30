@@ -26,7 +26,9 @@ import {
   TrendingUp,
   BookOpen,
   FilePen,
-  ShieldPlus
+  ShieldPlus,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -63,8 +65,11 @@ import {
   useMemoFirebase 
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, writeBatch, doc } from 'firebase/firestore';
 import { Contract } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices';
@@ -99,6 +104,9 @@ export default function AppClient() {
   const { user } = useUser();
   const auth = useAuth();
   const db = useFirestore();
+  const { toast } = useToast();
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -106,6 +114,51 @@ export default function AppClient() {
 
   const handleLogout = async () => {
     await signOut(auth);
+  };
+
+  const handleClearAllData = async () => {
+    if (!db || !user) return;
+    setIsResetting(true);
+    const COLLECTIONS = ['propiedades','inquilinos','contratos','facturas','mantenimiento','liquidaciones','solicitudes','indices','legales'];
+    const allItems = [
+      ...properties, ...people, ...contracts, ...invoices,
+      ...tasks, ...liquidations, ...applications, ...indexRecords, ...legalCases
+    ];
+    const collectionMap: Record<string, string> = {
+      propiedades: 'propiedades', inquilinos: 'inquilinos', contratos: 'contratos',
+      facturas: 'facturas', mantenimiento: 'mantenimiento', liquidaciones: 'liquidaciones',
+      solicitudes: 'solicitudes', indices: 'indices', legales: 'legales',
+    };
+    try {
+      // Delete each collection in batches of 400
+      for (const colName of COLLECTIONS) {
+        let colItems: any[] = [];
+        if (colName === 'propiedades') colItems = properties;
+        else if (colName === 'inquilinos') colItems = people;
+        else if (colName === 'contratos') colItems = contracts;
+        else if (colName === 'facturas') colItems = invoices;
+        else if (colName === 'mantenimiento') colItems = tasks;
+        else if (colName === 'liquidaciones') colItems = liquidations;
+        else if (colName === 'solicitudes') colItems = applications;
+        else if (colName === 'indices') colItems = indexRecords;
+        else if (colName === 'legales') colItems = legalCases;
+
+        for (let i = 0; i < colItems.length; i += 400) {
+          const batch = writeBatch(db);
+          colItems.slice(i, i + 400).forEach((item: any) => {
+            const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, colName, item.id);
+            batch.delete(ref);
+          });
+          await batch.commit();
+        }
+      }
+      setShowResetDialog(false);
+      toast({ title: 'Datos eliminados ✓', description: 'El sistema está limpio y listo para usar con datos reales.' });
+    } catch (err: any) {
+      toast({ title: 'Error al limpiar', description: err?.message ?? 'No se pudieron eliminar todos los datos.', variant: 'destructive' });
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const propiedadesQuery = useMemoFirebase(() => {
@@ -246,7 +299,13 @@ export default function AppClient() {
               <DropdownMenuItem onClick={() => { setActiveRole('Propietario'); setActiveTab('Mi Portal'); }}>Vista Propietario</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-           <button onClick={handleLogout} className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors mt-2", isSidebarCollapsed && "justify-center")}>
+          {activeRole === 'Administrador' && (
+            <button onClick={() => setShowResetDialog(true)} className={cn("w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-colors", isSidebarCollapsed && "justify-center")}>
+              <Trash2 className="h-4 w-4 shrink-0" />
+              {!isSidebarCollapsed && <span>Limpiar datos de prueba</span>}
+            </button>
+          )}
+           <button onClick={handleLogout} className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors mt-1", isSidebarCollapsed && "justify-center")}>
             <LogOut className="h-5 w-5" />
             {!isSidebarCollapsed && <span>Cerrar Sesión</span>}
            </button>
@@ -255,6 +314,37 @@ export default function AppClient() {
           {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
       </aside>
+      {/* Diálogo de limpieza de datos */}
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-full bg-red-100">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <DialogTitle className="text-lg font-black text-destructive">Limpiar todos los datos</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              Esta acción eliminará <strong>permanentemente</strong> todos los datos de tu cuenta:
+              propiedades, personas, contratos, facturas, mantenimiento, liquidaciones, solicitudes e índices.
+              <br /><br />
+              <span className="font-bold text-foreground">No se puede deshacer.</span> Hacé esto solo si querés empezar desde cero con datos reales.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 my-2">
+            <p className="text-xs text-amber-800 font-medium">
+              Se eliminarán: {properties.length} propiedades · {people.length} personas · {contracts.length} contratos · {invoices.length} facturas · {tasks.length} tareas · {applications.length} solicitudes · {indexRecords.length} índices
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowResetDialog(false)} disabled={isResetting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleClearAllData} disabled={isResetting} className="gap-2">
+              {isResetting ? <><span className="animate-spin">⟳</span> Eliminando…</> : <><Trash2 className="h-4 w-4" /> Sí, eliminar todo</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
         <header className="h-16 border-b flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 gap-4">
           <div className="relative hidden md:flex items-center w-72">
