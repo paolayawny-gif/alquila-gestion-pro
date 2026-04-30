@@ -1,0 +1,398 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  OWNER
+  TENANT
+}
+
+enum PropertyType {
+  VIVIENDA
+  COMERCIO
+}
+
+enum PropertyStatus {
+  DISPONIBLE
+  ALQUILADA
+  EN_VISITA
+  RESERVADA
+  EN_VENTA
+}
+
+enum GuaranteeType {
+  PROPIETARIA
+  AVAL_BANCARIO
+  RECIBO_SUELDO
+}
+
+enum AdjustmentIndex {
+  ICL
+  IPC
+  PERSONALIZADO
+  USD
+}
+
+enum AdjustmentFrequency {
+  MENSUAL
+  CUATRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+enum ContractStatus {
+  VIGENTE
+  VENCIDO
+  RENOVADO
+  RESCINDIDO
+}
+
+enum PaymentStatus {
+  PAGADO
+  PENDIENTE
+  PARCIAL
+  CON_MORA
+}
+
+enum ExpenseCategory {
+  PLOMERIA
+  ELECTRICIDAD
+  PINTURA
+  ALBANILERIA
+  CERRAJERIA
+  OTROS
+}
+
+enum Payer {
+  OWNER
+  TENANT
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  MERCADOPAGO
+}
+
+enum UtilityType {
+  EXPENSAS
+  AYSA
+  ABL
+  GAS
+  LUZ
+  OTROS
+}
+
+enum TicketStatus {
+  PENDIENTE
+  PROVEEDOR_ASIGNADO
+  EN_REPARACION
+  RESUELTO
+}
+
+model Agency {
+  id            String             @id @default(cuid())
+  name          String
+  cuit          String?
+  address       String?
+  phone         String?
+  email         String?
+  plan          String             @default("BASIC") // PRO, ENTERPRISE
+  active        Boolean            @default(true)
+  
+  users         User[]
+  persons       Person[]
+  properties    Property[]
+  cashRegisters CashRegister[]
+  auditLogs     AuditLog[]
+  tickets       MaintenanceTicket[]
+
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String // Hashed
+  role      Role     @default(TENANT)
+  
+  agencyId  String?
+  agency    Agency?  @relation(fields: [agencyId], references: [id])
+
+  personId  String?  @unique
+  person    Person?  @relation(fields: [personId], references: [id])
+  
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Person {
+  id               String       @id @default(cuid())
+  agencyId         String?
+  agency           Agency?      @relation(fields: [agencyId], references: [id])
+
+  firstName        String
+  lastName         String
+  dni              String?      @unique
+  cuil             String?      @unique
+  phone            String?
+  address          String?
+  employmentStatus String?
+  guaranteeType    GuaranteeType?
+  
+  // Relations
+  user             User?
+  ownedProperties  Property[]   @relation("PropertyOwner")
+  tenantContracts  Contract[]   @relation("ContractTenant")
+  guarantorContracts Contract[] @relation("ContractGuarantor")
+  documents        Document[]
+  utilityPayments  UtilityPayment[]
+  maintenanceTickets MaintenanceTicket[]
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+model Property {
+  id             String         @id @default(cuid())
+  agencyId       String
+  agency         Agency         @relation(fields: [agencyId], references: [id])
+
+  address        String
+  type           PropertyType
+  surface        Float?
+  rooms          Int?
+  floor          String?
+  features       String?
+  status         PropertyStatus @default(DISPONIBLE)
+  
+  // Relations
+  ownerId        String
+  owner          Person         @relation("PropertyOwner", fields: [ownerId], references: [id])
+  contracts      Contract[]
+  visits         Visit[]
+  documents      Document[]
+  expenses       Expense[]
+  utilityPayments UtilityPayment[]
+  maintenanceTickets MaintenanceTicket[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Visit {
+  id          String   @id @default(cuid())
+  date        DateTime
+  visitorName String
+  comments    String?
+  result      String?
+  
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Contract {
+  id                  String              @id @default(cuid())
+  startDate           DateTime
+  durationMonths      Int
+  initialAmount       Float
+  currency            String              @default("ARS") // ARS, USD
+  adjustmentIndex     AdjustmentIndex
+  adjustmentFrequency AdjustmentFrequency
+  customAdjustment    Float? // if PERSONALIZADO
+  status              ContractStatus      @default(VIGENTE)
+  
+  // Relations
+  propertyId          String
+  property            Property            @relation(fields: [propertyId], references: [id])
+  tenantId            String
+  tenant              Person              @relation("ContractTenant", fields: [tenantId], references: [id])
+  guarantorId         String?
+  guarantor           Person?             @relation("ContractGuarantor", fields: [guarantorId], references: [id])
+  
+  payments            Payment[]
+  documents           Document[]
+
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+}
+
+model Payment {
+  id             String         @id @default(cuid())
+  monthYear      String         // e.g. "2023-10"
+  amount         Float
+  lateFee        Float          @default(0)
+  totalDue       Float
+  amountPaid     Float          @default(0)
+  status         PaymentStatus  @default(PENDIENTE)
+  mpPaymentId    String?        // MercadoPago ID
+  receiptUrl     String?
+  paymentDate    DateTime?
+  
+  // Facturación y Cotizaciones (ARG)
+  exchangeRate   Float?         // Cotización USD/ARS aplicable el día del pago
+  invoiceType    String?        // Ej. Factura B, Factura C, Recibo X
+  invoiceNumber  String?
+  afipCae        String?
+  afipVtoCae     DateTime?
+  
+  // Relations
+  contractId     String
+  contract       Contract       @relation(fields: [contractId], references: [id])
+  documents      Document[]
+  cashTransactions CashTransaction[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  description String
+  amount      Float
+  date        DateTime
+  category    ExpenseCategory
+  payer       Payer
+  
+  // Relations
+  propertyId  String
+  property    Property        @relation(fields: [propertyId], references: [id])
+  
+  ticketId    String?
+  ticket      MaintenanceTicket? @relation(fields: [ticketId], references: [id])
+
+  documents   Document[]
+  cashTransactions CashTransaction[]
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  url         String
+  fileType    String   // PDF, JPG, PNG
+  
+  // Optional relations depending on what it belongs to
+  propertyId  String?
+  property    Property? @relation(fields: [propertyId], references: [id])
+  personId    String?
+  person      Person?   @relation(fields: [personId], references: [id])
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id])
+  paymentId   String?
+  payment     Payment?  @relation(fields: [paymentId], references: [id])
+  expenseId   String?
+  expense     Expense?  @relation(fields: [expenseId], references: [id])
+  ticketId    String?
+  ticket      MaintenanceTicket? @relation(fields: [ticketId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// -------------------------------------------------------------------
+// NUEVOS MÓDULOS MENCIONADOS EN EL PROMPT: 11, 12, 13, 14
+// -------------------------------------------------------------------
+
+// [11] GESTIÓN DE CAJA Y FINANZAS
+model CashRegister {
+  id             String            @id @default(cuid())
+  agencyId       String
+  agency         Agency            @relation(fields: [agencyId], references: [id])
+  openedAt       DateTime          @default(now())
+  closedAt       DateTime?
+  openedBy       String            // UserId o nombre
+  closedBy       String?           // UserId o nombre
+  initialBalance Float             @default(0)
+  finalBalance   Float?
+
+  transactions   CashTransaction[]
+}
+
+model CashTransaction {
+  id             String        @id @default(cuid())
+  cashRegisterId String
+  cashRegister   CashRegister  @relation(fields: [cashRegisterId], references: [id])
+  
+  type           String        // INGRESO, EGRESO
+  amount         Float
+  method         PaymentMethod
+  description    String
+  date           DateTime      @default(now())
+
+  // Referencias opcionales
+  paymentId      String?
+  payment        Payment?      @relation(fields: [paymentId], references: [id])
+  expenseId      String?
+  expense        Expense?      @relation(fields: [expenseId], references: [id])
+  
+  createdAt      DateTime      @default(now())
+}
+
+model UtilityPayment {
+  id          String      @id @default(cuid())
+  propertyId  String
+  property    Property    @relation(fields: [propertyId], references: [id])
+  tenantId    String
+  tenant      Person      @relation(fields: [tenantId], references: [id])
+  type        UtilityType
+  monthYear   String      // "2023-10"
+  amount      Float
+  receiptUrl  String
+  status      String      @default("PENDIENTE_REVISION") // APROBADO, RECHAZADO, PENDIENTE_REVISION
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// [14] TICKETING DE MANTENIMIENTO
+model MaintenanceTicket {
+  id          String       @id @default(cuid())
+  agencyId    String
+  agency      Agency       @relation(fields: [agencyId], references: [id])
+  propertyId  String
+  property    Property     @relation(fields: [propertyId], references: [id])
+  tenantId    String
+  tenant      Person       @relation(fields: [tenantId], references: [id])
+  
+  title       String
+  description String
+  status      TicketStatus @default(PENDIENTE)
+
+  documents   Document[]   // Fotos del problema
+  expenses    Expense[]    // Reparaciones derivadas
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// [12] LOGS DE AUDITORÍA
+model AuditLog {
+  id          String   @id @default(cuid())
+  agencyId    String?
+  agency      Agency?  @relation(fields: [agencyId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  action      String   // CREATE, UPDATE, DELETE
+  entity      String   // Payment, Contract, Property, etc.
+  entityId    String
+  details     String?  // Ej. JSON con los cambios: { "amount_before": 100, "amount_after": 200 }
+  
+  createdAt   DateTime @default(now())
+}

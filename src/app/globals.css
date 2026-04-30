@@ -67,3 +67,19 @@
     @apply bg-background text-foreground font-body;
   }
 }
+/* TipTap editor prose styles */
+.ProseMirror {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.ProseMirror h2 { font-size: 1rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.2em 0 0.4em; }
+.ProseMirror p { margin: 0.4em 0; text-align: justify; }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.5em; margin: 0.4em 0; }
+.ProseMirror li { margin: 0.15em 0; }
+.ProseMirror strong { font-weight: 900; }
