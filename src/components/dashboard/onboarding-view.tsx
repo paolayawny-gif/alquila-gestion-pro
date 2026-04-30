@@ -47,6 +47,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { analyzeApplication } from '@/ai/flows/analyze-application-flow';
@@ -68,6 +69,7 @@ const APP_ID = "alquilagestion-pro";
 export function ApplicationsView({ applications, userId, properties }: ApplicationsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite, canDelete } = useOrgPermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [selectedApp, setSelectedApp] = useState<RentalApplication | null>(null);
@@ -516,8 +518,8 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
 
               <DialogFooter className="p-6 bg-muted/30 border-t rounded-b-lg">
                 <div className="flex gap-4 w-full justify-end">
-                  <Button variant="ghost" className="text-red-600 font-bold" onClick={() => { handleUpdateStatus(selectedApp, 'Rechazada'); setIsDetailOpen(false); }}><XCircle className="h-4 w-4 mr-2" /> Rechazar</Button>
-                  <Button className="bg-primary text-white font-black px-8" onClick={() => { handleUpdateStatus(selectedApp, 'Aprobada'); setIsDetailOpen(false); }}><CheckCircle2 className="h-4 w-4 mr-2" /> Aprobar Candidato</Button>
+                  {canWrite && <Button variant="ghost" className="text-red-600 font-bold" onClick={() => { handleUpdateStatus(selectedApp, 'Rechazada'); setIsDetailOpen(false); }}><XCircle className="h-4 w-4 mr-2" /> Rechazar</Button>}
+                  {canWrite && <Button className="bg-primary text-white font-black px-8" onClick={() => { handleUpdateStatus(selectedApp, 'Aprobada'); setIsDetailOpen(false); }}><CheckCircle2 className="h-4 w-4 mr-2" /> Aprobar Candidato</Button>}
                 </div>
               </DialogFooter>
             </>
@@ -647,6 +649,7 @@ function BcraReportCard({ report, latestEntidades, cheques, isCompact }: BcraRep
 // ─── Applications Table ───────────────────────────────────────────────────────
 
 function ApplicationsTable({ apps, onEval, onDelete, getStatusBadge }: { apps: RentalApplication[], onEval: (app: RentalApplication) => void, onDelete: (id: string) => void, getStatusBadge: (status: ApplicationStatus) => React.ReactNode }) {
+  const { canDelete } = useOrgPermissions();
   return (
     <Card className="border-none shadow-sm overflow-hidden bg-white">
       <Table>
@@ -672,7 +675,7 @@ function ApplicationsTable({ apps, onEval, onDelete, getStatusBadge }: { apps: R
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="outline" className="border-primary text-primary h-8 gap-2 font-bold px-4" onClick={() => onEval(app)}><ClipboardCheck className="h-4 w-4" /> Evaluar</Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => onDelete(app.id)}><Trash2 className="h-4 w-4" /></Button>
+                  {canDelete && <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => onDelete(app.id)}><Trash2 className="h-4 w-4" /></Button>}
                 </div>
               </TableCell>
             </TableRow>

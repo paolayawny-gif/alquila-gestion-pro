@@ -47,6 +47,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
@@ -66,6 +67,7 @@ const APP_ID = "alquilagestion-pro";
 export function MaintenanceView({ tasks, userId, properties, people }: MaintenanceViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite, canDelete } = useOrgPermissions();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'inprogress' | 'resolved'>('all');
@@ -285,11 +287,13 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
         </div>
 
         <Dialog open={isNewClaimOpen} onOpenChange={setIsNewClaimOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary text-white gap-2 font-bold shadow-md">
-              <Plus className="h-4 w-4" /> Nuevo Reclamo
-            </Button>
-          </DialogTrigger>
+          {canWrite && (
+            <DialogTrigger asChild>
+              <Button className="bg-primary text-white gap-2 font-bold shadow-md">
+                <Plus className="h-4 w-4" /> Nuevo Reclamo
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Registrar Nueva Incidencia</DialogTitle>
@@ -383,9 +387,11 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                     >
                       <Settings2 className="h-3.5 w-3.5" /> Gestionar
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteTicket(t.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canDelete && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteTicket(t.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

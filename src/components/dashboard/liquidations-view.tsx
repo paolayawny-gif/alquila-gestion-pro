@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Separator } from '@/components/ui/separator';
@@ -56,6 +57,7 @@ const APP_ID = "alquilagestion-pro";
 export function LiquidationsView({ liquidations, userId, properties, people }: LiquidationsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite, canDelete } = useOrgPermissions();
   
   const [isNewLiqOpen, setIsNewLiqOpen] = useState(false);
   const [selectedPropId, setSelectedPropId] = useState('');
@@ -149,11 +151,13 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
           <Input placeholder="Buscar liquidación..." className="pl-9 bg-white" />
         </div>
         <Dialog open={isNewLiqOpen} onOpenChange={setIsNewLiqOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary text-white gap-2 font-bold shadow-md">
-              <Calculator className="h-4 w-4" /> Generar Periodo
-            </Button>
-          </DialogTrigger>
+          {canWrite && (
+            <DialogTrigger asChild>
+              <Button className="bg-primary text-white gap-2 font-bold shadow-md">
+                <Calculator className="h-4 w-4" /> Generar Periodo
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-primary" /> Liquidación Mensual</DialogTitle>
@@ -226,7 +230,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Recibo"><Download className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(l.id)}><Trash2 className="h-4 w-4" /></Button>
+                    {canDelete && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(l.id)}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
                 </TableCell>
               </TableRow>

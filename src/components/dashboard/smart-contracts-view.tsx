@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Contract, Invoice, Person, Property } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
@@ -102,6 +103,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   const { toast } = useToast();
   const db = useFirestore();
   const { user } = useUser();
+  const { canWrite } = useOrgPermissions();
 
   const [selectedContractId, setSelectedContractId] = useState<string>(contracts[0]?.id ?? '');
   const [showNotifDialog, setShowNotifDialog] = useState(false);
@@ -418,11 +420,13 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                         <Badge className="bg-green-100 text-green-700 border-none font-bold w-full justify-center">
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Notificación registrada
                         </Badge>
-                      ) : (
+                      ) : canWrite ? (
                         <Button size="sm" className="w-full h-7 text-xs font-bold bg-orange-500 hover:bg-orange-600"
                           onClick={() => setShowNotifDialog(true)}>
                           <Bell className="h-3 w-3 mr-1" /> Registrar notificación
                         </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Sin permisos</span>
                       )
                     )}
                   </div>
@@ -538,7 +542,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowNotifDialog(false)}>Cancelar</Button>
-            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 font-bold" onClick={handleSendNotification}>
+            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 font-bold" onClick={handleSendNotification} disabled={!canWrite}>
               <Bell className="h-4 w-4" /> Registrar
             </Button>
           </DialogFooter>

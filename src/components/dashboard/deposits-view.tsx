@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Contract, Person, Property } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { collection, query, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
@@ -50,6 +51,7 @@ export function DepositsView({ contracts, people, properties, userId }: Deposits
   const { toast } = useToast();
   const db = useFirestore();
   const { user } = useUser();
+  const { canWrite } = useOrgPermissions();
 
   const [exchangeRate, setExchangeRate] = useState(1200); // ARS/USD
   const [showMovDialog, setShowMovDialog] = useState(false);
@@ -171,9 +173,11 @@ export function DepositsView({ contracts, people, properties, userId }: Deposits
           <Button variant="outline" className="gap-2 font-bold h-9" onClick={handleExportCSV}>
             <Download className="h-4 w-4" /> Exportar CSV
           </Button>
-          <Button className="gap-2 font-bold h-9 bg-primary" onClick={() => setShowMovDialog(true)}>
-            <Plus className="h-4 w-4" /> Registrar movimiento
-          </Button>
+          {canWrite && (
+            <Button className="gap-2 font-bold h-9 bg-primary" onClick={() => setShowMovDialog(true)}>
+              <Plus className="h-4 w-4" /> Registrar movimiento
+            </Button>
+          )}
         </div>
       </div>
 
@@ -424,7 +428,7 @@ export function DepositsView({ contracts, people, properties, userId }: Deposits
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowMovDialog(false)} disabled={isSaving}>Cancelar</Button>
-            <Button className="gap-2 font-bold bg-primary" onClick={handleSaveMovement} disabled={isSaving || !movContractId || !movAmount}>
+            <Button className="gap-2 font-bold bg-primary" onClick={handleSaveMovement} disabled={isSaving || !movContractId || !movAmount || !canWrite}>
               <CheckCircle2 className="h-4 w-4" /> Guardar
             </Button>
           </DialogFooter>

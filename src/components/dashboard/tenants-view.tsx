@@ -57,6 +57,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
@@ -78,6 +79,7 @@ interface TenantsViewProps {
 const APP_ID = "alquilagestion-pro";
 
 export function TenantsView({ people, userId, contracts, properties, indexRecords }: TenantsViewProps) {
+  const { canWrite, canDelete } = useOrgPermissions();
   const { toast } = useToast();
   const db = useFirestore();
   const [activeTab, setActiveTab] = useState<'contracts' | 'people'>('contracts');
@@ -488,7 +490,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           </TabsList>
         </Tabs>
         <div className="flex gap-2 w-full sm:w-auto">
-          {activeTab === 'contracts' ? (
+          {canWrite && (activeTab === 'contracts' ? (
             <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
@@ -496,7 +498,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <Button className="bg-primary text-white gap-2 font-bold" onClick={() => handleOpenPersonDialog()}>
               <UserPlus className="h-4 w-4" /> Nueva Persona
             </Button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -912,22 +914,26 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                         <CalendarClock className="h-4 w-4" />
                       </Button>
 
-                      <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => { setEditingContract(c); setContractFormData(c); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:bg-destructive/10"
-                        title="Eliminar contrato"
-                        onClick={() => {
-                          if (confirm(`¿Eliminár el contrato de ${c.tenantName}? Esta acción no se puede deshacer.`)) {
-                            handleDeleteContract(c.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canWrite && (
+                        <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => { setEditingContract(c); setContractFormData(c); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:bg-destructive/10"
+                          title="Eliminar contrato"
+                          onClick={() => {
+                            if (confirm(`¿Eliminár el contrato de ${c.tenantName}? Esta acción no se puede deshacer.`)) {
+                              handleDeleteContract(c.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -946,12 +952,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                   <TableCell><Badge variant="outline" className="border-primary/30 text-primary">{p.type}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canWrite && (
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

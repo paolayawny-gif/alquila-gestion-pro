@@ -49,6 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { sendEmail } from '@/services/email-service';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, query, collection } from 'firebase/firestore';
@@ -66,6 +67,7 @@ const CHARGE_TYPES: ChargeType[] = ['Alquiler', 'Expensa Ordinaria', 'Expensa Ex
 export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite, canDelete } = useOrgPermissions();
   const arcaInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   
@@ -367,17 +369,21 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
         </div>
         
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 gap-2 font-bold" onClick={handleGenerateMonthlyRent} disabled={isGeneratingRent}>
-            {isGeneratingRent ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
-            Generar Mensuales
-          </Button>
+          {canWrite && (
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 gap-2 font-bold" onClick={handleGenerateMonthlyRent} disabled={isGeneratingRent}>
+              {isGeneratingRent ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
+              Generar Mensuales
+            </Button>
+          )}
 
           <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary text-white gap-2 font-bold shadow-sm px-6">
-                <Plus className="h-4 w-4" /> Nuevo Cargo
-              </Button>
-            </DialogTrigger>
+            {canWrite && (
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-white gap-2 font-bold shadow-sm px-6">
+                  <Plus className="h-4 w-4" /> Nuevo Cargo
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Nuevo Cargo / Concepto</DialogTitle>
@@ -535,9 +541,11 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
                         </Button>
                       )}
                       
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id)); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canDelete && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id)); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

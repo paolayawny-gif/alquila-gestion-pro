@@ -73,6 +73,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
 import { useOrgContext } from '@/hooks/use-org-context';
+import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Super Admin';
@@ -348,7 +349,11 @@ export default function AppClient() {
             Modo <strong>solo lectura</strong> — podés consultar toda la información pero no realizar cambios.
           </div>
         )}
-        <div className="p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">{renderContent()}</div>
+        <div className="p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">
+          <OrgPermissionsProvider value={{ canWrite: orgCtx.canWrite, canDelete: orgCtx.canDelete }}>
+            {renderContent()}
+          </OrgPermissionsProvider>
+        </div>
       </main>
     </div>
   );

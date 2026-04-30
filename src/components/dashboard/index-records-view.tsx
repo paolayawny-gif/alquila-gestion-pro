@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, writeBatch, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,7 @@ const PAGE_SIZE = 50;
 export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite, canDelete } = useOrgPermissions();
   const xlsxInputRef = useRef<HTMLInputElement>(null);
 
   // ── Monthly form state ──
@@ -258,7 +260,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                   <Label className="text-[10px] uppercase font-black">Hasta</Label>
                   <Input type="date" value={bcraHasta} onChange={e => setBcraHasta(e.target.value)} />
                 </div>
-                <Button className="w-full gap-2 font-bold" onClick={handleFetchBcra} disabled={isFetchingBcra}>
+                <Button className="w-full gap-2 font-bold" onClick={handleFetchBcra} disabled={isFetchingBcra || !canWrite}>
                   {isFetchingBcra ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                   Importar desde BCRA
                 </Button>
@@ -331,7 +333,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                     onChange={e => setCerValue(e.target.value)}
                   />
                 </div>
-                <Button className="w-full gap-2 font-bold" onClick={handleSaveCerManual}>
+                <Button className="w-full gap-2 font-bold" onClick={handleSaveCerManual} disabled={!canWrite}>
                   <Save className="h-4 w-4" /> Guardar Valor CER
                 </Button>
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
@@ -377,9 +379,11 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                       <TableCell className="font-mono text-xs font-bold">{r.month}</TableCell>
                       <TableCell className="text-right font-mono text-xs text-primary font-bold">{r.value.toFixed(6)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -439,7 +443,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                   <Label className="text-xs font-black uppercase">Variación del período (%)</Label>
                   <Input type="number" step="0.01" placeholder="Ej: 14.52" value={formData.value || ''} onChange={e => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })} />
                 </div>
-                <Button className="w-full gap-2 font-bold" onClick={handleSaveMonthly}>
+                <Button className="w-full gap-2 font-bold" onClick={handleSaveMonthly} disabled={!canWrite}>
                   <Save className="h-4 w-4" /> Guardar Registro
                 </Button>
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex gap-2">
@@ -479,9 +483,11 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-xs text-primary">{r.value.toFixed(4)}%</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(r.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {canDelete && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(r.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
@@ -37,6 +38,7 @@ const APP_ID = "alquilagestion-pro";
 export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite, canDelete } = useOrgPermissions();
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [newCase, setNewCase] = useState<Partial<LegalCase>>({
     type: '',
@@ -81,7 +83,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
       <div className="flex justify-between items-center">
         <div className="relative w-72"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" /><Input placeholder="Buscar..." className="pl-9" /></div>
         <Dialog open={isNewCaseOpen} onOpenChange={setIsNewCaseOpen}>
-          <DialogTrigger asChild><Button className="bg-accent text-white gap-2"><Scale className="h-4 w-4" /> Nuevo Trámite</Button></DialogTrigger>
+          {canWrite && <DialogTrigger asChild><Button className="bg-accent text-white gap-2"><Scale className="h-4 w-4" /> Nuevo Trámite</Button></DialogTrigger>}
           <DialogContent>
             <DialogHeader><DialogTitle>Nuevo Caso Legal</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-4">
@@ -112,7 +114,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
                 <TableCell><span className="font-bold">{c.type}</span><br/><span className="text-[10px]">{c.propertyName}</span></TableCell>
                 <TableCell><Badge>{c.status}</Badge></TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(c.id)}><Trash2 className="h-4 w-4" /></Button>
+                  {canDelete && <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(c.id)}><Trash2 className="h-4 w-4" /></Button>}
                 </TableCell>
               </TableRow>
             ))}

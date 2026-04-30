@@ -21,6 +21,7 @@ import { Property, Invoice, Contract } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { collection, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
@@ -39,6 +40,7 @@ const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 export function FinancialLedgerView({ properties, invoices, contracts, userId }: FinancialLedgerViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite } = useOrgPermissions();
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editNotes, setEditNotes] = useState('');
@@ -171,13 +173,15 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
             )}>
               {selectedProperty.status.toUpperCase()}
             </Badge>
-            <Button variant="outline" size="sm" className="gap-2 font-bold" onClick={() => {
-              setEditNotes('');
-              setEditPurchasePrice(String(purchasePrice));
-              setShowEditDialog(true);
-            }}>
-              <Edit2 className="h-3.5 w-3.5" /> Editar Detalles
-            </Button>
+            {canWrite && (
+              <Button variant="outline" size="sm" className="gap-2 font-bold" onClick={() => {
+                setEditNotes('');
+                setEditPurchasePrice(String(purchasePrice));
+                setShowEditDialog(true);
+              }}>
+                <Edit2 className="h-3.5 w-3.5" /> Editar Detalles
+              </Button>
+            )}
           </div>
         </div>
       )}

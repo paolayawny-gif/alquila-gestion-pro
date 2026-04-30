@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { Property, Person, Contract } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { collection, query, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { CONTRACT_TEMPLATES } from '@/lib/contract-templates-meta';
@@ -101,6 +102,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const { toast } = useToast();
   const db = useFirestore();
   const { user } = useUser();
+  const { canWrite, canDelete } = useOrgPermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load custom templates from Firestore ──
@@ -789,9 +791,11 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9 shrink-0" onClick={handlePrint}>
                   <Download className="h-3.5 w-3.5" /> PDF
                 </Button>
-                <Button size="sm" className="gap-1.5 font-bold h-9 bg-primary shrink-0" onClick={handleSaveDraft}>
-                  <Save className="h-3.5 w-3.5" /> Guardar
-                </Button>
+                {canWrite && (
+                  <Button size="sm" className="gap-1.5 font-bold h-9 bg-primary shrink-0" onClick={handleSaveDraft}>
+                    <Save className="h-3.5 w-3.5" /> Guardar
+                  </Button>
+                )}
               </div>
               <RichTextEditor
                 content={editorContent}
@@ -882,21 +886,25 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                           <p className="text-[10px] text-muted-foreground">{m.isDraft ? '📝 Borrador' : '✓ Procesado por IA'} · {new Date(m.createdAt).toLocaleDateString('es-AR')}</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                          <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold gap-1 px-2"
-                            onClick={() => { handleLoadCustomToEditor(m); }}>
-                            <Edit2 className="h-3 w-3" /> Editar
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive hover:bg-destructive/10 gap-1 px-2"
-                            onClick={() => {
-                              if (!db || !user) return;
-                              if (confirm(`¿Eliminar el modelo "${m.name}"?`)) {
-                                const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'plantillas', m.id);
-                                deleteDocumentNonBlocking(ref);
-                                toast({ title: 'Modelo eliminado' });
-                              }
-                            }}>
-                            <Trash2 className="h-3 w-3" /> Borrar
-                          </Button>
+                          {canWrite && (
+                            <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold gap-1 px-2"
+                              onClick={() => { handleLoadCustomToEditor(m); }}>
+                              <Edit2 className="h-3 w-3" /> Editar
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive hover:bg-destructive/10 gap-1 px-2"
+                              onClick={() => {
+                                if (!db || !user) return;
+                                if (confirm(`¿Eliminar el modelo "${m.name}"?`)) {
+                                  const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'plantillas', m.id);
+                                  deleteDocumentNonBlocking(ref);
+                                  toast({ title: 'Modelo eliminado' });
+                                }
+                              }}>
+                              <Trash2 className="h-3 w-3" /> Borrar
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}

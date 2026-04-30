@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
@@ -38,6 +39,7 @@ const APP_ID = "alquilagestion-pro";
 export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { canWrite, canDelete } = useOrgPermissions();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'available' | 'maintenance'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -279,10 +281,12 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
-          <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4" />
-            Agregar Propiedad
-          </Button>
+          {canWrite && (
+            <Button className="bg-primary hover:bg-primary/90 text-white gap-2" onClick={() => handleOpenDialog()}>
+              <Plus className="h-4 w-4" />
+              Agregar Propiedad
+            </Button>
+          )}
         </div>
       </div>
 
@@ -467,12 +471,16 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleOpenDialog(p)}>
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(p.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canWrite && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleOpenDialog(p)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(p.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
