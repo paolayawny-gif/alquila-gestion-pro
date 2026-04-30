@@ -72,6 +72,7 @@ import { Contract } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
+import { useOrgContext } from '@/hooks/use-org-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Super Admin';
@@ -112,6 +113,7 @@ export default function AppClient() {
   const db = useFirestore();
   const { toast } = useToast();
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
+  const orgCtx = useOrgContext();
 
   useEffect(() => {
     setIsMounted(true);
@@ -308,6 +310,22 @@ export default function AppClient() {
           </div>
           <h1 className="text-xl font-bold text-foreground md:hidden">{activeRole === 'Administrador' ? activeTab : `Portal de ${activeRole}`}</h1>
           <div className="flex items-center gap-3 ml-auto">
+            {/* Org membership badge */}
+            {orgCtx.isOrgUser && orgCtx.orgName && (
+              <div className={cn(
+                "hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border",
+                orgCtx.role === 'Solo lectura'
+                  ? 'bg-slate-100 text-slate-600 border-slate-200'
+                  : orgCtx.role === 'Agente'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-green-50 text-green-700 border-green-200'
+              )}>
+                <ShieldCheck className="h-3 w-3" />
+                <span>{orgCtx.orgName}</span>
+                <span className="opacity-60">·</span>
+                <span>{orgCtx.role}</span>
+              </div>
+            )}
             <button className="relative h-9 w-9 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors">
               <Bell className="h-4 w-4 text-muted-foreground" />
               {(tasks.filter(t => t.priority === 'Urgente' && t.status !== 'Cerrado').length > 0) && (
@@ -316,11 +334,20 @@ export default function AppClient() {
             </button>
             <div className="flex flex-col items-end hidden sm:flex">
               <span className="text-xs font-bold text-foreground">{user?.email}</span>
-              <span className="text-[10px] text-muted-foreground">Rol: {activeRole}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {orgCtx.isOrgUser ? orgCtx.role ?? activeRole : `Rol: ${activeRole}`}
+              </span>
             </div>
             <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase">{activeRole[0]}{activeRole[1]}</div>
           </div>
         </header>
+        {/* Banner de solo lectura */}
+        {orgCtx.isOrgUser && orgCtx.role === 'Solo lectura' && (
+          <div className="bg-slate-100 border-b border-slate-200 px-6 py-2 flex items-center gap-2 text-xs text-slate-600 font-medium">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+            Modo <strong>solo lectura</strong> — podés consultar toda la información pero no realizar cambios.
+          </div>
+        )}
         <div className="p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">{renderContent()}</div>
       </main>
     </div>

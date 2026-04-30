@@ -99,6 +99,10 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     email: '', name: '', role: 'Agente' as OrgUserRole,
   });
 
+  // — Email config state —
+  const [emailForm, setEmailForm] = useState({ emailUser: '', emailPass: '' });
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+
   // — Load organizations —
   const orgsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -240,6 +244,18 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     toast({ title: `Usuario ${newStatus}`, description: orgUser.email });
   };
 
+  const handleSaveEmailConfig = () => {
+    if (!db || !selectedOrg) return;
+    setIsSavingEmail(true);
+    const ref = doc(collection(db, 'artifacts', APP_ID, 'superadmin', 'data', 'organizations'), selectedOrg.id);
+    setDocumentNonBlocking(ref, {
+      emailUser: emailForm.emailUser.trim() || null,
+      emailPass: emailForm.emailPass.trim() || null,
+    }, { merge: true });
+    toast({ title: '✅ Email configurado', description: emailForm.emailUser ? `Correos saldrán desde ${emailForm.emailUser}` : 'Se usará el email de la plataforma.' });
+    setIsSavingEmail(false);
+  };
+
   const handleDeleteUser = (orgUser: OrgUser) => {
     if (!db) return;
     const ref = doc(collection(db, 'artifacts', APP_ID, 'superadmin', 'data', 'org_users'), orgUser.id);
@@ -361,6 +377,7 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
                     <TabsTrigger value="users">
                       Usuarios ({orgUsers.length}/{PLAN_CONFIG[selectedOrg.plan].maxUsers === 999 ? '∞' : PLAN_CONFIG[selectedOrg.plan].maxUsers})
                     </TabsTrigger>
+                    <TabsTrigger value="email">Email</TabsTrigger>
                   </TabsList>
 
                   {/* Info tab */}
@@ -401,6 +418,38 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
                       onClick={() => handleDeleteOrg(selectedOrg)}>
                       <Trash2 className="h-4 w-4" /> Eliminar organización permanentemente
                     </Button>
+                  </TabsContent>
+
+                  {/* Email tab */}
+                  <TabsContent value="email" className="space-y-4">
+                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 leading-relaxed">
+                      <strong>Por defecto</strong>: los correos salen desde <code>alquilaGestionpro@gmail.com</code> con el nombre de tu organización,
+                      y el cliente responde directamente a <strong>{selectedOrg.ownerEmail}</strong>.
+                      <br /><br />
+                      Si preferís que los correos salgan desde tu propio Gmail, cargá tus credenciales aquí.
+                      Necesitás activar <strong>Contraseña de aplicación</strong> en tu cuenta Google.
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold uppercase">Gmail de la organización (opcional)</Label>
+                        <Input type="email" placeholder="miinmobiliaria@gmail.com"
+                          defaultValue={(selectedOrg as any).emailUser ?? ''}
+                          onChange={e => setEmailForm(f => ({ ...f, emailUser: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold uppercase">Contraseña de aplicación Google</Label>
+                        <Input type="password" placeholder="xxxx xxxx xxxx xxxx"
+                          defaultValue={(selectedOrg as any).emailPass ?? ''}
+                          onChange={e => setEmailForm(f => ({ ...f, emailPass: e.target.value }))} />
+                        <p className="text-[10px] text-muted-foreground">
+                          Generala en: Cuenta Google → Seguridad → Contraseñas de aplicaciones
+                        </p>
+                      </div>
+                      <Button onClick={handleSaveEmailConfig} disabled={isSavingEmail} size="sm" className="gap-2 bg-primary text-white font-bold w-full">
+                        {isSavingEmail ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                        Guardar configuración de email
+                      </Button>
+                    </div>
                   </TabsContent>
 
                   {/* Users tab */}

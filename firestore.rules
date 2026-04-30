@@ -10,40 +10,45 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Super Admin: solo el UID de paolayawny@gmail.com puede leer/escribir
+    // Super Admin: UID fijo de paolayawny@gmail.com
     function isSuperAdmin() {
       return isSignedIn() && request.auth.uid == 'wYkBqQjJuSdQu7F20eFAHZ0qX9N2';
     }
 
-    // ── Super Admin: gestión global de organizaciones y usuarios ─────────────
+    // ── Datos globales de plataforma (superadmin) ──────────────────────────────
+
+    // Organizaciones: superadmin escribe; cualquier autenticado puede leer (para detectar su org al loguearse)
     match /artifacts/{appId}/superadmin/data/organizations/{orgId} {
-      allow read, write: if isSuperAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    match /artifacts/{appId}/superadmin/data/org_users/{userId} {
-      allow read, write: if isSuperAdmin();
+    // Usuarios de org: superadmin escribe; un usuario puede leer su propio registro por email
+    match /artifacts/{appId}/superadmin/data/org_users/{docId} {
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow write: if isSuperAdmin();
     }
 
-    // Regla comodín superadmin (cubre cualquier colección futura)
+    // Comodín superadmin — cubre cualquier colección futura
     match /artifacts/{appId}/superadmin/{document=**} {
       allow read, write: if isSuperAdmin();
     }
 
-    // ── Colecciones por usuario ───────────────────────────────────────────────
+    // ── Colecciones por usuario ────────────────────────────────────────────────
 
-    // Regla pública: cualquiera puede ver propiedades (para postulantes)
+    // Pública: cualquiera puede ver propiedades (para postulantes)
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
       allow get: if true;
       allow list, create, update, delete: if isOwner(userId);
     }
 
-    // Regla pública: cualquiera puede crear solicitudes (buzón de entrada)
+    // Pública: cualquiera puede crear solicitudes (buzón de entrada)
     match /artifacts/{appId}/users/{userId}/solicitudes/{solicitudId} {
       allow create: if true;
       allow get, list, update, delete: if isOwner(userId);
     }
 
-    // Regla comodín: cubre todas las demás colecciones del usuario
+    // Comodín usuario: cubre todas las demás colecciones
     match /artifacts/{appId}/users/{userId}/{collection}/{docId} {
       allow read, write: if isOwner(userId);
     }
