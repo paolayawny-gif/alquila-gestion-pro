@@ -22,15 +22,13 @@ import {
   BrainCircuit,
   Search,
   Bell,
-  Bot,
   TrendingUp,
   BookOpen,
   FilePen,
   ShieldPlus,
-  Trash2,
-  AlertTriangle,
   Zap,
-  PiggyBank
+  PiggyBank,
+  Crown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -61,22 +59,24 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { 
-  useAuth, 
-  useUser, 
-  useFirestore, 
-  useCollection, 
-  useMemoFirebase 
+import {
+  useAuth,
+  useUser,
+  useFirestore,
+  useCollection,
+  useMemoFirebase
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, writeBatch, doc } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { Contract } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { SuperAdminView } from '@/components/dashboard/super-admin-view';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Super Admin';
+
+const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
 const ADMIN_MENU = [
   { id: 'Resumen', icon: LayoutDashboard, label: 'Panel de Control' },
@@ -111,8 +111,7 @@ export default function AppClient() {
   const auth = useAuth();
   const db = useFirestore();
   const { toast } = useToast();
-  const [showResetDialog, setShowResetDialog] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
   useEffect(() => {
     setIsMounted(true);
@@ -120,51 +119,6 @@ export default function AppClient() {
 
   const handleLogout = async () => {
     await signOut(auth);
-  };
-
-  const handleClearAllData = async () => {
-    if (!db || !user) return;
-    setIsResetting(true);
-    const COLLECTIONS = ['propiedades','inquilinos','contratos','facturas','mantenimiento','liquidaciones','solicitudes','indices','legales'];
-    const allItems = [
-      ...properties, ...people, ...contracts, ...invoices,
-      ...tasks, ...liquidations, ...applications, ...indexRecords, ...legalCases
-    ];
-    const collectionMap: Record<string, string> = {
-      propiedades: 'propiedades', inquilinos: 'inquilinos', contratos: 'contratos',
-      facturas: 'facturas', mantenimiento: 'mantenimiento', liquidaciones: 'liquidaciones',
-      solicitudes: 'solicitudes', indices: 'indices', legales: 'legales',
-    };
-    try {
-      // Delete each collection in batches of 400
-      for (const colName of COLLECTIONS) {
-        let colItems: any[] = [];
-        if (colName === 'propiedades') colItems = properties;
-        else if (colName === 'inquilinos') colItems = people;
-        else if (colName === 'contratos') colItems = contracts;
-        else if (colName === 'facturas') colItems = invoices;
-        else if (colName === 'mantenimiento') colItems = tasks;
-        else if (colName === 'liquidaciones') colItems = liquidations;
-        else if (colName === 'solicitudes') colItems = applications;
-        else if (colName === 'indices') colItems = indexRecords;
-        else if (colName === 'legales') colItems = legalCases;
-
-        for (let i = 0; i < colItems.length; i += 400) {
-          const batch = writeBatch(db);
-          colItems.slice(i, i + 400).forEach((item: any) => {
-            const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, colName, item.id);
-            batch.delete(ref);
-          });
-          await batch.commit();
-        }
-      }
-      setShowResetDialog(false);
-      toast({ title: 'Datos eliminados ✓', description: 'El sistema está limpio y listo para usar con datos reales.' });
-    } catch (err: any) {
-      toast({ title: 'Error al limpiar', description: err?.message ?? 'No se pudieron eliminar todos los datos.', variant: 'destructive' });
-    } finally {
-      setIsResetting(false);
-    }
   };
 
   const propiedadesQuery = useMemoFirebase(() => {
@@ -261,6 +215,7 @@ export default function AppClient() {
       case 'Reportes': return <ReportsView />;
       case 'Análisis IA': return <AIAnalyticsView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
       case 'Asistente IA': return <AIAssistantView />;
+      case 'Super Admin': return <SuperAdminView userId={user?.uid} userEmail={user?.email ?? ''} />;
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
     }
   };
@@ -270,14 +225,33 @@ export default function AppClient() {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
       <aside className={cn("bg-white border-r flex flex-col transition-all duration-300 relative z-20", isSidebarCollapsed ? "w-20" : "w-64")}>
-        <div className="p-6 h-20 flex items-center justify-between">
-          {!isSidebarCollapsed && (
+        {/* Logo */}
+        <div className="px-4 h-16 flex items-center border-b">
+          {!isSidebarCollapsed ? (
             <div className="flex items-center gap-2 overflow-hidden">
-              <ShieldCheck className="text-primary h-6 w-6 flex-shrink-0" />
-              <span className="font-bold text-lg text-primary truncate">AlquilaGestión Pro</span>
+              <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                <path d="M20 6L4 18H8V34H18V26H22V34H32V18H36L20 6Z" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+                <circle cx="10" cy="30" r="2" fill="#16a34a"/>
+                <circle cx="18" cy="23" r="2" fill="#16a34a"/>
+                <circle cx="26" cy="20" r="2" fill="#16a34a"/>
+                <polyline points="10,30 18,23 26,20 34,14" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <polyline points="30,14 34,14 34,18" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              </svg>
+              <div className="leading-tight overflow-hidden">
+                <span className="block text-[13px] font-semibold text-gray-600 truncate tracking-tight">AlquilaGestión</span>
+                <span className="block text-[13px] font-black text-green-700 tracking-tight">Pro</span>
+              </div>
             </div>
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto">
+              <path d="M20 6L4 18H8V34H18V26H22V34H32V18H36L20 6Z" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round" fill="none"/>
+              <circle cx="10" cy="30" r="2" fill="#16a34a"/>
+              <circle cx="18" cy="23" r="2" fill="#16a34a"/>
+              <circle cx="26" cy="20" r="2" fill="#16a34a"/>
+              <polyline points="10,30 18,23 26,20 34,14" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              <polyline points="30,14 34,14 34,18" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            </svg>
           )}
-          {isSidebarCollapsed && <ShieldCheck className="text-primary h-8 w-8 mx-auto" />}
         </div>
         <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
           {menuItems.map((item) => (
@@ -307,10 +281,10 @@ export default function AppClient() {
               <DropdownMenuItem onClick={() => { setActiveRole('Propietario'); setActiveTab('Mi Portal'); }}>Vista Propietario</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {activeRole === 'Administrador' && (
-            <button onClick={() => setShowResetDialog(true)} className={cn("w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-colors", isSidebarCollapsed && "justify-center")}>
-              <Trash2 className="h-4 w-4 shrink-0" />
-              {!isSidebarCollapsed && <span>Limpiar datos de prueba</span>}
+          {isSuperAdmin && (
+            <button onClick={() => setActiveTab('Super Admin')} className={cn("w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors", isSidebarCollapsed && "justify-center", activeTab === 'Super Admin' && "bg-amber-50")}>
+              <Crown className="h-4 w-4 shrink-0" />
+              {!isSidebarCollapsed && <span>Super Admin</span>}
             </button>
           )}
            <button onClick={handleLogout} className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors mt-1", isSidebarCollapsed && "justify-center")}>
@@ -322,37 +296,6 @@ export default function AppClient() {
           {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
       </aside>
-      {/* Diálogo de limpieza de datos */}
-      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-full bg-red-100">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-              </div>
-              <DialogTitle className="text-lg font-black text-destructive">Limpiar todos los datos</DialogTitle>
-            </div>
-            <DialogDescription className="text-sm leading-relaxed">
-              Esta acción eliminará <strong>permanentemente</strong> todos los datos de tu cuenta:
-              propiedades, personas, contratos, facturas, mantenimiento, liquidaciones, solicitudes e índices.
-              <br /><br />
-              <span className="font-bold text-foreground">No se puede deshacer.</span> Hacé esto solo si querés empezar desde cero con datos reales.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 my-2">
-            <p className="text-xs text-amber-800 font-medium">
-              Se eliminarán: {properties.length} propiedades · {people.length} personas · {contracts.length} contratos · {invoices.length} facturas · {tasks.length} tareas · {applications.length} solicitudes · {indexRecords.length} índices
-            </p>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowResetDialog(false)} disabled={isResetting}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleClearAllData} disabled={isResetting} className="gap-2">
-              {isResetting ? <><span className="animate-spin">⟳</span> Eliminando…</> : <><Trash2 className="h-4 w-4" /> Sí, eliminar todo</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
         <header className="h-16 border-b flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 gap-4">
           <div className="relative hidden md:flex items-center w-72">

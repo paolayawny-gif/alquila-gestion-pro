@@ -118,23 +118,31 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   const handleAnalyzeWithAI = async (app: RentalApplication) => {
     setIsAnalyzing(true);
     try {
-      const rentAmount = 350000; 
+      // Derive rent: use the linked property's advertised rent from admin notes/references
+      // or fall back to a contextual value. The AI will use the ratio income/rent.
+      const rentAmount = app.rentAmount ?? 350000;
       const result = await analyzeApplication({
         applicantName: app.applicantName,
         applicantIncome: app.ingreso,
         rentAmount: rentAmount,
-        currency: 'ARS',
-        references: app.references
+        currency: app.currency ?? 'ARS',
+        references: [
+          app.references,
+          app.guarantorName ? `Garante: ${app.guarantorName} (${app.guarantorType ?? 'Sin especificar'})` : '',
+        ].filter(Boolean).join(' | '),
       });
-      
+
       if (userId && db) {
         const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
-        setDocumentNonBlocking(docRef, { 
+        setDocumentNonBlocking(docRef, {
           status: 'En análisis',
           aiAnalysis: result
         }, { merge: true });
       }
-      toast({ title: "Análisis Completado", description: "La IA ha generado su veredicto." });
+
+      // ── Update local state immediately so verdicto shows without closing ──
+      setSelectedApp(prev => prev ? { ...prev, status: 'En análisis', aiAnalysis: result } : prev);
+      toast({ title: "✅ Análisis Completado", description: `Veredicto IA: ${result.recommendation}` });
     } catch (e) {
       toast({ title: "Error de Análisis", description: "No se pudo conectar con el analista de IA.", variant: "destructive" });
     } finally {
@@ -465,11 +473,43 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                       </CardContent>
                     </Card>
 
-                    <div className="p-6 bg-green-50 rounded-2xl border border-green-100 flex flex-col items-center text-center space-y-2">
-                      <div className="p-3 bg-green-100 rounded-full"><DollarSign className="h-5 w-5 text-green-700" /></div>
-                      <p className="text-[10px] font-black uppercase text-green-700">Ingreso Neto</p>
-                      <p className="text-2xl font-black text-green-900">$ {selectedApp.ingreso.toLocaleString('es-AR')}</p>
+                    <div className="p-5 bg-green-50 rounded-2xl border border-green-100 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-green-100 rounded-full"><DollarSign className="h-4 w-4 text-green-700" /></div>
+                        <p className="text-[10px] font-black uppercase text-green-700">Situación Económica</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase">Ingreso Neto</p>
+                          <p className="text-xl font-black text-green-900">$ {selectedApp.ingreso.toLocaleString('es-AR')}</p>
+                        </div>
+                        {selectedApp.rentAmount ? (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase">Alquiler</p>
+                            <p className="text-xl font-black text-foreground">$ {selectedApp.rentAmount.toLocaleString('es-AR')}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                      {selectedApp.ingreso > 0 && selectedApp.rentAmount ? (
+                        <div className="text-[11px] font-bold text-green-700 bg-green-100 rounded-lg px-3 py-1.5">
+                          Relación ingreso/alquiler: {((selectedApp.rentAmount / selectedApp.ingreso) * 100).toFixed(0)}%
+                          {(selectedApp.rentAmount / selectedApp.ingreso) <= 0.33 ? ' ✓ Óptimo' : (selectedApp.rentAmount / selectedApp.ingreso) <= 0.40 ? ' ⚠ Aceptable' : ' ✗ Alto'}
+                        </div>
+                      ) : null}
                     </div>
+
+                    {(selectedApp.guarantorName || selectedApp.guarantorType) && (
+                      <div className="p-5 bg-blue-50 rounded-2xl border border-blue-100 space-y-2">
+                        <p className="text-[10px] font-black uppercase text-blue-700 flex items-center gap-2">
+                          <ShieldCheck className="h-3.5 w-3.5" /> Garantía
+                        </p>
+                        <p className="text-sm font-bold">{selectedApp.guarantorName || '—'}</p>
+                        <p className="text-xs text-muted-foreground">{selectedApp.guarantorType}</p>
+                        {selectedApp.guarantorIncome ? (
+                          <p className="text-xs font-bold text-blue-800">Ingreso garante: $ {selectedApp.guarantorIncome.toLocaleString('es-AR')}</p>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

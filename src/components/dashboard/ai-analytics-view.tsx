@@ -88,7 +88,7 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
 
   // Delinquency risk score
   const delinquencyRisk = useMemo(() => {
-    if (invoices.length === 0) return 12;
+    if (invoices.length === 0) return 0;
     const overdue = invoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').length;
     return Math.round((overdue / invoices.length) * 100);
   }, [invoices]);
@@ -133,7 +133,7 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
   const sustainabilityScore = useMemo(() => {
     const occupancyRate = properties.length > 0
       ? (properties.filter(p => p.status === 'Alquilada').length / properties.length)
-      : 0.85;
+      : 0;
     const urgentRatio = tasks.length > 0
       ? (tasks.filter(t => t.priority === 'Urgente' || t.priority === 'Alta').length / tasks.length)
       : 0.1;

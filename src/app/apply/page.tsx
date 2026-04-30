@@ -51,6 +51,9 @@ function ApplyPageContent() {
     email: '',
     phone: '',
     income: '',
+    guarantorName: '',
+    guarantorType: 'Sin garante',
+    guarantorIncome: '',
     references: ''
   });
 
@@ -138,6 +141,11 @@ function ApplyPageContent() {
         applicantEmail: formData.email,
         applicantPhone: formData.phone,
         ingreso: parseFloat(formData.income) || 0,
+        currency: 'ARS',
+        rentAmount: undefined, // se asignará en el análisis IA del admin
+        guarantorName: formData.guarantorName || undefined,
+        guarantorType: formData.guarantorType !== 'Sin garante' ? formData.guarantorType : undefined,
+        guarantorIncome: formData.guarantorIncome ? parseFloat(formData.guarantorIncome) : undefined,
         references: formData.references,
         documents: documents,
         status: 'Nueva',
@@ -339,10 +347,50 @@ function ApplyPageContent() {
                 )}
               </div>
 
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" /> Garantía
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Tipo de Garantía</Label>
+                    <select
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      value={formData.guarantorType}
+                      onChange={e => setFormData({...formData, guarantorType: e.target.value})}
+                    >
+                      <option value="Sin garante">Sin garante</option>
+                      <option value="Propietario">Propietario garante</option>
+                      <option value="Recibo Sueldo">Garante con recibo de sueldo</option>
+                      <option value="Seguro de Caución">Seguro de Caución</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Nombre del Garante</Label>
+                    <Input
+                      placeholder="Ej: Roberto García"
+                      value={formData.guarantorName}
+                      onChange={e => setFormData({...formData, guarantorName: e.target.value})}
+                    />
+                  </div>
+                  {formData.guarantorType === 'Recibo Sueldo' && (
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Ingresos del Garante (neto)</Label>
+                      <Input
+                        type="number"
+                        placeholder="ARS"
+                        value={formData.guarantorIncome}
+                        onChange={e => setFormData({...formData, guarantorIncome: e.target.value})}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-2 border-t pt-4">
                 <Label className="flex items-center gap-2"><FileText className="h-3 w-3" /> Comentarios Adicionales</Label>
-                <Textarea 
-                  placeholder="Contanos sobre tu actividad laboral, tipo de garantía o cualquier dato relevante..." 
+                <Textarea
+                  placeholder="Contanos sobre tu actividad laboral, relación laboral, o cualquier dato relevante..."
                   className="min-h-[80px]"
                   value={formData.references}
                   onChange={e => setFormData({...formData, references: e.target.value})}

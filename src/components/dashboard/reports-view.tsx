@@ -139,9 +139,9 @@ export function ReportsView() {
     const overdue = facturas.filter(i => i.status === 'Vencido').length;
     const rest = total - paid - pending - overdue;
     return [
-      { name: 'Al día', value: total > 0 ? Math.round(((paid + rest) / total) * 100) : 85 },
-      { name: 'Pendiente', value: total > 0 ? Math.round((pending / total) * 100) : 8 },
-      { name: 'Vencido', value: total > 0 ? Math.round((overdue / total) * 100) : 7 },
+      { name: 'Al día', value: Math.round(((paid + rest) / total) * 100) },
+      { name: 'Pendiente', value: Math.round((pending / total) * 100) },
+      { name: 'Vencido', value: Math.round((overdue / total) * 100) },
     ].filter(d => d.value > 0);
   }, [facturas]);
 

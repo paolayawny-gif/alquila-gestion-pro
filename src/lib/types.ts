@@ -80,6 +80,11 @@ export interface RentalApplication {
   applicantPhone: string;
   applicantTaxId?: string;  // CUIT/CUIL 11 dígitos
   ingreso: number;
+  currency?: string;        // ARS | USD
+  rentAmount?: number;      // alquiler solicitado (si se conoce)
+  guarantorName?: string;   // nombre del garante
+  guarantorType?: string;   // Propietario | Recibo Sueldo | Seguro de Caución | Sin garante
+  guarantorIncome?: number; // ingreso del garante (si aplica)
   references: string;
   documents: DocumentInfo[];
   status: ApplicationStatus;
