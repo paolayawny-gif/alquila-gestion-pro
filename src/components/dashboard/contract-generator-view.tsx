@@ -115,6 +115,12 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Smart party selectors
+  const [selectedLocadorId, setSelectedLocadorId] = useState('');
+  const [selectedLocatarioId, setSelectedLocatarioId] = useState('');
+  const [selectedFiadorId, setSelectedFiadorId] = useState('');
+  const [selectedPropiedadId, setSelectedPropiedadId] = useState('');
+
   // ── Tab: Editor ──
   const [editorContent, setEditorContent] = useState('');
   const [editorContractId, setEditorContractId] = useState('');
@@ -132,7 +138,52 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const contratos = CONTRACT_TEMPLATES.filter(t => t.category === 'contrato');
   const anexos = CONTRACT_TEMPLATES.filter(t => t.category === 'anexo');
 
-  // ── Plantillas: auto-fill ──
+  // ── Plantillas: fill by autoFill key ──
+  const fillByAutoFillKey = (autoFillKey: string, value: string) => {
+    if (!value) return;
+    setFieldValues(prev => {
+      const next = { ...prev };
+      for (const variable of template.variables) {
+        if (variable.autoFill === autoFillKey) {
+          next[variable.key] = value;
+        }
+      }
+      return next;
+    });
+  };
+
+  // ── Plantillas: select Locador ──
+  const handleSelectLocador = (personId: string) => {
+    setSelectedLocadorId(personId);
+    const person = people.find(p => p.id === personId);
+    if (person) fillByAutoFillKey('owner_name', person.fullName);
+  };
+
+  // ── Plantillas: select Locatario ──
+  const handleSelectLocatario = (personId: string) => {
+    setSelectedLocatarioId(personId);
+    const person = people.find(p => p.id === personId);
+    if (person) fillByAutoFillKey('tenant_name', person.fullName);
+  };
+
+  // ── Plantillas: select Fiador ──
+  const handleSelectFiador = (personId: string) => {
+    setSelectedFiadorId(personId);
+    const person = people.find(p => p.id === personId);
+    if (person) fillByAutoFillKey('guarantor_name', person.fullName);
+  };
+
+  // ── Plantillas: select Propiedad ──
+  const handleSelectPropiedad = (propertyId: string) => {
+    setSelectedPropiedadId(propertyId);
+    const prop = properties.find(p => p.id === propertyId);
+    if (prop) {
+      const addr = `${prop.address}${prop.unit ? ', ' + prop.unit : ''}`;
+      fillByAutoFillKey('property_address', addr);
+    }
+  };
+
+  // ── Plantillas: auto-fill from contract ──
   const handleAutoFill = () => {
     const autoValues = buildAutoFillValues(selectedContract, people, properties);
     const newValues: Record<string, string> = { ...fieldValues };
@@ -223,7 +274,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
       variables: [],
       createdAt: new Date().toISOString(),
       ownerId: user.uid,
-    });
+    }, {});
     toast({ title: 'Borrador guardado ✓', description: `"${editorTitle}" guardado en Mis Modelos.` });
   };
 
@@ -317,7 +368,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
         isDraft: false,
         createdAt: new Date().toISOString(),
         ownerId: user.uid,
-      });
+      }, {});
 
       setNewModelName('');
       toast({ title: `Modelo "${newModelName}" guardado ✓`, description: `Se detectaron ${result.data.variables.length} variables. Ya podés usarlo en el Editor.` });
@@ -385,7 +436,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                         const Icon = t.icon;
                         const sel = selectedTemplateId === t.id;
                         return (
-                          <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); }}
+                          <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); setSelectedLocadorId(''); setSelectedLocatarioId(''); setSelectedFiadorId(''); setSelectedPropiedadId(''); }}
                             className={cn("w-full text-left p-2.5 rounded-xl border transition-all flex items-start gap-2.5",
                               sel ? "border-primary bg-primary/5" : "border-border hover:border-primary/30 hover:bg-muted/20")}>
                             <div className={cn("p-1.5 rounded-lg shrink-0", sel ? "bg-primary/10" : "bg-muted")}>
@@ -404,7 +455,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                         const Icon = t.icon;
                         const sel = selectedTemplateId === t.id;
                         return (
-                          <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); }}
+                          <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); setSelectedLocadorId(''); setSelectedLocatarioId(''); setSelectedFiadorId(''); setSelectedPropiedadId(''); }}
                             className={cn("w-full text-left p-2.5 rounded-xl border transition-all flex items-start gap-2.5",
                               sel ? "border-primary bg-primary/5" : "border-border hover:border-primary/30 hover:bg-muted/20")}>
                             <div className={cn("p-1.5 rounded-lg shrink-0", sel ? "bg-primary/10" : "bg-muted")}>
@@ -459,6 +510,105 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                     <div className="bg-primary h-1.5 rounded-full transition-all duration-300"
                       style={{ width: `${totalCount ? (filledCount / totalCount) * 100 : 0}%` }} />
                   </div>
+
+                  {/* ── Partes del contrato ── */}
+                  {(people.length > 0 || properties.length > 0) && (
+                    <div className="mb-5 p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-3">
+                      <p className="text-[10px] font-black uppercase text-primary tracking-wide flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3" /> Partes del contrato — seleccioná desde tus registros
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Locador */}
+                        {people.some(p => p.type === 'Propietario') && template?.variables.some(v => v.autoFill === 'owner_name') && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                              🏠 Locador (Propietario)
+                            </Label>
+                            <Select value={selectedLocadorId} onValueChange={handleSelectLocador}>
+                              <SelectTrigger className="h-8 text-xs bg-white">
+                                <SelectValue placeholder="Elegir propietario…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {people.filter(p => p.type === 'Propietario').map(p => (
+                                  <SelectItem key={p.id} value={p.id} className="text-xs">
+                                    <span className="font-medium">{p.fullName}</span>
+                                    {p.taxId && <span className="text-muted-foreground ml-1">· {p.taxId}</span>}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {/* Locatario */}
+                        {people.some(p => p.type === 'Inquilino') && template?.variables.some(v => v.autoFill === 'tenant_name') && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                              🔑 Locatario (Inquilino)
+                            </Label>
+                            <Select value={selectedLocatarioId} onValueChange={handleSelectLocatario}>
+                              <SelectTrigger className="h-8 text-xs bg-white">
+                                <SelectValue placeholder="Elegir inquilino…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {people.filter(p => p.type === 'Inquilino').map(p => (
+                                  <SelectItem key={p.id} value={p.id} className="text-xs">
+                                    <span className="font-medium">{p.fullName}</span>
+                                    {p.taxId && <span className="text-muted-foreground ml-1">· {p.taxId}</span>}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {/* Fiador */}
+                        {people.some(p => p.type === 'Garante') && template?.variables.some(v => v.autoFill === 'guarantor_name') && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                              🛡️ Fiador (Garante)
+                            </Label>
+                            <Select value={selectedFiadorId} onValueChange={handleSelectFiador}>
+                              <SelectTrigger className="h-8 text-xs bg-white">
+                                <SelectValue placeholder="Elegir garante…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {people.filter(p => p.type === 'Garante').map(p => (
+                                  <SelectItem key={p.id} value={p.id} className="text-xs">
+                                    <span className="font-medium">{p.fullName}</span>
+                                    {p.taxId && <span className="text-muted-foreground ml-1">· {p.taxId}</span>}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {/* Propiedad */}
+                        {properties.length > 0 && template?.variables.some(v => v.autoFill === 'property_address') && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                              📍 Inmueble
+                            </Label>
+                            <Select value={selectedPropiedadId} onValueChange={handleSelectPropiedad}>
+                              <SelectTrigger className="h-8 text-xs bg-white">
+                                <SelectValue placeholder="Elegir propiedad…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {properties.map(p => (
+                                  <SelectItem key={p.id} value={p.id} className="text-xs">
+                                    <span className="font-medium">{p.address}</span>
+                                    {p.unit && <span className="text-muted-foreground ml-1">· {p.unit}</span>}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Al elegir una persona o propiedad, los campos correspondientes se completan automáticamente. Podés editarlos luego.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {template?.variables.map(variable => {
                       const val = fieldValues[variable.key] ?? '';
