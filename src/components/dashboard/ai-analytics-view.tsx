@@ -52,18 +52,36 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
   const currentMonth = new Date().getMonth();
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
 
-  // Cash flow projection: past 6 months real + next 6 months projected
+  // Cash flow projection: past months real from invoices + future projected
   const cashFlowData = useMemo(() => {
-    const totalMonthly = invoices.reduce((acc, i) => acc + i.totalAmount, 0);
-    const baseMonthly = totalMonthly > 0 ? totalMonthly : 120000;
-    const collected = invoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
+    // Group invoices by month
+    const byMonth: Record<number, { invoiced: number; collected: number }> = {};
+    invoices.forEach(inv => {
+      const dateStr = inv.period || inv.dueDate || '';
+      const parts = dateStr.split('/');
+      const m = parts.length >= 2 ? parseInt(parts[1], 10) - 1 : new Date(dateStr).getMonth();
+      if (isNaN(m)) return;
+      if (!byMonth[m]) byMonth[m] = { invoiced: 0, collected: 0 };
+      byMonth[m].invoiced += inv.totalAmount;
+      if (inv.status === 'Pagado') byMonth[m].collected += inv.totalAmount;
+    });
+
+    // Project based on avg of known months
+    const knownMonths = Object.values(byMonth).filter(m => m.invoiced > 0);
+    const avgMonthly = knownMonths.length > 0
+      ? knownMonths.reduce((s, m) => s + m.invoiced, 0) / knownMonths.length
+      : 0;
 
     return MONTHS.map((name, idx) => {
       const isPast = idx < currentMonth;
       const isCurrent = idx === currentMonth;
       const growthFactor = 1 + (idx * 0.015);
-      const projected = Math.round(baseMonthly * growthFactor);
-      const real = isPast ? Math.round(projected * (0.88 + Math.random() * 0.1)) : isCurrent ? collected || Math.round(projected * 0.6) : undefined;
+      const projected = avgMonthly > 0 ? Math.round(avgMonthly * growthFactor) : 0;
+      const real = (isPast || isCurrent) && byMonth[idx]
+        ? byMonth[idx].collected
+        : isCurrent && !byMonth[idx]
+        ? 0
+        : undefined;
       return { name, projected, real };
     });
   }, [invoices, currentMonth]);
@@ -78,34 +96,36 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
   const delinquencyColor = delinquencyRisk < 10 ? 'text-green-600' : delinquencyRisk < 25 ? 'text-orange-500' : 'text-red-600';
   const delinquencyBg = delinquencyRisk < 10 ? 'bg-green-500' : delinquencyRisk < 25 ? 'bg-orange-400' : 'bg-red-500';
 
-  // Price adjustment suggestions
+  // Price adjustment suggestions — deterministic, based on real contract data
   const priceAdjustments = useMemo(() => {
     return properties.slice(0, 4).map(p => {
       const relatedContracts = contracts.filter(c => c.propertyId === p.id);
       const isOccupied = p.status === 'Alquilada';
-      const hasExpiring = relatedContracts.some(c => {
-        const end = new Date(c.endDate);
-        const diff = (end.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-        return diff > 0 && diff < 90;
-      });
+      const activeContract = relatedContracts.find(c => c.status === 'Vigente') || relatedContracts[0];
 
+      let daysToExpiry: number | null = null;
+      if (activeContract?.endDate) {
+        daysToExpiry = Math.round((new Date(activeContract.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      }
+      const hasExpiring = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry < 90;
+
+      // Deterministic suggestion: expiring contracts get +10%, vacant -5%, active +5%
       const changePercent = isOccupied
-        ? hasExpiring ? +(Math.random() * 12 + 3).toFixed(1) : +(Math.random() * 6 + 1).toFixed(1)
-        : -(Math.random() * 4 + 1).toFixed(1);
+        ? hasExpiring ? 10 : 5
+        : -5;
 
-      const contract = relatedContracts[0];
-      const suggestedAmount = contract
-        ? Math.round(contract.rentAmount * (1 + changePercent / 100) / 100) * 100
+      const currentRent = activeContract?.baseRentAmount ?? 0;
+      const suggestedAmount = currentRent > 0
+        ? Math.round(currentRent * (1 + changePercent / 100) / 100) * 100
         : 0;
 
-      return {
-        id: p.id,
-        name: p.name,
-        status: isOccupied ? (hasExpiring ? 'Renovación en ' + Math.round(Math.random() * 60 + 15) + ' días' : 'Contrato activo') : 'Vacante actual',
-        changePercent,
-        suggestedAmount,
-        isVacant: !isOccupied
-      };
+      const status = isOccupied
+        ? hasExpiring
+          ? `Renovación en ${daysToExpiry} días`
+          : 'Contrato activo'
+        : 'Vacante';
+
+      return { id: p.id, name: p.name, status, changePercent, suggestedAmount, isVacant: !isOccupied };
     });
   }, [properties, contracts]);
 
@@ -124,8 +144,9 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
   const sustainabilityGrade = sustainabilityScore >= 85 ? 'A' : sustainabilityScore >= 70 ? 'B' : sustainabilityScore >= 55 ? 'C' : 'D';
   const sustainabilityModifier = sustainabilityScore % 10 >= 7 ? '+' : sustainabilityScore % 10 <= 2 ? '-' : '';
 
-  const avgConsumption = 124;
-  const savingPotential = 15;
+  // Sustainability: derived from real occupancy and task resolution
+  const avgConsumption = properties.length > 0 ? Math.round(80 + (properties.filter(p => p.status === 'Alquilada').length / properties.length) * 60) : 0;
+  const savingPotential = tasks.length > 0 ? Math.min(Math.round((tasks.filter(t => t.priority === 'Urgente' || t.priority === 'Alta').length / tasks.length) * 30 + 5), 30) : 0;
 
   // North zone alert
   const northZoneAlert = properties.filter(p =>

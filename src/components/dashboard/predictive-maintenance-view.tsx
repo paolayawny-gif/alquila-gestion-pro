@@ -40,18 +40,7 @@ const RISK_CONFIG = {
 
 type RiskLevel = keyof typeof RISK_CONFIG;
 
-const SCHEDULE_ITEMS = [
-  { urgency: 'URGENTE', date: '12 DE OCTUBRE', title: 'Revisión Compresor HVAC U4B', desc: 'Sustitución de rodamientos preventiva basada en análisis de vibración.', saving: 1200, color: 'border-red-400 bg-red-50' },
-  { urgency: 'PLANIFICADO', date: '28 DE OCTUBRE', title: 'Lubricación Ascensor C', desc: 'Mantenimiento predictivo de guías y puertas de planta baja a planta 5.', saving: 450, color: 'border-primary/40 bg-primary/5' },
-  { urgency: 'PLANIFICADO', date: '5 DE NOVIEMBRE', title: 'Inspección Sistema Eléctrico', desc: 'Revisión anual de cuadros y protecciones según normativa vigente.', saving: 800, color: 'border-primary/40 bg-primary/5' },
-];
-
-const SENSOR_DATA = [
-  { label: 'Temperatura Motor', value: '87°C', status: 'warning', note: 'Umbral normal: <80°C' },
-  { label: 'Vibración (RMS)', value: '4.8 mm/s', status: 'danger', note: 'Umbral normal: <3.5 mm/s' },
-  { label: 'Presión de Aceite', value: '2.1 bar', status: 'ok', note: 'Rango normal: 1.8–2.5 bar' },
-  { label: 'Horas de Operación', value: '12.400 h', status: 'warning', note: 'Revisión recomendada: >12.000 h' },
-];
+// SCHEDULE_ITEMS and SENSOR_DATA are now derived from real data below
 
 export function PredictiveMaintenanceView({ properties, tasks, userId }: PredictiveMaintenanceViewProps) {
   const { toast } = useToast();
@@ -60,18 +49,65 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
   const [showSensorDialog, setShowSensorDialog] = useState(false);
   const [approvedOrders, setApprovedOrders] = useState<Set<number>>(new Set());
 
-  const activeProperties = properties.length > 0 ? properties.length : 12;
+  const activeProperties = properties.length;
 
-  const savingsData = [
-    { name: 'Jul', preventivo: 3200, reactivo: 5800 },
-    { name: 'Ago', preventivo: 2900, reactivo: 6200 },
-    { name: 'Sep', preventivo: 3100, reactivo: 5500 },
-    { name: 'Oct', preventivo: 2800, reactivo: 7100 },
-    { name: 'Nov', preventivo: 2600, reactivo: 6300, projected: true },
-    { name: 'Dic', preventivo: 2400, reactivo: 5900, projected: true },
-  ];
+  // Schedule items from real pending tasks (sorted by priority)
+  const scheduleItems = useMemo(() => {
+    const PRIORITY_ORDER: Record<string, number> = { 'Urgente': 0, 'Alta': 1, 'Media': 2, 'Baja': 3 };
+    return tasks
+      .filter(t => t.status !== 'Completado' && t.status !== 'Cerrado')
+      .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9))
+      .slice(0, 5)
+      .map(t => {
+        const isUrgent = t.priority === 'Urgente' || t.priority === 'Alta';
+        const prop = properties.find(p => p.id === t.propertyId);
+        const dateLabel = t.createdAt
+          ? new Date(t.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long' }).toUpperCase()
+          : '';
+        return {
+          urgency: isUrgent ? 'URGENTE' : 'PLANIFICADO',
+          date: dateLabel,
+          title: t.concept,
+          desc: t.description || (prop ? `Propiedad: ${prop.address || prop.name}` : 'Sin descripción.'),
+          saving: t.estimatedCost ?? 0,
+          color: isUrgent ? 'border-red-400 bg-red-50' : 'border-primary/40 bg-primary/5',
+          taskId: t.id,
+        };
+      });
+  }, [tasks, properties]);
 
-  const projectedAnnualSaving = 42850;
+  // Savings chart: group closed/completed task costs by month
+  const savingsData = useMemo(() => {
+    const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const now = new Date().getMonth();
+    const last6 = Array.from({ length: 6 }, (_, i) => (now - 5 + i + 12) % 12);
+    const byMonth: Record<number, { preventivo: number; reactivo: number }> = {};
+
+    tasks.forEach(t => {
+      if (!t.createdAt) return;
+      const m = new Date(t.createdAt).getMonth();
+      if (!last6.includes(m)) return;
+      if (!byMonth[m]) byMonth[m] = { preventivo: 0, reactivo: 0 };
+      const cost = t.actualCost ?? t.estimatedCost ?? 0;
+      if (t.status === 'Completado' || t.status === 'Cerrado') {
+        byMonth[m].preventivo += cost;
+      } else {
+        byMonth[m].reactivo += cost;
+      }
+    });
+
+    return last6.map(m => ({
+      name: MONTHS_SHORT[m],
+      preventivo: byMonth[m]?.preventivo ?? 0,
+      reactivo: byMonth[m]?.reactivo ?? 0,
+    }));
+  }, [tasks]);
+
+  const projectedAnnualSaving = useMemo(() => {
+    return tasks
+      .filter(t => t.status === 'Completado' || t.status === 'Cerrado')
+      .reduce((acc, t) => acc + (t.estimatedCost ?? 0), 0);
+  }, [tasks]);
 
   const healthIndex = useMemo(() => {
     if (tasks.length === 0) return 86;
@@ -120,7 +156,7 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
     return aiAlerts;
   }, [tasks]);
 
-  const handleApproveOrder = (item: typeof SCHEDULE_ITEMS[0], idx: number) => {
+  const handleApproveOrder = (item: { title: string; desc: string; urgency: string; saving: number }, idx: number) => {
     if (!db || !userId) {
       toast({ title: "Error", description: "Debés iniciar sesión para aprobar órdenes.", variant: "destructive" });
       return;
@@ -163,7 +199,9 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
         <div>
           <h2 className="text-2xl font-black text-foreground">Mantenimiento Predictivo</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Inteligencia Artificial monitorizando {activeProperties * 3 + 6} activos críticos.
+            {activeProperties > 0
+              ? `Monitoreando ${activeProperties} propiedad${activeProperties !== 1 ? 'es' : ''} · ${tasks.filter(t => t.status !== 'Completado' && t.status !== 'Cerrado').length} tarea${tasks.filter(t => t.status !== 'Completado' && t.status !== 'Cerrado').length !== 1 ? 's' : ''} activa${tasks.filter(t => t.status !== 'Completado' && t.status !== 'Cerrado').length !== 1 ? 's' : ''}.`
+              : 'Cargá propiedades y tareas de mantenimiento para ver el análisis predictivo.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -186,7 +224,7 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
                 <p className="text-xs text-muted-foreground">Prevención vs. Mantenimiento Reactivo</p>
               </div>
               <Badge className="bg-green-100 text-green-700 border-none font-bold flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" /> +14.2% vs Q3
+                <TrendingUp className="h-3 w-3" /> {tasks.filter(t => t.status === 'Completado' || t.status === 'Cerrado').length} tareas cerradas
               </Badge>
             </div>
             <div className="mb-4">
@@ -314,20 +352,28 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {SCHEDULE_ITEMS.map((item, idx) => (
-              <div key={idx} className="relative pl-6">
+            {scheduleItems.length === 0 ? (
+              <div className="text-center py-10 space-y-2">
+                <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto opacity-60" />
+                <p className="text-sm font-bold text-muted-foreground">Sin tareas pendientes</p>
+                <p className="text-xs text-muted-foreground">Las tareas abiertas desde el módulo de Mantenimiento aparecerán acá ordenadas por urgencia.</p>
+              </div>
+            ) : scheduleItems.map((item, idx) => (
+              <div key={item.taskId || idx} className="relative pl-6">
                 <div className="absolute left-0 top-2 h-3 w-3 rounded-full border-2 border-primary bg-white" />
-                {idx < SCHEDULE_ITEMS.length - 1 && (
+                {idx < scheduleItems.length - 1 && (
                   <div className="absolute left-[5px] top-5 bottom-0 w-0.5 bg-border" />
                 )}
                 <div className={cn("p-4 rounded-xl border", item.color)}>
                   <div className="flex items-center justify-between mb-2">
                     <span className={cn("text-[10px] font-black uppercase tracking-wider", item.urgency === 'URGENTE' ? 'text-red-600' : 'text-primary')}>
-                      {item.urgency} — {item.date}
+                      {item.urgency}{item.date ? ` — ${item.date}` : ''}
                     </span>
-                    <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-bold">
-                      Ahorro est. ${item.saving.toLocaleString()}
-                    </Badge>
+                    {item.saving > 0 && (
+                      <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-bold">
+                        Costo est. ${item.saving.toLocaleString('es-AR')}
+                      </Badge>
+                    )}
                   </div>
                   <h4 className="text-sm font-black text-foreground">{item.title}</h4>
                   <p className="text-xs text-muted-foreground mt-1 leading-snug">{item.desc}</p>
@@ -339,11 +385,6 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
                     ) : (
                       <Button size="sm" className="h-7 text-xs bg-primary text-white font-bold px-3" onClick={() => handleApproveOrder(item, idx)}>
                         Aprobar Orden
-                      </Button>
-                    )}
-                    {item.urgency === 'URGENTE' && (
-                      <Button size="sm" variant="outline" className="h-7 text-xs font-bold px-3" onClick={() => setShowSensorDialog(true)}>
-                        Ver Datos Sensor
                       </Button>
                     )}
                   </div>
@@ -399,40 +440,20 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
         </DialogContent>
       </Dialog>
 
-      {/* Ver Datos Sensor Dialog */}
+      {/* Sensores IoT Dialog */}
       <Dialog open={showSensorDialog} onOpenChange={setShowSensorDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Thermometer className="h-5 w-5 text-red-500" /> Datos del Sensor — HVAC Unidad 4B
+              <Thermometer className="h-5 w-5 text-primary" /> Sensores IoT
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 mt-2">
-            <p className="text-xs text-muted-foreground">Última lectura: hace 2 horas — Frecuencia: 15 min</p>
-            {SENSOR_DATA.map((s, i) => (
-              <div key={i} className={cn("flex items-center justify-between p-3 rounded-xl border",
-                s.status === 'danger' ? 'bg-red-50 border-red-200' :
-                s.status === 'warning' ? 'bg-orange-50 border-orange-200' :
-                'bg-green-50 border-green-200'
-              )}>
-                <div>
-                  <p className="text-sm font-bold">{s.label}</p>
-                  <p className="text-[10px] text-muted-foreground">{s.note}</p>
-                </div>
-                <div className="text-right">
-                  <p className={cn("text-lg font-black",
-                    s.status === 'danger' ? 'text-red-600' :
-                    s.status === 'warning' ? 'text-orange-500' : 'text-green-600'
-                  )}>{s.value}</p>
-                  <p className={cn("text-[10px] font-bold uppercase",
-                    s.status === 'danger' ? 'text-red-500' :
-                    s.status === 'warning' ? 'text-orange-400' : 'text-green-600'
-                  )}>
-                    {s.status === 'danger' ? '⚠ Crítico' : s.status === 'warning' ? '⚡ Atención' : '✓ Normal'}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="text-center py-8 space-y-3">
+            <Cpu className="h-12 w-12 mx-auto text-muted-foreground opacity-30" />
+            <p className="text-sm font-bold text-foreground">Monitoreo con sensores IoT</p>
+            <p className="text-xs text-muted-foreground leading-relaxed px-4">
+              Esta función permite conectar sensores físicos (temperatura, vibración, presión) para monitoreo en tiempo real. Contactá a tu proveedor de mantenimiento para activar la integración.
+            </p>
           </div>
         </DialogContent>
       </Dialog>

@@ -218,7 +218,7 @@ export function ROISimulatorView({ userId }: ROISimulatorViewProps) {
               <CardContent className="p-4">
                 <p className="text-[9px] uppercase font-black text-white/70 mb-1">RENTABILIDAD ANUAL BRUTA</p>
                 <p className="text-3xl font-black">{metrics.grossYield.toFixed(1)}%</p>
-                <p className="text-[10px] text-white/70 mt-1">+1.5% vs año anterior</p>
+                <p className="text-[10px] text-white/70 mt-1">Rentabilidad calculada</p>
               </CardContent>
             </Card>
             <Card className="border-none shadow-sm bg-white">

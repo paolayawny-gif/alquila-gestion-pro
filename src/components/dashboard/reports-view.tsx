@@ -109,11 +109,7 @@ export function ReportsView() {
 
   const INGRESO_DATA = useMemo(() => {
     if (!facturas || facturas.length === 0) {
-      return MONTHS_SHORT.slice(0, 6).map((name, i) => ({
-        name,
-        ingreso: 800000 + i * 80000,
-        cobrado: 720000 + i * 70000,
-      }));
+      return MONTHS_SHORT.slice(0, 6).map((name) => ({ name, ingreso: 0, cobrado: 0 }));
     }
     const byMonth: Record<number, { ingreso: number; cobrado: number }> = {};
     facturas.forEach(inv => {
@@ -135,12 +131,7 @@ export function ReportsView() {
 
   const DELINQUENCY_DATA = useMemo(() => {
     if (!facturas || facturas.length === 0) {
-      return [
-        { name: 'Al día', value: 85 },
-        { name: '1-10 días', value: 8 },
-        { name: '11-30 días', value: 4 },
-        { name: '30+ días', value: 3 },
-      ];
+      return [{ name: 'Sin datos', value: 1 }];
     }
     const total = facturas.length;
     const paid = facturas.filter(i => i.status === 'Pagado').length;
