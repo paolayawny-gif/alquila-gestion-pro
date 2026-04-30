@@ -74,7 +74,7 @@ export async function sendEmail({
 /**
  * Genera HTML estilizado para emails de invitación a postulantes.
  */
-export function buildInvitationEmail(opts: {
+export async function buildInvitationEmail(opts: {
   orgName: string;
   propertyName: string;
   propertyAddress: string;
@@ -119,7 +119,7 @@ export function buildInvitationEmail(opts: {
 /**
  * Genera HTML para notificaciones de mora.
  */
-export function buildMoraNotificationEmail(opts: {
+export async function buildMoraNotificationEmail(opts: {
   orgName: string;
   tenantName: string;
   propertyName: string;
