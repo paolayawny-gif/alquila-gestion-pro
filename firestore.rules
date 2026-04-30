@@ -15,12 +15,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == 'wYkBqQjJuSdQu7F20eFAHZ0qX9N2';
     }
 
-    // ── Super Admin: gestión global de organizaciones ─────────────────────────
+    // ── Super Admin: gestión global de organizaciones y usuarios ─────────────
     match /artifacts/{appId}/superadmin/data/organizations/{orgId} {
       allow read, write: if isSuperAdmin();
     }
 
-    // Regla comodín superadmin (por si se agregan más colecciones admin)
+    match /artifacts/{appId}/superadmin/data/org_users/{userId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // Regla comodín superadmin (cubre cualquier colección futura)
     match /artifacts/{appId}/superadmin/{document=**} {
       allow read, write: if isSuperAdmin();
     }
