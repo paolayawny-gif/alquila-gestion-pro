@@ -54,6 +54,12 @@ export interface PropertyOwner {
   percentage: number;
 }
 
+export interface PropertyManual {
+  name: string;
+  sizeLabel: string; // ej: "PDF · 2.4 MB"
+  url?: string;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -69,6 +75,10 @@ export interface Property {
   internalNotes?: string;
   owners: PropertyOwner[];
   ownerId: string;
+  /** URL de tour virtual 360° (ej: Matterport, YouTube embed, etc.) */
+  virtualTourUrl?: string;
+  /** Manuales de electrodomésticos u otros documentos de la unidad */
+  manuals?: PropertyManual[];
 }
 
 export interface RentalApplication {

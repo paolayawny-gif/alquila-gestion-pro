@@ -4,10 +4,10 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Property, PropertyStatus, PropertyOwner } from '@/lib/types';
+import { Property, PropertyStatus, PropertyOwner, PropertyManual } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -302,6 +302,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
             <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-6">
               <TabsTrigger value="specs" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Datos Técnicos</TabsTrigger>
               <TabsTrigger value="owners" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Propietarios</TabsTrigger>
+              <TabsTrigger value="portal" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Portal Inquilino</TabsTrigger>
               <TabsTrigger value="extra" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Notas</TabsTrigger>
             </TabsList>
 
@@ -368,11 +369,108 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
               ))}
             </TabsContent>
 
+            {/* ── Portal Inquilino ── */}
+            <TabsContent value="portal" className="space-y-6 pt-6">
+              {/* Tour Virtual */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" /> URL Tour Virtual 360°
+                  <span className="text-[10px] font-normal text-muted-foreground ml-1">(opcional)</span>
+                </Label>
+                <Input
+                  placeholder="https://my.matterport.com/... o YouTube embed"
+                  value={formData.virtualTourUrl || ''}
+                  onChange={e => setFormData({ ...formData, virtualTourUrl: e.target.value })}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  El inquilino verá el tour en su pantalla de bienvenida. Compatible con Matterport, Google Street View, YouTube, etc.
+                </p>
+              </div>
+
+              {/* Manuales */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-primary" /> Manuales de la unidad
+                  </Label>
+                  <Button
+                    type="button" variant="outline" size="sm"
+                    onClick={() => setFormData(f => ({
+                      ...f,
+                      manuals: [...(f.manuals || []), { name: '', sizeLabel: 'PDF', url: '' }]
+                    }))}
+                  >
+                    <PlusCircle className="h-3.5 w-3.5 mr-1" /> Agregar manual
+                  </Button>
+                </div>
+                {(formData.manuals || []).length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Sin manuales cargados. El inquilino podrá descargarlos desde su portal.
+                  </p>
+                )}
+                {(formData.manuals || []).map((m, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-2 items-center p-3 bg-muted/20 rounded-lg">
+                    <div className="col-span-4 space-y-1">
+                      <Label className="text-[10px]">Nombre</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="Ej: Refrigerador Smart"
+                        value={m.name}
+                        onChange={e => {
+                          const ms = [...(formData.manuals || [])];
+                          ms[i] = { ...ms[i], name: e.target.value };
+                          setFormData(f => ({ ...f, manuals: ms }));
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-3 space-y-1">
+                      <Label className="text-[10px]">Tamaño / tipo</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="PDF · 2.4 MB"
+                        value={m.sizeLabel}
+                        onChange={e => {
+                          const ms = [...(formData.manuals || [])];
+                          ms[i] = { ...ms[i], sizeLabel: e.target.value };
+                          setFormData(f => ({ ...f, manuals: ms }));
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-4 space-y-1">
+                      <Label className="text-[10px]">URL del archivo</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="https://..."
+                        value={m.url || ''}
+                        onChange={e => {
+                          const ms = [...(formData.manuals || [])];
+                          ms[i] = { ...ms[i], url: e.target.value };
+                          setFormData(f => ({ ...f, manuals: ms }));
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-1 flex items-end justify-center pb-0.5">
+                      <Button
+                        type="button" size="icon" variant="ghost"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => setFormData(f => ({
+                          ...f,
+                          manuals: (f.manuals || []).filter((_, j) => j !== i)
+                        }))}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
             <TabsContent value="extra" className="space-y-4 pt-6">
               <div className="space-y-2">
                 <Label>Notas Internas</Label>
-                <Textarea 
-                  className="min-h-[100px]" 
+                <Textarea
+                  className="min-h-[100px]"
                   value={formData.internalNotes}
                   onChange={(e) => setFormData({...formData, internalNotes: e.target.value})}
                 />
