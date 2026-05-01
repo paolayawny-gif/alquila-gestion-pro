@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, Image as ImageIcon, Link } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyManual } from '@/lib/types';
@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
+import { PhotoUpload } from '@/components/ui/photo-upload';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
@@ -431,61 +432,19 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
             <TabsContent value="portal" className="space-y-6 pt-6">
 
               {/* Fotos */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4 text-primary" /> Fotos de la propiedad
-                    <span className="text-[10px] font-normal text-muted-foreground">(URLs directas)</span>
-                  </Label>
-                  <Button
-                    type="button" variant="outline" size="sm"
-                    onClick={() => setFormData(f => ({ ...f, photos: [...(f.photos || []), ''] }))}
-                  >
-                    <PlusCircle className="h-3.5 w-3.5 mr-1" /> Agregar foto
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Pegá la URL directa de cada imagen (Google Drive, Imgur, etc.). La primera foto se usa como miniatura y en el tour del inquilino.
-                </p>
-                {(formData.photos || []).length === 0 && (
-                  <div className="border-2 border-dashed rounded-xl p-6 text-center text-muted-foreground/60">
-                    <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-xs">Sin fotos. Hacé clic en "Agregar foto" para añadir una URL.</p>
-                  </div>
-                )}
-                {(formData.photos || []).map((url, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="h-10 w-10 rounded-lg bg-muted shrink-0 overflow-hidden">
-                      {url ? (
-                        <img src={url} alt="" className="h-full w-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center">
-                          <Link className="h-4 w-4 text-muted-foreground/40" />
-                        </div>
-                      )}
-                    </div>
-                    <Input
-                      className="flex-1 text-xs h-9"
-                      placeholder={`https://... (foto ${i + 1})`}
-                      value={url}
-                      onChange={e => {
-                        const photos = [...(formData.photos || [])];
-                        photos[i] = e.target.value;
-                        setFormData(f => ({ ...f, photos }));
-                      }}
-                    />
-                    {i === 0 && (
-                      <Badge variant="outline" className="text-[9px] border-primary/30 text-primary shrink-0">Principal</Badge>
-                    )}
-                    <Button
-                      type="button" size="icon" variant="ghost"
-                      className="h-8 w-8 text-destructive shrink-0"
-                      onClick={() => setFormData(f => ({ ...f, photos: (f.photos || []).filter((_, j) => j !== i) }))}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  Fotos de la propiedad
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    · la primera foto aparece en el portal del inquilino
+                  </span>
+                </Label>
+                <PhotoUpload
+                  value={formData.photos || []}
+                  onChange={photos => setFormData(f => ({ ...f, photos }))}
+                  storagePath={`properties/${editingProperty?.id || 'new'}`}
+                  maxPhotos={10}
+                />
               </div>
 
               {/* Tour Virtual */}
