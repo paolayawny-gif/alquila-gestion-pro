@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, Image as ImageIcon, Link } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyManual } from '@/lib/types';
@@ -61,8 +61,11 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     squareMeters: 0,
     rooms: 0,
     amenities: [],
+    photos: [],
     internalNotes: '',
-    owners: [{ name: '', email: '', percentage: 100 }]
+    owners: [{ name: '', email: '', percentage: 100 }],
+    virtualTourUrl: '',
+    manuals: [],
   });
 
   const tabFilteredProperties = useMemo(() => {
@@ -95,20 +98,15 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const handleOpenDialog = (property?: Property) => {
     if (property) {
       setEditingProperty(property);
-      setFormData(property);
+      setFormData({ ...property, photos: property.photos || [], manuals: property.manuals || [], virtualTourUrl: property.virtualTourUrl || '' });
     } else {
       setEditingProperty(null);
       setFormData({
-        name: '',
-        address: '',
-        type: 'Departamento',
-        usage: 'Vivienda',
-        status: 'Disponible',
-        squareMeters: 0,
-        rooms: 0,
-        amenities: [],
-        internalNotes: '',
-        owners: [{ name: '', email: '', percentage: 100 }]
+        name: '', address: '', type: 'Departamento', usage: 'Vivienda',
+        status: 'Disponible', squareMeters: 0, rooms: 0,
+        amenities: [], photos: [], internalNotes: '',
+        owners: [{ name: '', email: '', percentage: 100 }],
+        virtualTourUrl: '', manuals: [],
       });
     }
     setIsDialogOpen(true);
@@ -306,22 +304,82 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
               <TabsTrigger value="extra" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Notas</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="specs" className="space-y-6 pt-6">
+            <TabsContent value="specs" className="space-y-5 pt-6">
+              {/* Fila 1: Nombre + Dirección */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Nombre Referencia</Label>
-                  <Input 
-                    placeholder="Ej: Las Heras 4B" 
-                    value={formData.name} 
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  <Label>Nombre / Referencia *</Label>
+                  <Input
+                    placeholder="Ej: Las Heras 4B"
+                    value={formData.name || ''}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Dirección</Label>
+                  <Label>Dirección *</Label>
                   <AddressAutocomplete
                     placeholder="Calle y número"
                     value={formData.address || ''}
-                    onChange={(val) => setFormData({ ...formData, address: val })}
+                    onChange={val => setFormData({ ...formData, address: val })}
+                  />
+                </div>
+              </div>
+
+              {/* Fila 2: Tipo + Uso + Estado */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Departamento','Casa','Local','Cochera','Oficina','Depósito','Terreno'].map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Uso</Label>
+                  <Select value={formData.usage} onValueChange={v => setFormData({ ...formData, usage: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Vivienda','Comercial','Profesional','Industrial'].map(u => (
+                        <SelectItem key={u} value={u}>{u}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Disponible','Reservada','Alquilada','En Mantenimiento'].map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Fila 3: m² + habitaciones */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Superficie (m²)</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={formData.squareMeters || ''}
+                    onChange={e => setFormData({ ...formData, squareMeters: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Habitaciones</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={formData.rooms || ''}
+                    onChange={e => setFormData({ ...formData, rooms: parseInt(e.target.value) || 0 })}
                   />
                 </div>
               </div>
@@ -371,6 +429,65 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
 
             {/* ── Portal Inquilino ── */}
             <TabsContent value="portal" className="space-y-6 pt-6">
+
+              {/* Fotos */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-primary" /> Fotos de la propiedad
+                    <span className="text-[10px] font-normal text-muted-foreground">(URLs directas)</span>
+                  </Label>
+                  <Button
+                    type="button" variant="outline" size="sm"
+                    onClick={() => setFormData(f => ({ ...f, photos: [...(f.photos || []), ''] }))}
+                  >
+                    <PlusCircle className="h-3.5 w-3.5 mr-1" /> Agregar foto
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Pegá la URL directa de cada imagen (Google Drive, Imgur, etc.). La primera foto se usa como miniatura y en el tour del inquilino.
+                </p>
+                {(formData.photos || []).length === 0 && (
+                  <div className="border-2 border-dashed rounded-xl p-6 text-center text-muted-foreground/60">
+                    <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-xs">Sin fotos. Hacé clic en "Agregar foto" para añadir una URL.</p>
+                  </div>
+                )}
+                {(formData.photos || []).map((url, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="h-10 w-10 rounded-lg bg-muted shrink-0 overflow-hidden">
+                      {url ? (
+                        <img src={url} alt="" className="h-full w-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center">
+                          <Link className="h-4 w-4 text-muted-foreground/40" />
+                        </div>
+                      )}
+                    </div>
+                    <Input
+                      className="flex-1 text-xs h-9"
+                      placeholder={`https://... (foto ${i + 1})`}
+                      value={url}
+                      onChange={e => {
+                        const photos = [...(formData.photos || [])];
+                        photos[i] = e.target.value;
+                        setFormData(f => ({ ...f, photos }));
+                      }}
+                    />
+                    {i === 0 && (
+                      <Badge variant="outline" className="text-[9px] border-primary/30 text-primary shrink-0">Principal</Badge>
+                    )}
+                    <Button
+                      type="button" size="icon" variant="ghost"
+                      className="h-8 w-8 text-destructive shrink-0"
+                      onClick={() => setFormData(f => ({ ...f, photos: (f.photos || []).filter((_, j) => j !== i) }))}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
               {/* Tour Virtual */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -383,7 +500,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                   onChange={e => setFormData({ ...formData, virtualTourUrl: e.target.value })}
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  El inquilino verá el tour en su pantalla de bienvenida. Compatible con Matterport, Google Street View, YouTube, etc.
+                  Se muestra como iframe interactivo en la pantalla de bienvenida del inquilino. Compatible con Matterport, Google Street View, YouTube, etc.
                 </p>
               </div>
 
