@@ -1,20 +1,17 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import {
   MessageSquare, Send, Plus, Users, User, Search,
-  Languages, Sparkles, PenLine, Building2, Phone,
-  ChevronRight, CheckCircle2, Clock, AlertCircle,
-  Hash, Info
+  Languages, Sparkles, PenLine, Building2,
+  CheckCircle2, Hash, Info, Paperclip
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Contract, Property, Person } from '@/lib/types';
@@ -32,10 +29,10 @@ interface Chat {
   name: string;
   propertyId: string;
   propertyName: string;
-  members: string[];       // emails de inquilinos
+  members: string[];
   memberNames: string[];
   lastMessage: string;
-  lastMessageAt: number;   // timestamp numérico para ordenar
+  lastMessageAt: number;
   unreadAdmin: number;
   ownerId: string;
 }
@@ -45,7 +42,7 @@ interface ChatMessage {
   text: string;
   translatedText?: string;
   originalLang?: string;
-  sender: 'admin' | string;  // 'admin' o email del inquilino
+  sender: 'admin' | string;
   senderName: string;
   ts: number;
   ownerId: string;
@@ -97,7 +94,7 @@ function getSmartSuggestions(text: string, contract?: Contract): string[] {
     suggestions.push('El alquiler vence el día 5 de cada mes.');
     if (contract?.currentRentAmount)
       suggestions.push(`El monto actual es $${contract.currentRentAmount.toLocaleString('es-AR')}. Podés abonar por transferencia.`);
-    suggestions.push('Tienes hasta el 5, luego aplica recargo por mora.');
+    suggestions.push('Tienes hasta el 5, luego aplica recargo.');
   }
 
   if (/roto|problema|arreglar|broken|repair|maintenance|mantenimiento|agua|luz|gas|calefac|ac|aire/.test(t)) {
@@ -123,6 +120,14 @@ function getSmartSuggestions(text: string, contract?: Contract): string[] {
   return suggestions.slice(0, 3);
 }
 
+function formatTimeLabel(ts: number): string {
+  const d = new Date(ts);
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  return isToday ? `Hoy, ${time}` : d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) + ` ${time}`;
+}
+
 // ── Componente principal ───────────────────────────────
 export function MessagesView({ contracts, properties, people, userId }: MessagesViewProps) {
   const db = useFirestore();
@@ -134,6 +139,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
   const [showNewDirect,  setShowNewDirect]  = useState(false);
   const [showNewGroup,   setShowNewGroup]   = useState(false);
   const [isSending,      setIsSending]      = useState(false);
+  const [isTyping,       setIsTyping]       = useState(false); // indicador "está escribiendo"
 
   // Traducciones en memoria: msgId → texto traducido
   const [translations,   setTranslations]   = useState<Record<string, string>>({});
@@ -163,8 +169,10 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
 
   const selectedChat    = chats.find(c => c.id === selectedChatId) ?? null;
   const filteredChats   = useMemo(() =>
-    chats.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.propertyName.toLowerCase().includes(searchTerm.toLowerCase())),
+    chats.filter(c =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.propertyName.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
   [chats, searchTerm]);
 
   // Contrato relacionado al chat seleccionado (para contexto IA)
@@ -190,6 +198,11 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     lastTenantMsg ? getSmartSuggestions(lastTenantMsg.text, relatedContract) : [],
   [lastTenantMsg, relatedContract]);
 
+  // ¿Hay mensajes con traducción activa?
+  const hasTranslation = useMemo(() =>
+    messages.some(m => m.sender !== 'admin' && !isLikelySpanish(m.text)),
+  [messages]);
+
   // Scroll al último mensaje
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -208,6 +221,17 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
       });
   }, [messages]);
 
+  // Simular "está escribiendo" al recibir nuevo mensaje de inquilino
+  useEffect(() => {
+    if (!lastTenantMsg) return;
+    const elapsed = Date.now() - lastTenantMsg.ts;
+    if (elapsed < 8000) {
+      setIsTyping(true);
+      const t = setTimeout(() => setIsTyping(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [lastTenantMsg?.id]);
+
   // ── Enviar mensaje ──
   const handleSend = async (text?: string) => {
     const txt = (text ?? messageText).trim();
@@ -221,7 +245,6 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
       ts: now, ownerId: userId,
     };
     setDocumentNonBlocking(msgRef, msg, {});
-    // Actualizar metadata del chat
     const chatRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'chats', selectedChatId);
     setDocumentNonBlocking(chatRef, { lastMessage: txt, lastMessageAt: now, unreadAdmin: 0 }, { merge: true });
     if (!text) setMessageText('');
@@ -231,7 +254,6 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
   // ── Crear chat directo ──
   const handleCreateDirect = (tenantEmail: string, tenantName: string, propertyId: string, propertyName: string) => {
     if (!userId || !db) return;
-    // Buscar chat existente
     const existing = chats.find(c => c.type === 'direct' && c.members[0] === tenantEmail);
     if (existing) { setSelectedChatId(existing.id); setShowNewDirect(false); return; }
     const chatId  = `direct_${tenantEmail.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}`;
@@ -250,10 +272,10 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
   // ── Crear grupo ──
   const handleCreateGroup = (propertyId: string, groupName: string) => {
     if (!userId || !db) return;
-    const property  = properties.find(p => p.id === propertyId);
+    const property        = properties.find(p => p.id === propertyId);
     const activeContracts = contracts.filter(c => c.propertyId === propertyId);
-    const members      = activeContracts.map(c => c.tenantEmail || '').filter(Boolean);
-    const memberNames  = activeContracts.map(c => c.tenantName  || '').filter(Boolean);
+    const members         = activeContracts.map(c => c.tenantEmail || '').filter(Boolean);
+    const memberNames     = activeContracts.map(c => c.tenantName  || '').filter(Boolean);
     if (members.length === 0) {
       toast({ title: 'Sin inquilinos', description: 'Esta propiedad no tiene contratos activos.', variant: 'destructive' });
       return;
@@ -276,30 +298,47 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
   // ── Render ──
   return (
     <div className="animate-in fade-in duration-500 space-y-4">
-      <div>
-        <h1 className="text-2xl font-black">Mensajes</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Comunicación directa con inquilinos y grupos de edificio.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black">Mensajes</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Comunicación directa con inquilinos y grupos de edificio.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-2 font-bold text-xs"
+            onClick={() => setShowNewDirect(true)}>
+            <User className="h-3.5 w-3.5 text-primary" /> Mensaje directo
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 font-bold text-xs"
+            onClick={() => setShowNewGroup(true)}>
+            <Users className="h-3.5 w-3.5 text-slate-500" /> Grupo de edificio
+          </Button>
+        </div>
       </div>
 
       <div className="flex h-[calc(100vh-13rem)] rounded-2xl overflow-hidden border shadow-sm bg-white">
 
         {/* ══ Columna izquierda: lista de conversaciones ══ */}
         <div className="w-72 border-r flex flex-col shrink-0">
-          {/* Cabecera */}
           <div className="p-4 border-b space-y-3">
             <div className="flex items-center justify-between">
               <p className="font-black text-sm">Conversaciones</p>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-7 w-7" title="Mensaje directo"
-                  onClick={() => setShowNewDirect(true)}>
+                <button
+                  title="Mensaje directo"
+                  onClick={() => setShowNewDirect(true)}
+                  className="h-7 w-7 rounded-lg hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary"
+                >
                   <User className="h-3.5 w-3.5" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7" title="Nuevo grupo"
-                  onClick={() => setShowNewGroup(true)}>
+                </button>
+                <button
+                  title="Nuevo grupo"
+                  onClick={() => setShowNewGroup(true)}
+                  className="h-7 w-7 rounded-lg hover:bg-muted flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+                >
                   <Users className="h-3.5 w-3.5" />
-                </Button>
+                </button>
               </div>
             </div>
             <div className="relative">
@@ -309,7 +348,6 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
             </div>
           </div>
 
-          {/* Lista */}
           <div className="flex-1 overflow-y-auto">
             {filteredChats.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-2 p-6 text-center">
@@ -322,27 +360,35 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                 <button key={chat.id} onClick={() => setSelectedChatId(chat.id)}
                   className={cn(
                     'w-full text-left px-4 py-3 border-b hover:bg-muted/40 transition-colors',
-                    selectedChatId === chat.id ? 'bg-primary/5 border-l-2 border-l-primary' : ''
+                    selectedChatId === chat.id
+                      ? 'bg-primary/5 border-l-[3px] border-l-primary'
+                      : 'border-l-[3px] border-l-transparent'
                   )}
                 >
                   <div className="flex items-start gap-2.5">
                     {/* Avatar */}
-                    <div className={cn(
-                      'h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-black',
-                      chat.type === 'group' ? 'bg-slate-500' : 'bg-primary'
-                    )}>
-                      {chat.type === 'group'
-                        ? <Hash className="h-4 w-4" />
-                        : chat.name.charAt(0).toUpperCase()
-                      }
+                    <div className="relative shrink-0">
+                      <div className={cn(
+                        'h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-black',
+                        chat.type === 'group' ? 'bg-slate-400' : 'bg-primary'
+                      )}>
+                        {chat.type === 'group'
+                          ? <Hash className="h-4 w-4" />
+                          : chat.name.charAt(0).toUpperCase()
+                        }
+                      </div>
+                      {/* Punto verde "en línea" solo para chats directos */}
+                      {chat.type === 'direct' && (
+                        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <p className="text-sm font-bold truncate">{chat.name}</p>
                         {chat.unreadAdmin > 0 && (
-                          <Badge className="bg-primary text-white text-[9px] font-black h-4 min-w-4 px-1">
+                          <span className="bg-primary text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shrink-0">
                             {chat.unreadAdmin}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                       <p className="text-[10px] text-primary/70 font-medium truncate">{chat.propertyName}</p>
@@ -355,133 +401,221 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
               ))
             )}
           </div>
-
-          {/* Botones nueva conversación */}
-          <div className="p-3 border-t space-y-1.5">
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs font-bold"
-              onClick={() => setShowNewDirect(true)}>
-              <User className="h-3.5 w-3.5 text-primary" /> Mensaje directo
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs font-bold"
-              onClick={() => setShowNewGroup(true)}>
-              <Users className="h-3.5 w-3.5 text-slate-500" /> Nuevo grupo de edificio
-            </Button>
-          </div>
         </div>
 
         {/* ══ Centro: ventana de chat ══ */}
         <div className="flex-1 flex flex-col min-w-0">
           {!selectedChat ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground/40 gap-3">
-              <MessageSquare className="h-14 w-14" />
-              <p className="font-semibold">Seleccioná una conversación</p>
-              <p className="text-xs text-center max-w-[220px]">
+              <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
+                <MessageSquare className="h-8 w-8" />
+              </div>
+              <p className="font-semibold text-sm">Seleccioná una conversación</p>
+              <p className="text-xs text-center max-w-[200px] text-muted-foreground/60">
                 O creá un mensaje directo o un grupo de edificio desde el panel izquierdo.
               </p>
             </div>
           ) : (
             <>
               {/* Header del chat */}
-              <div className="h-14 border-b px-5 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className={cn(
-                    'h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-black',
-                    selectedChat.type === 'group' ? 'bg-slate-500' : 'bg-primary'
-                  )}>
-                    {selectedChat.type === 'group' ? <Hash className="h-4 w-4" /> : selectedChat.name.charAt(0).toUpperCase()}
+              <div className="h-14 border-b px-5 flex items-center justify-between shrink-0 bg-white">
+                <div className="flex items-center gap-3">
+                  {/* Avatar con punto */}
+                  <div className="relative shrink-0">
+                    <div className={cn(
+                      'h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-black',
+                      selectedChat.type === 'group' ? 'bg-slate-400' : 'bg-primary'
+                    )}>
+                      {selectedChat.type === 'group'
+                        ? <Hash className="h-4 w-4" />
+                        : selectedChat.name.charAt(0).toUpperCase()
+                      }
+                    </div>
+                    {selectedChat.type === 'direct' && (
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white" />
+                    )}
                   </div>
                   <div>
                     <p className="font-black text-sm leading-tight">{selectedChat.name}</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      {selectedChat.type === 'group'
-                        ? `${selectedChat.members.length} inquilino${selectedChat.members.length !== 1 ? 's' : ''} · ${selectedChat.propertyName}`
-                        : `${selectedChat.propertyName} · Mensaje directo`
-                      }
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      {selectedChat.type === 'direct' ? (
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                          En línea
+                          {hasTranslation && (
+                            <>
+                              <span className="mx-1 opacity-40">•</span>
+                              <span className="text-primary/70 font-semibold">Traducción Activa (EN ↔ ES)</span>
+                            </>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                          {selectedChat.members.length} inquilino{selectedChat.members.length !== 1 ? 's' : ''} · {selectedChat.propertyName}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {selectedChat.type === 'group' && (
-                  <Badge variant="outline" className="text-[9px] gap-1 font-bold">
-                    <Users className="h-2.5 w-2.5" />
-                    {selectedChat.memberNames.slice(0, 2).join(', ')}
-                    {selectedChat.memberNames.length > 2 && ` +${selectedChat.memberNames.length - 2}`}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {selectedChat.memberNames.slice(0, 3).map((n, i) => (
+                      <div key={i}
+                        title={n}
+                        className="h-7 w-7 rounded-full bg-primary/10 border-2 border-white flex items-center justify-center text-[10px] font-black text-primary -ml-2 first:ml-0">
+                        {n.charAt(0).toUpperCase()}
+                      </div>
+                    ))}
+                    {selectedChat.memberNames.length > 3 && (
+                      <span className="text-[10px] text-muted-foreground ml-1">
+                        +{selectedChat.memberNames.length - 3}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
 
               {/* Mensajes */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1 bg-muted/10">
                 {messages.length === 0 && (
-                  <div className="text-center text-muted-foreground/50 text-xs py-8">
+                  <div className="text-center text-muted-foreground/40 text-xs py-8">
                     Aún no hay mensajes. Escribí el primero.
                   </div>
                 )}
-                {messages.map(msg => {
-                  const isAdmin      = msg.sender === 'admin';
-                  const needsTransl  = !isAdmin && !isLikelySpanish(msg.text);
-                  const translated   = translations[msg.id];
+
+                {/* Separador de fecha para el primer mensaje */}
+                {messages.length > 0 && (
+                  <div className="flex items-center justify-center py-2">
+                    <span className="text-[10px] bg-muted text-muted-foreground px-3 py-1 rounded-full font-medium">
+                      {formatTimeLabel(messages[0].ts).split(',')[0] === 'Hoy'
+                        ? `Hoy, ${new Date(messages[0].ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`
+                        : new Date(messages[0].ts).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' })
+                      }
+                    </span>
+                  </div>
+                )}
+
+                {messages.map((msg, idx) => {
+                  const isAdmin       = msg.sender === 'admin';
+                  const needsTransl   = !isAdmin && !isLikelySpanish(msg.text);
+                  const translated    = translations[msg.id];
                   const isTranslating = translating[msg.id];
 
+                  // Separador de día si cambia la fecha respecto al anterior
+                  const prevMsg = messages[idx - 1];
+                  const showDateSep = prevMsg && idx > 0 &&
+                    new Date(prevMsg.ts).toDateString() !== new Date(msg.ts).toDateString();
+
                   return (
-                    <div key={msg.id} className={cn('flex', isAdmin ? 'justify-end' : 'justify-start')}>
-                      <div className={cn('max-w-[75%] space-y-1', isAdmin ? 'items-end' : 'items-start')}>
-                        {/* Nombre en grupo */}
-                        {selectedChat.type === 'group' && !isAdmin && (
-                          <p className="text-[9px] text-muted-foreground px-1 font-bold">{msg.senderName}</p>
-                        )}
-
-                        {/* Burbuja */}
-                        <div className={cn(
-                          'rounded-2xl px-4 py-2.5 text-sm',
-                          isAdmin
-                            ? 'bg-primary text-white rounded-br-sm'
-                            : 'bg-muted/60 text-foreground rounded-bl-sm'
-                        )}>
-                          {msg.text}
+                    <React.Fragment key={msg.id}>
+                      {showDateSep && (
+                        <div className="flex items-center justify-center py-3">
+                          <span className="text-[10px] bg-muted text-muted-foreground px-3 py-1 rounded-full font-medium">
+                            {new Date(msg.ts).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                          </span>
                         </div>
+                      )}
 
-                        {/* Traducción */}
-                        {needsTransl && (
-                          <div className="px-1">
-                            {isTranslating ? (
-                              <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
-                                <Languages className="h-3 w-3 animate-pulse" /> Traduciendo...
-                              </p>
-                            ) : translated ? (
-                              <div className="flex items-start gap-1 text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-2 py-1">
-                                <Languages className="h-3 w-3 shrink-0 mt-0.5 text-primary/60" />
-                                <span className="italic">{translated}</span>
-                              </div>
-                            ) : null}
+                      <div className={cn('flex mb-1', isAdmin ? 'justify-end' : 'justify-start')}>
+                        {/* Avatar del inquilino */}
+                        {!isAdmin && (
+                          <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-black text-primary shrink-0 mr-2 mt-1">
+                            {msg.senderName.charAt(0).toUpperCase()}
                           </div>
                         )}
 
-                        <p className={cn('text-[9px] text-muted-foreground px-1', isAdmin ? 'text-right' : '')}>
-                          {new Date(msg.ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                        <div className={cn('max-w-[72%] space-y-1', isAdmin ? 'items-end flex flex-col' : 'items-start flex flex-col')}>
+                          {/* Nombre en grupo */}
+                          {selectedChat.type === 'group' && !isAdmin && (
+                            <p className="text-[9px] text-primary/70 px-1 font-bold">{msg.senderName}</p>
+                          )}
+
+                          {/* Burbuja */}
+                          <div className={cn(
+                            'rounded-2xl px-4 py-2.5 text-sm',
+                            isAdmin
+                              ? 'bg-primary text-white rounded-br-none shadow-sm'
+                              : 'bg-white text-foreground rounded-bl-none shadow-sm border border-muted'
+                          )}>
+                            {/* Mensaje de inquilino con traducción inline */}
+                            {!isAdmin && needsTransl ? (
+                              <div className="space-y-1.5">
+                                {/* Texto original en itálicas */}
+                                <p className="italic text-muted-foreground text-[12px] leading-relaxed">
+                                  "{msg.text}"
+                                </p>
+                                {/* Traducción */}
+                                {isTranslating ? (
+                                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70">
+                                    <Languages className="h-3 w-3 animate-pulse text-primary/50" />
+                                    <span>Traduciendo...</span>
+                                  </div>
+                                ) : translated ? (
+                                  <div className="flex items-start gap-1.5">
+                                    <Languages className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary/60" />
+                                    <p className="text-[13px] text-foreground font-medium leading-relaxed">{translated}</p>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <p className="leading-relaxed">{msg.text}</p>
+                            )}
+                          </div>
+
+                          {/* Hora */}
+                          <p className={cn('text-[9px] text-muted-foreground px-1', isAdmin ? 'text-right' : '')}>
+                            {new Date(msg.ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    </React.Fragment>
                   );
                 })}
+
+                {/* Indicador "está escribiendo" */}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-black text-primary shrink-0 mr-2 mt-1">
+                      {selectedChat.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="bg-white border border-muted rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:0ms]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:150ms]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:300ms]" />
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
 
               {/* Input de mensaje */}
-              <div className="border-t p-3 flex items-center gap-2 shrink-0">
+              <div className="border-t p-3 flex items-center gap-2 shrink-0 bg-white">
+                <button
+                  className="h-9 w-9 rounded-xl bg-muted/40 hover:bg-muted flex items-center justify-center shrink-0 transition-colors text-muted-foreground"
+                  title="Adjuntar archivo (próximamente)"
+                  type="button"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
                 <Input
-                  placeholder="Escribí un mensaje..."
+                  placeholder="Escribe un mensaje..."
                   value={messageText}
                   onChange={e => setMessageText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                  className="flex-1 bg-muted/30 border-muted focus:border-primary/30"
+                  className="flex-1 bg-muted/30 border-muted focus:border-primary/30 rounded-xl"
                 />
-                <Button
-                  className="bg-primary gap-1.5 font-bold px-4 shrink-0"
+                <button
                   onClick={() => handleSend()}
                   disabled={!messageText.trim() || isSending}
+                  className={cn(
+                    'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all',
+                    messageText.trim()
+                      ? 'bg-primary text-white hover:bg-primary/90 shadow-sm'
+                      : 'bg-muted text-muted-foreground cursor-not-allowed'
+                  )}
                 >
                   <Send className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
             </>
           )}
@@ -489,13 +623,13 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
 
         {/* ══ Panel derecho: IA + contexto ══ */}
         {selectedChat && (
-          <div className="w-72 border-l flex flex-col shrink-0 overflow-y-auto">
+          <div className="w-72 border-l flex flex-col shrink-0 overflow-y-auto bg-white">
 
             {/* Asistente IA */}
             <div className="p-4 border-b space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-primary" />
                 </div>
                 <p className="font-black text-sm">Asistente IA</p>
               </div>
@@ -503,24 +637,25 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
               {lastTenantMsg ? (
                 <>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    La IA detectó el tema del mensaje. Sugerencias de respuesta:
+                    La IA ha detectado una pregunta sobre el contrato. Aquí tienes sugerencias de respuesta:
                   </p>
                   <div className="space-y-2">
                     {aiSuggestions.map((s, i) => (
                       <button key={i} onClick={() => handleSend(s)}
-                        className="w-full text-left text-[11px] font-medium text-primary/80 bg-primary/5 hover:bg-primary/10 rounded-xl px-3 py-2.5 transition-colors leading-relaxed border border-primary/10">
+                        className="w-full text-left text-[12px] font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-xl px-3 py-2.5 transition-colors leading-relaxed border border-primary/10">
                         "{s}"
                       </button>
                     ))}
                   </div>
-                  <Button variant="outline" size="sm"
-                    className="w-full gap-2 text-xs font-bold border-muted-foreground/20"
-                    onClick={() => setMessageText('')}>
+                  <button
+                    onClick={() => { setMessageText(''); document.querySelector<HTMLInputElement>('input[placeholder="Escribe un mensaje..."]')?.focus(); }}
+                    className="w-full flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground border border-muted rounded-xl py-2 hover:bg-muted/40 transition-colors"
+                  >
                     <PenLine className="h-3.5 w-3.5" /> Redactar respuesta propia
-                  </Button>
+                  </button>
                 </>
               ) : (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-3 leading-relaxed">
                   Las sugerencias aparecen cuando el inquilino envíe un mensaje.
                 </p>
               )}
@@ -529,60 +664,60 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
             {/* Contexto activo */}
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center">
-                  <Info className="h-3.5 w-3.5 text-slate-600" />
+                <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center">
+                  <Info className="h-4 w-4 text-orange-500" />
                 </div>
                 <p className="font-black text-sm">Contexto Activo</p>
                 {relatedProperty && (
-                  <Badge variant="outline" className="ml-auto text-[9px] font-bold border-primary/30 text-primary">
+                  <Badge variant="outline" className="ml-auto text-[9px] font-bold border-primary/30 text-primary bg-primary/5 shrink-0">
                     {relatedProperty.name}
                   </Badge>
                 )}
               </div>
 
               {relatedContract ? (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {/* Cláusula de pagos */}
-                  <div className="bg-muted/40 rounded-xl p-3 space-y-1">
-                    <p className="text-[9px] uppercase font-black text-muted-foreground tracking-wider">
-                      Cláusula — Pagos
+                  <div className="bg-muted/30 rounded-xl p-3 space-y-1.5">
+                    <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-widest">
+                      Cláusula 4.1 – Pagos
                     </p>
                     <p className="text-[11px] text-foreground leading-relaxed">
-                      El canon mensual debe abonarse entre el día 1 y 5 de cada mes calendario.
-                      En caso de mora se aplicarán los intereses punitorios correspondientes.
+                      El canon mensual debe ser abonado entre el día 1 y 5 de cada mes calendario.
                     </p>
                   </div>
                   {/* Estado de cuenta */}
-                  <div className="space-y-1.5">
-                    <p className="text-[9px] uppercase font-black text-muted-foreground tracking-wider">
+                  <div className="space-y-1">
+                    <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-widest">
                       Estado de cuenta
                     </p>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                      <p className="text-[11px] font-bold text-green-700">Al día</p>
-                    </div>
+                    <p className="text-[12px] font-bold text-green-600">
+                      Al día.{relatedContract.endDate ? ` (Últ. pago: ${relatedContract.endDate})` : ''}
+                    </p>
                   </div>
                   {/* Datos del contrato */}
                   <Separator />
-                  <div className="space-y-1.5 text-[10px]">
-                    <div className="flex justify-between">
+                  <div className="space-y-2 text-[11px]">
+                    <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Inquilino</span>
                       <span className="font-bold truncate max-w-[120px]">{relatedContract.tenantName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Alquiler</span>
-                      <span className="font-bold text-primary">
-                        {relatedContract.currency} {relatedContract.currentRentAmount?.toLocaleString('es-AR')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
+                    {relatedContract.currentRentAmount && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Alquiler</span>
+                        <span className="font-bold text-primary">
+                          {relatedContract.currency} {relatedContract.currentRentAmount.toLocaleString('es-AR')}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Vencimiento</span>
                       <span className="font-bold">{relatedContract.endDate}</span>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-3">
+                <div className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-3 leading-relaxed">
                   {selectedChat.type === 'group'
                     ? `Grupo con ${selectedChat.members.length} inquilino${selectedChat.members.length !== 1 ? 's' : ''} de ${selectedChat.propertyName}.`
                     : 'No se encontró un contrato activo vinculado a esta conversación.'}
@@ -593,9 +728,9 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
               {selectedChat.type === 'group' && selectedChat.memberNames.length > 0 && (
                 <>
                   <Separator />
-                  <div className="space-y-1.5">
-                    <p className="text-[9px] uppercase font-black text-muted-foreground tracking-wider">
-                      Miembros del grupo
+                  <div className="space-y-2">
+                    <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-widest">
+                      Miembros ({selectedChat.memberNames.length})
                     </p>
                     {selectedChat.memberNames.map((name, i) => (
                       <div key={i} className="flex items-center gap-2">
@@ -603,6 +738,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                           {name.charAt(0).toUpperCase()}
                         </div>
                         <p className="text-[11px] font-medium truncate">{name}</p>
+                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
                       </div>
                     ))}
                   </div>
@@ -613,7 +749,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
         )}
       </div>
 
-      {/* ══ Dialog: Nuevo mensaje directo ══ */}
+      {/* Dialogs */}
       <NewDirectDialog
         open={showNewDirect}
         onClose={() => setShowNewDirect(false)}
@@ -621,8 +757,6 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
         properties={properties}
         onCreate={handleCreateDirect}
       />
-
-      {/* ══ Dialog: Nuevo grupo ══ */}
       <NewGroupDialog
         open={showNewGroup}
         onClose={() => setShowNewGroup(false)}
@@ -758,7 +892,6 @@ function NewGroupDialog({ open, onClose, contracts, properties, onCreate }: {
             </Select>
           </div>
 
-          {/* Preview de miembros */}
           {membersPreview.length > 0 && (
             <div className="bg-muted/30 rounded-xl p-3 space-y-2">
               <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">
