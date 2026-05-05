@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Shield, ShieldCheck, ShieldAlert, Plus, Flame, Zap, CloudRain, Wind,
   Thermometer, Droplets, AlertTriangle, CheckCircle2, Clock, FileText,
-  Download, History, TrendingDown, Building2, ChevronRight, Edit2, Trash2,
+  Download, History, Building2, ChevronRight, Edit2, Trash2,
   RefreshCw, Loader2, Calendar, DollarSign, Star, Phone, ExternalLink,
   ArrowRight, Activity, BarChart3, Snowflake
 } from 'lucide-react';
@@ -29,6 +29,9 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 
 const APP_ID = 'alquilagestion-pro';
+const SUPER_ADMIN_EMAIL  = 'paolayawny@gmail.com';
+const ADMIN_COMMISSION   = 0.03;   // 3 % para la administradora
+const SUPER_COMMISSION   = 0.02;   // 2 % para super admin (paolayawny@gmail.com)
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type PolicyType   = 'Incendio' | 'Responsabilidad Civil' | 'Integral Hogar' | 'Caución' | 'Granizo' | 'Robo y Hurto' | 'Otro';
@@ -58,6 +61,13 @@ interface ParametricCoverage {
   description: string; costPerEvent: number; isActive: boolean;
   triggerCondition: string; activations: number; totalSaved: number;
   ownerId: string;
+}
+
+interface CommissionRecord {
+  id: string; policyId: string; policyType: string; insurer: string;
+  propertyName: string; annualPremium: number;
+  adminCommission: number; superCommission: number;
+  adminEmail: string; adminUserId: string; createdAt: string;
 }
 
 interface InsuranceViewProps { properties: Property[]; userId?: string }
@@ -164,6 +174,7 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const { user }    = useUser();
   const { canWrite, canDelete } = useOrgPermissions();
   const { weather, loading: weatherLoading } = useWeather();
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
   const [showAddPolicy,    setShowAddPolicy]     = useState(false);
@@ -192,6 +203,18 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   }, [db, userId]);
   const { data: paramRaw } = useCollection<ParametricCoverage>(paramQ);
 
+  // Shared commissions collection — all admins visible to super admin
+  const commissionsQ = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'seguroComisiones'));
+  }, [db]);
+  const { data: commissionsRaw } = useCollection<CommissionRecord>(commissionsQ);
+  const allCommissions = commissionsRaw ?? [];
+  // Each admin only sees their own; super admin sees all
+  const myCommissions = isSuperAdmin
+    ? allCommissions
+    : allCommissions.filter(c => c.adminUserId === userId);
+
   const policies  = (policiesRaw  ?? []).map(p => ({ ...p, status: policyStatus(p.endDate) }));
   const payments  = paymentsRaw  ?? [];
   const paramCovs = paramRaw     ?? [];
@@ -218,7 +241,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const expiredCount   = filteredPolicies.filter(p => p.status === 'Vencida').length;
   const mandatoryOK    = filteredPolicies.some(p => p.type === 'Incendio' && p.status === 'Vigente');
   const annualPremiums = filteredPolicies.reduce((a, p) => a + (p.annualPremium || 0), 0);
-  const estimatedSavings = Math.round(annualPremiums * 0.18);  // ~18% vs static policies
 
   // ── Handlers ──
   const handleSavePolicy = () => {
@@ -248,6 +270,25 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
       createdAt:         editingPolicy?.createdAt || new Date().toISOString(),
     };
     setDocumentNonBlocking(ref, data, { merge: true });
+
+    // Record commission on new policies only
+    if (!editingPolicy && data.annualPremium > 0 && db && user?.email) {
+      const cId  = Math.random().toString(36).substr(2, 9);
+      const cRef = doc(db, 'artifacts', APP_ID, 'seguroComisiones', cId);
+      const comm: CommissionRecord = {
+        id: cId, policyId: id,
+        policyType: data.type, insurer: data.insurer,
+        propertyName: data.propertyName,
+        annualPremium: data.annualPremium,
+        adminCommission: Math.round(data.annualPremium * ADMIN_COMMISSION),
+        superCommission: Math.round(data.annualPremium * SUPER_COMMISSION),
+        adminEmail: user.email,
+        adminUserId: userId,
+        createdAt: new Date().toISOString(),
+      };
+      setDocumentNonBlocking(cRef, comm, {});
+    }
+
     toast({ title: editingPolicy ? '✅ Póliza actualizada' : '✅ Póliza registrada', description: `${data.type} — ${data.insurer}` });
     setShowAddPolicy(false); setEditingPolicy(null);
     setPolicyForm({ ...EMPTY_POLICY });
@@ -656,24 +697,77 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
             </CardContent>
           </Card>
 
-          {/* Estimated savings */}
+          {/* Commission panel */}
           <Card className="border-none shadow-sm bg-white">
-            <CardContent className="p-5 text-center space-y-3">
-              <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
-                <TrendingDown className="h-6 w-6 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Ahorro Estimado Anual</p>
-                <p className="text-3xl font-black text-emerald-700 mt-1">{fmtM(estimatedSavings)}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">Vs. pólizas tradicionales estáticas</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Eficiencia del portfolio</span>
-                  <span className="font-bold text-emerald-700">~18%</span>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-black flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-primary" />
+                {isSuperAdmin ? 'Comisiones — Vista General' : 'Mis Comisiones'}
+              </CardTitle>
+              <p className="text-[11px] text-muted-foreground">
+                {isSuperAdmin
+                  ? `Tu corte: ${SUPER_COMMISSION * 100}% sobre primas gestionadas por todas las administradoras`
+                  : `Ganás el ${ADMIN_COMMISSION * 100}% de la prima anual de cada póliza que registrás`}
+              </p>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-3">
+              {/* Totals */}
+              <div className={cn('grid gap-3', isSuperAdmin ? 'grid-cols-2' : 'grid-cols-1')}>
+                {isSuperAdmin && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Super Admin (2%)</p>
+                    <p className="text-xl font-black text-amber-700 mt-0.5">
+                      {fmtM(allCommissions.reduce((a, c) => a + c.superCommission, 0))}
+                    </p>
+                    <p className="text-[10px] text-amber-600">{allCommissions.length} póliza{allCommissions.length !== 1 ? 's' : ''}</p>
+                  </div>
+                )}
+                <div className={cn('rounded-xl border p-3 text-center', isSuperAdmin ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-50 border-emerald-200')}>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                    {isSuperAdmin ? 'Admins (3%)' : `Tu comisión (${ADMIN_COMMISSION * 100}%)`}
+                  </p>
+                  <p className="text-xl font-black text-emerald-700 mt-0.5">
+                    {fmtM(myCommissions.reduce((a, c) => a + c.adminCommission, 0))}
+                  </p>
+                  {!isSuperAdmin && (
+                    <p className="text-[10px] text-emerald-600">{myCommissions.length} póliza{myCommissions.length !== 1 ? 's' : ''} gestionada{myCommissions.length !== 1 ? 's' : ''}</p>
+                  )}
                 </div>
-                <Progress value={18} max={30} className="h-2" />
               </div>
+
+              {/* Recent commission rows */}
+              {myCommissions.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-0">
+                    {[...myCommissions]
+                      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                      .slice(0, 4)
+                      .map(c => (
+                        <div key={c.id} className="flex items-start justify-between py-2 border-b border-border/30 last:border-0 gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate">{c.policyType} · {c.insurer}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {isSuperAdmin ? `${c.adminEmail} · ` : ''}{c.propertyName}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs font-black text-emerald-700">
+                              {fmt(isSuperAdmin ? c.superCommission : c.adminCommission)}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">Prima: {fmtM(c.annualPremium)}</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </>
+              )}
+
+              {myCommissions.length === 0 && (
+                <p className="text-center text-xs text-muted-foreground py-2">
+                  Las comisiones se generan al registrar nuevas pólizas.
+                </p>
+              )}
             </CardContent>
           </Card>
 
