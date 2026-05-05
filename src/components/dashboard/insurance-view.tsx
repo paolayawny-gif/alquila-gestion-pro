@@ -27,11 +27,15 @@ import { collection, query, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { checkSSNAuthorization, type SSNResult } from '@/ai/flows/fetch-ssn-action';
+import { InsuranceSettingsPanel, type PASPartner, type CommissionConfig } from '@/components/dashboard/insurance-settings-panel';
+import { Settings2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const APP_ID           = 'alquilagestion-pro';
+const APP_ID            = 'alquilagestion-pro';
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
-const ADMIN_COMMISSION  = 0.03;   // 3 % para la administradora
-const SUPER_COMMISSION  = 0.02;   // 2 % para super admin
+// Fallback defaults — se usan si no hay config dinámica para el PAS + tipo
+const DEFAULT_ADMIN_RATE  = 0.03;
+const DEFAULT_SUPER_RATE  = 0.02;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type PolicyType   = 'Incendio' | 'Responsabilidad Civil' | 'Integral Hogar' | 'Caución' | 'Granizo' | 'Robo y Hurto' | 'Otro';
@@ -300,6 +304,8 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [quotePartner,    setQuotePartner]    = useState<MarketplacePartner | null>(null);
   const [quoteForm,       setQuoteForm]       = useState({ ...EMPTY_QUOTE });
+  // PAS seleccionado en el dialog de cotización (default al PAS por defecto)
+  const [selectedPasId,   setSelectedPasId]   = useState<string>('');
 
   // ── SSN state ──
   const [ssnStatus,  setSsnStatus]  = useState<Record<string, SSNResult>>({});
@@ -337,9 +343,39 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   }, [db]);
   const { data: commissionsRaw } = useCollection<CommissionRecord>(commissionsQ);
 
-  const policies      = (policiesRaw    ?? []).map(p => ({ ...p, status: policyStatus(p.endDate) }));
-  const payments      = paymentsRaw     ?? [];
-  const paramCovs     = paramRaw        ?? [];
+  // ── Firestore: PAS partners + commission configs (shared, super admin writes) ──
+  const pasPartnersQ = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'pasPartners'));
+  }, [db]);
+  const { data: pasPartnersRaw } = useCollection<PASPartner>(pasPartnersQ);
+
+  const pasComisionesQ = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'pasComisiones'));
+  }, [db]);
+  const { data: pasComisionesRaw } = useCollection<CommissionConfig>(pasComisionesQ);
+
+  const policies        = (policiesRaw    ?? []).map(p => ({ ...p, status: policyStatus(p.endDate) }));
+  const payments        = paymentsRaw     ?? [];
+  const paramCovs       = paramRaw        ?? [];
+  const pasPartners     = pasPartnersRaw  ?? [];
+  const commissionConfigs = pasComisionesRaw ?? [];
+  const defaultPas      = pasPartners.find(p => p.isDefault) ?? pasPartners[0] ?? null;
+
+  /**
+   * Devuelve las tarifas aplicables para un PAS + tipo de seguro dado.
+   * Busca en orden: específico (pasId + type) → default del PAS → fallback del sistema.
+   */
+  const getCommissionRates = (pasId: string | undefined, type: PolicyType) => {
+    if (pasId) {
+      const specific = commissionConfigs.find(c => c.pasId === pasId && c.policyType === type);
+      if (specific) return { adminRate: specific.adminRate / 100, superRate: specific.superRate / 100 };
+      const pasDefault = commissionConfigs.find(c => c.pasId === pasId && c.policyType === 'Todos');
+      if (pasDefault) return { adminRate: pasDefault.adminRate / 100, superRate: pasDefault.superRate / 100 };
+    }
+    return { adminRate: DEFAULT_ADMIN_RATE, superRate: DEFAULT_SUPER_RATE };
+  };
   const quotes        = quotesRaw       ?? [];
   const allCommissions = commissionsRaw ?? [];
   const myCommissions  = isSuperAdmin
@@ -411,8 +447,9 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
     };
     setDocumentNonBlocking(ref, data, { merge: true });
 
-    // Commission on new policies only
+    // Commission on new policies only — uses dynamic rates from PAS config
     if (!editingPolicy && data.annualPremium > 0 && user?.email) {
+      const { adminRate, superRate } = getCommissionRates(selectedPasId || defaultPas?.id, data.type);
       const cId  = Math.random().toString(36).substr(2, 9);
       const cRef = doc(db, 'artifacts', APP_ID, 'seguroComisiones', cId);
       const comm: CommissionRecord = {
@@ -420,8 +457,8 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
         policyType: data.type, insurer: data.insurer,
         propertyName: data.propertyName,
         annualPremium: data.annualPremium,
-        adminCommission: Math.round(data.annualPremium * ADMIN_COMMISSION),
-        superCommission: Math.round(data.annualPremium * SUPER_COMMISSION),
+        adminCommission: Math.round(data.annualPremium * adminRate),
+        superCommission: Math.round(data.annualPremium * superRate),
         adminEmail: user.email, adminUserId: userId,
         createdAt: new Date().toISOString(),
       };
@@ -483,6 +520,8 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const openQuoteDialog = (partner: MarketplacePartner) => {
     setQuotePartner(partner);
     setQuoteForm({ ...EMPTY_QUOTE, policyType: partner.types[0] ?? 'Incendio' });
+    // Pre-seleccionar el PAS por defecto
+    setSelectedPasId(defaultPas?.id ?? '');
     setShowQuoteDialog(true);
   };
 
@@ -602,6 +641,29 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
           )}
         </div>
       </div>
+
+      {/* ── Top-level tabs (Configuración only for super admin) ── */}
+      <Tabs defaultValue="gestion">
+        <TabsList className="bg-muted/40">
+          <TabsTrigger value="gestion" className="font-bold text-xs">Gestión</TabsTrigger>
+          {isSuperAdmin && (
+            <TabsTrigger value="configuracion" className="font-bold text-xs gap-1.5">
+              <Settings2 className="h-3.5 w-3.5" /> Configuración PAS
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* ══ TAB: Configuración (super admin) ══ */}
+        {isSuperAdmin && (
+          <TabsContent value="configuracion" className="mt-4">
+            <InsuranceSettingsPanel
+              pasPartners={pasPartners}
+              commissionConfigs={commissionConfigs}
+            />
+          </TabsContent>
+        )}
+
+        <TabsContent value="gestion" className="mt-4">
 
       {/* ── Summary strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -996,8 +1058,8 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
               </CardTitle>
               <p className="text-[11px] text-muted-foreground">
                 {isSuperAdmin
-                  ? `Tu corte ${SUPER_COMMISSION * 100}% sobre cada póliza gestionada en la plataforma`
-                  : `Ganás el ${ADMIN_COMMISSION * 100}% de la prima anual de cada póliza que registrás`}
+                  ? `Tu corte ${DEFAULT_SUPER_RATE * 100}% (o según config PAS) sobre cada póliza`
+                  : `Ganás el ${DEFAULT_ADMIN_RATE * 100}% (o según config PAS) por póliza que registrás`}
               </p>
             </CardHeader>
             <CardContent className="pt-0 space-y-3">
@@ -1013,7 +1075,7 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
                 )}
                 <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-center">
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                    {isSuperAdmin ? 'Admins (3%)' : `Tu comisión (${ADMIN_COMMISSION * 100}%)`}
+                    {isSuperAdmin ? 'Admins (según config)' : 'Tu comisión (según PAS)'}
                   </p>
                   <p className="text-xl font-black text-emerald-700 mt-0.5">
                     {fmtM(myCommissions.reduce((a, c) => a + c.adminCommission, 0))}
@@ -1092,6 +1154,9 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
           )}
         </div>
       </div>
+
+        </TabsContent>{/* end gestion tab */}
+      </Tabs>
 
       {/* ══════════════════════════════════════════
           Dialog: Nueva / Editar Póliza
@@ -1310,6 +1375,34 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
                   onChange={e => setQuoteForm(f => ({ ...f, contactEmail: e.target.value }))} />
               </div>
             </div>
+
+            {/* PAS Partner selector */}
+            {pasPartners.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Broker PAS</Label>
+                <Select value={selectedPasId} onValueChange={setSelectedPasId}>
+                  <SelectTrigger><SelectValue placeholder="Seleccioná el broker…" /></SelectTrigger>
+                  <SelectContent>
+                    {pasPartners.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}{p.isDefault ? ' (default)' : ''}
+                        {p.matricula ? ` · Mat. ${p.matricula}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedPasId && (() => {
+                  const { adminRate, superRate } = getCommissionRates(selectedPasId, quoteForm.policyType);
+                  return (
+                    <p className="text-[10px] text-muted-foreground">
+                      Tarifa aplicable: Admin <strong className="text-emerald-700">{(adminRate * 100).toFixed(1)}%</strong>
+                      {' '}/ Super <strong className="text-amber-700">{(superRate * 100).toFixed(1)}%</strong>
+                      {' '}sobre prima anual
+                    </p>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Notes */}
             <div className="space-y-1.5">
