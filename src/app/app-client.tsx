@@ -32,7 +32,8 @@ import {
   Crown,
   HardHat,
   CalendarRange,
-  Vote
+  Vote,
+  ConciergeBell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -59,6 +60,7 @@ import { ProvidersView } from '@/components/dashboard/providers-view';
 import { MessagesView } from '@/components/dashboard/messages-view';
 import { HybridRentalsView } from '@/components/dashboard/hybrid-rentals-view';
 import { CommunityVotingView } from '@/components/dashboard/community-voting-view';
+import { ConciergeView } from '@/components/dashboard/concierge-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -84,7 +86,7 @@ import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Super Admin';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Super Admin';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -103,6 +105,7 @@ const ADMIN_MENU = [
   { id: 'Mensajes', icon: MessagesSquare, label: 'Mensajes' },
   { id: 'Rentas Híbridas', icon: CalendarRange, label: 'Rentas Híbridas' },
   { id: 'Votaciones', icon: Vote, label: 'Votaciones Comunitarias' },
+  { id: 'Concierge', icon: ConciergeBell, label: 'Servicios Concierge' },
   { id: 'Legales', icon: Scale, label: 'Casos Legales' },
   { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
   { id: 'Índices', icon: LineChart, label: 'Índices Oficiales' },
@@ -223,6 +226,7 @@ export default function AppClient() {
       case 'Mensajes': return <MessagesView contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
       case 'Rentas Híbridas': return <HybridRentalsView properties={properties} contracts={contracts} userId={user?.uid} />;
       case 'Votaciones': return <CommunityVotingView properties={properties} contracts={contracts} people={people} userId={user?.uid} />;
+      case 'Concierge': return <ConciergeView properties={properties} contracts={contracts} people={people} userId={user?.uid} />;
       case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
       case 'Contratos Smart': return <SmartContractsView contracts={contracts} invoices={invoices} people={people} properties={properties} userId={user?.uid} />;
       case 'Garantías': return <DepositsView contracts={contracts} people={people} properties={properties} userId={user?.uid} />;
