@@ -63,6 +63,7 @@ import { HybridRentalsView } from '@/components/dashboard/hybrid-rentals-view';
 import { CommunityVotingView } from '@/components/dashboard/community-voting-view';
 import { ConciergeView } from '@/components/dashboard/concierge-view';
 import { CommunityMarketplaceView } from '@/components/dashboard/community-marketplace-view';
+import { InsuranceView } from '@/components/dashboard/insurance-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -88,7 +89,7 @@ import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Super Admin';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Seguros' | 'Super Admin';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -109,6 +110,7 @@ const ADMIN_MENU = [
   { id: 'Votaciones', icon: Vote, label: 'Votaciones Comunitarias' },
   { id: 'Concierge', icon: ConciergeBell, label: 'Servicios Concierge' },
   { id: 'Comunidad', icon: Store, label: 'Comunidad y Marketplace' },
+  { id: 'Seguros', icon: ShieldCheck, label: 'Seguros y Coberturas' },
   { id: 'Legales', icon: Scale, label: 'Casos Legales' },
   { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
   { id: 'Índices', icon: LineChart, label: 'Índices Oficiales' },
@@ -231,6 +233,7 @@ export default function AppClient() {
       case 'Votaciones': return <CommunityVotingView properties={properties} contracts={contracts} people={people} userId={user?.uid} />;
       case 'Concierge': return <ConciergeView properties={properties} contracts={contracts} people={people} userId={user?.uid} />;
       case 'Comunidad': return <CommunityMarketplaceView properties={properties} people={people} userId={user?.uid} userEmail={user?.email ?? ''} userName={user?.displayName ?? ''} />;
+      case 'Seguros': return <InsuranceView properties={properties} userId={user?.uid} />;
       case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
       case 'Contratos Smart': return <SmartContractsView contracts={contracts} invoices={invoices} people={people} properties={properties} userId={user?.uid} />;
       case 'Garantías': return <DepositsView contracts={contracts} people={people} properties={properties} userId={user?.uid} />;
