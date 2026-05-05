@@ -69,9 +69,10 @@ function buildAutoFillValues(contract: Contract | undefined, people: Person[], p
   }
 
   const rent = contract.baseRentAmount || 0;
-  filled.rent_number = rent.toLocaleString('es-AR');
+  const currencySymbol = contract.currency === 'USD' ? 'U$D' : '$';
+  filled.rent_number = `${currencySymbol} ${rent.toLocaleString('es-AR')}`;
   filled.rent_words = numberToWords(rent);
-  filled.deposit_number = (contract.depositAmount || 0).toLocaleString('es-AR');
+  filled.deposit_number = `${currencySymbol} ${(contract.depositAmount || 0).toLocaleString('es-AR')}`;
   filled.deposit_words = numberToWords(contract.depositAmount || 0);
 
   if (contract.startDate && contract.endDate) {
@@ -249,6 +250,13 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
       const fiador = people.find(p => p.id === aiFiadorId);
       const prop = properties.find(p => p.id === aiPropiedadId);
 
+      const aiCurrencySymbol = aiCurrency === 'USD' ? 'U$D' : '$';
+      const formattedRent = aiRentAmount
+        ? `${aiCurrencySymbol} ${Number(aiRentAmount.replace(/\D/g, '')).toLocaleString('es-AR')}`
+        : undefined;
+      const formattedDeposit = aiDeposit
+        ? `${aiCurrencySymbol} ${Number(aiDeposit.replace(/\D/g, '')).toLocaleString('es-AR')}`
+        : undefined;
       const result = await generateContract({
         contractType: aiContractType,
         locador: locador?.fullName,
@@ -257,9 +265,9 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
         propertyAddress: prop ? `${prop.address}${prop.unit ? ', ' + prop.unit : ''}` : undefined,
         startDate: aiStartDate || undefined,
         endDate: aiEndDate || undefined,
-        rentAmount: aiRentAmount || undefined,
-        currency: aiCurrency || undefined,
-        depositAmount: aiDeposit || undefined,
+        rentAmount: formattedRent,
+        currency: aiCurrency === 'USD' ? 'U$D' : 'ARS ($)',
+        depositAmount: formattedDeposit,
         adjustmentMechanism: aiAdjustment || undefined,
         additionalDetails: aiDetails || undefined,
       });

@@ -26,7 +26,7 @@ import { useOrgPermissions } from '@/contexts/org-permissions-context';
 
 const APP_ID = 'alquilagestion-pro';
 
-type ProviderCategory = 'Fontanería' | 'Electricidad' | 'Limpieza' | 'Legal' | 'Administración' | 'Pintura' | 'Gas' | 'Albañilería';
+type ProviderCategory = string;          // open string so custom categories work
 type ProviderStatus = 'Verificado' | 'En evaluación' | 'Suspendido';
 type BudgetStatus = 'Pendiente' | 'Aprobado' | 'Rechazado';
 
@@ -71,7 +71,7 @@ interface ProvidersViewProps {
   userId?: string;
 }
 
-const CATEGORIES: { id: ProviderCategory; label: string; icon: React.ElementType }[] = [
+const DEFAULT_CATEGORIES: { id: string; label: string; icon: React.ElementType }[] = [
   { id: 'Fontanería',     label: 'Fontanería',     icon: Wrench       },
   { id: 'Electricidad',   label: 'Electricidad',   icon: Zap          },
   { id: 'Limpieza',       label: 'Limpieza',       icon: Sparkles     },
@@ -123,7 +123,7 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
   const { canWrite, canDelete } = useOrgPermissions();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategory, setActiveCategory] = useState<ProviderCategory | 'Todos'>('Todos');
+  const [activeCategory, setActiveCategory] = useState<string>('Todos');
   const [selectedBudget, setSelectedBudget] = useState<BudgetReview | null>(null);
   const [showProviderDialog, setShowProviderDialog] = useState(false);
   const [showBudgetDialog, setShowBudgetDialog] = useState(false);
@@ -133,6 +133,11 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
   const [budgetForm, setBudgetForm] = useState<Partial<BudgetReview>>(EMPTY_BUDGET);
   const [newCert, setNewCert] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Custom category addition
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [customCategoryNames, setCustomCategoryNames] = useState<string[]>([]);
 
   // ── Firestore ──
   const providersQ = useMemoFirebase(() => {
@@ -146,6 +151,27 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'presupuestos'));
   }, [db, userId]);
   const { data: budgetsData } = useCollection<BudgetReview>(budgetsQ);
+
+  // ── Load custom categories from Firestore once ──
+  const categoriasQ = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'categoriasProveedor'));
+  }, [db, userId]);
+  const { data: categoriasData } = useCollection<{ id: string; name: string }>(categoriasQ);
+  const customCats: string[] = useMemo(
+    () => (categoriasData ?? []).map((c) => c.name),
+    [categoriasData],
+  );
+
+  // Merged categories list (built-in + custom from Firestore)
+  const allCategories = useMemo(() => {
+    const builtIn = DEFAULT_CATEGORIES.map(c => c.id);
+    const extra = customCats.filter(c => !builtIn.includes(c));
+    return [
+      ...DEFAULT_CATEGORIES,
+      ...extra.map(name => ({ id: name, label: name, icon: HardHat as React.ElementType })),
+    ];
+  }, [customCats]);
 
   const providers = providersData || [];
   const budgets   = budgetsData   || [];
@@ -162,17 +188,41 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
 
   const pendingBudgets = budgets.filter(b => b.status === 'Pendiente');
 
+  // ── Custom category handler ──
+  const handleAddCustomCategory = () => {
+    const name = newCategoryInput.trim();
+    if (!name) return;
+    const allExisting = allCategories.map(c => c.id.toLowerCase());
+    if (allExisting.includes(name.toLowerCase())) {
+      toast({ title: 'Esa categoría ya existe', variant: 'destructive' }); return;
+    }
+    if (!userId || !db) { toast({ title: 'Sesión no disponible', variant: 'destructive' }); return; }
+    const catId = Math.random().toString(36).substr(2, 9);
+    const ref = doc(db, 'artifacts', APP_ID, 'users', userId, 'categoriasProveedor', catId);
+    setDocumentNonBlocking(ref, { id: catId, name, createdAt: new Date().toISOString() }, {});
+    setProviderForm(p => ({ ...p, category: name }));
+    setNewCategoryInput('');
+    setShowNewCategoryInput(false);
+    toast({ title: `Categoría "${name}" agregada` });
+  };
+
   // ── Provider handlers ──
   const handleSaveProvider = () => {
-    if (!providerForm.name?.trim() || !providerForm.phone?.trim() || !userId || !db) {
-      toast({ title: 'Completá nombre y teléfono', variant: 'destructive' }); return;
+    if (!providerForm.name?.trim()) {
+      toast({ title: 'El nombre es obligatorio', variant: 'destructive' }); return;
+    }
+    if (!providerForm.phone?.trim()) {
+      toast({ title: 'El teléfono es obligatorio', variant: 'destructive' }); return;
+    }
+    if (!userId || !db) {
+      toast({ title: 'Sesión no disponible. Recargá la página.', variant: 'destructive' }); return;
     }
     const id = editingProvider?.id || Math.random().toString(36).substr(2, 9);
     const ref = doc(db, 'artifacts', APP_ID, 'users', userId, 'proveedores', id);
     const data: Provider = {
       id,
       name:           providerForm.name!,
-      category:       (providerForm.category || 'Fontanería') as ProviderCategory,
+      category:       providerForm.category || 'Fontanería',
       description:    providerForm.description || '',
       phone:          providerForm.phone!,
       email:          providerForm.email,
@@ -186,10 +236,12 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
       createdAt:      editingProvider?.createdAt || new Date().toISOString().slice(0, 10),
     };
     setDocumentNonBlocking(ref, data, { merge: true });
-    toast({ title: editingProvider ? 'Proveedor actualizado' : 'Proveedor agregado', description: data.name });
+    toast({ title: editingProvider ? '✅ Proveedor actualizado' : '✅ Proveedor agregado', description: data.name });
     setShowProviderDialog(false);
     setEditingProvider(null);
-    setProviderForm(EMPTY_PROVIDER);
+    setProviderForm({ ...EMPTY_PROVIDER });
+    setNewCategoryInput('');
+    setShowNewCategoryInput(false);
   };
 
   const handleDeleteProvider = (id: string) => {
@@ -316,7 +368,7 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
               >
                 Todos los proveedores
               </button>
-              {CATEGORIES.map(cat => (
+              {allCategories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
@@ -382,7 +434,7 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredProviders.map(p => {
-                const CatIcon = CATEGORIES.find(c => c.id === p.category)?.icon || Wrench;
+                const CatIcon = allCategories.find(c => c.id === p.category)?.icon || HardHat;
                 return (
                   <Card key={p.id} className="border-none shadow-sm bg-white hover:shadow-md transition-shadow group">
                     <CardContent className="p-4 flex flex-col h-full gap-3">
@@ -513,13 +565,41 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
                 <Label>Categoría</Label>
                 <Select
                   value={providerForm.category}
-                  onValueChange={v => setProviderForm(p => ({ ...p, category: v as ProviderCategory }))}
+                  onValueChange={v => {
+                    if (v === '__new__') {
+                      setShowNewCategoryInput(true);
+                    } else {
+                      setProviderForm(p => ({ ...p, category: v }));
+                      setShowNewCategoryInput(false);
+                    }
+                  }}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                    {allCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                    <SelectItem value="__new__" className="text-primary font-bold">
+                      ＋ Nueva categoría…
+                    </SelectItem>
                   </SelectContent>
                 </Select>
+                {showNewCategoryInput && (
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      placeholder="Nombre de la nueva categoría"
+                      value={newCategoryInput}
+                      onChange={e => setNewCategoryInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomCategory(); } }}
+                      className="flex-1 h-8 text-sm"
+                      autoFocus
+                    />
+                    <Button type="button" size="sm" className="h-8 px-3" onClick={handleAddCustomCategory}>
+                      Agregar
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setShowNewCategoryInput(false); setNewCategoryInput(''); }}>
+                      ✕
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Estado</Label>
@@ -785,7 +865,7 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
                     if (!prov) return (
                       <p className="text-sm text-muted-foreground">{selectedBudget.providerName}</p>
                     );
-                    const CatIcon = CATEGORIES.find(c => c.id === prov.category)?.icon || Wrench;
+                    const CatIcon = allCategories.find(c => c.id === prov.category)?.icon || HardHat;
                     return (
                       <div className="bg-white border rounded-xl p-4 space-y-3">
                         <div className="flex items-start gap-3">

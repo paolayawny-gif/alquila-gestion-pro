@@ -78,6 +78,23 @@ interface TenantsViewProps {
 
 const APP_ID = "alquilagestion-pro";
 
+/** Converts YYYY-MM-DD → DD/MM/YYYY for display */
+function formatDateDisplay(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  return `${d}/${m}/${y}`;
+}
+
+/** Adds months to a YYYY-MM-DD date string, returns YYYY-MM-DD */
+function addMonthsToDate(dateStr: string, months: number): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr + 'T00:00:00');
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString().slice(0, 10);
+}
+
 export function TenantsView({ people, userId, contracts, properties, indexRecords }: TenantsViewProps) {
   const { canWrite, canDelete } = useOrgPermissions();
   const { toast } = useToast();
@@ -547,9 +564,40 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Fecha de Inicio</Label><Input type="date" value={contractFormData.startDate} onChange={e => setContractFormData({...contractFormData, startDate: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Fecha de Finalización</Label><Input type="date" value={contractFormData.endDate} onChange={e => setContractFormData({...contractFormData, endDate: e.target.value})} /></div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Fecha de Inicio</Label>
+                  <Input type="date" value={contractFormData.startDate} onChange={e => setContractFormData({...contractFormData, startDate: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Duración</Label>
+                  <Select
+                    value=""
+                    onValueChange={(months) => {
+                      if (contractFormData.startDate) {
+                        setContractFormData({...contractFormData, endDate: addMonthsToDate(contractFormData.startDate as string, parseInt(months))});
+                      } else {
+                        toast({ title: 'Primero ingresá la fecha de inicio', variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Calcular…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="12">12 meses (1 año)</SelectItem>
+                      <SelectItem value="24">24 meses (2 años)</SelectItem>
+                      <SelectItem value="36">36 meses (3 años)</SelectItem>
+                      <SelectItem value="48">48 meses (4 años)</SelectItem>
+                      <SelectItem value="6">6 meses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Fecha de Finalización</Label>
+                  <Input type="date" value={contractFormData.endDate} onChange={e => setContractFormData({...contractFormData, endDate: e.target.value})} />
+                  {contractFormData.endDate && (
+                    <p className="text-[10px] text-muted-foreground font-bold">{formatDateDisplay(contractFormData.endDate as string)}</p>
+                  )}
+                </div>
               </div>
             </TabsContent>
             <TabsContent value="economic" className="space-y-4 pt-4">
@@ -828,7 +876,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <div className="space-y-6 py-4">
               <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl space-y-2">
                 <p className="text-xs font-bold text-accent uppercase">Fecha de Finalización</p>
-                <p className="text-2xl font-black text-accent">{selectedRenewalContract.endDate}</p>
+                <p className="text-2xl font-black text-accent">{formatDateDisplay(selectedRenewalContract.endDate)}</p>
                 <p className="text-[10px] text-muted-foreground italic">Se redactará un mensaje profesional para coordinar renovación o entrega de llaves.</p>
               </div>
               <Button className="w-full h-11 font-black bg-accent hover:bg-accent/90 text-white" onClick={handleGenerateRenewalDraft}>
@@ -871,7 +919,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold">{c.endDate}</span>
+                      <span className="text-xs font-bold">{formatDateDisplay(c.endDate)}</span>
                       <Badge variant="ghost" className="text-[8px] p-0 h-auto font-black uppercase text-muted-foreground">Estado: {c.status}</Badge>
                     </div>
                   </TableCell>

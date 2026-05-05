@@ -1,5 +1,45 @@
 'use server';
 
+import https from 'https';
+
+// ── BCRA SSL bypass helper ────────────────────────────────────────────────────
+// api.bcra.gob.ar uses a certificate chain that some Node environments reject.
+// We use the native https module with rejectUnauthorized:false so the request
+// always reaches the server side and never hits the browser's CORS sandbox.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fetchBcraURL(url: string): Promise<{ ok: boolean; status: number; json(): Promise<any> }> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      {
+        rejectUnauthorized: false,
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'AlquilaGestionPro/1.0',
+        },
+        timeout: 15000,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf-8');
+          resolve({
+            ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
+            status: res.statusCode ?? 0,
+            json: async () => JSON.parse(body),
+          });
+        });
+        res.on('error', reject);
+      },
+    );
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy(new Error('Timeout al conectar con la API del BCRA (15 s)'));
+    });
+  });
+}
+
 export interface BcraDeudaEntidad {
   entidad: string;
   situacion: number;
@@ -44,14 +84,8 @@ export async function fetchDeudaBcra(cuit: string): Promise<FetchDeudaResult> {
 
   try {
     const [deudaRes, chequesRes] = await Promise.allSettled([
-      fetch(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cleanCuit}`, {
-        headers: { Accept: 'application/json', 'User-Agent': 'AlquilaGestionPro/1.0' },
-        cache: 'no-store',
-      }),
-      fetch(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/ChequesRechazados/${cleanCuit}`, {
-        headers: { Accept: 'application/json', 'User-Agent': 'AlquilaGestionPro/1.0' },
-        cache: 'no-store',
-      }),
+      fetchBcraURL(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cleanCuit}`),
+      fetchBcraURL(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/ChequesRechazados/${cleanCuit}`),
     ]);
 
     // ── Deudas ──
