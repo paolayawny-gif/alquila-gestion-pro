@@ -223,6 +223,25 @@ export interface AppAlert {
   date?: string;
 }
 
+export type LegalStage =
+  | 'Intimación'
+  | 'Carta Documento'
+  | 'Burofax'
+  | 'Demanda'
+  | 'Reporte Veraz'
+  | 'Mediación'
+  | 'Cerrado';
+
+export interface PaymentPlan {
+  id: string;
+  tenantName: string;
+  installments: number;
+  totalAmount: number;
+  note?: string;
+  status: 'pendiente' | 'aceptado' | 'rechazado';
+  createdAt: string;
+}
+
 export interface LegalCase {
   id: string;
   type: string;
@@ -233,4 +252,15 @@ export interface LegalCase {
   status: 'Iniciado' | 'En proceso' | 'Mediación' | 'Cerrado';
   hasFile?: boolean;
   ownerId: string;
+  // Extended fields
+  tenantName?: string;
+  tenantDni?: string;
+  debtAmount?: number;         // monto adeudado en $
+  daysOverdue?: number;        // días de mora
+  stage?: LegalStage;          // etapa actual del proceso
+  lastActionDate?: string;     // fecha última acción
+  lastActionNote?: string;     // descripción última acción
+  verazReported?: boolean;     // reportado a Veraz
+  paymentPlans?: PaymentPlan[];
+  notes?: string;
 }
