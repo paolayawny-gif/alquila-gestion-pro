@@ -515,6 +515,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       ...contractFormData,
       id: docId,
       tenantName: tenant?.fullName,
+      tenantEmail: tenant?.email ?? '',
       propertyName: property?.name,
       currentRentAmount: contractFormData.currentRentAmount || contractFormData.baseRentAmount || 0,
       documents: documentsSafe,

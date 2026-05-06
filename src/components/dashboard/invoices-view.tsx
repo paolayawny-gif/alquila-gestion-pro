@@ -32,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Invoice, Contract, ChargeType, ChargePayer, ChargeItem, Person } from '@/lib/types';
+import { Invoice, Contract, ChargeType, ChargePayer, ChargeItem, Person, Property } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -59,12 +59,13 @@ interface InvoicesViewProps {
   invoices: Invoice[];
   userId?: string;
   contracts: Contract[];
+  properties?: Property[];
 }
 
 const APP_ID = "alquilagestion-pro";
 const CHARGE_TYPES: ChargeType[] = ['Alquiler', 'Expensa Ordinaria', 'Expensa Extraordinaria', 'TGI/ABL', 'Aguas', 'Luz/Gas', 'Otros'];
 
-export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps) {
+export function InvoicesView({ invoices, userId, contracts, properties = [] }: InvoicesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
@@ -153,12 +154,19 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
       if (!exists) {
         const docId = Math.random().toString(36).substr(2, 9);
         const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', docId);
-        
+
+        // Resolve owner email from property owners list
+        const property = properties.find(p => p.id === contract.propertyId);
+        const ownerEmail = property?.owners?.[0]?.email ?? '';
+
         const invoiceData: Invoice = {
           id: docId,
           contractId: contract.id,
           tenantName: contract.tenantName || 'Inquilino',
+          tenantEmail: contract.tenantEmail ?? '',
           propertyName: contract.propertyName || 'Propiedad',
+          propertyId: contract.propertyId,
+          ownerEmail,
           period: currentMonth,
           charges: [{
             id: 'rent-charge',
@@ -282,15 +290,22 @@ export function InvoicesView({ invoices, userId, contracts }: InvoicesViewProps)
     if (!manualCharge.contractId || !userId || !db) return;
     const contract = contracts.find(c => c.id === manualCharge.contractId);
     if (!contract) return;
-    
+
     const docId = Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', docId);
-    
+
+    // Resolve owner email from property owners list
+    const property = properties.find(p => p.id === contract.propertyId);
+    const ownerEmail = property?.owners?.[0]?.email ?? '';
+
     const invoiceData: Invoice = {
       id: docId,
       contractId: contract.id,
       tenantName: contract.tenantName || 'Inquilino',
+      tenantEmail: contract.tenantEmail ?? '',
       propertyName: contract.propertyName || 'Propiedad',
+      propertyId: contract.propertyId,
+      ownerEmail,
       period: manualCharge.period,
       charges: [{
         id: Math.random().toString(36).substr(2, 9),

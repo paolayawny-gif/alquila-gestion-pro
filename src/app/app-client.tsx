@@ -379,7 +379,7 @@ export default function AppClient() {
       case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} />;
       case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} />;
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;
-      case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} />;
+      case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
       case 'Proveedores': return <ProvidersView tasks={tasks} properties={properties} userId={user?.uid} />;
