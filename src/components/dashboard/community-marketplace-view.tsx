@@ -125,15 +125,21 @@ function AvatarCircle({ name, color, size = 'md' }: { name: string; color: strin
   );
 }
 
-function PostCard({ post, userId, onLike, onReply, onDelete, canDelete }:
-  { post: CommunityPost; userId?: string; onLike: () => void; onReply: (txt: string) => void; onDelete: () => void; canDelete: boolean }
+function PostCard({ post, userId, onLike, onReply, onDelete, canDelete, isModerator }:
+  { post: CommunityPost; userId?: string; onLike: () => void; onReply: (txt: string) => void; onDelete: () => void; canDelete: boolean; isModerator?: boolean }
 ) {
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState('');
   const liked = userId ? post.likes.includes(userId) : false;
+  const showDelete = canDelete || isModerator;
 
   return (
-    <div className="py-4 border-b border-border/50 last:border-0">
+    <div className={cn("py-4 border-b border-border/50 last:border-0", isModerator && post.authorId !== userId && "relative")}>
+      {isModerator && post.authorId !== userId && (
+        <span className="absolute top-3 right-0 text-[9px] font-black text-amber-500 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
+          👑 mod
+        </span>
+      )}
       <div className="flex gap-3">
         <AvatarCircle name={post.authorName} color={avatarColor(post.authorName)} />
         <div className="flex-1 min-w-0">
@@ -176,9 +182,15 @@ function PostCard({ post, userId, onLike, onReply, onDelete, canDelete }:
             <button onClick={() => setShowReply(!showReply)} className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-primary transition-colors">
               <MessageCircle className="h-3.5 w-3.5" /> Responder
             </button>
-            {canDelete && (
-              <button onClick={onDelete} className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-destructive transition-colors ml-auto">
+            {showDelete && (
+              <button onClick={onDelete} className={cn(
+                "flex items-center gap-1 text-xs font-bold transition-colors ml-auto",
+                isModerator && post.authorId !== userId
+                  ? "text-amber-600 hover:text-destructive"
+                  : "text-muted-foreground hover:text-destructive"
+              )}>
                 <Trash2 className="h-3.5 w-3.5" />
+                {isModerator && post.authorId !== userId && <span>Moderar</span>}
               </button>
             )}
           </div>
@@ -507,6 +519,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                     onReply={(txt) => handleReply(post, txt)}
                     onDelete={() => handleDeletePost(post.id)}
                     canDelete={post.authorId === uid || canWrite}
+                    isModerator={isSuperAdmin}
                   />
                 ))
               )}
@@ -516,9 +529,15 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
           {/* Marketplace */}
           <Card className="border-none shadow-sm bg-white">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base font-black">
-                <ShoppingBag className="h-4 w-4 text-emerald-600" /> Marketplace
-              </CardTitle>
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base font-black">
+                  <ShoppingBag className="h-4 w-4 text-emerald-600" /> Marketplace
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+                  Solo podés publicar artículos o servicios de tu propiedad.
+                </p>
+              </div>
               <div className="flex items-center gap-1.5">
                 {mktPages > 1 && (
                   <>
@@ -581,12 +600,27 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                           <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>
                           <div className="flex items-center justify-between mt-2 gap-1">
                             <span className="text-[10px] text-muted-foreground">{item.sellerName}</span>
-                            {(item.sellerId === uid || canWrite) && (
-                              <button
-                                onClick={() => handleMarkSold(item)}
-                                className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 hover:bg-emerald-100 transition-colors"
-                              >Vendido</button>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {(item.sellerId === uid || canWrite) && (
+                                <button
+                                  onClick={() => handleMarkSold(item)}
+                                  className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 hover:bg-emerald-100 transition-colors"
+                                >Vendido</button>
+                              )}
+                              {isSuperAdmin && item.sellerId !== uid && (
+                                <button
+                                  onClick={() => {
+                                    if (!db) return;
+                                    if (confirm(`¿Eliminar "${item.title}" por incumplimiento de las reglas?`)) {
+                                      deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadMarketplace', item.id));
+                                      toast({ title: '🛡️ Publicación eliminada por moderación' });
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
+                                  title="Eliminar por incumplimiento"
+                                >⚑ Mod</button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -621,12 +655,26 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
               {beneficios.slice(0, 4).map(b => {
                 const BIcon = BENEFIT_ICON[b.iconType] || Tag;
                 return (
-                  <div key={b.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/20 border border-border/40 hover:bg-white hover:shadow-sm transition-all">
+                  <div key={b.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/20 border border-border/40 hover:bg-white hover:shadow-sm transition-all group">
                     <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                       <BIcon className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-black text-sm leading-tight">{b.businessName}</p>
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="font-black text-sm leading-tight">{b.businessName}</p>
+                        {(isSuperAdmin || b.adminId === uid) && (
+                          <button
+                            onClick={() => {
+                              if (!db) return;
+                              deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadBeneficios', b.id));
+                              toast({ title: 'Beneficio eliminado' });
+                            }}
+                            className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all shrink-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                       {b.distance && <p className="text-[10px] text-muted-foreground">{b.distance}</p>}
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-lg font-black text-emerald-700 leading-none">{b.discountText}</span>
@@ -671,7 +719,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                 const { day, month } = fmtDate(ev.date);
                 const isRoomie = ev.type === 'roomie';
                 return (
-                  <div key={ev.id} className="flex gap-3 items-start p-3 rounded-xl hover:bg-muted/20 transition-colors border border-transparent hover:border-border/40">
+                  <div key={ev.id} className="flex gap-3 items-start p-3 rounded-xl hover:bg-muted/20 transition-colors border border-transparent hover:border-border/40 group">
                     {isRoomie ? (
                       <div className="h-12 w-12 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
                         <Home className="h-5 w-5 text-purple-600" />
@@ -685,9 +733,24 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-1">
                         <p className="font-black text-sm leading-tight">{ev.title}</p>
-                        <Badge className="text-[9px] font-black uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                          {ev.tag}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Badge className="text-[9px] font-black uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {ev.tag}
+                          </Badge>
+                          {(isSuperAdmin || ev.creatorId === uid) && (
+                            <button
+                              onClick={() => {
+                                if (!db) return;
+                                deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadEventos', ev.id));
+                                toast({ title: 'Evento eliminado' });
+                              }}
+                              className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                              title={isSuperAdmin ? 'Eliminar (moderación)' : 'Eliminar'}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{ev.description}</p>
                       {ev.roomieBudget && (
@@ -784,9 +847,12 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                   <Textarea placeholder="Estado, características, motivo de venta…" className="min-h-[70px]" value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} />
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground border border-amber-200 bg-amber-50 rounded-lg p-2">
-                💡 Comisión del <strong>6%</strong> sobre el precio final de venta (3% administradora + 3% plataforma)
-              </p>
+              <div className="space-y-1.5">
+                <div className="text-[10px] text-muted-foreground border border-amber-200 bg-amber-50 rounded-lg p-2.5 space-y-1">
+                  <p>💡 Comisión del <strong>6%</strong> sobre el precio final de venta (3% administradora + 3% plataforma).</p>
+                  <p className="font-bold text-amber-700">⚖️ Regla: Solo podés publicar artículos o servicios de tu exclusiva propiedad. Publicaciones que no cumplan esta condición serán eliminadas por moderación.</p>
+                </div>
+              </div>
             </div>
           )}
 
