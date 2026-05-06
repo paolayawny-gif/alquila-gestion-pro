@@ -54,7 +54,6 @@ import { ContractGeneratorView } from '@/components/dashboard/contract-generator
 import { ApplicationsView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
 import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
-import { ReportsView } from '@/components/dashboard/reports-view';
 import { AnalyticsPanelView } from '@/components/dashboard/analytics-panel-view';
 import { IndexRecordsView } from '@/components/dashboard/index-records-view';
 import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
@@ -84,7 +83,7 @@ import {
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, query } from 'firebase/firestore';
-import { Contract } from '@/lib/types';
+import { Contract, LegalCase, MonetizableAsset } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
@@ -206,8 +205,8 @@ export default function AppClient() {
   const { data: liquidationsData } = useCollection(liquidacionesQuery);
   const { data: applicationsData } = useCollection(solicitudesQuery);
   const { data: indicesData } = useCollection(indicesQuery);
-  const { data: legalesData } = useCollection(legalesQuery);
-  const { data: monetizacionData } = useCollection(monetizacionQuery);
+  const { data: legalesData } = useCollection<LegalCase>(legalesQuery);
+  const { data: monetizacionData } = useCollection<MonetizableAsset>(monetizacionQuery);
 
   const properties = propertiesData || [];
   const people = peopleData || [];
@@ -245,16 +244,16 @@ export default function AppClient() {
       case 'Concierge': return <ConciergeView properties={properties} contracts={contracts} people={people} userId={user?.uid} />;
       case 'Comunidad': return <CommunityMarketplaceView properties={properties} people={people} userId={user?.uid} userEmail={user?.email ?? ''} userName={user?.displayName ?? ''} />;
       case 'Seguros': return <InsuranceView properties={properties} userId={user?.uid} />;
-      case 'Monetización': return <MonetizationView assets={monetizableAssets as any} properties={properties} userId={user?.uid} userEmail={user?.email ?? ''} />;
+      case 'Monetización': return <MonetizationView assets={monetizableAssets} properties={properties} userId={user?.uid} userEmail={user?.email ?? ''} />;
       case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
       case 'Contratos Smart': return <SmartContractsView contracts={contracts} invoices={invoices} people={people} properties={properties} userId={user?.uid} />;
       case 'Garantías': return <DepositsView contracts={contracts} people={people} properties={properties} userId={user?.uid} />;
       case 'Simulador ROI': return <ROISimulatorView userId={user?.uid} />;
       case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} userId={user?.uid} />;
-      case 'Legales': return <LegalView legalCases={legalCases as any} userId={user?.uid} properties={properties} />;
+      case 'Legales': return <LegalView legalCases={legalCases} userId={user?.uid} properties={properties} />;
       case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} />;
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
-      case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases as any} assets={monetizableAssets as any} userId={user?.uid} />;
+      case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases} assets={monetizableAssets} userId={user?.uid} />;
       case 'Análisis IA': return <AIAnalyticsView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
       case 'Asistente IA': return <AIAssistantView />;
       case 'Super Admin': return <SuperAdminView userId={user?.uid} userEmail={user?.email ?? ''} />;

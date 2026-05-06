@@ -153,7 +153,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     if (!newCase.propertyId || !userId || !db) return;
     const property = properties.find(p => p.id === newCase.propertyId);
     const docId = Math.random().toString(36).substr(2, 9);
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legalCases', docId);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', docId);
     const caseData: LegalCase = {
       id: docId,
       type: newCase.type || 'Caso legal',
@@ -182,14 +182,14 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
 
   const handleDelete = (id: string) => {
     if (!userId || !db) return;
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legalCases', id);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', id);
     deleteDocumentNonBlocking(docRef);
     toast({ title: 'Caso eliminado' });
   };
 
   const handleUpdateStage = (c: LegalCase, stage: LegalStage) => {
     if (!userId || !db) return;
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legalCases', c.id);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', c.id);
     const update: Partial<LegalCase> = { stage, lastActionDate: new Date().toISOString().split('T')[0] };
     if (stage === 'Reporte Veraz') update.verazReported = true;
     if (stage === 'Cerrado') update.status = 'Cerrado';
@@ -212,7 +212,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
       createdAt: new Date().toISOString().split('T')[0],
     };
     const existing = caseObj.paymentPlans ?? [];
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legalCases', selectedCaseId);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', selectedCaseId);
     setDocumentNonBlocking(docRef, { paymentPlans: [...existing, plan] }, { merge: true });
     setIsAddPlanOpen(false);
     setNewPlan({ tenantName: '', installments: 3, totalAmount: 0, note: '', status: 'pendiente' });
@@ -224,7 +224,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     const caseObj = legalCases.find(c => c.id === caseId);
     if (!caseObj) return;
     const updated = (caseObj.paymentPlans ?? []).map(p => p.id === planId ? { ...p, status } : p);
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legalCases', caseId);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', caseId);
     setDocumentNonBlocking(docRef, { paymentPlans: updated }, { merge: true });
     toast({ title: `Plan actualizado → ${status}` });
   };
@@ -254,10 +254,21 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
   };
 
   const handleMassIntimation = () => {
+    if (!userId || !db) return;
     const actives = legalCases.filter(c => c.status !== 'Cerrado' && c.stage === 'Intimación');
+    if (actives.length === 0) return;
+    const today = new Date().toISOString().split('T')[0];
+    actives.forEach(c => {
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', c.id);
+      setDocumentNonBlocking(docRef, {
+        stage: 'Carta Documento' as const,
+        lastActionDate: today,
+        lastActionNote: 'Acción masiva de intimación ejecutada',
+      }, { merge: true });
+    });
     toast({
-      title: `Intimación masiva`,
-      description: `${actives.length} caso(s) marcados para notificación.`,
+      title: `Intimación masiva ejecutada`,
+      description: `${actives.length} caso(s) avanzados a "Carta Documento".`,
     });
   };
 
@@ -701,17 +712,46 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
 
               {/* Quick actions */}
               <div className="grid grid-cols-2 gap-2">
-                {[
-                  { icon: <Download className="h-4 w-4" />, label: 'Exportar PDF' },
-                  { icon: <Landmark className="h-4 w-4" />, label: 'Sinc. Bancaria' },
-                  { icon: <Scale className="h-4 w-4" />, label: 'Legal Desk' },
-                  { icon: <Phone className="h-4 w-4" />, label: 'Soporte Legal' },
-                ].map(a => (
-                  <Button key={a.label} variant="outline" className="flex-col h-16 gap-1 text-xs" onClick={() => toast({ title: a.label, description: 'Función próximamente' })}>
-                    {a.icon}
-                    {a.label}
-                  </Button>
-                ))}
+                <Button
+                  variant="outline" className="flex-col h-16 gap-1 text-xs"
+                  onClick={() => {
+                    const lines = legalCases.map(c =>
+                      `${c.type} | ${c.propertyName} | ${c.tenantName ?? ''} | ${c.stage ?? c.status} | $${(c.debtAmount ?? 0).toLocaleString('es-AR')}`
+                    ).join('\n');
+                    const blob = new Blob([`CASOS LEGALES\n${'─'.repeat(60)}\n${lines}\n\nTotal casos: ${legalCases.length}\nDeuda total: $${legalCases.reduce((s,c)=>s+(c.debtAmount??0),0).toLocaleString('es-AR')}`], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = 'casos-legales.txt'; a.click();
+                    URL.revokeObjectURL(url);
+                    toast({ title: 'Exportado', description: 'casos-legales.txt descargado.' });
+                  }}
+                >
+                  <Download className="h-4 w-4" /> Exportar PDF
+                </Button>
+                <Button
+                  variant="outline" className="flex-col h-16 gap-1 text-xs"
+                  onClick={() => window.open('https://www.bcra.gob.ar', '_blank')}
+                >
+                  <Landmark className="h-4 w-4" /> Sinc. BCRA
+                </Button>
+                <Button
+                  variant="outline" className="flex-col h-16 gap-1 text-xs"
+                  onClick={() => {
+                    const subject = encodeURIComponent('Consulta Legal — Casos Activos');
+                    const body = encodeURIComponent(`Hola,\n\nTengo ${legalCases.filter(c=>c.status!=='Cerrado').length} caso(s) legales activos que requieren asesoramiento.\n\nPor favor contactarme.\n\nGracias.`);
+                    window.open(`mailto:legal@alquilagestion.com?subject=${subject}&body=${body}`);
+                  }}
+                >
+                  <Scale className="h-4 w-4" /> Legal Desk
+                </Button>
+                <Button
+                  variant="outline" className="flex-col h-16 gap-1 text-xs"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(window.location.href);
+                    toast({ title: 'Link copiado', description: 'Compartí con tu asesor legal.' });
+                  }}
+                >
+                  <Phone className="h-4 w-4" /> Compartir
+                </Button>
               </div>
             </CardContent>
           </Card>

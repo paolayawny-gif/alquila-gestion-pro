@@ -409,10 +409,21 @@ function ImpactoTab({ properties, contracts, invoices, tasks, legalCases, assets
 
       {/* Export */}
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" className="gap-2 text-sm" onClick={() => toast({ title: 'Reporte PDF', description: 'Próximamente disponible' })}>
+        <Button
+          variant="outline"
+          className="gap-2 text-sm"
+          onClick={() => {
+            navigator.clipboard?.writeText(window.location.href)
+              .then(() => toast({ title: 'Link copiado', description: 'Pegalo en un mensaje para compartir el panel.' }))
+              .catch(() => toast({ title: 'Compartir', description: window.location.href }));
+          }}
+        >
           <Share2 className="h-4 w-4" /> Compartir
         </Button>
-        <Button className="gap-2 text-sm bg-accent text-white" onClick={() => toast({ title: 'Exportando PDF…' })}>
+        <Button
+          className="gap-2 text-sm bg-accent text-white"
+          onClick={() => { window.print(); toast({ title: 'Abriendo diálogo de impresión…' }); }}
+        >
           <Download className="h-4 w-4" /> Exportar PDF
         </Button>
       </div>
@@ -732,7 +743,16 @@ function NormativaTab({ properties, contracts, tasks, userId }: Pick<AnalyticsPa
               </Button>
               <Button
                 className="bg-white/20 text-white hover:bg-white/30 gap-2"
-                onClick={() => toast({ title: 'Resumen Legal', description: 'Próximamente disponible para descarga.' })}
+                onClick={() => {
+                  const content = ALERTAS_AR.map(a =>
+                    `[${IMPACT_CFG[a.impact].label}] ${a.title}\n${a.desc}\nEstado: ${a.status}\n`
+                  ).join('\n');
+                  const blob = new Blob([`RESUMEN NORMATIVO — AlquilaGestión Pro\n${'═'.repeat(50)}\n\n${content}`], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const el = document.createElement('a'); el.href = url; el.download = 'resumen-normativo.txt'; el.click();
+                  URL.revokeObjectURL(url);
+                  toast({ title: 'Resumen descargado', description: 'resumen-normativo.txt' });
+                }}
               >
                 Descargar Resumen Legal
               </Button>
