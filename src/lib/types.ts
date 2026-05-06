@@ -264,3 +264,35 @@ export interface LegalCase {
   paymentPlans?: PaymentPlan[];
   notes?: string;
 }
+
+// ── Monetización de Activos ───────────────────────────────────────────────────
+
+export type AssetCategory =
+  | 'Pantalla Digital'
+  | 'Coworking & Eventos'
+  | 'Lockers & Almacén'
+  | 'Estacionamiento'
+  | 'Área Común'
+  | 'Otro';
+
+export type AssetStatus = 'Disponible' | 'Ocupado' | 'En mantenimiento';
+
+export type AssetRentUnit = '/mes' | '/semana' | '/día' | '/bloque 4h' | '/hora';
+
+export interface MonetizableAsset {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  name: string;               // "Elevador Principal A", "Rooftop Sky Lounge"
+  location: string;           // "Planta 24 - Eventos", "Lobby"
+  category: AssetCategory;
+  status: AssetStatus;
+  baseRate: number;           // precio base
+  rentUnit: AssetRentUnit;
+  tenantName?: string;        // si está ocupado
+  tenantEmail?: string;
+  occupiedUntil?: string;     // fecha fin ocupación
+  notes?: string;
+  ownerId: string;
+  createdAt: string;
+}
