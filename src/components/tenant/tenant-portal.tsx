@@ -1,0 +1,161 @@
+'use client';
+
+import React, { useState } from 'react';
+import {
+  LayoutDashboard, MessageSquare, Wrench, Users, ShoppingBag,
+  Shield, LogOut, ChevronLeft, ChevronRight, Home, Menu
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { signOut } from 'firebase/auth';
+import { useAuth } from '@/firebase';
+import { TenantHome } from './tenant-home';
+import { TenantMessages } from './tenant-messages';
+import { TenantMaintenance } from './tenant-maintenance';
+import { TenantCommunity } from './tenant-community';
+import { TenantMarketplace } from './tenant-marketplace';
+import { TenantInsurance } from './tenant-insurance';
+
+export interface TenantRegistryEntry {
+  tenantEmail: string;
+  tenantName: string;
+  adminId: string;
+  propertyId: string;
+  propertyName: string;
+  contractId: string;
+}
+
+type TenantTab = 'Inicio' | 'Mensajes' | 'Mantenimiento' | 'Comunidad' | 'Marketplace' | 'Seguros';
+
+const TENANT_MENU: { id: TenantTab; icon: React.ElementType; label: string }[] = [
+  { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'           },
+  { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'         },
+  { id: 'Mantenimiento', icon: Wrench,          label: 'Mantenimiento'    },
+  { id: 'Comunidad',     icon: Users,           label: 'Mi Edificio'      },
+  { id: 'Marketplace',   icon: ShoppingBag,     label: 'Marketplace'      },
+  { id: 'Seguros',       icon: Shield,          label: 'Seguros'          },
+];
+
+interface TenantPortalProps {
+  tenantEntry: TenantRegistryEntry;
+  onSwitchToAdmin?: () => void;
+}
+
+export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps) {
+  const [activeTab, setActiveTab] = useState<TenantTab>('Inicio');
+  const [collapsed, setCollapsed]  = useState(false);
+  const auth = useAuth();
+
+  const handleLogout = () => signOut(auth);
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'Inicio':        return <TenantHome        tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
+      case 'Mensajes':      return <TenantMessages    tenantEntry={tenantEntry} />;
+      case 'Mantenimiento': return <TenantMaintenance tenantEntry={tenantEntry} />;
+      case 'Comunidad':     return <TenantCommunity   tenantEntry={tenantEntry} />;
+      case 'Marketplace':   return <TenantMarketplace tenantEntry={tenantEntry} />;
+      case 'Seguros':       return <TenantInsurance   tenantEntry={tenantEntry} />;
+      default:              return <TenantHome        tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
+    }
+  };
+
+  return (
+    <div className="flex h-screen w-full bg-background overflow-hidden">
+
+      {/* ── Sidebar ── */}
+      <aside className={cn(
+        'bg-white border-r flex flex-col transition-all duration-300 relative z-20',
+        collapsed ? 'w-20' : 'w-64',
+      )}>
+        {/* Logo */}
+        <div className="px-4 h-16 flex items-center border-b gap-3">
+          <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
+            <Home className="h-5 w-5 text-white" />
+          </div>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <p className="text-[11px] font-black text-primary leading-none">Portal Inquilino</p>
+              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{tenantEntry.propertyName}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 px-3 mt-4 space-y-1 overflow-y-auto">
+          {TENANT_MENU.map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                activeTab === item.id
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+            >
+              <item.icon className={cn('h-5 w-5 shrink-0', activeTab === item.id ? 'text-primary' : 'text-muted-foreground')} />
+              {!collapsed && <span className="truncate">{item.label}</span>}
+            </button>
+          ))}
+        </nav>
+
+        {/* Bottom */}
+        <div className="p-3 border-t space-y-1">
+          {onSwitchToAdmin && (
+            <button
+              onClick={onSwitchToAdmin}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors',
+                collapsed && 'justify-center',
+              )}
+            >
+              <Menu className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>Vista Administrador</span>}
+            </button>
+          )}
+          <button
+            onClick={handleLogout}
+            className={cn(
+              'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors',
+              collapsed && 'justify-center',
+            )}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>Cerrar Sesión</span>}
+          </button>
+        </div>
+
+        {/* Collapse toggle */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full flex items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50"
+        >
+          {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </button>
+      </aside>
+
+      {/* ── Main ── */}
+      <main className="flex-1 overflow-y-auto bg-background/50">
+        {/* Header */}
+        <header className="h-16 border-b flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+          <p className="font-black text-foreground">
+            {TENANT_MENU.find(m => m.id === activeTab)?.label ?? 'Inicio'}
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-bold text-foreground">{tenantEntry.tenantName}</p>
+              <p className="text-[10px] text-muted-foreground">{tenantEntry.tenantEmail}</p>
+            </div>
+            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-black text-sm uppercase">
+              {tenantEntry.tenantName.charAt(0)}
+            </div>
+          </div>
+        </header>
+
+        <div className="p-6">
+          {renderContent()}
+        </div>
+      </main>
+    </div>
+  );
+}

@@ -86,8 +86,10 @@ import {
   useMemoFirebase
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, doc, getDoc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink } from '@/lib/types';
+import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
@@ -144,6 +146,22 @@ export default function AppClient() {
   const { toast } = useToast();
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
   const orgCtx = useOrgContext();
+
+  // ── Tenant role detection ──────────────────────────────────────────────────
+  // undefined = loading; null = not a tenant; TenantRegistryEntry = is tenant
+  const [tenantEntry, setTenantEntry] = useState<TenantRegistryEntry | null | undefined>(undefined);
+  const [forceAdmin, setForceAdmin]   = useState(false); // admin switching back from tenant view
+
+  useEffect(() => {
+    if (!db || !user?.email || isSuperAdmin) { setTenantEntry(null); return; }
+    const docId = user.email.toLowerCase().replace(/[@.+]/g, '_');
+    getDoc(doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId))
+      .then(snap => {
+        if (snap.exists()) setTenantEntry(snap.data() as TenantRegistryEntry);
+        else setTenantEntry(null);
+      })
+      .catch(() => setTenantEntry(null));
+  }, [db, user?.email, isSuperAdmin]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -239,7 +257,40 @@ export default function AppClient() {
   const socialPosts = socialPostsData || [];
   const socialLinks = socialLinksData || [];
 
+  // ── Sync tenant emails to registry whenever contracts change ──────────────
+  useEffect(() => {
+    if (!db || !user?.uid || !contracts.length) return;
+    contracts.forEach(contract => {
+      if (!contract.tenantEmail) return;
+      const docId = contract.tenantEmail.toLowerCase().replace(/[@.+]/g, '_');
+      const ref   = doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId);
+      const entry: TenantRegistryEntry = {
+        tenantEmail:  contract.tenantEmail.toLowerCase(),
+        tenantName:   contract.tenantName  ?? '',
+        adminId:      user.uid,
+        propertyId:   contract.propertyId,
+        propertyName: contract.propertyName ?? '',
+        contractId:   contract.id,
+      };
+      setDocumentNonBlocking(ref, entry, { merge: true });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contracts.length, db, user?.uid]);
+
   if (!isMounted) return null;
+
+  // ── Show tenant portal if user is a tenant (and not forcing admin view) ──
+  if (tenantEntry && !forceAdmin && !isSuperAdmin) {
+    return (
+      <TenantPortal
+        tenantEntry={tenantEntry}
+        onSwitchToAdmin={() => setForceAdmin(true)}
+      />
+    );
+  }
+
+  // Still loading tenant check → show nothing (or could show a spinner)
+  if (tenantEntry === undefined) return null;
 
   const renderContent = () => {
     if (activeRole === 'Inquilino') {

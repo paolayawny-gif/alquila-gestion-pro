@@ -147,21 +147,26 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // ── Firestore: lista de chats ──
+  // ── Firestore: lista de chats (shared collection, filtered by adminId) ──
   const chatsQ = useMemoFirebase(() => {
     if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'chats'));
+    return query(
+      collection(db, 'artifacts', APP_ID, 'sharedChats'),
+      orderBy('lastMessageAt', 'desc'),
+    );
   }, [db, userId]);
-  const { data: chatsRaw } = useCollection<Chat>(chatsQ);
+  const { data: chatsAllRaw } = useCollection<Chat>(chatsQ);
+  // Filter client-side: only chats owned by this admin
+  const chatsRaw = (chatsAllRaw ?? []).filter((c: any) => c.adminId === userId || c.ownerId === userId);
 
   // ── Firestore: mensajes del chat seleccionado ──
   const messagesQ = useMemoFirebase(() => {
-    if (!db || !userId || !selectedChatId) return null;
+    if (!db || !selectedChatId) return null;
     return query(
-      collection(db, 'artifacts', APP_ID, 'users', userId, 'chats', selectedChatId, 'mensajes'),
+      collection(db, 'artifacts', APP_ID, 'sharedChats', selectedChatId, 'mensajes'),
       orderBy('ts')
     );
-  }, [db, userId, selectedChatId]);
+  }, [db, selectedChatId]);
   const { data: messagesRaw } = useCollection<ChatMessage>(messagesQ);
 
   const chats    = useMemo(() => (chatsRaw || []).sort((a, b) => b.lastMessageAt - a.lastMessageAt), [chatsRaw]);
@@ -239,14 +244,14 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     setIsSending(true);
     const msgId  = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const now    = Date.now();
-    const msgRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'chats', selectedChatId, 'mensajes', msgId);
+    const msgRef = doc(db, 'artifacts', APP_ID, 'sharedChats', selectedChatId, 'mensajes', msgId);
     const msg: ChatMessage = {
       id: msgId, text: txt, sender: 'admin', senderName: 'Administración',
       ts: now, ownerId: userId,
     };
     setDocumentNonBlocking(msgRef, msg, {});
-    const chatRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'chats', selectedChatId);
-    setDocumentNonBlocking(chatRef, { lastMessage: txt, lastMessageAt: now, unreadAdmin: 0 }, { merge: true });
+    const chatRef = doc(db, 'artifacts', APP_ID, 'sharedChats', selectedChatId);
+    setDocumentNonBlocking(chatRef, { lastMessage: txt, lastMessageAt: now, unreadAdmin: 0, unreadTenant: (selectedChat?.unreadAdmin ?? 0) + 1 }, { merge: true });
     if (!text) setMessageText('');
     setIsSending(false);
   };
@@ -256,12 +261,15 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     if (!userId || !db) return;
     const existing = chats.find(c => c.type === 'direct' && c.members[0] === tenantEmail);
     if (existing) { setSelectedChatId(existing.id); setShowNewDirect(false); return; }
-    const chatId  = `direct_${tenantEmail.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}`;
-    const chatRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'chats', chatId);
-    const chat: Chat = {
+    const chatId  = `chat_${userId}_${tenantEmail.replace(/[@.]/g, '_')}_${propertyId}`;
+    const chatRef = doc(db, 'artifacts', APP_ID, 'sharedChats', chatId);
+    const chat = {
       id: chatId, type: 'direct', name: tenantName,
       propertyId, propertyName, members: [tenantEmail], memberNames: [tenantName],
-      lastMessage: '', lastMessageAt: Date.now(), unreadAdmin: 0, ownerId: userId,
+      lastMessage: '', lastMessageAt: Date.now(),
+      unreadAdmin: 0, unreadTenant: 0,
+      adminId: userId, tenantEmail, tenantName,
+      ownerId: userId,
     };
     setDocumentNonBlocking(chatRef, chat, {});
     setSelectedChatId(chatId);
@@ -280,8 +288,8 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
       toast({ title: 'Sin inquilinos', description: 'Esta propiedad no tiene contratos activos.', variant: 'destructive' });
       return;
     }
-    const chatId  = `group_${propertyId}_${Date.now()}`;
-    const chatRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'chats', chatId);
+    const chatId  = `group_${userId}_${propertyId}_${Date.now()}`;
+    const chatRef = doc(db, 'artifacts', APP_ID, 'sharedChats', chatId);
     const chat: Chat = {
       id: chatId, type: 'group',
       name: groupName || property?.name || 'Grupo',

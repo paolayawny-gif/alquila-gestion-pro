@@ -70,6 +70,92 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin();
     }
 
+    // ── Portal Inquilino ─────────────────────────────────────────────────────
+
+    // Registro de inquilinos: admin escribe al crear contrato; inquilino lee el suyo
+    match /artifacts/{appId}/tenantRegistry/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Chats compartidos admin↔inquilino
+    match /artifacts/{appId}/sharedChats/{chatId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.uid == resource.data.ownerId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        isSuperAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.uid == resource.data.ownerId ||
+        request.auth.token.email == resource.data.tenantEmail
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.uid == resource.data.ownerId ||
+        isSuperAdmin()
+      );
+    }
+
+    match /artifacts/{appId}/sharedChats/{chatId}/mensajes/{msgId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
+    }
+
+    // Tickets de mantenimiento compartidos admin↔inquilino
+    match /artifacts/{appId}/maintenanceTickets/{ticketId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        isSuperAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        isSuperAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId || isSuperAdmin()
+      );
+    }
+
+    // Contratos: admin full access; inquilino puede leer el suyo
+    match /artifacts/{appId}/users/{userId}/contratos/{contractId} {
+      allow read: if isOwner(userId) ||
+        (isSignedIn() && resource.data.tenantEmail == request.auth.token.email);
+      allow write: if isOwner(userId);
+    }
+
+    // Propiedades del admin: también legibles por inquilino activo
+    match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
+      allow get: if true;
+      allow list, create, update, delete: if isOwner(userId);
+    }
+
+    // ── Seguros & PAS — compartido ────────────────────────────────────────────
+
+    // Comisiones de seguro: cualquier autenticado lee; solo admin escribe
+    match /artifacts/{appId}/seguroComisiones/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Partners PAS: cualquier autenticado lee; superadmin escribe
+    match /artifacts/{appId}/pasPartners/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Comisiones PAS: cualquier autenticado lee; superadmin escribe
+    match /artifacts/{appId}/pasComisiones/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
     // ── Colecciones por usuario ────────────────────────────────────────────────
 
     // Pública: cualquiera puede ver propiedades (para postulantes)

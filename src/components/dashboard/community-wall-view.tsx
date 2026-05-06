@@ -38,6 +38,7 @@ interface CommunityPost {
   content: string; isOfficial: boolean;
   likes: string[]; replies: PostReply[];
   createdAt: string;
+  propertyId?: string;
 }
 interface CommunityEvent {
   id: string; creatorId: string; creatorName: string;
@@ -59,6 +60,8 @@ interface CommunityWallViewProps {
   userId?: string;
   userEmail?: string;
   userName?: string;
+  propertyFilter?: string;     // when set, only show posts for this propertyId
+  propertyFilterName?: string; // display name for the filter badge
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -181,7 +184,7 @@ function PostCard({ post, userId, onLike, onReply, onDelete, canDelete, isModera
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export function CommunityWallView({ userId, userEmail, userName }: CommunityWallViewProps) {
+export function CommunityWallView({ userId, userEmail, userName, propertyFilter, propertyFilterName }: CommunityWallViewProps) {
   const { toast }    = useToast();
   const db           = useFirestore();
   const { user }     = useUser();
@@ -222,7 +225,8 @@ export function CommunityWallView({ userId, userEmail, userName }: CommunityWall
   }, [db, uid]);
   const { data: beneficiosRaw } = useCollection<Benefit>(beneficiosQ);
 
-  const posts      = postsRaw      ?? [];
+  // Filter by building if propertyFilter is set (tenant view)
+  const posts      = (postsRaw ?? []).filter(p => !propertyFilter || !p.propertyId || p.propertyId === propertyFilter);
   const eventos    = eventosRaw    ?? [];
   const beneficios = beneficiosRaw ?? [];
 
@@ -234,6 +238,7 @@ export function CommunityWallView({ userId, userEmail, userName }: CommunityWall
     setDocumentNonBlocking(ref, {
       id, authorId: uid, authorName: uName,
       authorInitial: initial(uName), authorColor: avatarColor(uName),
+      propertyId: propertyFilter ?? '',
       authorRole: isOfficial ? 'Administración' : 'Inquilino',
       authorUnit: newPostUnit.trim() || undefined,
       content: newPostText.trim(), isOfficial,
@@ -308,11 +313,14 @@ export function CommunityWallView({ userId, userEmail, userName }: CommunityWall
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
-            <Users className="h-6 w-6 text-emerald-600" /> Comunidad del Edificio
+          <h1 className="text-2xl font-black text-foreground flex items-center gap-2 flex-wrap">
+            <Users className="h-6 w-6 text-emerald-600" />
+            {propertyFilterName ? `Edificio · ${propertyFilterName}` : 'Comunidad del Edificio'}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Muro de avisos, eventos, búsqueda de roomies y beneficios para los vecinos.
+            {propertyFilter
+              ? 'Muro exclusivo de tu edificio: avisos, eventos y beneficios de tus vecinos.'
+              : 'Muro de avisos, eventos, búsqueda de roomies y beneficios para los vecinos.'}
           </p>
         </div>
         <Button className="gap-2 font-black bg-emerald-600 hover:bg-emerald-700 text-white"

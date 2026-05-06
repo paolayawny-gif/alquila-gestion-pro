@@ -13,11 +13,11 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import {
-  Shield, ShieldCheck, ShieldAlert, Plus, Flame, CloudRain, Wind,
-  Thermometer, Droplets, AlertTriangle, CheckCircle2, FileText,
+  Shield, ShieldCheck, ShieldAlert, Plus, Flame,
+  AlertTriangle, CheckCircle2, FileText,
   History, Building2, Edit2, Trash2,
   Loader2, Calendar, DollarSign, Phone, ExternalLink,
-  Activity, Snowflake, Mail, Send, ClipboardList,
+  Snowflake, Mail, Send, ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Property } from '@/lib/types';
@@ -59,13 +59,6 @@ interface PaymentRecord {
   installmentNumber: number; amount: number;
   dueDate: string; paidDate?: string;
   status: PayStatus; ownerId: string;
-}
-
-interface ParametricCoverage {
-  id: string; type: 'Lluvia' | 'Granizo' | 'Viento' | 'Temperatura';
-  description: string; costPerEvent: number; isActive: boolean;
-  triggerCondition: string; activations: number; totalSaved: number;
-  ownerId: string;
 }
 
 interface CommissionRecord {
@@ -148,13 +141,6 @@ const MARKETPLACE_PARTNERS: MarketplacePartner[] = [
     types: ['Incendio', 'Responsabilidad Civil'],
     description: 'Fuerte cobertura en AMBA y provincia. Especialistas en consorcios.',
   },
-];
-
-const PARAMETRIC_DEFAULTS: Omit<ParametricCoverage,'id'|'ownerId'>[] = [
-  { type:'Lluvia',      description:'Cobertura activada si la precipitación supera los 2mm en el día.',        costPerEvent:2500,  isActive:false, triggerCondition:'Lluvia > 2 mm',    activations:0, totalSaved:0 },
-  { type:'Granizo',     description:'Activación ante eventos de granizo registrados por sensores locales.',    costPerEvent:8000,  isActive:false, triggerCondition:'Granizo detectado', activations:0, totalSaved:0 },
-  { type:'Viento',      description:'Micro-cobertura ante vientos superiores a 60 km/h.',                     costPerEvent:3500,  isActive:false, triggerCondition:'Viento > 60 km/h', activations:0, totalSaved:0 },
-  { type:'Temperatura', description:'Cobertura de daños por heladas si la temperatura baja de 0°C.',          costPerEvent:5000,  isActive:false, triggerCondition:'Temp < 0°C',       activations:0, totalSaved:0 },
 ];
 
 const STATUS_CFG: Record<PolicyStatus,{color:string;icon:React.ElementType}> = {
@@ -245,32 +231,6 @@ function buildMailtoBody(q: QuoteRequest, adminEmail: string): string {
   return lines.join('\n');
 }
 
-// ── Weather hook ───────────────────────────────────────────────────────────────
-interface WeatherData { temp: number; humidity: number; wind: number; precipitation: number; nextAlert?: string }
-
-function useWeather() {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=-34.6037&longitude=-58.3816&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,rain&hourly=precipitation_probability&forecast_days=1&timezone=America%2FArgentina%2FBuenos_Aires')
-      .then(r => r.json())
-      .then(d => {
-        const prob = d.hourly?.precipitation_probability ?? [];
-        const nextHigh = (prob as number[]).findIndex((p, i) => i > 0 && p > 60);
-        setWeather({
-          temp:          Math.round(d.current.temperature_2m),
-          humidity:      d.current.relative_humidity_2m,
-          wind:          Math.round(d.current.wind_speed_10m),
-          precipitation: d.current.precipitation ?? 0,
-          nextAlert:     nextHigh > 0 ? `Lluvia prevista en ${nextHigh}h` : undefined,
-        });
-      })
-      .catch(() => setWeather({ temp: 20, humidity: 65, wind: 15, precipitation: 0 }))
-      .finally(() => setLoading(false));
-  }, []);
-  return { weather, loading };
-}
-
 // ── Empty forms ────────────────────────────────────────────────────────────────
 const EMPTY_POLICY = {
   propertyId: '', type: 'Incendio' as PolicyType, insurer: 'San Cristóbal',
@@ -291,7 +251,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const db          = useFirestore();
   const { user }    = useUser();
   const { canWrite, canDelete } = useOrgPermissions();
-  const { weather, loading: weatherLoading } = useWeather();
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
   // ── Policy dialog state ──
@@ -324,12 +283,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   }, [db, userId]);
   const { data: paymentsRaw } = useCollection<PaymentRecord>(paymentsQ);
 
-  const paramQ = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'seguroParametrico'));
-  }, [db, userId]);
-  const { data: paramRaw } = useCollection<ParametricCoverage>(paramQ);
-
   const quotesQ = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'cotizacionesSeguros'));
@@ -358,7 +311,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
 
   const policies        = (policiesRaw    ?? []).map(p => ({ ...p, status: policyStatus(p.endDate) }));
   const payments        = paymentsRaw     ?? [];
-  const paramCovs       = paramRaw        ?? [];
   const pasPartners     = pasPartnersRaw  ?? [];
   const commissionConfigs = pasComisionesRaw ?? [];
   const defaultPas      = pasPartners.find(p => p.isDefault) ?? pasPartners[0] ?? null;
@@ -381,17 +333,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const myCommissions  = isSuperAdmin
     ? allCommissions
     : allCommissions.filter(c => c.adminUserId === userId);
-
-  // ── Seed parametric defaults ──
-  useEffect(() => {
-    if (!db || !userId || paramCovs.length > 0) return;
-    PARAMETRIC_DEFAULTS.forEach(def => {
-      const id  = Math.random().toString(36).substr(2, 9);
-      const ref = doc(db, 'artifacts', APP_ID, 'users', userId, 'seguroParametrico', id);
-      setDocumentNonBlocking(ref, { ...def, id, ownerId: userId }, {});
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, userId, paramCovs.length]);
 
   // ── SSN check on mount ──
   useEffect(() => {
@@ -416,7 +357,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const expiringCount  = filteredPolicies.filter(p => p.status === 'Por vencer').length;
   const expiredCount   = filteredPolicies.filter(p => p.status === 'Vencida').length;
   const mandatoryOK    = filteredPolicies.some(p => p.type === 'Incendio' && p.status === 'Vigente');
-  const paramActive    = paramCovs.filter(c => c.isActive).length;
 
   // ── Handler: save policy ──
   const handleSavePolicy = () => {
@@ -486,14 +426,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
       isMandatory: !!p.isMandatory, notes: p.notes || '', documentUrl: p.documentUrl || '',
     });
     setShowAddPolicy(true);
-  };
-
-  // ── Handler: parametric toggle ──
-  const toggleParametric = (cov: ParametricCoverage) => {
-    if (!userId || !db) return;
-    const ref = doc(db, 'artifacts', APP_ID, 'users', userId, 'seguroParametrico', cov.id);
-    setDocumentNonBlocking(ref, { isActive: !cov.isActive }, { merge: true });
-    toast({ title: cov.isActive ? `Cobertura "${cov.type}" desactivada` : `✅ Cobertura "${cov.type}" activada` });
   };
 
   // ── Handler: mark paid ──
@@ -622,7 +554,7 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
         <div>
           <h1 className="text-2xl font-black text-foreground">Seguros y Coberturas</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Gestión de pólizas, cotizaciones con aseguradoras y micro-coberturas paramétricas.
+            Gestión de pólizas y cotizaciones con aseguradoras.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -977,77 +909,6 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
 
         {/* ════════════ RIGHT (1/3) ════════════ */}
         <div className="space-y-6">
-
-          {/* Weather sensor */}
-          <Card className="border-none shadow-sm bg-white overflow-hidden">
-            <div className="bg-gradient-to-br from-slate-800 to-slate-700 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sensores · Bs. As.</p>
-                {weatherLoading && <Loader2 className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
-              </div>
-              {weather && (
-                <>
-                  <div className="flex items-end gap-2">
-                    <span className="text-4xl font-black text-white">{weather.temp}°C</span>
-                    <Thermometer className="h-6 w-6 text-slate-400 mb-1" />
-                  </div>
-                  <div className="flex gap-4 mt-3 text-xs text-slate-400">
-                    <span className="flex items-center gap-1"><Droplets className="h-3.5 w-3.5" /> {weather.humidity}%</span>
-                    <span className="flex items-center gap-1"><Wind className="h-3.5 w-3.5" /> {weather.wind} km/h</span>
-                    {weather.precipitation > 0 && (
-                      <span className="flex items-center gap-1 text-blue-400 font-bold"><CloudRain className="h-3.5 w-3.5" /> {weather.precipitation}mm</span>
-                    )}
-                  </div>
-                  {weather.nextAlert && (
-                    <div className="mt-3 flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-lg px-2.5 py-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 text-blue-300 shrink-0" />
-                      <span className="text-[11px] text-blue-200 font-bold">{weather.nextAlert}</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </Card>
-
-          {/* Parametric micro-coverages */}
-          <Card className="border-none shadow-sm bg-white">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-black flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-primary" /> Micro-coberturas
-                </CardTitle>
-                {paramActive > 0 && (
-                  <Badge className="bg-green-50 text-green-700 border border-green-200 text-[10px] font-black">{paramActive} activa{paramActive > 1 ? 's' : ''}</Badge>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground">Activación automática por clima real.</p>
-            </CardHeader>
-            <CardContent className="pt-0 space-y-3">
-              {(paramCovs.length > 0 ? paramCovs : PARAMETRIC_DEFAULTS.map((d,i) => ({ ...d, id: String(i), ownerId: userId ?? '' }))).map(cov => {
-                const icons: Record<string, React.ElementType> = { Lluvia: CloudRain, Granizo: Snowflake, Viento: Wind, Temperatura: Thermometer };
-                const Icon = icons[cov.type] || Shield;
-                return (
-                  <div key={cov.id} className={cn('p-3 rounded-xl border transition-all',
-                    cov.isActive ? 'border-emerald-200 bg-emerald-50/40' : 'border-border/50 bg-muted/10')}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 min-w-0">
-                        <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center shrink-0',
-                          cov.isActive ? 'bg-emerald-100' : 'bg-muted')}>
-                          <Icon className={cn('h-4 w-4', cov.isActive ? 'text-emerald-600' : 'text-muted-foreground')} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-black text-sm">Cobertura {cov.type}</p>
-                          <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{cov.description}</p>
-                          <p className="text-[10px] font-bold text-primary mt-1">{fmt(cov.costPerEvent)} / evento · {cov.triggerCondition}</p>
-                        </div>
-                      </div>
-                      {canWrite && <Switch checked={cov.isActive} onCheckedChange={() => toggleParametric(cov)} className="shrink-0" />}
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
 
           {/* Commission panel */}
           <Card className="border-none shadow-sm bg-white">
