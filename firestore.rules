@@ -70,7 +70,7 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin();
     }
 
-    // ── Portal Inquilino ─────────────────────────────────────────────────────
+    // ── Portal Inquilino & Propietario ──────────────────────────────────────
 
     // Registro de inquilinos: admin escribe al crear contrato; inquilino lee el suyo
     match /artifacts/{appId}/tenantRegistry/{docId} {
@@ -78,19 +78,27 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    // Chats compartidos admin↔inquilino
+    // Registro de propietarios: admin escribe al cargar propiedades; propietario lee el suyo
+    match /artifacts/{appId}/ownerRegistry/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Chats compartidos admin↔inquilino↔propietario
     match /artifacts/{appId}/sharedChats/{chatId} {
       allow read: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.uid == resource.data.ownerId ||
         request.auth.token.email == resource.data.tenantEmail ||
+        request.auth.token.email == resource.data.ownerEmail ||
         isSuperAdmin()
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.uid == resource.data.ownerId ||
-        request.auth.token.email == resource.data.tenantEmail
+        request.auth.token.email == resource.data.tenantEmail ||
+        request.auth.token.email == resource.data.ownerEmail
       );
       allow delete: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
@@ -161,13 +169,21 @@ service cloud.firestore {
     // Pública: cualquiera puede ver propiedades (para postulantes)
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
       allow get: if true;
-      allow list, create, update, delete: if isOwner(userId);
+      allow list: if isOwner(userId) || isSignedIn();
+      allow create, update, delete: if isOwner(userId);
     }
 
     // Pública: cualquiera puede crear solicitudes (buzón de entrada)
     match /artifacts/{appId}/users/{userId}/solicitudes/{solicitudId} {
       allow create: if true;
       allow get, list, update, delete: if isOwner(userId);
+    }
+
+    // Liquidaciones: propietario puede leer las suyas
+    match /artifacts/{appId}/users/{userId}/liquidaciones/{liqId} {
+      allow read: if isOwner(userId) ||
+        (isSignedIn() && resource.data.ownerEmail == request.auth.token.email);
+      allow write: if isOwner(userId);
     }
 
     // Comodín usuario: cubre todas las demás colecciones

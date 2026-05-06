@@ -2,24 +2,29 @@
 
 import https from 'https';
 
-// ── BCRA SSL bypass helper ────────────────────────────────────────────────────
-// api.bcra.gob.ar uses a certificate chain that some Node environments reject.
-// We use the native https module with rejectUnauthorized:false so the request
-// always reaches the server side and never hits the browser's CORS sandbox.
+// ── BCRA HTTPS helper ─────────────────────────────────────────────────────────
+// api.bcra.gob.ar has two known issues from serverless/cloud environments:
+//   1. Its TLS certificate chain is not trusted by Node's default CA store.
+//   2. It resets keep-alive connections (ECONNRESET) from cloud provider IPs.
+// Solution: fresh Agent per request (keepAlive: false) + rejectUnauthorized: false
+// + automatic retries on connection reset.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function fetchBcraURL(url: string): Promise<{ ok: boolean; status: number; json(): Promise<any> }> {
+function fetchBcraURL(url: string, timeoutMs = 20_000): Promise<{ ok: boolean; status: number; json(): Promise<any> }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
+    const agent  = new https.Agent({ rejectUnauthorized: false, keepAlive: false });
     const options = {
       hostname: parsed.hostname,
       path: parsed.pathname + parsed.search,
       method: 'GET',
-      rejectUnauthorized: false,
+      agent,
       headers: {
         Accept: 'application/json',
+        'Accept-Encoding': 'identity',
         'User-Agent': 'Mozilla/5.0 (compatible; AlquilaGestionPro/1.0)',
         'Accept-Language': 'es-AR,es;q=0.9',
-        'Connection': 'keep-alive',
+        'Referer': 'https://www.bcra.gob.ar/',
+        'Connection': 'close',
       },
     };
     const req = https.request(options, (res) => {
@@ -36,12 +41,41 @@ function fetchBcraURL(url: string): Promise<{ ok: boolean; status: number; json(
       res.on('error', reject);
     });
     req.on('error', reject);
-    req.setTimeout(15000, () => {
-      req.destroy(new Error('Timeout al conectar con la API del BCRA (15 s)'));
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error('Timeout al conectar con la API del BCRA'));
     });
     req.end();
   });
 }
+
+// ── Retry wrapper ────────────────────────────────────────────────────────────
+// ECONNRESET and ETIMEDOUT often succeed on retry from serverless.
+async function fetchBcraWithRetry(
+  url: string,
+  retries = 3,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ ok: boolean; status: number; json(): Promise<any> }> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fetchBcraURL(url);
+    } catch (err: unknown) {
+      lastErr = err;
+      const msg = (err as Error)?.message ?? '';
+      const isRetryable =
+        msg.includes('ECONNRESET') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('Timeout');
+      if (!isRetryable || attempt === retries) break;
+      // Exponential back-off: 600 ms, 1.2 s, 2.4 s …
+      await new Promise(r => setTimeout(r, 600 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface BcraDeudaEntidad {
   entidad: string;
@@ -78,6 +112,7 @@ export type FetchDeudaResult =
   | { ok: true; data: BcraDeudaReport }
   | { ok: false; error: string };
 
+// ── Main action ───────────────────────────────────────────────────────────────
 
 export async function fetchDeudaBcra(cuit: string): Promise<FetchDeudaResult> {
   const cleanCuit = cuit.replace(/\D/g, '');
@@ -87,43 +122,53 @@ export async function fetchDeudaBcra(cuit: string): Promise<FetchDeudaResult> {
 
   try {
     const [deudaRes, chequesRes] = await Promise.allSettled([
-      fetchBcraURL(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cleanCuit}`),
-      fetchBcraURL(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/ChequesRechazados/${cleanCuit}`),
+      fetchBcraWithRetry(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cleanCuit}`),
+      fetchBcraWithRetry(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/ChequesRechazados/${cleanCuit}`),
     ]);
 
-    // ── Deudas ──
-    let denominacion = '';
-    let identificacion = Number(cleanCuit);
-    let maxSituation = 1;
-    let latestPeriod = '';
+    // ── Deudas ──────────────────────────────────────────────────────────────
+    let denominacion    = '';
+    let identificacion  = Number(cleanCuit);
+    let maxSituation    = 1;
+    let latestPeriod    = '';
     let latestEntidades: BcraDeudaEntidad[] = [];
-    let totalEntidades = 0;
+    let totalEntidades  = 0;
 
     if (deudaRes.status === 'rejected') {
+      const msg: string = (deudaRes.reason as Error)?.message ?? 'Error de red';
+      const isConn =
+        msg.includes('ECONNRESET') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('ENOTFOUND') ||
+        msg.includes('Timeout');
       return {
         ok: false,
-        error: 'No se pudo conectar con la API de Central de Deudores del BCRA. ' +
-          `Error: ${deudaRes.reason?.message ?? 'Error de red'}`,
+        error: isConn
+          ? 'No se pudo conectar con la API del BCRA (Central de Deudores). ' +
+            'El servidor del BCRA puede estar temporalmente inaccesible desde la nube. ' +
+            'Intentá de nuevo en unos segundos. ' +
+            `(${msg})`
+          : `Error al consultar el BCRA: ${msg}`,
       };
     }
 
     if (deudaRes.value.ok) {
-      const j = await deudaRes.value.json();
+      const j    = await deudaRes.value.json();
       const deuda = j.results;
-      denominacion = deuda?.denominacion ?? '';
+      denominacion   = deuda?.denominacion ?? '';
       identificacion = deuda?.identificacion ?? identificacion;
       const periodos: any[] = deuda?.periodos ?? [];
       const sorted = [...periodos].sort((a, b) => (b.periodo ?? '').localeCompare(a.periodo ?? ''));
       if (sorted.length > 0) {
-        latestPeriod = sorted[0].periodo ?? '';
+        latestPeriod    = sorted[0].periodo ?? '';
         latestEntidades = (sorted[0].entidades ?? []).map((e: any) => ({
-          entidad: e.entidad ?? '',
-          situacion: e.situacion ?? 1,
-          monto: e.monto ?? 0,
-          diasAtrasoPago: e.diasAtrasoPago ?? 0,
+          entidad:          e.entidad          ?? '',
+          situacion:        e.situacion        ?? 1,
+          monto:            e.monto            ?? 0,
+          diasAtrasoPago:   e.diasAtrasoPago   ?? 0,
           refinanciaciones: !!e.refinanciaciones,
           situacionJuridica: !!e.situacionJuridica,
-          procesoJud: !!e.procesoJud,
+          procesoJud:       !!e.procesoJud,
         }));
       }
       for (const p of periodos) {
@@ -133,16 +178,16 @@ export async function fetchDeudaBcra(cuit: string): Promise<FetchDeudaResult> {
         }
       }
     } else if (deudaRes.value.status === 404) {
-      // 404 = no records — person is clean
+      // 404 = sin deudas registradas — persona sin antecedentes
       denominacion = '';
     } else {
       return {
         ok: false,
-        error: `La API del BCRA respondió con error ${deudaRes.value.status} al consultar deudas.`,
+        error: `La API del BCRA respondió con código ${deudaRes.value.status} al consultar deudas.`,
       };
     }
 
-    // ── Cheques rechazados ──
+    // ── Cheques rechazados ───────────────────────────────────────────────────
     let cheques: BcraChequeDetalle[] = [];
     if (chequesRes.status === 'fulfilled' && chequesRes.value.ok) {
       const j = await chequesRes.value.json();
@@ -150,12 +195,12 @@ export async function fetchDeudaBcra(cuit: string): Promise<FetchDeudaResult> {
         for (const entidad of (causal.entidades ?? [])) {
           for (const d of (entidad.detalle ?? [])) {
             cheques.push({
-              nroCheque: d.nroCheque,
+              nroCheque:   d.nroCheque,
               fechaRechazo: d.fechaRechazo,
-              monto: d.monto,
-              fechaPago: d.fechaPago ?? null,
-              estadoMulta: d.estadoMulta ?? null,
-              procesoJud: !!d.procesoJud,
+              monto:        d.monto,
+              fechaPago:    d.fechaPago    ?? null,
+              estadoMulta:  d.estadoMulta  ?? null,
+              procesoJud:   !!d.procesoJud,
             });
           }
         }

@@ -231,7 +231,7 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
       reviewCount:    editingProvider?.reviewCount || 0,
       status:         (providerForm.status || 'En evaluación') as ProviderStatus,
       certifications: providerForm.certifications || [],
-      notes:          providerForm.notes,
+      notes:          providerForm.notes || '',
       ownerId:        userId,
       createdAt:      editingProvider?.createdAt || new Date().toISOString().slice(0, 10),
     };

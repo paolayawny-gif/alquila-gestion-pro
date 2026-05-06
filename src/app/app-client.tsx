@@ -90,6 +90,7 @@ import { collection, query, doc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink } from '@/lib/types';
 import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
+import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
@@ -150,17 +151,33 @@ export default function AppClient() {
   // ── Tenant role detection ──────────────────────────────────────────────────
   // undefined = loading; null = not a tenant; TenantRegistryEntry = is tenant
   const [tenantEntry, setTenantEntry] = useState<TenantRegistryEntry | null | undefined>(undefined);
-  const [forceAdmin, setForceAdmin]   = useState(false); // admin switching back from tenant view
+  const [ownerEntry,  setOwnerEntry]  = useState<OwnerRegistryEntry  | null | undefined>(undefined);
+  const [forceAdmin, setForceAdmin]   = useState(false); // switching back to admin view
 
   useEffect(() => {
-    if (!db || !user?.email || isSuperAdmin) { setTenantEntry(null); return; }
+    if (!db || !user?.email || isSuperAdmin) {
+      setTenantEntry(null);
+      setOwnerEntry(null);
+      return;
+    }
     const docId = user.email.toLowerCase().replace(/[@.+]/g, '_');
+    // Check tenant registry first
     getDoc(doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId))
       .then(snap => {
-        if (snap.exists()) setTenantEntry(snap.data() as TenantRegistryEntry);
-        else setTenantEntry(null);
+        if (snap.exists()) {
+          setTenantEntry(snap.data() as TenantRegistryEntry);
+          setOwnerEntry(null);
+        } else {
+          setTenantEntry(null);
+          // Check owner registry
+          return getDoc(doc(db, 'artifacts', APP_ID, 'ownerRegistry', docId))
+            .then(ownerSnap => {
+              if (ownerSnap.exists()) setOwnerEntry(ownerSnap.data() as OwnerRegistryEntry);
+              else setOwnerEntry(null);
+            });
+        }
       })
-      .catch(() => setTenantEntry(null));
+      .catch(() => { setTenantEntry(null); setOwnerEntry(null); });
   }, [db, user?.email, isSuperAdmin]);
 
   useEffect(() => {
@@ -277,9 +294,41 @@ export default function AppClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts.length, db, user?.uid]);
 
+  // ── Sync property owners to ownerRegistry whenever properties change ──────
+  useEffect(() => {
+    if (!db || !user?.uid || !properties.length) return;
+    // Build a map: email → { propertyIds[], propertyNames[], ownerName }
+    const ownerMap = new Map<string, { name: string; ids: string[]; names: string[] }>();
+    properties.forEach(prop => {
+      (prop.owners ?? []).forEach((o: { email: string; name: string; percentage: number }) => {
+        if (!o.email) return;
+        const email = o.email.toLowerCase();
+        if (!ownerMap.has(email)) ownerMap.set(email, { name: o.name, ids: [], names: [] });
+        const entry = ownerMap.get(email)!;
+        if (!entry.ids.includes(prop.id)) {
+          entry.ids.push(prop.id);
+          entry.names.push(prop.name);
+        }
+      });
+    });
+    ownerMap.forEach((data, email) => {
+      const docId = email.replace(/[@.+]/g, '_');
+      const ref   = doc(db, 'artifacts', APP_ID, 'ownerRegistry', docId);
+      const entry: OwnerRegistryEntry = {
+        ownerEmail:   email,
+        ownerName:    data.name,
+        adminId:      user.uid,
+        propertyIds:  data.ids,
+        propertyNames: data.names,
+      };
+      setDocumentNonBlocking(ref, entry, { merge: true });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties.length, db, user?.uid]);
+
   if (!isMounted) return null;
 
-  // ── Show tenant portal if user is a tenant (and not forcing admin view) ──
+  // ── Show tenant portal if user is a tenant ──────────────────────────────
   if (tenantEntry && !forceAdmin && !isSuperAdmin) {
     return (
       <TenantPortal
@@ -289,8 +338,18 @@ export default function AppClient() {
     );
   }
 
-  // Still loading tenant check → show nothing (or could show a spinner)
-  if (tenantEntry === undefined) return null;
+  // ── Show owner portal if user is a property owner ─────────────────────
+  if (ownerEntry && !forceAdmin && !isSuperAdmin) {
+    return (
+      <OwnerPortal
+        ownerEntry={ownerEntry}
+        onSwitchToAdmin={() => setForceAdmin(true)}
+      />
+    );
+  }
+
+  // Still loading role check → show nothing
+  if (tenantEntry === undefined || ownerEntry === undefined) return null;
 
   const renderContent = () => {
     if (activeRole === 'Inquilino') {

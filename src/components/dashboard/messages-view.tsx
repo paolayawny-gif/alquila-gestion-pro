@@ -378,21 +378,25 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                     <div className="relative shrink-0">
                       <div className={cn(
                         'h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-black',
-                        chat.type === 'group' ? 'bg-slate-400' : 'bg-primary'
+                        chat.type === 'group' ? 'bg-slate-400' : (chat as any).chatType === 'owner' ? 'bg-emerald-600' : 'bg-primary'
                       )}>
                         {chat.type === 'group'
                           ? <Hash className="h-4 w-4" />
                           : chat.name.charAt(0).toUpperCase()
                         }
                       </div>
-                      {/* Punto verde "en línea" solo para chats directos */}
                       {chat.type === 'direct' && (
                         <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <p className="text-sm font-bold truncate">{chat.name}</p>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="text-sm font-bold truncate">{chat.name}</p>
+                          {(chat as any).chatType === 'owner' && (
+                            <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 rounded px-1 shrink-0">Prop.</span>
+                          )}
+                        </div>
                         {chat.unreadAdmin > 0 && (
                           <span className="bg-primary text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shrink-0">
                             {chat.unreadAdmin}

@@ -10,8 +10,9 @@
  * Variable 3540 = Coeficiente de Estabilización de Referencia (CER) — diario.
  * La serie comienza el 01/02/2002.
  *
- * Usa node:https con rejectUnauthorized:false para bypasear el certificado SSL
- * del BCRA (no confiado en entornos de servidor / Vercel).
+ * Usa node:https con keepAlive:false y rejectUnauthorized:false para
+ * evitar ECONNRESET desde entornos serverless (Vercel).
+ * Incluye reintentos automáticos ante errores de conexión.
  */
 
 import https from 'https';
@@ -28,21 +29,25 @@ export type FetchCerResult =
 const CER_VARIABLE_ID = 3540;
 const MIN_DATE = '2002-02-01';
 
-// ── SSL-tolerant HTTPS GET ────────────────────────────────────────────────────
-
-function httpsGet(url: string, timeoutMs = 30_000): Promise<{ status: number; body: string }> {
+// ── HTTPS helper with keepAlive:false ────────────────────────────────────────
+// keepAlive:false is critical: BCRA drops reused connections (ECONNRESET)
+// from cloud/serverless IPs. Each call gets a fresh TCP connection.
+function httpsGet(url: string, timeoutMs = 25_000): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
+    const agent  = new https.Agent({ rejectUnauthorized: false, keepAlive: false });
     const options = {
       hostname: parsed.hostname,
       path: parsed.pathname + parsed.search,
       method: 'GET',
-      rejectUnauthorized: false,
+      agent,
       headers: {
         'Accept': 'application/json',
+        'Accept-Encoding': 'identity',
         'User-Agent': 'Mozilla/5.0 (compatible; AlquilaGestionPro/1.0)',
         'Accept-Language': 'es-AR,es;q=0.9',
-        'Connection': 'keep-alive',
+        'Referer': 'https://www.bcra.gob.ar/',
+        'Connection': 'close',
       },
     };
     const req = https.request(options, (res) => {
@@ -60,6 +65,31 @@ function httpsGet(url: string, timeoutMs = 30_000): Promise<{ status: number; bo
     });
     req.end();
   });
+}
+
+// ── Retry wrapper ────────────────────────────────────────────────────────────
+async function httpsGetWithRetry(
+  url: string,
+  retries = 3,
+): Promise<{ status: number; body: string }> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await httpsGet(url);
+    } catch (err: unknown) {
+      lastErr = err;
+      const msg = (err as Error)?.message ?? '';
+      const isRetryable =
+        msg.includes('ECONNRESET') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('Timeout');
+      if (!isRetryable || attempt === retries) break;
+      // Exponential back-off: 700 ms, 1.4 s, 2.8 s …
+      await new Promise(r => setTimeout(r, 700 * attempt));
+    }
+  }
+  throw lastErr;
 }
 
 // ── Main action ───────────────────────────────────────────────────────────────
@@ -89,7 +119,7 @@ export async function fetchCerFromBcra(desde: string, hasta: string): Promise<Fe
     `?Desde=${desde}&Hasta=${hastaFinal}&Limit=2000`;
 
   try {
-    const { status, body } = await httpsGet(url);
+    const { status, body } = await httpsGetWithRetry(url);
 
     if (status < 200 || status >= 300) {
       let detail = '';
@@ -145,8 +175,9 @@ export async function fetchCerFromBcra(desde: string, hasta: string): Promise<Fe
     return {
       ok: false,
       error: isConnIssue
-        ? 'No se pudo conectar con la API del BCRA desde el servidor. ' +
-          'Usá "Importar desde Excel" con el archivo .xlsx descargado de bcra.gob.ar → Serie 3540. ' +
+        ? 'No se pudo conectar con la API del BCRA (Estadísticas). ' +
+          'El servidor puede estar temporalmente inaccesible. ' +
+          'Intentá de nuevo o usá "Importar desde Excel" con el .xlsx de bcra.gob.ar → Serie 3540. ' +
           `(${msg})`
         : `Error al importar desde el BCRA: ${msg}`,
     };
