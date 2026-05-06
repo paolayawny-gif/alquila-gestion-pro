@@ -112,11 +112,12 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
     }
 
-    // Tickets de mantenimiento compartidos admin↔inquilino
+    // Tickets de mantenimiento compartidos admin↔inquilino↔propietario
     match /artifacts/{appId}/maintenanceTickets/{ticketId} {
       allow read: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.token.email == resource.data.tenantEmail ||
+        (resource.data.ownerVisible == true && request.auth.token.email == resource.data.ownerEmail) ||
         isSuperAdmin()
       );
       allow create: if isSignedIn();

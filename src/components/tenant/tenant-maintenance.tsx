@@ -36,6 +36,10 @@ export interface MaintenanceTicket {
   priority: TicketPriority;
   status: TicketStatus;
   adminResponse?: string;
+  photoUrl?: string;       // URL to a photo of the issue (tenant provides)
+  ownerEmail?: string;     // set by admin when notifying the property owner
+  ownerVisible?: boolean;  // true once admin has forwarded to owner
+  ownerNotifiedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +66,7 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
   const [description,setDescription] = useState('');
   const [category,   setCategory]   = useState<TicketCategory>('Otro');
   const [priority,   setPriority]   = useState<TicketPriority>('Normal');
+  const [photoUrl,   setPhotoUrl]   = useState('');
   const [detail,     setDetail]     = useState<MaintenanceTicket | null>(null);
 
   const ticketsQ = useMemoFirebase(() => {
@@ -89,11 +94,12 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
       propertyName: tenantEntry.propertyName,
       title: title.trim(), description: description.trim(),
       category, priority, status: 'Abierto',
+      photoUrl: photoUrl.trim() || '',
       createdAt: now, updatedAt: now,
     };
     setDocumentNonBlocking(ref, ticket, {});
     toast({ title: '✅ Solicitud enviada', description: 'La administración fue notificada.' });
-    setTitle(''); setDescription(''); setCategory('Otro'); setPriority('Normal');
+    setTitle(''); setDescription(''); setCategory('Otro'); setPriority('Normal'); setPhotoUrl('');
     setShowNew(false);
   };
 
@@ -238,6 +244,17 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
                 onChange={e => setDescription(e.target.value)}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>Foto del problema (opcional)</Label>
+              <input
+                type="url"
+                placeholder="Pegá un link a la foto (Google Fotos, Drive, etc.)"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                value={photoUrl}
+                onChange={e => setPhotoUrl(e.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground">Podés subir la foto a Google Fotos o Drive y pegar el enlace aquí.</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNew(false)}>Cancelar</Button>
@@ -265,6 +282,20 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
                 <div className="p-3 bg-muted/30 rounded-lg">
                   <p className="text-xs font-bold text-muted-foreground mb-1">Tu mensaje</p>
                   <p className="text-sm">{detail.description}</p>
+                </div>
+              )}
+              {detail.photoUrl && (
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-muted-foreground">Foto adjunta</p>
+                  <a href={detail.photoUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-primary underline break-all">
+                    Ver foto →
+                  </a>
+                </div>
+              )}
+              {detail.ownerNotifiedAt && (
+                <div className="flex items-center gap-1.5 p-2 bg-emerald-50 border border-emerald-100 rounded-lg">
+                  <span className="text-[10px] text-emerald-700 font-medium">✓ Propietario notificado</span>
                 </div>
               )}
               {detail.adminResponse ? (

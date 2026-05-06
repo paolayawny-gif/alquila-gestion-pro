@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Building2, Calculator,
   LogOut, ChevronLeft, ChevronRight, Home, Menu,
-  ShieldOff, ShieldAlert,
+  ShieldOff, ShieldAlert, Bell, ShoppingBag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -13,6 +13,8 @@ import { OwnerHome } from './owner-home';
 import { OwnerProperties } from './owner-properties';
 import { OwnerLiquidations } from './owner-liquidations';
 import { OwnerMessages } from './owner-messages';
+import { OwnerClaims } from './owner-claims';
+import { OwnerMarketplace } from './owner-marketplace';
 
 export interface OwnerRegistryEntry {
   ownerEmail: string;
@@ -23,13 +25,15 @@ export interface OwnerRegistryEntry {
   status?: 'activo' | 'suspendido' | 'inactivo';
 }
 
-type OwnerTab = 'Inicio' | 'Propiedades' | 'Liquidaciones' | 'Mensajes';
+type OwnerTab = 'Inicio' | 'Propiedades' | 'Liquidaciones' | 'Mensajes' | 'Reclamos' | 'Marketplace';
 
 const OWNER_MENU: { id: OwnerTab; icon: React.ElementType; label: string }[] = [
-  { id: 'Inicio',         icon: LayoutDashboard, label: 'Inicio'         },
+  { id: 'Inicio',         icon: LayoutDashboard, label: 'Inicio'          },
   { id: 'Propiedades',    icon: Building2,       label: 'Mis Propiedades' },
-  { id: 'Liquidaciones',  icon: Calculator,      label: 'Liquidaciones'  },
-  { id: 'Mensajes',       icon: MessageSquare,   label: 'Mensajes'       },
+  { id: 'Liquidaciones',  icon: Calculator,      label: 'Liquidaciones'   },
+  { id: 'Reclamos',       icon: Bell,            label: 'Reclamos'        },
+  { id: 'Marketplace',    icon: ShoppingBag,     label: 'Marketplace'     },
+  { id: 'Mensajes',       icon: MessageSquare,   label: 'Mensajes'        },
 ];
 
 interface OwnerPortalProps {
@@ -92,11 +96,13 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'Inicio':        return <OwnerHome         ownerEntry={ownerEntry} onNavigate={setActiveTab} />;
-      case 'Propiedades':   return <OwnerProperties   ownerEntry={ownerEntry} />;
+      case 'Inicio':        return <OwnerHome        ownerEntry={ownerEntry} onNavigate={setActiveTab} />;
+      case 'Propiedades':   return <OwnerProperties  ownerEntry={ownerEntry} />;
       case 'Liquidaciones': return <OwnerLiquidations ownerEntry={ownerEntry} />;
-      case 'Mensajes':      return <OwnerMessages     ownerEntry={ownerEntry} />;
-      default:              return <OwnerHome         ownerEntry={ownerEntry} onNavigate={setActiveTab} />;
+      case 'Reclamos':      return <OwnerClaims      ownerEntry={ownerEntry} />;
+      case 'Marketplace':   return <OwnerMarketplace ownerEntry={ownerEntry} />;
+      case 'Mensajes':      return <OwnerMessages    ownerEntry={ownerEntry} />;
+      default:              return <OwnerHome        ownerEntry={ownerEntry} onNavigate={setActiveTab} />;
     }
   };
 

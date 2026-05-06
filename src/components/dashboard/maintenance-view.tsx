@@ -54,6 +54,7 @@ import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/f
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
+import { TenantTicketsAdminView } from './tenant-tickets-admin-view';
 
 interface MaintenanceViewProps {
   tasks: MaintenanceTask[];
@@ -69,6 +70,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
 
+  const [mainTab, setMainTab] = useState<'tasks' | 'tickets'>('tasks');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'inprogress' | 'resolved'>('all');
   const [isNewClaimOpen, setIsNewClaimOpen] = useState(false);
@@ -223,6 +225,41 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+
+      {/* ── Tab switcher ── */}
+      <div className="flex gap-2 border-b pb-3">
+        <button
+          onClick={() => setMainTab('tasks')}
+          className={cn(
+            'px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2',
+            mainTab === 'tasks'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted',
+          )}
+        >
+          <Wrench className="h-4 w-4" /> Tareas Internas
+        </button>
+        <button
+          onClick={() => setMainTab('tickets')}
+          className={cn(
+            'px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2',
+            mainTab === 'tickets'
+              ? 'bg-amber-50 text-amber-700'
+              : 'text-muted-foreground hover:bg-muted',
+          )}
+        >
+          <ClipboardList className="h-4 w-4" /> Reclamos de Inquilinos
+        </button>
+      </div>
+
+      {/* ── Tenant tickets tab ── */}
+      {mainTab === 'tickets' && (
+        <TenantTicketsAdminView userId={userId} properties={properties} />
+      )}
+
+      {/* ── Internal tasks tab ── */}
+      {mainTab === 'tasks' && <>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card
@@ -583,6 +620,9 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Close tasks tab fragment */}
+      </>}
     </div>
   );
 }
