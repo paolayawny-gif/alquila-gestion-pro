@@ -238,35 +238,35 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
   // Commissions panel (super admin)
   const [showCommissions, setShowCommissions] = useState(false);
 
-  // ── Firestore — shared global collections ──
+  // ── Firestore — per-user community collections ──
   const postsQ = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'comunidadPosts'), orderBy('createdAt', 'desc'));
-  }, [db]);
+    if (!db || !uid) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', uid, 'comunidadPosts'), orderBy('createdAt', 'desc'));
+  }, [db, uid]);
   const { data: postsRaw } = useCollection<CommunityPost>(postsQ);
 
   const itemsQ = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'comunidadMarketplace'), orderBy('createdAt', 'desc'));
-  }, [db]);
+    if (!db || !uid) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', uid, 'comunidadMarketplace'), orderBy('createdAt', 'desc'));
+  }, [db, uid]);
   const { data: itemsRaw } = useCollection<MarketplaceItem>(itemsQ);
 
   const eventosQ = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'comunidadEventos'), orderBy('createdAt', 'desc'));
-  }, [db]);
+    if (!db || !uid) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', uid, 'comunidadEventos'), orderBy('createdAt', 'desc'));
+  }, [db, uid]);
   const { data: eventosRaw } = useCollection<CommunityEvent>(eventosQ);
 
   const beneficiosQ = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'comunidadBeneficios'), orderBy('createdAt', 'desc'));
-  }, [db]);
+    if (!db || !uid) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', uid, 'comunidadBeneficios'), orderBy('createdAt', 'desc'));
+  }, [db, uid]);
   const { data: beneficiosRaw } = useCollection<Benefit>(beneficiosQ);
 
   const transQ = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'comunidadTransacciones'), orderBy('createdAt', 'desc'));
-  }, [db]);
+    if (!db || !uid) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', uid, 'comunidadTransacciones'), orderBy('createdAt', 'desc'));
+  }, [db, uid]);
   const { data: transRaw } = useCollection<CommissionRecord>(transQ);
 
   const posts      = postsRaw      ?? [];
@@ -283,7 +283,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
   const handlePost = () => {
     if (!newPostText.trim() || !db) return;
     const id  = Math.random().toString(36).substr(2, 9);
-    const ref = doc(db, 'artifacts', APP_ID, 'comunidadPosts', id);
+    const ref = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadPosts', id);
     const data: CommunityPost = {
       id, authorId: uid, authorName: uName,
       authorInitial: initial(uName), authorColor: avatarColor(uName),
@@ -299,7 +299,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
 
   const handleLike = (post: CommunityPost) => {
     if (!db || !uid) return;
-    const ref   = doc(db, 'artifacts', APP_ID, 'comunidadPosts', post.id);
+    const ref   = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadPosts', post.id);
     const likes = post.likes.includes(uid)
       ? post.likes.filter(l => l !== uid)
       : [...post.likes, uid];
@@ -308,7 +308,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
 
   const handleReply = (post: CommunityPost, txt: string) => {
     if (!db) return;
-    const ref   = doc(db, 'artifacts', APP_ID, 'comunidadPosts', post.id);
+    const ref   = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadPosts', post.id);
     const reply: PostReply = {
       id: Math.random().toString(36).substr(2, 6),
       authorId: uid, authorName: uName,
@@ -320,7 +320,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
 
   const handleDeletePost = (id: string) => {
     if (!db) return;
-    deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadPosts', id));
+    deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadPosts', id));
     toast({ title: 'Publicación eliminada' });
   };
 
@@ -328,7 +328,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
   const handleSaveItem = () => {
     if (!itemForm.title.trim() || !db) return;
     const id  = Math.random().toString(36).substr(2, 9);
-    const ref = doc(db, 'artifacts', APP_ID, 'comunidadMarketplace', id);
+    const ref = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadMarketplace', id);
     const data: MarketplaceItem = {
       id, sellerId: uid, sellerName: uName, sellerAdminId: uid,
       title: itemForm.title.trim(), description: itemForm.description.trim(),
@@ -354,12 +354,12 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
     const adminCom = Math.round(amount * ADMIN_COMMISSION);
     const superCom = Math.round(amount * SUPER_COMMISSION);
     // Update item status
-    const itemRef = doc(db, 'artifacts', APP_ID, 'comunidadMarketplace', saleItem.id);
+    const itemRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadMarketplace', saleItem.id);
     setDocumentNonBlocking(itemRef, { status: 'Vendido' }, { merge: true });
     // Record commission
     if (amount > 0) {
       const tId  = Math.random().toString(36).substr(2, 9);
-      const tRef = doc(db, 'artifacts', APP_ID, 'comunidadTransacciones', tId);
+      const tRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadTransacciones', tId);
       const rec: CommissionRecord = {
         id: tId, itemId: saleItem.id, itemTitle: saleItem.title,
         saleAmount: amount, sellerId: saleItem.sellerId, sellerName: saleItem.sellerName,
@@ -377,7 +377,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
   const handleSaveEvento = () => {
     if (!eventoForm.title.trim() || !eventoForm.date || !db) return;
     const id  = Math.random().toString(36).substr(2, 9);
-    const ref = doc(db, 'artifacts', APP_ID, 'comunidadEventos', id);
+    const ref = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadEventos', id);
     const data: CommunityEvent = {
       id, creatorId: uid, creatorName: uName,
       title: eventoForm.title.trim(), description: eventoForm.description.trim(),
@@ -396,7 +396,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
   const handleSaveBenefit = () => {
     if (!benefForm.businessName.trim() || !benefForm.discountText.trim() || !db) return;
     const id  = Math.random().toString(36).substr(2, 9);
-    const ref = doc(db, 'artifacts', APP_ID, 'comunidadBeneficios', id);
+    const ref = doc(db, 'artifacts', APP_ID, 'users', uid, 'comunidadBeneficios', id);
     const data: Benefit = {
       id, adminId: uid,
       businessName: benefForm.businessName.trim(), distance: benefForm.distance.trim(),
