@@ -7,8 +7,8 @@
  *   GET https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias/{IdVariable}
  *       ?Desde=YYYY-MM-DD&Hasta=YYYY-MM-DD&Limit=2000
  *
- * Variable 3540 = Coeficiente de Estabilización de Referencia (CER) — diario.
- * La serie comienza el 01/02/2002.
+ * Variable ID se descubre automáticamente buscando "CER" en el catálogo.
+ * El ID conocido (3540) se intenta primero; si da 404 se busca en el listado.
  *
  * Usa node:https con keepAlive:false y rejectUnauthorized:false para
  * evitar ECONNRESET desde entornos serverless (Vercel).
@@ -26,7 +26,10 @@ export type FetchCerResult =
   | { ok: true; data: CerDataPoint[] }
   | { ok: false; error: string };
 
-const CER_VARIABLE_ID = 3540;
+// Known CER variable IDs to try before falling back to auto-discovery.
+// BCRA renumbered variables between API versions; we try these in order.
+const CER_CANDIDATE_IDS = [3540, 3541, 400039];
+
 const MIN_DATE = '2002-02-01';
 
 // ── HTTPS helper with keepAlive:false ────────────────────────────────────────
@@ -92,6 +95,84 @@ async function httpsGetWithRetry(
   throw lastErr;
 }
 
+// ── CER variable ID discovery ─────────────────────────────────────────────────
+// If known IDs all return 404, fetch the full Monetarias catalog and look for
+// any entry whose descripcion/detalle contains "CER" or "Coeficiente de Estabilización".
+async function discoverCerVariableId(): Promise<number | null> {
+  // Try up to 1000 entries; CER is a well-known daily series so it should appear early.
+  const url = 'https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias?Periodicidad=D&Limit=500';
+  try {
+    const { status, body } = await httpsGetWithRetry(url);
+    if (status !== 200) return null;
+    const json = JSON.parse(body) as {
+      results?: { idVariable: number; descripcion?: string | null }[];
+    };
+    const items = json.results ?? [];
+    // Search for CER by description keywords
+    const cerKeywords = ['cer', 'coeficiente de estabilización', 'coeficiente estabilizacion'];
+    for (const item of items) {
+      const desc = (item.descripcion ?? '').toLowerCase();
+      if (cerKeywords.some(kw => desc.includes(kw))) {
+        return item.idVariable;
+      }
+    }
+    // Second pass: look for anything with "estabiliz" (catches spelling variants)
+    for (const item of items) {
+      const desc = (item.descripcion ?? '').toLowerCase();
+      if (desc.includes('estabiliz')) {
+        return item.idVariable;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Fetch data for a specific variable ID ────────────────────────────────────
+async function fetchCerData(
+  variableId: number,
+  desde: string,
+  hastaFinal: string,
+): Promise<{ status: number; data: CerDataPoint[] | null }> {
+  const url =
+    `https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias/${variableId}` +
+    `?Desde=${desde}&Hasta=${hastaFinal}&Limit=2000`;
+
+  const { status, body } = await httpsGetWithRetry(url);
+
+  if (status === 404) return { status: 404, data: null };
+  if (status < 200 || status >= 300) {
+    let detail = '';
+    try {
+      const parsed = JSON.parse(body) as { errorMessages?: string[] };
+      detail = parsed.errorMessages?.join(', ') ?? body.slice(0, 200);
+    } catch { detail = body.slice(0, 200); }
+    throw new Error(`BCRA respondió ${status}: ${detail}`);
+  }
+
+  const json = JSON.parse(body) as {
+    results?: { idVariable: number; detalle?: { fecha: string; valor: number }[] }[];
+  };
+
+  // v4.0 shape: results[0].detalle[]
+  const detalle: { fecha: string; valor: number }[] =
+    Array.isArray(json.results?.[0]?.detalle)
+      ? json.results![0].detalle!
+      : Array.isArray(json.results)
+      ? (json.results as unknown as { fecha: string; valor: number }[])
+      : [];
+
+  if (!detalle.length) return { status: 200, data: null };
+
+  return {
+    status: 200,
+    data: detalle
+      .filter(r => r.fecha && r.valor != null)
+      .map(r => ({ date: r.fecha, value: r.valor })),
+  };
+}
+
 // ── Main action ───────────────────────────────────────────────────────────────
 
 export async function fetchCerFromBcra(desde: string, hasta: string): Promise<FetchCerResult> {
@@ -114,59 +195,55 @@ export async function fetchCerFromBcra(desde: string, hasta: string): Promise<Fe
     return { ok: false, error: '"Desde" no puede ser posterior a "Hasta".' };
   }
 
-  const url =
-    `https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias/${CER_VARIABLE_ID}` +
-    `?Desde=${desde}&Hasta=${hastaFinal}&Limit=2000`;
-
   try {
-    const { status, body } = await httpsGetWithRetry(url);
+    // ── Step 1: try known candidate IDs ──────────────────────────────────────
+    for (const candidateId of CER_CANDIDATE_IDS) {
+      const result = await fetchCerData(candidateId, desde, hastaFinal);
+      if (result.status === 404) continue; // try next
+      if (result.data && result.data.length > 0) {
+        return { ok: true, data: result.data };
+      }
+      // status=200 but empty data — date range might be wrong for this variable
+      if (result.status === 200 && result.data !== null) {
+        return {
+          ok: false,
+          error:
+            'El BCRA no devolvió datos para ese rango de fechas. ' +
+            'La serie CER comienza en febrero de 2002; verificá que las fechas sean correctas. ' +
+            'También podés usar "Importar desde Excel" con el archivo descargado de bcra.gob.ar.',
+        };
+      }
+    }
 
-    if (status < 200 || status >= 300) {
-      let detail = '';
-      try {
-        const parsed = JSON.parse(body) as { errorMessages?: string[] };
-        detail = parsed.errorMessages?.join(', ') ?? body.slice(0, 200);
-      } catch { detail = body.slice(0, 200); }
+    // ── Step 2: auto-discover via catalog ────────────────────────────────────
+    const discoveredId = await discoverCerVariableId();
 
+    if (discoveredId === null) {
       return {
         ok: false,
         error:
-          `El BCRA respondió con error ${status}. ` +
-          `Verificá el rango de fechas (la serie comienza en ${MIN_DATE}). ` +
-          (detail ? `Detalle: ${detail}` : ''),
+          'No se encontró la variable CER en el catálogo del BCRA (v4.0). ' +
+          'Es posible que la API haya sido actualizada. ' +
+          'Usá "Importar desde Excel" con el archivo .xlsx de bcra.gob.ar.',
       };
     }
 
-    const json = JSON.parse(body) as {
-      results?: { idVariable: number; detalle?: { fecha: string; valor: number }[] }[];
-    };
+    const result = await fetchCerData(discoveredId, desde, hastaFinal);
 
-    // v4.0: results[0].detalle[]  |  fallback: results[] flat
-    const detalle: { fecha: string; valor: number }[] =
-      Array.isArray(json.results?.[0]?.detalle)
-        ? json.results![0].detalle!
-        : Array.isArray(json.results)
-        ? (json.results as unknown as { fecha: string; valor: number }[])
-        : [];
-
-    if (!detalle.length) {
+    if (result.status === 404 || !result.data || result.data.length === 0) {
       return {
         ok: false,
         error:
-          'El BCRA no devolvió datos para ese rango de fechas. ' +
-          'La serie CER comienza en febrero de 2002; verificá que las fechas sean correctas. ' +
-          'También podés usar "Importar desde Excel" con el archivo descargado de bcra.gob.ar.',
+          `Variable CER encontrada (ID ${discoveredId}) pero sin datos para el rango indicado. ` +
+          'Verificá que las fechas sean correctas (la serie comienza en febrero de 2002). ' +
+          'También podés usar "Importar desde Excel".',
       };
     }
 
-    return {
-      ok: true,
-      data: detalle
-        .filter(r => r.fecha && r.valor != null)
-        .map(r => ({ date: r.fecha, value: r.valor })),
-    };
-  } catch (err: any) {
-    const msg: string = err?.message ?? 'Error de red';
+    return { ok: true, data: result.data };
+
+  } catch (err: unknown) {
+    const msg: string = (err as Error)?.message ?? 'Error de red';
     const isConnIssue =
       msg.includes('ECONNRESET') ||
       msg.includes('ETIMEDOUT') ||
@@ -177,7 +254,7 @@ export async function fetchCerFromBcra(desde: string, hasta: string): Promise<Fe
       error: isConnIssue
         ? 'No se pudo conectar con la API del BCRA (Estadísticas). ' +
           'El servidor puede estar temporalmente inaccesible. ' +
-          'Intentá de nuevo o usá "Importar desde Excel" con el .xlsx de bcra.gob.ar → Serie 3540. ' +
+          'Intentá de nuevo o usá "Importar desde Excel" con el .xlsx de bcra.gob.ar. ' +
           `(${msg})`
         : `Error al importar desde el BCRA: ${msg}`,
     };
