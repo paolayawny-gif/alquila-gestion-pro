@@ -81,22 +81,44 @@ const aiCommunicationAssistantPrompt = ai.definePrompt({
 Tu misión es redactar mensajes elegantes, modernos, profesionales y, sobre todo, CLAROS.
 
 ### REGLA DE ORO DE PUNTUACIÓN (CRÍTICA):
-1. **ESPACIOS**: Deja SIEMPRE un espacio ( ) después de cada punto (.), coma (,), punto y coma (;) o dos puntos (:). 
+1. **ESPACIOS**: Deja SIEMPRE un espacio ( ) después de cada punto (.), coma (,), punto y coma (;) o dos puntos (:).
 2. **NUNCA** pegues la siguiente palabra al signo de puntuación. Ejemplo: "Hola. Espero" (BIEN), "Hola.Espero" (MAL).
 3. **PUNTOS A PARTE**: Divide el texto en párrafos cortos (máximo 3 líneas). Usa el punto y aparte frecuentemente para dar aire al texto.
 4. **SALTOS DE LÍNEA**: Separa cada párrafo con DOS (2) saltos de línea (\n\n).
 
 ### INSTRUCCIONES POR TIPO:
-- **leaseAdjustment**: Informar sobre el nuevo valor del alquiler basado en índices.
-- **maintenanceUpdate**: Informar al PROPIETARIO sobre una reparación en su unidad. Detalla el concepto ({{{maintenanceConcept}}}), el estado ({{{maintenanceStatus}}}) y el costo estimado/real ({{{maintenanceCost}}}). Justifica la necesidad del arreglo para mantener el valor del inmueble.
-- **rentReminder**: Recordatorio cordial de pago.
+- **leaseAdjustment**: Informar sobre el NUEVO valor del alquiler basado en índices. Mencionar EXPLÍCITAMENTE el monto actual, el nuevo monto y el índice utilizado. El nuevo valor debe quedar resaltado y claro.
+- **maintenanceUpdate**: Informar al PROPIETARIO sobre una reparación en su unidad. Detalla el concepto, el estado y el costo estimado/real. Justifica la necesidad del arreglo para mantener el valor del inmueble.
+- **rentReminder**: Recordatorio cordial de pago. Incluir monto y fecha de vencimiento.
+- **rentOverdue**: Aviso de mora. Mencionar monto adeudado y urgencia de regularización.
+- **leaseRenewal**: Informar vencimiento próximo. Incluir fecha de fin de contrato y próximos pasos.
+- **ownerLiquidationReport**: Liquidación mensual al propietario. Incluir período, ingresos, deducciones y monto neto.
+- **portalInvitation**: Invitación al portal. Incluir el rol y el enlace de acceso.
+- **generalMessage**: Mensaje general con el contexto provisto.
 
 ### CONTEXTO DE LOS DATOS:
 - Destinatario: {{#if tenantName}}{{tenantName}}{{else}}{{#if ownerName}}{{ownerName}}{{else}}Cliente{{/if}}{{/if}}
 - Propiedad: {{{propertyName}}}{{#if propertyAddress}} ({{{propertyAddress}}}){{/if}}
-- Detalles adicionales: {{{additionalContext}}}
+{{#if currentRentAmount}}- Alquiler actual: **{{{currentRentAmount}}}**{{/if}}
+{{#if newRentAmount}}- Nuevo alquiler: **{{{newRentAmount}}}**{{/if}}
+{{#if adjustmentIndex}}- Índice de ajuste aplicado: {{{adjustmentIndex}}}{{/if}}
+{{#if amountDue}}- Monto adeudado: **{{{amountDue}}}**{{/if}}
+{{#if dueDate}}- Fecha de vencimiento: {{{dueDate}}}{{/if}}
+{{#if currentLeaseStartDate}}- Inicio de contrato: {{{currentLeaseStartDate}}}{{/if}}
+{{#if currentLeaseEndDate}}- Fin de contrato: {{{currentLeaseEndDate}}}{{/if}}
+{{#if maintenanceConcept}}- Concepto de mantenimiento: {{{maintenanceConcept}}}{{/if}}
+{{#if maintenanceStatus}}- Estado del trabajo: {{{maintenanceStatus}}}{{/if}}
+{{#if maintenanceCost}}- Costo estimado/real: {{{maintenanceCost}}}{{/if}}
+{{#if reportingPeriod}}- Período de liquidación: {{{reportingPeriod}}}{{/if}}
+{{#if totalIncome}}- Ingresos totales: {{{totalIncome}}}{{/if}}
+{{#if totalExpenses}}- Deducciones/gastos: {{{totalExpenses}}}{{/if}}
+{{#if netAmount}}- Monto neto al propietario: **{{{netAmount}}}**{{/if}}
+{{#if role}}- Rol del destinatario: {{{role}}}{{/if}}
+{{#if portalUrl}}- URL del portal: {{{portalUrl}}}{{/if}}
+{{#if additionalContext}}- Contexto adicional: {{{additionalContext}}}{{/if}}
 
-Redacta el correo completo en ESPAÑOL, incluyendo un ASUNTO formal. El texto debe estar pensado para ser visualizado en formato JUSTIFICADO.`,
+Redacta el correo completo en ESPAÑOL, incluyendo un ASUNTO formal. El texto debe estar pensado para ser visualizado en formato JUSTIFICADO.
+IMPORTANTE: Usa SIEMPRE los valores numéricos concretos provistos arriba (montos, fechas, índices). Nunca uses placeholders ni dejes campos vacíos.`,
 });
 
 const aiCommunicationAssistantFlow = ai.defineFlow(

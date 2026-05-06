@@ -149,6 +149,8 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     const dueDate = new Date(new Date().getFullYear(), new Date().getMonth(), 10).toLocaleDateString('es-AR');
 
     let count = 0;
+    const emailPromises: Promise<any>[] = [];
+
     contracts.filter(c => c.status === 'Vigente').forEach(contract => {
       const exists = invoices.find(i => i.contractId === contract.id && i.period === currentMonth && i.charges.some(ch => ch.type === 'Alquiler'));
       if (!exists) {
@@ -183,13 +185,35 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         };
         setDocumentNonBlocking(docRef, invoiceData, { merge: true });
         count++;
+
+        // Send notification email to tenant if email is available
+        if (contract.tenantEmail) {
+          const emailTask = aiCommunicationAssistant({
+            communicationType: 'rentReminder',
+            tenantName: contract.tenantName ?? 'Inquilino',
+            propertyName: contract.propertyName ?? 'Propiedad',
+            amountDue: `${contract.currency} ${contract.currentRentAmount.toLocaleString('es-AR')}`,
+            dueDate,
+            additionalContext: `Nueva factura de alquiler generada para el período ${currentMonth}. El comprobante ya está disponible en su portal personal.`,
+          }).then(draft =>
+            sendEmail({
+              to: contract.tenantEmail!,
+              subject: draft.subjectLine,
+              html: `<div style="text-align:justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`,
+            })
+          ).catch(() => {}); // silent — don't block invoice creation
+          emailPromises.push(emailTask);
+        }
       }
     });
 
+    // Fire emails in background (don't await — they're best-effort)
+    Promise.allSettled(emailPromises);
+
     setIsGeneratingRent(false);
-    toast({ 
-      title: "Proceso Completado", 
-      description: `Se han generado ${count} recordatorios de alquiler para ${currentMonth}.` 
+    toast({
+      title: "Proceso Completado",
+      description: `Se han generado ${count} facturas para ${currentMonth}${emailPromises.length > 0 ? ` · Notificando a ${emailPromises.length} inquilino${emailPromises.length > 1 ? 's' : ''} por email` : ''}.`,
     });
   };
 
@@ -324,6 +348,24 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     setDocumentNonBlocking(docRef, invoiceData, { merge: true });
     setIsManualDialogOpen(false);
     toast({ title: "Cargo Generado", description: "El concepto ha sido registrado." });
+
+    // Notify tenant by email if the charge is for them and we have their email
+    if (manualCharge.imputedTo === 'Inquilino' && contract.tenantEmail) {
+      aiCommunicationAssistant({
+        communicationType: 'generalMessage',
+        tenantName: contract.tenantName ?? 'Inquilino',
+        propertyName: contract.propertyName ?? 'Propiedad',
+        amountDue: `${contract.currency} ${manualCharge.amount.toLocaleString('es-AR')}`,
+        dueDate: manualCharge.dueDate,
+        additionalContext: `Se ha registrado un nuevo cargo en tu cuenta: ${manualCharge.type}${manualCharge.description ? ` — ${manualCharge.description}` : ''} por ${contract.currency} ${manualCharge.amount.toLocaleString('es-AR')}. Vencimiento: ${manualCharge.dueDate}. El detalle ya está disponible en tu portal.`,
+      }).then(draft =>
+        sendEmail({
+          to: contract.tenantEmail!,
+          subject: draft.subjectLine,
+          html: `<div style="text-align:justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`,
+        })
+      ).catch(() => {}); // best-effort
+    }
   };
 
   return (

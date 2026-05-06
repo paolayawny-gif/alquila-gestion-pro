@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -307,6 +307,14 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     });
   };
 
+  // Auto-calculate rent adjustment when the notification dialog opens
+  useEffect(() => {
+    if (isAdjNotifOpen && selectedAdjContract?.adjustmentMechanism && newRentValueInput === 0) {
+      handleAutoCalculate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdjNotifOpen, selectedAdjContract]);
+
   const handleAutoCalculate = () => {
     if (!selectedAdjContract || !selectedAdjContract.adjustmentMechanism) return;
     setIsCalculatingIndex(true);
@@ -356,16 +364,19 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const handleGenerateAdjDraft = async () => {
     if (!selectedAdjContract || !newRentValueInput) return;
     try {
+      const cur = selectedAdjContract.currentRentAmount;
+      const pct = cur > 0 ? ((newRentValueInput / cur - 1) * 100).toFixed(1) : '0';
+      const sym = selectedAdjContract.currency;
       const draft = await aiCommunicationAssistant({
         communicationType: 'leaseAdjustment',
         tenantName: selectedAdjContract.tenantName,
         propertyName: selectedAdjContract.propertyName,
-        currentRentAmount: `${selectedAdjContract.currency} ${selectedAdjContract.currentRentAmount.toLocaleString('es-AR')}`,
-        newRentAmount: `${selectedAdjContract.currency} ${newRentValueInput.toLocaleString('es-AR')}`,
+        currentRentAmount: `${sym} ${cur.toLocaleString('es-AR')}`,
+        newRentAmount: `${sym} ${newRentValueInput.toLocaleString('es-AR')}`,
         adjustmentIndex: selectedAdjContract.adjustmentMechanism || 'Fijo',
         currentLeaseStartDate: selectedAdjContract.startDate,
         currentLeaseEndDate: selectedAdjContract.endDate,
-        additionalContext: "Informar al inquilino que debido a la actualización por índice prevista en el contrato, el valor del alquiler mensual subirá a partir del próximo mes."
+        additionalContext: `El alquiler pasa de ${sym} ${cur.toLocaleString('es-AR')} a ${sym} ${newRentValueInput.toLocaleString('es-AR')} (incremento del ${pct}%) según el índice ${selectedAdjContract.adjustmentMechanism || 'contractual'}. Vigencia a partir del próximo período.`,
       });
       setAdjDraft(draft);
     } catch (e) {
