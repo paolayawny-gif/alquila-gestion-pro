@@ -79,6 +79,26 @@ export interface Property {
   virtualTourUrl?: string;
   /** Manuales de electrodomésticos u otros documentos de la unidad */
   manuals?: PropertyManual[];
+  // ── Análisis de valor (Panel Analítico) ──────────────────────────────────
+  purchasePrice?: number;        // precio de compra en $
+  currentValue?: number;         // valuación actual en $
+  purchaseYear?: number;         // año de compra
+  marketPricePerSqm?: number;    // precio de mercado referencia $/m²
+  annualGrowthRate?: number;     // tasa de crecimiento anual esperada (%, ej: 8)
+}
+
+// ── Fondos de Reserva ─────────────────────────────────────────────────────────
+export interface ReserveFund {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  category: string;        // 'Estructural' | 'Ascensores' | 'Impermeabilización' | 'Otro'
+  targetAmount: number;
+  currentAmount: number;
+  targetYear?: number;
+  notes?: string;
+  ownerId: string;
+  createdAt: string;
 }
 
 export interface RentalApplication {

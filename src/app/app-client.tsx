@@ -55,6 +55,7 @@ import { ApplicationsView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
 import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
 import { ReportsView } from '@/components/dashboard/reports-view';
+import { AnalyticsPanelView } from '@/components/dashboard/analytics-panel-view';
 import { IndexRecordsView } from '@/components/dashboard/index-records-view';
 import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
 import { DepositsView } from '@/components/dashboard/deposits-view';
@@ -119,7 +120,7 @@ const ADMIN_MENU = [
   { id: 'Índices', icon: LineChart, label: 'Índices Oficiales' },
   { id: 'Libro Mayor', icon: BookOpen, label: 'Libro Mayor' },
   { id: 'Simulador ROI', icon: TrendingUp, label: 'Simulador de Rentabilidad' },
-  { id: 'Reportes', icon: BarChart3, label: 'Reportes y Analítica' },
+  { id: 'Reportes', icon: BarChart3, label: 'Panel Analítico' },
   { id: 'Análisis IA', icon: BrainCircuit, label: 'Análisis IA' },
   { id: 'Asistente IA', icon: MessageSquareCode, label: 'Asistente IA' },
 ];
@@ -253,7 +254,7 @@ export default function AppClient() {
       case 'Legales': return <LegalView legalCases={legalCases as any} userId={user?.uid} properties={properties} />;
       case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} />;
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
-      case 'Reportes': return <ReportsView />;
+      case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases as any} assets={monetizableAssets as any} userId={user?.uid} />;
       case 'Análisis IA': return <AIAnalyticsView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
       case 'Asistente IA': return <AIAssistantView />;
       case 'Super Admin': return <SuperAdminView userId={user?.uid} userEmail={user?.email ?? ''} />;
