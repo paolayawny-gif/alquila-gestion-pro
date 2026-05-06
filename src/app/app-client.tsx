@@ -101,36 +101,75 @@ type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' |
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
-const ADMIN_MENU = [
-  { id: 'Resumen', icon: LayoutDashboard, label: 'Panel de Control' },
-  { id: 'Propiedades', icon: Building, label: 'Propiedades' },
-  { id: 'Personas', icon: Users, label: 'Personas y Contratos' },
-  { id: 'Generador Contratos', icon: FilePen, label: 'Generador de Contratos' },
-  { id: 'Contratos Smart', icon: Zap, label: 'Contratos Smart' },
-  { id: 'Garantías', icon: PiggyBank, label: 'Garantías y Depósitos' },
-  { id: 'Solicitudes', icon: UserPlus, label: 'Gestión de Solicitudes' },
-  { id: 'Facturas', icon: FileSpreadsheet, label: 'Facturas y Servicios' },
-  { id: 'Mantenimiento', icon: Wrench, label: 'Mantenimiento' },
-  { id: 'Mantenimiento Predictivo', icon: ShieldPlus, label: 'Mantenimiento Predictivo' },
-  { id: 'Proveedores', icon: HardHat, label: 'Directorio de Proveedores' },
-  { id: 'Mensajes', icon: MessagesSquare, label: 'Mensajes' },
-  { id: 'Rentas Híbridas', icon: CalendarRange, label: 'Rentas Híbridas' },
-  { id: 'Votaciones', icon: Vote, label: 'Votaciones Comunitarias' },
-  { id: 'Concierge', icon: ConciergeBell, label: 'Servicios Concierge' },
-  { id: 'Comunidad', icon: Store, label: 'Comunidad' },
-  { id: 'Marketplace', icon: ShoppingBag, label: 'Marketplace' },
-  { id: 'Seguros', icon: ShieldCheck, label: 'Seguros y Coberturas' },
-  { id: 'Monetización', icon: Megaphone, label: 'Publicidad y Monetización' },
-  { id: 'Redes Sociales', icon: Share2, label: 'Redes Sociales' },
-  { id: 'Legales', icon: Scale, label: 'Casos Legales' },
-  { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
-  { id: 'Índices', icon: LineChart, label: 'Índices Oficiales' },
-  { id: 'Libro Mayor', icon: BookOpen, label: 'Libro Mayor' },
-  { id: 'Simulador ROI', icon: TrendingUp, label: 'Simulador de Rentabilidad' },
-  { id: 'Reportes', icon: BarChart3, label: 'Panel Analítico' },
-  { id: 'Análisis IA', icon: BrainCircuit, label: 'Análisis IA' },
-  { id: 'Asistente IA', icon: MessageSquareCode, label: 'Asistente IA' },
+const ADMIN_MENU_GROUPS = [
+  {
+    section: null, // no label — solo el dashboard
+    items: [
+      { id: 'Resumen', icon: LayoutDashboard, label: 'Panel de Control' },
+    ],
+  },
+  {
+    section: 'Cartera',
+    items: [
+      { id: 'Propiedades',        icon: Building,       label: 'Propiedades'           },
+      { id: 'Personas',           icon: Users,          label: 'Personas y Contratos'  },
+      { id: 'Generador Contratos',icon: FilePen,        label: 'Generador de Contratos'},
+      { id: 'Contratos Smart',    icon: Zap,            label: 'Contratos Smart'       },
+      { id: 'Garantías',          icon: PiggyBank,      label: 'Garantías y Depósitos' },
+      { id: 'Solicitudes',        icon: UserPlus,       label: 'Solicitudes'           },
+    ],
+  },
+  {
+    section: 'Operaciones',
+    items: [
+      { id: 'Facturas',                icon: FileSpreadsheet, label: 'Facturas y Servicios'     },
+      { id: 'Mantenimiento',           icon: Wrench,          label: 'Mantenimiento'             },
+      { id: 'Mantenimiento Predictivo',icon: ShieldPlus,      label: 'Mantenimiento Predictivo'  },
+      { id: 'Proveedores',             icon: HardHat,         label: 'Proveedores'               },
+      { id: 'Mensajes',                icon: MessagesSquare,  label: 'Mensajes'                  },
+    ],
+  },
+  {
+    section: 'Comunidad',
+    items: [
+      { id: 'Rentas Híbridas', icon: CalendarRange,  label: 'Rentas Híbridas'       },
+      { id: 'Votaciones',      icon: Vote,           label: 'Votaciones'            },
+      { id: 'Concierge',       icon: ConciergeBell,  label: 'Concierge'             },
+      { id: 'Comunidad',       icon: Store,          label: 'Comunidad'             },
+      { id: 'Marketplace',     icon: ShoppingBag,    label: 'Marketplace'           },
+    ],
+  },
+  {
+    section: 'Finanzas',
+    items: [
+      { id: 'Seguros',       icon: ShieldCheck,  label: 'Seguros y Coberturas' },
+      { id: 'Legales',       icon: Scale,        label: 'Casos Legales'        },
+      { id: 'Liquidaciones', icon: Calculator,   label: 'Liquidaciones'        },
+      { id: 'Índices',       icon: LineChart,    label: 'Índices Oficiales'    },
+      { id: 'Libro Mayor',   icon: BookOpen,     label: 'Libro Mayor'          },
+    ],
+  },
+  {
+    section: 'Crecimiento',
+    items: [
+      { id: 'Monetización',  icon: Megaphone,    label: 'Publicidad y Monetización' },
+      { id: 'Redes Sociales',icon: Share2,       label: 'Redes Sociales'            },
+      { id: 'Simulador ROI', icon: TrendingUp,   label: 'Simulador de Rentabilidad' },
+    ],
+  },
+  {
+    section: 'Analítica',
+    items: [
+      { id: 'Reportes',    icon: BarChart3,        label: 'Panel Analítico' },
+      { id: 'Análisis IA', icon: BrainCircuit,     label: 'Análisis IA'    },
+      { id: 'Asistente IA',icon: MessageSquareCode,label: 'Asistente IA'   },
+    ],
+  },
 ];
+
+// Flat list kept for compatibility (role switcher, etc.)
+const ADMIN_MENU = ADMIN_MENU_GROUPS.flatMap(g => g.items)
+  .filter((item, idx, arr) => arr.findIndex(x => x.id === item.id) === idx);
 
 const APP_ID = "alquilagestion-pro";
 
@@ -457,17 +496,45 @@ export default function AppClient() {
             </svg>
           )}
         </div>
-        <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as Tab)}
-              className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors", activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted")}
-            >
-              <item.icon className={cn("h-5 w-5", activeTab === item.id ? "text-primary" : "text-muted-foreground")} />
-              {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
-            </button>
-          ))}
+        <nav className="flex-1 px-4 mt-4 overflow-y-auto space-y-0.5 pb-4">
+          {activeRole === 'Administrador'
+            ? ADMIN_MENU_GROUPS.map((group, gi) => (
+                <div key={gi}>
+                  {group.section && !isSidebarCollapsed && (
+                    <p className="px-3 pt-4 pb-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 select-none">
+                      {group.section}
+                    </p>
+                  )}
+                  {group.section && isSidebarCollapsed && gi > 0 && (
+                    <div className="my-2 border-t border-border/40" />
+                  )}
+                  {group.items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id as Tab)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                        activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted",
+                        isSidebarCollapsed && "justify-center",
+                      )}
+                    >
+                      <item.icon className={cn("h-5 w-5 shrink-0", activeTab === item.id ? "text-primary" : "text-muted-foreground")} />
+                      {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+                    </button>
+                  ))}
+                </div>
+              ))
+            : menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as Tab)}
+                  className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors", activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted")}
+                >
+                  <item.icon className={cn("h-5 w-5", activeTab === item.id ? "text-primary" : "text-muted-foreground")} />
+                  {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+                </button>
+              ))
+          }
         </nav>
         <div className="p-4 border-t space-y-1">
           <DropdownMenu>
