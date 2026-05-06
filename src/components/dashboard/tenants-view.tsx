@@ -56,9 +56,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, where } from 'firebase/firestore';
+import { ShieldOff, ShieldCheck, UserX, ShieldAlert, Globe } from 'lucide-react';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { queryContract } from '@/ai/flows/query-contract-flow';
@@ -99,7 +100,36 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const { canWrite, canDelete } = useOrgPermissions();
   const { toast } = useToast();
   const db = useFirestore();
-  const [activeTab, setActiveTab] = useState<'contracts' | 'people'>('contracts');
+  const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal'>('contracts');
+
+  // ── Tenant Registry (portal access management) ──────────────────────────
+  const registryQ = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'tenantRegistry'), where('adminId', '==', userId));
+  }, [db, userId]);
+  const { data: registryRaw } = useCollection<any>(registryQ);
+  const registryEntries = registryRaw ?? [];
+
+  const handleSuspendTenant = (docId: string, name: string) => {
+    if (!db) return;
+    const ref = doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId);
+    setDocumentNonBlocking(ref, { status: 'suspendido' }, { merge: true });
+    toast({ title: `⏸ ${name} suspendido/a`, description: 'El inquilino no puede acceder al portal hasta que lo reactives.' });
+  };
+
+  const handleDeactivateTenant = (docId: string, name: string) => {
+    if (!db) return;
+    const ref = doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId);
+    setDocumentNonBlocking(ref, { status: 'inactivo' }, { merge: true });
+    toast({ title: `🚫 ${name} dado de baja`, description: 'El inquilino perdió el acceso al portal.' });
+  };
+
+  const handleReactivateTenant = (docId: string, name: string) => {
+    if (!db) return;
+    const ref = doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId);
+    setDocumentNonBlocking(ref, { status: 'activo' }, { merge: true });
+    toast({ title: `✅ ${name} reactivado/a`, description: 'El inquilino tiene acceso al portal nuevamente.' });
+  };
   const contractFileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingContract, setIsUploadingContract] = useState(false);
   const [isContractDialogOpen, setIsContractDialogOpen] = useState(false);
@@ -504,18 +534,27 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           <TabsList className="bg-transparent">
             <TabsTrigger value="contracts" className="data-[state=active]:bg-primary data-[state=active]:text-white">Contratos</TabsTrigger>
             <TabsTrigger value="people" className="data-[state=active]:bg-primary data-[state=active]:text-white">Personas</TabsTrigger>
+            <TabsTrigger value="portal" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> Accesos Portal
+              {registryEntries.filter((e: any) => e.status === 'suspendido').length > 0 && (
+                <span className="h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">
+                  {registryEntries.filter((e: any) => e.status === 'suspendido').length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="flex gap-2 w-full sm:w-auto">
-          {canWrite && (activeTab === 'contracts' ? (
+          {canWrite && activeTab === 'contracts' && (
             <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
-          ) : (
+          )}
+          {canWrite && activeTab === 'people' && (
             <Button className="bg-primary text-white gap-2 font-bold" onClick={() => handleOpenPersonDialog()}>
               <UserPlus className="h-4 w-4" /> Nueva Persona
             </Button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -989,7 +1028,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               {contracts.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay contratos activos.</TableCell></TableRow>}
             </TableBody>
           </Table>
-        ) : (
+        ) : activeTab === 'people' ? (
           <Table>
             <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Rol en Sistema</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -1017,6 +1056,119 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               {people.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">No hay personas registradas.</TableCell></TableRow>}
             </TableBody>
           </Table>
+        ) : (
+          /* ── Accesos Portal ── */
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-3 pb-2 border-b">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Globe className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-black text-sm">Gestión de Accesos al Portal Inquilino</p>
+                <p className="text-xs text-muted-foreground">Controlá quién puede ingresar al portal desde su email. Los cambios son inmediatos.</p>
+              </div>
+            </div>
+
+            {registryEntries.length === 0 ? (
+              <div className="py-16 text-center text-muted-foreground">
+                <Globe className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p className="font-semibold">Sin inquilinos registrados en el portal</p>
+                <p className="text-xs mt-1">Los accesos se generan automáticamente cuando creás contratos con email del inquilino.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {registryEntries.map((entry: any) => {
+                  const status    = entry.status ?? 'activo';
+                  const docId     = entry.tenantEmail?.toLowerCase().replace(/[@.+]/g, '_') ?? entry.id;
+                  const isActive  = status === 'activo';
+                  const isSusp    = status === 'suspendido';
+                  const isInact   = status === 'inactivo';
+
+                  const statusBadge = isActive
+                    ? { label: 'Activo',     color: 'bg-green-50 text-green-700 border-green-200', icon: ShieldCheck }
+                    : isSusp
+                    ? { label: 'Suspendido', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: ShieldAlert }
+                    : { label: 'Inactivo',   color: 'bg-slate-50 text-slate-500 border-slate-200', icon: ShieldOff  };
+
+                  const StatusIcon = statusBadge.icon;
+
+                  return (
+                    <div key={entry.id ?? docId} className="flex items-center gap-4 p-4 rounded-xl border border-border/50 hover:bg-muted/10 transition-colors">
+                      {/* Avatar */}
+                      <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-black text-sm shrink-0">
+                        {(entry.tenantName ?? '?').charAt(0).toUpperCase()}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-sm text-foreground truncate">{entry.tenantName ?? '—'}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{entry.tenantEmail}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{entry.propertyName}</p>
+                      </div>
+
+                      {/* Status badge */}
+                      <Badge className={cn('border text-[10px] font-bold gap-1 shrink-0', statusBadge.color)}>
+                        <StatusIcon className="h-2.5 w-2.5" />
+                        {statusBadge.label}
+                      </Badge>
+
+                      {/* Actions */}
+                      {canWrite && (
+                        <div className="flex gap-1.5 shrink-0">
+                          {!isActive && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs font-bold gap-1.5 border-green-200 text-green-700 hover:bg-green-50"
+                              onClick={() => handleReactivateTenant(docId, entry.tenantName ?? '')}
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" /> Reactivar
+                            </Button>
+                          )}
+                          {isActive && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs font-bold gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50"
+                              onClick={() => handleSuspendTenant(docId, entry.tenantName ?? '')}
+                            >
+                              <ShieldAlert className="h-3.5 w-3.5" /> Suspender
+                            </Button>
+                          )}
+                          {!isInact && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs font-bold gap-1.5 border-red-200 text-destructive hover:bg-red-50"
+                              onClick={() => handleDeactivateTenant(docId, entry.tenantName ?? '')}
+                            >
+                              <UserX className="h-3.5 w-3.5" /> Dar de baja
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Legend */}
+            <div className="pt-4 border-t grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                <p><strong className="text-foreground">Activo:</strong> puede ingresar al portal normalmente.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <p><strong className="text-foreground">Suspendido:</strong> ve un aviso de suspensión, no puede operar.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <ShieldOff className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                <p><strong className="text-foreground">Dado de baja:</strong> acceso bloqueado completamente.</p>
+              </div>
+            </div>
+          </div>
         )}
       </Card>
     </div>

@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Wrench, Users, ShoppingBag,
-  Shield, LogOut, ChevronLeft, ChevronRight, Home, Menu
+  Shield, LogOut, ChevronLeft, ChevronRight, Home, Menu,
+  ShieldOff, ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -22,6 +23,7 @@ export interface TenantRegistryEntry {
   propertyId: string;
   propertyName: string;
   contractId: string;
+  status?: 'activo' | 'suspendido' | 'inactivo';
 }
 
 type TenantTab = 'Inicio' | 'Mensajes' | 'Mantenimiento' | 'Comunidad' | 'Marketplace' | 'Seguros';
@@ -44,6 +46,55 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
   const [activeTab, setActiveTab] = useState<TenantTab>('Inicio');
   const [collapsed, setCollapsed]  = useState(false);
   const auth = useAuth();
+
+  // ── Blocked screens ──────────────────────────────────────────────────────
+  const status = tenantEntry.status ?? 'activo';
+
+  if (status === 'suspendido') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-amber-50/40 p-6">
+        <div className="text-center max-w-md space-y-4">
+          <div className="h-20 w-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
+            <ShieldAlert className="h-10 w-10 text-amber-600" />
+          </div>
+          <h1 className="text-2xl font-black text-amber-800">Acceso suspendido</h1>
+          <p className="text-amber-700 text-sm">
+            Tu acceso al portal fue suspendido temporalmente por la administración.
+            Contactate con <strong>{tenantEntry.propertyName}</strong> para más información.
+          </p>
+          <button
+            onClick={() => signOut(auth)}
+            className="text-xs text-amber-600 underline mt-4 block mx-auto"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'inactivo') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="text-center max-w-md space-y-4">
+          <div className="h-20 w-20 rounded-full bg-slate-200 flex items-center justify-center mx-auto">
+            <ShieldOff className="h-10 w-10 text-slate-500" />
+          </div>
+          <h1 className="text-2xl font-black text-slate-700">Acceso desactivado</h1>
+          <p className="text-slate-500 text-sm">
+            Tu cuenta en este portal ya no está activa. Si creés que es un error,
+            contactate directamente con la administración de <strong>{tenantEntry.propertyName}</strong>.
+          </p>
+          <button
+            onClick={() => signOut(auth)}
+            className="text-xs text-slate-500 underline mt-4 block mx-auto"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleLogout = () => signOut(auth);
 
