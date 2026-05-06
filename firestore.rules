@@ -34,6 +34,42 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
     }
 
+    // ── Comunidad & Marketplace — compartido entre todos los usuarios ─────────
+
+    // Muro: cualquier autenticado lee/crea; solo el autor (o superAdmin) puede editar/borrar
+    match /artifacts/{appId}/comunidadPosts/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isSuperAdmin());
+    }
+
+    // Marketplace: cualquier autenticado lee/crea; solo el vendedor (o superAdmin) puede editar/borrar
+    match /artifacts/{appId}/comunidadMarketplace/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.sellerId || isSuperAdmin());
+    }
+
+    // Eventos & Roomies: cualquier autenticado lee/crea; solo el creador (o superAdmin) puede borrar
+    match /artifacts/{appId}/comunidadEventos/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isSuperAdmin());
+    }
+
+    // Beneficios: cualquier autenticado puede leer; solo admins autenticados crean/editan
+    match /artifacts/{appId}/comunidadBeneficios/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Transacciones de comisión: cualquier autenticado puede leer las propias (filtro en cliente) y crear
+    match /artifacts/{appId}/comunidadTransacciones/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSuperAdmin();
+    }
+
     // ── Colecciones por usuario ────────────────────────────────────────────────
 
     // Pública: cualquiera puede ver propiedades (para postulantes)
