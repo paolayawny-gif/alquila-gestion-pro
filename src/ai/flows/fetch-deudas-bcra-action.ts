@@ -9,34 +9,37 @@ import https from 'https';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fetchBcraURL(url: string): Promise<{ ok: boolean; status: number; json(): Promise<any> }> {
   return new Promise((resolve, reject) => {
-    const req = https.get(
-      url,
-      {
-        rejectUnauthorized: false,
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'AlquilaGestionPro/1.0',
-        },
-        timeout: 15000,
+    const parsed = new URL(url);
+    const options = {
+      hostname: parsed.hostname,
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+      rejectUnauthorized: false,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; AlquilaGestionPro/1.0)',
+        'Accept-Language': 'es-AR,es;q=0.9',
+        'Connection': 'keep-alive',
       },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          const body = Buffer.concat(chunks).toString('utf-8');
-          resolve({
-            ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
-            status: res.statusCode ?? 0,
-            json: async () => JSON.parse(body),
-          });
+    };
+    const req = https.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => {
+        const body = Buffer.concat(chunks).toString('utf-8');
+        resolve({
+          ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
+          status: res.statusCode ?? 0,
+          json: async () => JSON.parse(body),
         });
-        res.on('error', reject);
-      },
-    );
+      });
+      res.on('error', reject);
+    });
     req.on('error', reject);
-    req.on('timeout', () => {
+    req.setTimeout(15000, () => {
       req.destroy(new Error('Timeout al conectar con la API del BCRA (15 s)'));
     });
+    req.end();
   });
 }
 
