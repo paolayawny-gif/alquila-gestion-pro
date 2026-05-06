@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import {
   Scale, Trash2, Search, Plus, TrendingUp, TrendingDown,
   AlertTriangle, FileText, Send, ShieldAlert, CheckCircle2,
-  Clock, XCircle, ChevronRight, BadgeDollarSign, Gavel,
+  Clock, XCircle, Gavel,
   BarChart3, Users, RefreshCw, Download, Phone, Landmark,
-  CircleDot, Wifi, WifiOff, Filter, ArrowUpRight,
+  CircleDot, Filter, ExternalLink,
+  Shield, ShieldCheck, ShieldX, CreditCard, Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { LegalCase, LegalStage, PaymentPlan, Property } from '@/lib/types';
@@ -28,6 +29,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { fetchDeudaBcra, type BcraDeudaReport } from '@/ai/flows/fetch-deudas-bcra-action';
+import { situacionLabel, situacionColor } from '@/lib/bcra-utils';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -83,6 +87,11 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+
+  // ── BCRA Central de Deudores ─────────────────────────────────────────────
+  const [cuitInput, setCuitInput] = useState('');
+  const [bcraReport, setBcraReport] = useState<BcraDeudaReport | null>(null);
+  const [isFetchingBcra, setIsFetchingBcra] = useState(false);
 
   const [newCase, setNewCase] = useState<Partial<LegalCase>>({
     type: '',
@@ -218,6 +227,30 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legalCases', caseId);
     setDocumentNonBlocking(docRef, { paymentPlans: updated }, { merge: true });
     toast({ title: `Plan actualizado → ${status}` });
+  };
+
+  const handleBcraConsult = async (prefillCuit?: string) => {
+    const cuit = (prefillCuit ?? cuitInput).replace(/\D/g, '');
+    if (!cuit || cuit.length !== 11) {
+      toast({ title: 'CUIT inválido', description: 'Ingresá 11 dígitos del CUIT/CUIL del deudor.', variant: 'destructive' });
+      return;
+    }
+    if (prefillCuit) setCuitInput(prefillCuit);
+    setIsFetchingBcra(true);
+    setBcraReport(null);
+    try {
+      const res = await fetchDeudaBcra(cuit);
+      if (!res.ok) {
+        toast({ title: 'Error BCRA', description: res.error, variant: 'destructive' });
+        return;
+      }
+      setBcraReport(res.data);
+      toast({ title: 'Consulta BCRA completada', description: `Situación: ${situacionLabel(res.data.maxSituation)}` });
+    } catch (e: any) {
+      toast({ title: 'Error inesperado', description: e?.message ?? 'No se pudo consultar el BCRA.', variant: 'destructive' });
+    } finally {
+      setIsFetchingBcra(false);
+    }
   };
 
   const handleMassIntimation = () => {
@@ -566,42 +599,84 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
         {/* ── Columna derecha ── */}
         <div className="space-y-4">
 
-          {/* Central de Riesgo */}
+          {/* Central de Deudores BCRA */}
           <Card className="border-none shadow-sm bg-[#1a2e22] text-white">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold text-white">Central de Riesgo</CardTitle>
-              <p className="text-xs text-green-200/70">Integramos con los principales bureaus de crédito para protección de activos.</p>
+              <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Central de Deudores BCRA
+              </CardTitle>
+              <p className="text-xs text-green-200/70">
+                Consultá la situación crediticia de un deudor en el Banco Central de la República Argentina.
+              </p>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                { name: 'Equifax / Veraz', status: 'online' as const },
-                { name: 'Nosis Analytics', status: 'online' as const },
-                { name: 'Fidelitas CR',    status: 'offline' as const },
-              ].map(bureau => (
-                <div key={bureau.name} className="flex items-center justify-between p-2 rounded-lg bg-white/10">
-                  <span className="text-sm font-medium">{bureau.name}</span>
-                  <div className="flex items-center gap-1.5">
-                    {bureau.status === 'online'
-                      ? <><span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" /><span className="text-xs text-green-300">Online</span></>
-                      : <><span className="h-2 w-2 rounded-full bg-gray-500" /><span className="text-xs text-gray-400">Offline</span></>
-                    }
-                  </div>
-                </div>
-              ))}
-
-              <div className="mt-3 p-3 rounded-lg bg-white/10">
-                <p className="text-[11px] text-green-200/70 uppercase tracking-wide font-semibold">Score Promedio de Cartera</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-2xl font-bold">
-                    {legalCases.length > 0 ? Math.round(500 + (stats.efficiencyPct / 100) * 350) : '—'}
-                  </span>
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-semibold">MODERADO</span>
-                </div>
+            <CardContent className="space-y-3">
+              {/* Input CUIT */}
+              <div className="flex gap-2">
+                <Input
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 text-sm flex-1"
+                  placeholder="CUIT/CUIL (11 dígitos)"
+                  value={cuitInput}
+                  onChange={e => setCuitInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleBcraConsult()}
+                />
+                <Button
+                  className="bg-accent hover:bg-accent/90 text-white gap-1.5 shrink-0"
+                  onClick={() => handleBcraConsult()}
+                  disabled={isFetchingBcra}
+                >
+                  {isFetchingBcra
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <RefreshCw className="h-3.5 w-3.5" />}
+                  Consultar
+                </Button>
               </div>
 
-              <Button variant="outline" className="w-full text-xs bg-white/10 border-white/20 text-white hover:bg-white/20 mt-1 gap-2">
-                <RefreshCw className="h-3.5 w-3.5" /> Nueva Consulta de Score
-              </Button>
+              {/* Acceso rápido desde caso activo */}
+              {legalCases.filter(c => c.tenantDni && c.status !== 'Cerrado').length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-green-200/60 uppercase tracking-wide">Consulta rápida por caso</p>
+                  <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                    {legalCases.filter(c => c.tenantDni && c.status !== 'Cerrado').map(c => (
+                      <button
+                        key={c.id}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-left"
+                        onClick={() => handleBcraConsult(c.tenantDni!.replace(/\D/g, ''))}
+                      >
+                        <span className="text-xs font-medium truncate">{c.tenantName || c.propertyName}</span>
+                        <span className="text-[10px] text-green-300 shrink-0 ml-2">{c.tenantDni}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Resultado BCRA */}
+              {bcraReport && <BcraInlineResult report={bcraReport} />}
+
+              {/* Separador + links externos */}
+              <div className="border-t border-white/10 pt-2 space-y-1">
+                <p className="text-[10px] text-green-200/50 uppercase tracking-wide">Servicios externos (requieren cuenta)</p>
+                {[
+                  { name: 'Veraz / Equifax', url: 'https://www.veraz.com.ar', note: 'Informe personal' },
+                  { name: 'Nosis Analytics', url: 'https://www.nosis.com',   note: 'Score comercial' },
+                  { name: 'Fidelitas CR',    url: 'https://www.fidelitas.com.ar', note: 'Riesgo crediticio' },
+                ].map(s => (
+                  <a
+                    key={s.name}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors group"
+                  >
+                    <div>
+                      <span className="text-xs font-medium">{s.name}</span>
+                      <span className="block text-[10px] text-green-200/50">{s.note}</span>
+                    </div>
+                    <ExternalLink className="h-3 w-3 text-white/40 group-hover:text-white/80 transition-colors shrink-0" />
+                  </a>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
@@ -657,6 +732,97 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── BcraInlineResult — resultado compacto para mostrar dentro de la tarjeta ──
+interface BcraInlineResultProps {
+  report: BcraDeudaReport;
+}
+
+function BcraInlineResult({ report }: BcraInlineResultProps) {
+  const s = report.maxSituation;
+  const color = situacionColor(s);
+
+  const bgClass = color === 'green' ? 'bg-green-500/20 border-green-400/30'
+    : color === 'lime'   ? 'bg-lime-500/20 border-lime-400/30'
+    : color === 'orange' ? 'bg-orange-500/20 border-orange-400/30'
+    : 'bg-red-500/20 border-red-400/30';
+
+  const textClass = color === 'green' ? 'text-green-200'
+    : color === 'lime'   ? 'text-lime-200'
+    : color === 'orange' ? 'text-orange-200'
+    : 'text-red-200';
+
+  const badgeCls = color === 'green' ? 'bg-green-500 text-white'
+    : color === 'lime'   ? 'bg-lime-500 text-white'
+    : color === 'orange' ? 'bg-orange-500 text-white'
+    : 'bg-red-500 text-white';
+
+  const IconComp = s <= 1 ? Shield : s === 2 ? ShieldCheck : s === 3 ? ShieldAlert : ShieldX;
+
+  return (
+    <div className="space-y-2 animate-in fade-in duration-300">
+      {/* Banner */}
+      <div className={cn('rounded-lg border p-2.5 flex items-start gap-2', bgClass)}>
+        <IconComp className={cn('h-4 w-4 shrink-0 mt-0.5', textClass)} />
+        <div className="flex-1 min-w-0">
+          <p className={cn('text-xs font-bold truncate', textClass)}>
+            {report.denominacion || `CUIT ${report.identificacion}`}
+          </p>
+          <p className={cn('text-xs', textClass)}>
+            Situación: <strong>{situacionLabel(s)}</strong>
+          </p>
+          <div className="flex gap-3 mt-0.5 flex-wrap">
+            {report.latestPeriod && (
+              <span className="text-[10px] text-white/50">Período: {report.latestPeriod}</span>
+            )}
+            <span className="text-[10px] text-white/50">{report.totalEntidades} entidad{report.totalEntidades !== 1 ? 'es' : ''}</span>
+          </div>
+        </div>
+        <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0', badgeCls)}>
+          Sit. {s}
+        </span>
+      </div>
+
+      {/* Cheques rechazados */}
+      {report.hasRejectedChecks && (
+        <div className="flex items-center gap-2 p-2 bg-red-500/20 border border-red-400/30 rounded-lg">
+          <AlertTriangle className="h-3.5 w-3.5 text-red-300 shrink-0" />
+          <p className="text-xs font-bold text-red-200">
+            {report.cheques.length} cheque{report.cheques.length !== 1 ? 's' : ''} rechazado{report.cheques.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      )}
+
+      {/* Detalle de entidades */}
+      {report.latestEntidades.length > 0 && (
+        <ScrollArea className="max-h-36">
+          <div className="space-y-1 pr-1">
+            {report.latestEntidades.map((e, i) => (
+              <div key={i} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-white/10 text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <CreditCard className="h-3 w-3 text-white/40 shrink-0" />
+                  <span className="truncate text-white/80 font-medium">{e.entidad}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-white/60">$ {e.monto.toLocaleString('es-AR')}</span>
+                  <span className={cn('text-[9px] font-bold px-1 py-0.5 rounded text-white',
+                    e.situacion <= 1 ? 'bg-green-600' : e.situacion === 2 ? 'bg-lime-600' : e.situacion === 3 ? 'bg-orange-600' : 'bg-red-600'
+                  )}>
+                    S{e.situacion}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+
+      <p className="text-[9px] text-white/30 text-right">
+        Consultado: {new Date(report.consultedAt).toLocaleString('es-AR')}
+      </p>
     </div>
   );
 }
