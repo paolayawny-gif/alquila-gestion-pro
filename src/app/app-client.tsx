@@ -55,7 +55,6 @@ import { FinancialLedgerView } from '@/components/dashboard/financial-ledger-vie
 import { ContractGeneratorView } from '@/components/dashboard/contract-generator-view';
 import { ApplicationsView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
-import { OwnerPortalView } from '@/components/dashboard/owner-portal-view';
 import { AnalyticsPanelView } from '@/components/dashboard/analytics-panel-view';
 import { IndexRecordsView } from '@/components/dashboard/index-records-view';
 import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
@@ -356,7 +355,23 @@ export default function AppClient() {
       return <TenantPortalView contracts={contracts} properties={properties} invoices={invoices} tasks={tasks} />;
     }
     if (activeRole === 'Propietario') {
-      return <OwnerPortalView properties={properties} liquidations={liquidations} />;
+      // Demo: build a synthetic owner entry from the logged-in admin's own data.
+      // This uses adminId === user.uid so all Firestore reads go against their own
+      // collections — no hardcoded IDs, no permissions error.
+      const demoOwnerEntry: OwnerRegistryEntry = {
+        ownerEmail:    user?.email    ?? '',
+        ownerName:     user?.displayName ?? user?.email ?? 'Propietario Demo',
+        adminId:       user?.uid      ?? '',
+        propertyIds:   properties.map(p => p.id),
+        propertyNames: properties.map(p => p.name),
+        status: 'activo',
+      };
+      return (
+        <OwnerPortal
+          ownerEntry={demoOwnerEntry}
+          onSwitchToAdmin={() => setActiveRole('Administrador')}
+        />
+      );
     }
 
     switch (activeTab) {
