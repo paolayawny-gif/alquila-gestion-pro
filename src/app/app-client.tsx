@@ -35,7 +35,8 @@ import {
   Vote,
   ConciergeBell,
   Store,
-  Megaphone
+  Megaphone,
+  Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -66,6 +67,7 @@ import { ConciergeView } from '@/components/dashboard/concierge-view';
 import { CommunityMarketplaceView } from '@/components/dashboard/community-marketplace-view';
 import { InsuranceView } from '@/components/dashboard/insurance-view';
 import { MonetizationView } from '@/components/dashboard/monetization-view';
+import { SocialMediaView } from '@/components/dashboard/social-media-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -83,7 +85,7 @@ import {
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, query } from 'firebase/firestore';
-import { Contract, LegalCase, MonetizableAsset } from '@/lib/types';
+import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
@@ -91,7 +93,7 @@ import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Seguros' | 'Monetización' | 'Super Admin';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -114,6 +116,7 @@ const ADMIN_MENU = [
   { id: 'Comunidad', icon: Store, label: 'Comunidad y Marketplace' },
   { id: 'Seguros', icon: ShieldCheck, label: 'Seguros y Coberturas' },
   { id: 'Monetización', icon: Megaphone, label: 'Publicidad y Monetización' },
+  { id: 'Redes Sociales', icon: Share2, label: 'Redes Sociales' },
   { id: 'Legales', icon: Scale, label: 'Casos Legales' },
   { id: 'Liquidaciones', icon: Calculator, label: 'Liquidaciones' },
   { id: 'Índices', icon: LineChart, label: 'Índices Oficiales' },
@@ -197,6 +200,16 @@ export default function AppClient() {
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'monetizacion'));
   }, [db, user]);
 
+  const socialPostsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'socialPosts'));
+  }, [db, user]);
+
+  const socialLinksQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'socialLinks'));
+  }, [db, user]);
+
   const { data: propertiesData } = useCollection(propiedadesQuery);
   const { data: peopleData } = useCollection(inquilinosQuery);
   const { data: contractsData } = useCollection<Contract>(contratosQuery);
@@ -207,6 +220,8 @@ export default function AppClient() {
   const { data: indicesData } = useCollection(indicesQuery);
   const { data: legalesData } = useCollection<LegalCase>(legalesQuery);
   const { data: monetizacionData } = useCollection<MonetizableAsset>(monetizacionQuery);
+  const { data: socialPostsData } = useCollection<SocialPost>(socialPostsQuery);
+  const { data: socialLinksData } = useCollection<SocialNetworkLink>(socialLinksQuery);
 
   const properties = propertiesData || [];
   const people = peopleData || [];
@@ -218,6 +233,8 @@ export default function AppClient() {
   const indexRecords = indicesData || [];
   const legalCases = legalesData || [];
   const monetizableAssets = monetizacionData || [];
+  const socialPosts = socialPostsData || [];
+  const socialLinks = socialLinksData || [];
 
   if (!isMounted) return null;
 
@@ -245,6 +262,7 @@ export default function AppClient() {
       case 'Comunidad': return <CommunityMarketplaceView properties={properties} people={people} userId={user?.uid} userEmail={user?.email ?? ''} userName={user?.displayName ?? ''} />;
       case 'Seguros': return <InsuranceView properties={properties} userId={user?.uid} />;
       case 'Monetización': return <MonetizationView assets={monetizableAssets} properties={properties} userId={user?.uid} userEmail={user?.email ?? ''} />;
+      case 'Redes Sociales': return <SocialMediaView posts={socialPosts} networkLinks={socialLinks} userId={user?.uid} />;
       case 'Generador Contratos': return <ContractGeneratorView properties={properties} people={people} contracts={contracts} userId={user?.uid} />;
       case 'Contratos Smart': return <SmartContractsView contracts={contracts} invoices={invoices} people={people} properties={properties} userId={user?.uid} />;
       case 'Garantías': return <DepositsView contracts={contracts} people={people} properties={properties} userId={user?.uid} />;

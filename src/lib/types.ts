@@ -316,3 +316,44 @@ export interface MonetizableAsset {
   ownerId: string;
   createdAt: string;
 }
+
+// ── Redes Sociales ────────────────────────────────────────────────────────────
+
+export type SocialNetworkType =
+  | 'Instagram'
+  | 'Facebook'
+  | 'TikTok'
+  | 'YouTube'
+  | 'LinkedIn'
+  | 'X (Twitter)'
+  | 'WhatsApp Business'
+  | 'Otro';
+
+export type SocialContentType = 'Plantilla' | 'Contenido' | 'Publicación';
+export type SocialTone = 'profesional' | 'cercano' | 'urgente' | 'inspiracional' | 'informativo';
+
+export interface SocialNetworkLink {
+  id: string;
+  network: SocialNetworkType;
+  displayName: string;      // "Página AlquilaGestion Pro"
+  url: string;              // URL del perfil / página
+  username?: string;        // @username si aplica
+  ownerId: string;
+  createdAt: string;
+}
+
+export interface SocialPost {
+  id: string;
+  contentType: SocialContentType;
+  title: string;
+  mainText: string;
+  hashtags: string;
+  callToAction?: string;
+  targetNetworks: SocialNetworkType[];
+  tone: SocialTone;
+  aiGenerated: boolean;
+  status: 'Borrador' | 'Listo' | 'Publicado';
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
