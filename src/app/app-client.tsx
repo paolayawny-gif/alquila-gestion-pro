@@ -36,7 +36,8 @@ import {
   ConciergeBell,
   Store,
   Megaphone,
-  Share2
+  Share2,
+  ShoppingBag
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -64,10 +65,11 @@ import { MessagesView } from '@/components/dashboard/messages-view';
 import { HybridRentalsView } from '@/components/dashboard/hybrid-rentals-view';
 import { CommunityVotingView } from '@/components/dashboard/community-voting-view';
 import { ConciergeView } from '@/components/dashboard/concierge-view';
-import { CommunityMarketplaceView } from '@/components/dashboard/community-marketplace-view';
 import { InsuranceView } from '@/components/dashboard/insurance-view';
 import { MonetizationView } from '@/components/dashboard/monetization-view';
 import { SocialMediaView } from '@/components/dashboard/social-media-view';
+import { CommunityWallView } from '@/components/dashboard/community-wall-view';
+import { MarketplaceView } from '@/components/dashboard/marketplace-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -93,7 +95,7 @@ import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -113,7 +115,8 @@ const ADMIN_MENU = [
   { id: 'Rentas Híbridas', icon: CalendarRange, label: 'Rentas Híbridas' },
   { id: 'Votaciones', icon: Vote, label: 'Votaciones Comunitarias' },
   { id: 'Concierge', icon: ConciergeBell, label: 'Servicios Concierge' },
-  { id: 'Comunidad', icon: Store, label: 'Comunidad y Marketplace' },
+  { id: 'Comunidad', icon: Store, label: 'Comunidad' },
+  { id: 'Marketplace', icon: ShoppingBag, label: 'Marketplace' },
   { id: 'Seguros', icon: ShieldCheck, label: 'Seguros y Coberturas' },
   { id: 'Monetización', icon: Megaphone, label: 'Publicidad y Monetización' },
   { id: 'Redes Sociales', icon: Share2, label: 'Redes Sociales' },
@@ -259,7 +262,8 @@ export default function AppClient() {
       case 'Rentas Híbridas': return <HybridRentalsView properties={properties} contracts={contracts} userId={user?.uid} />;
       case 'Votaciones': return <CommunityVotingView properties={properties} contracts={contracts} people={people} userId={user?.uid} />;
       case 'Concierge': return <ConciergeView properties={properties} contracts={contracts} people={people} userId={user?.uid} />;
-      case 'Comunidad': return <CommunityMarketplaceView properties={properties} people={people} userId={user?.uid} userEmail={user?.email ?? ''} userName={user?.displayName ?? ''} />;
+      case 'Comunidad': return <CommunityWallView userId={user?.uid} userEmail={user?.email ?? ''} userName={user?.displayName ?? ''} />;
+      case 'Marketplace': return <MarketplaceView userId={user?.uid} userEmail={user?.email ?? ''} userName={user?.displayName ?? ''} />;
       case 'Seguros': return <InsuranceView properties={properties} userId={user?.uid} />;
       case 'Monetización': return <MonetizationView assets={monetizableAssets} properties={properties} userId={user?.uid} userEmail={user?.email ?? ''} />;
       case 'Redes Sociales': return <SocialMediaView posts={socialPosts} networkLinks={socialLinks} userId={user?.uid} />;
