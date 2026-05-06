@@ -175,8 +175,11 @@ export interface Invoice {
   id: string;
   contractId: string;
   tenantName: string;
+  tenantEmail?: string;       // email del inquilino; permite que el portal inquilino vea sus recibos
   propertyName: string;
-  period: string; 
+  propertyId?: string;        // para vincular al propietario
+  ownerEmail?: string;        // email del propietario; permite que el portal propietario vea las facturas
+  period: string;
   charges: { id: string; type: ChargeType; amount: number; imputedTo: ChargePayer }[];
   lateFees: number;
   totalAmount: number;
@@ -190,8 +193,10 @@ export interface Invoice {
   hasFile?: boolean;
   paymentReceiptUrl?: string;
   paymentReceiptName?: string;
+  tenantReceiptUrl?: string;   // comprobante subido por el inquilino desde su portal
+  tenantReceiptNote?: string;  // nota del inquilino al informar pago
   paymentDate?: string;
-  isFromOwner?: boolean; 
+  isFromOwner?: boolean;
   ownerId?: string;
   internalNotes?: string;
 }
@@ -226,6 +231,8 @@ export interface MaintenanceTask {
   contractorName?: string;
   chargedTo?: 'Inquilino' | 'Propietario' | 'N/A';
   isApprovedByOwner?: boolean;
+  ownerEmail?: string;        // propietario al que se carga; permite que el portal propietario la vea
+  ownerComment?: string;      // comentario del propietario al aprobar/rechazar
   photos?: string[];
   createdAt: string;
   updatedAt: string;
@@ -275,6 +282,7 @@ export interface LegalCase {
   // Extended fields
   tenantName?: string;
   tenantDni?: string;
+  tenantEmail?: string;       // permite que el portal inquilino filtre sus planes de pago
   debtAmount?: number;         // monto adeudado en $
   daysOverdue?: number;        // días de mora
   stage?: LegalStage;          // etapa actual del proceso

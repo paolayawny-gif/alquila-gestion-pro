@@ -144,6 +144,37 @@ service cloud.firestore {
       allow list, create, update, delete: if isOwner(userId);
     }
 
+    // Facturas: admin full access; inquilino lee las suyas; propietario lee las de su propiedad
+    match /artifacts/{appId}/users/{userId}/facturas/{invoiceId} {
+      allow read: if isOwner(userId) ||
+        (isSignedIn() && resource.data.tenantEmail == request.auth.token.email) ||
+        (isSignedIn() && resource.data.ownerEmail  == request.auth.token.email) ||
+        isSuperAdmin();
+      allow write: if isOwner(userId);
+    }
+
+    // Mantenimiento: admin full access; propietario puede leer y actualizar las suyas (aprobar/rechazar)
+    match /artifacts/{appId}/users/{userId}/mantenimiento/{taskId} {
+      allow read: if isOwner(userId) ||
+        (isSignedIn() && resource.data.ownerEmail == request.auth.token.email) ||
+        isSuperAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) ||
+        (isSignedIn() && resource.data.ownerEmail == request.auth.token.email);
+      allow delete: if isOwner(userId);
+    }
+
+    // Legales: admin full access; inquilino ve sus planes de pago (solo casos con su email)
+    match /artifacts/{appId}/users/{userId}/legales/{caseId} {
+      allow read: if isOwner(userId) ||
+        (isSignedIn() && resource.data.tenantEmail == request.auth.token.email) ||
+        isSuperAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) ||
+        (isSignedIn() && resource.data.tenantEmail == request.auth.token.email);
+      allow delete: if isOwner(userId);
+    }
+
     // ── Seguros & PAS — compartido ────────────────────────────────────────────
 
     // Comisiones de seguro: cualquier autenticado lee; solo admin escribe

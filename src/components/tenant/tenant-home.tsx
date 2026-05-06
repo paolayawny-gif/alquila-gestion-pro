@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import {
   FileText, DollarSign, Wrench, MessageSquare,
   Building2, AlertTriangle, CheckCircle2,
-  ArrowRight, Clock, Shield,
+  ArrowRight, Clock, Shield, BookOpen, ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import { TenantRegistryEntry } from './tenant-portal';
-import { Contract } from '@/lib/types';
+import { Contract, Property } from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -31,6 +31,7 @@ interface TenantHomeProps {
 export function TenantHome({ tenantEntry, onNavigate }: TenantHomeProps) {
   const db = useFirestore();
   const [contract, setContract] = useState<Contract | null>(null);
+  const [property, setProperty] = useState<Property | null>(null);
 
   // Fetch their contract from admin namespace
   useEffect(() => {
@@ -39,6 +40,14 @@ export function TenantHome({ tenantEntry, onNavigate }: TenantHomeProps) {
       .then(snap => { if (snap.exists()) setContract(snap.data() as Contract); })
       .catch(() => {});
   }, [db, tenantEntry.adminId, tenantEntry.contractId]);
+
+  // Fetch property (for manuals)
+  useEffect(() => {
+    if (!db || !tenantEntry.adminId || !tenantEntry.propertyId) return;
+    getDoc(doc(db, 'artifacts', APP_ID, 'users', tenantEntry.adminId, 'propiedades', tenantEntry.propertyId))
+      .then(snap => { if (snap.exists()) setProperty({ id: snap.id, ...snap.data() } as Property); })
+      .catch(() => {});
+  }, [db, tenantEntry.adminId, tenantEntry.propertyId]);
 
   // Maintenance tickets
   const ticketsQ = useMemoFirebase(() => {
@@ -263,9 +272,9 @@ export function TenantHome({ tenantEntry, onNavigate }: TenantHomeProps) {
         <CardContent className="pt-0">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
+              { icon: FileText,      label: 'Ver recibos',        tab: 'Recibos',       color: 'text-primary bg-primary/10 hover:bg-primary/20' },
               { icon: MessageSquare, label: 'Enviar mensaje',     tab: 'Mensajes',      color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
               { icon: Wrench,        label: 'Reportar problema',  tab: 'Mantenimiento', color: 'text-amber-600 bg-amber-50 hover:bg-amber-100' },
-              { icon: Building2,     label: 'Mi Edificio',        tab: 'Comunidad',     color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' },
               { icon: Shield,        label: 'Cotizar seguro',     tab: 'Seguros',       color: 'text-purple-600 bg-purple-50 hover:bg-purple-100' },
             ].map(a => (
               <button
@@ -280,6 +289,46 @@ export function TenantHome({ tenantEntry, onNavigate }: TenantHomeProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Manuales de la unidad */}
+      {property?.manuals && property.manuals.length > 0 && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-black flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" /> Manuales de la Unidad
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-2">
+              {property.manuals.map((m, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-border/50 hover:bg-muted/10">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                      <BookOpen className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold truncate">{m.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{m.sizeLabel}</p>
+                    </div>
+                  </div>
+                  {m.url ? (
+                    <a
+                      href={m.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-primary font-bold hover:underline shrink-0 ml-3"
+                    >
+                      Ver <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground shrink-0 ml-3">Sin link</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

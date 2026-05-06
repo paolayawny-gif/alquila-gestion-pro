@@ -112,6 +112,9 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     const docId = Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento', docId);
     
+    // If charged to owner, populate ownerEmail from property.owners[0]
+    const ownerEmail = property?.owners?.[0]?.email ?? '';
+
     const task: MaintenanceTask = {
       id: docId,
       propertyId: newTicket.propertyId!,
@@ -124,6 +127,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
       actualCost: 0,
       chargedTo: 'N/A',
       isApprovedByOwner: false,
+      ownerEmail: ownerEmail,
       photos: [],
       createdAt: new Date().toLocaleDateString('es-AR'),
       updatedAt: new Date().toLocaleDateString('es-AR'),
@@ -138,12 +142,20 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
   const handleUpdateTask = () => {
     if (!selectedTask || !userId || !db) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento', selectedTask.id);
-    
+
+    // Keep ownerEmail in sync: set it from property.owners[0] whenever chargedTo is Propietario
+    const property = properties.find(p => p.id === selectedTask.propertyId);
+    const ownerEmail =
+      selectedTask.chargedTo === 'Propietario'
+        ? (property?.owners?.[0]?.email ?? selectedTask.ownerEmail ?? '')
+        : (selectedTask.ownerEmail ?? '');
+
     setDocumentNonBlocking(docRef, {
       ...selectedTask,
+      ownerEmail,
       updatedAt: new Date().toLocaleDateString('es-AR')
     }, { merge: true });
-    
+
     setIsManageDialogOpen(false);
     toast({ title: "Cambios Guardados", description: "La gestión del reclamo ha sido actualizada." });
   };

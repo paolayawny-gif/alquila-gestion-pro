@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Wrench, Users, ShoppingBag,
   Shield, LogOut, ChevronLeft, ChevronRight, Home, Menu,
-  ShieldOff, ShieldAlert,
+  ShieldOff, ShieldAlert, FileText, CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -15,6 +15,8 @@ import { TenantMaintenance } from './tenant-maintenance';
 import { TenantCommunity } from './tenant-community';
 import { TenantMarketplace } from './tenant-marketplace';
 import { TenantInsurance } from './tenant-insurance';
+import { TenantInvoices } from './tenant-invoices';
+import { TenantPaymentPlans } from './tenant-payment-plans';
 
 export interface TenantRegistryEntry {
   tenantEmail: string;
@@ -26,10 +28,12 @@ export interface TenantRegistryEntry {
   status?: 'activo' | 'suspendido' | 'inactivo';
 }
 
-type TenantTab = 'Inicio' | 'Mensajes' | 'Mantenimiento' | 'Comunidad' | 'Marketplace' | 'Seguros';
+type TenantTab = 'Inicio' | 'Recibos' | 'Pagos' | 'Mensajes' | 'Mantenimiento' | 'Comunidad' | 'Marketplace' | 'Seguros';
 
 const TENANT_MENU: { id: TenantTab; icon: React.ElementType; label: string }[] = [
   { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'           },
+  { id: 'Recibos',       icon: FileText,        label: 'Mis Recibos'      },
+  { id: 'Pagos',         icon: CreditCard,      label: 'Planes de Pago'   },
   { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'         },
   { id: 'Mantenimiento', icon: Wrench,          label: 'Mantenimiento'    },
   { id: 'Comunidad',     icon: Users,           label: 'Mi Edificio'      },
@@ -100,13 +104,15 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'Inicio':        return <TenantHome        tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
-      case 'Mensajes':      return <TenantMessages    tenantEntry={tenantEntry} />;
-      case 'Mantenimiento': return <TenantMaintenance tenantEntry={tenantEntry} />;
-      case 'Comunidad':     return <TenantCommunity   tenantEntry={tenantEntry} />;
-      case 'Marketplace':   return <TenantMarketplace tenantEntry={tenantEntry} />;
-      case 'Seguros':       return <TenantInsurance   tenantEntry={tenantEntry} />;
-      default:              return <TenantHome        tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
+      case 'Inicio':        return <TenantHome         tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
+      case 'Recibos':       return <TenantInvoices     tenantEntry={tenantEntry} />;
+      case 'Pagos':         return <TenantPaymentPlans tenantEntry={tenantEntry} />;
+      case 'Mensajes':      return <TenantMessages     tenantEntry={tenantEntry} />;
+      case 'Mantenimiento': return <TenantMaintenance  tenantEntry={tenantEntry} />;
+      case 'Comunidad':     return <TenantCommunity    tenantEntry={tenantEntry} />;
+      case 'Marketplace':   return <TenantMarketplace  tenantEntry={tenantEntry} />;
+      case 'Seguros':       return <TenantInsurance    tenantEntry={tenantEntry} />;
+      default:              return <TenantHome         tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
     }
   };
 

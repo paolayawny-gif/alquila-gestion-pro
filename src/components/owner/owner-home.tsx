@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   Building2, DollarSign, MessageSquare, Calculator,
   ArrowRight, CheckCircle2, Clock,
-  TrendingUp,
+  TrendingUp, Wrench, FileText, Bell, Users, ShoppingBag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -241,6 +241,43 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
         </Card>
       </div>
 
+      {/* Propiedades activas — resumen de contratos */}
+      {properties.filter(p => p.status === 'Alquilada').length > 0 && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-black flex items-center gap-2">
+              <FileText className="h-4 w-4 text-emerald-600" /> Contratos Activos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-2">
+            {properties.filter(p => p.status === 'Alquilada').map(p => {
+              const ownerShare = p.owners?.find(
+                o => o.email.toLowerCase() === ownerEntry.ownerEmail.toLowerCase(),
+              )?.percentage ?? 100;
+              return (
+                <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-emerald-50/30">
+                  <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                    <Building2 className="h-4 w-4 text-emerald-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{p.name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{p.address}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <Badge className="text-[10px] font-bold border bg-green-50 text-green-700 border-green-200">
+                      Alquilada
+                    </Badge>
+                    {ownerShare < 100 && (
+                      <p className="text-[9px] text-muted-foreground mt-0.5">{ownerShare}% tuyo</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Quick actions */}
       <Card className="border-none shadow-sm bg-white">
         <CardHeader className="pb-3">
@@ -249,10 +286,14 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
         <CardContent className="pt-0">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: Building2,    label: 'Ver propiedades',   tab: 'Propiedades',   color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' },
-              { icon: Calculator,   label: 'Ver liquidaciones', tab: 'Liquidaciones', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
-              { icon: MessageSquare,label: 'Mensajes',          tab: 'Mensajes',      color: 'text-violet-600 bg-violet-50 hover:bg-violet-100' },
-              { icon: DollarSign,   label: 'Resumen cobros',    tab: 'Liquidaciones', color: 'text-green-600 bg-green-50 hover:bg-green-100' },
+              { icon: FileText,      label: 'Mis Facturas',      tab: 'Facturas',      color: 'text-primary bg-primary/10 hover:bg-primary/20' },
+              { icon: Wrench,        label: 'Aprobaciones',      tab: 'Aprobaciones',  color: 'text-amber-600 bg-amber-50 hover:bg-amber-100' },
+              { icon: Bell,          label: 'Reclamos',          tab: 'Reclamos',      color: 'text-red-600 bg-red-50 hover:bg-red-100' },
+              { icon: Calculator,    label: 'Liquidaciones',     tab: 'Liquidaciones', color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' },
+              { icon: MessageSquare, label: 'Mensajes',          tab: 'Mensajes',      color: 'text-violet-600 bg-violet-50 hover:bg-violet-100' },
+              { icon: Users,         label: 'Comunidad',         tab: 'Comunidad',     color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
+              { icon: ShoppingBag,   label: 'Marketplace',       tab: 'Marketplace',   color: 'text-pink-600 bg-pink-50 hover:bg-pink-100' },
+              { icon: Building2,     label: 'Propiedades',       tab: 'Propiedades',   color: 'text-green-600 bg-green-50 hover:bg-green-100' },
             ].map(a => (
               <button
                 key={a.label}
