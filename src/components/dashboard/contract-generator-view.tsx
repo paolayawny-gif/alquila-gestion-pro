@@ -245,10 +245,10 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
     setIsGeneratingAi(true);
     toast({ title: 'Generando contrato con IA…', description: 'Esto puede tardar unos segundos.' });
     try {
-      const locador = people.find(p => p.id === aiLocadorId);
-      const locatario = people.find(p => p.id === aiLocatarioId);
-      const fiador = people.find(p => p.id === aiFiadorId);
-      const prop = properties.find(p => p.id === aiPropiedadId);
+      const locador = people.find(p => p.id === aiLocadorId && aiLocadorId !== '__none__');
+      const locatario = people.find(p => p.id === aiLocatarioId && aiLocatarioId !== '__none__');
+      const fiador = people.find(p => p.id === aiFiadorId && aiFiadorId !== '__none__');
+      const prop = properties.find(p => p.id === aiPropiedadId && aiPropiedadId !== '__none__');
 
       const aiCurrencySymbol = aiCurrency === 'USD' ? 'U$D' : '$';
       const formattedRent = aiRentAmount
@@ -268,7 +268,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
         rentAmount: formattedRent,
         currency: aiCurrency === 'USD' ? 'U$D' : 'ARS ($)',
         depositAmount: formattedDeposit,
-        adjustmentMechanism: aiAdjustment || undefined,
+        adjustmentMechanism: (aiAdjustment && aiAdjustment !== '__none__') ? aiAdjustment : undefined,
         additionalDetails: aiDetails || undefined,
       });
 
@@ -966,10 +966,10 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 <div className="space-y-1">
                   <Label className="text-[11px] font-bold text-muted-foreground">🏠 Locador (Propietario)</Label>
                   {people.filter(p => p.type === 'Propietario').length > 0 ? (
-                    <Select value={aiLocadorId} onValueChange={setAiLocadorId}>
+                    <Select value={aiLocadorId} onValueChange={v => setAiLocadorId(v === '__none__' ? '' : v)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir propietario…" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        <SelectItem value="__none__" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
                         {people.filter(p => p.type === 'Propietario').map(p => (
                           <SelectItem key={p.id} value={p.id} className="text-xs">{p.fullName}</SelectItem>
                         ))}
@@ -984,10 +984,10 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 <div className="space-y-1">
                   <Label className="text-[11px] font-bold text-muted-foreground">🔑 Locatario (Inquilino)</Label>
                   {people.filter(p => p.type === 'Inquilino').length > 0 ? (
-                    <Select value={aiLocatarioId} onValueChange={setAiLocatarioId}>
+                    <Select value={aiLocatarioId} onValueChange={v => setAiLocatarioId(v === '__none__' ? '' : v)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir inquilino…" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        <SelectItem value="__none__" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
                         {people.filter(p => p.type === 'Inquilino').map(p => (
                           <SelectItem key={p.id} value={p.id} className="text-xs">{p.fullName}</SelectItem>
                         ))}
@@ -1002,10 +1002,10 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 <div className="space-y-1">
                   <Label className="text-[11px] font-bold text-muted-foreground">🛡️ Fiador (Garante)</Label>
                   {people.filter(p => p.type === 'Garante').length > 0 ? (
-                    <Select value={aiFiadorId} onValueChange={setAiFiadorId}>
+                    <Select value={aiFiadorId} onValueChange={v => setAiFiadorId(v === '__none__' ? '' : v)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir garante…" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        <SelectItem value="__none__" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
                         {people.filter(p => p.type === 'Garante').map(p => (
                           <SelectItem key={p.id} value={p.id} className="text-xs">{p.fullName}</SelectItem>
                         ))}
@@ -1020,10 +1020,10 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 <div className="space-y-1">
                   <Label className="text-[11px] font-bold text-muted-foreground">📍 Inmueble</Label>
                   {properties.length > 0 ? (
-                    <Select value={aiPropiedadId} onValueChange={setAiPropiedadId}>
+                    <Select value={aiPropiedadId} onValueChange={v => setAiPropiedadId(v === '__none__' ? '' : v)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir propiedad…" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
+                        <SelectItem value="__none__" className="text-xs text-muted-foreground">— Sin especificar —</SelectItem>
                         {properties.map(p => (
                           <SelectItem key={p.id} value={p.id} className="text-xs">{p.address}{p.unit ? ` · ${p.unit}` : ''}</SelectItem>
                         ))}
@@ -1069,10 +1069,10 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-bold text-muted-foreground">Ajuste</Label>
-                  <Select value={aiAdjustment} onValueChange={setAiAdjustment}>
+                  <Select value={aiAdjustment} onValueChange={v => setAiAdjustment(v === '__none__' ? '' : v)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elegir…" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="" className="text-xs">— Sin especificar —</SelectItem>
+                      <SelectItem value="__none__" className="text-xs">— Sin especificar —</SelectItem>
                       <SelectItem value="IPC (INDEC)" className="text-xs">IPC (INDEC)</SelectItem>
                       <SelectItem value="ICL (BCRA)" className="text-xs">ICL (BCRA)</SelectItem>
                       <SelectItem value="Libre negociación" className="text-xs">Libre negociación</SelectItem>
