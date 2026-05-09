@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 
-const POLYGON_RPC = 'https://polygon-rpc.com';
+const POLYGON_RPC = 'https://polygon-bor-rpc.publicnode.com';
 const SCAN_BASE   = 'https://polygonscan.com/tx';
 
 export function polygonScanUrl(txHash: string) {
