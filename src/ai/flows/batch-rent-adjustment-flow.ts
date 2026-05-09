@@ -1,21 +1,21 @@
 'use server';
 /**
- * Ajuste masivo de cánones de alquiler.
+ * Ajuste masivo de cánones de alquiler — cálculo per-contrato.
  *
- * Patrón inspirado en Dexter (multi-agent decomposition):
- *  1. Descompone "ajustar todos los contratos" en subtareas independientes por contrato.
- *  2. Ejecuta cada cálculo en paralelo (Promise.all) para minimizar latencia.
- *  3. Valida el coeficiente resultante antes de aceptarlo (sanity check).
- *  4. Devuelve un informe completo con nuevos montos, índices usados y errores por contrato.
+ * Cada contrato tiene su propio inicio, frecuencia y estado. Por eso este flow:
+ *  1. Deriva la fecha del último ajuste real a partir de startDate + períodos transcurridos.
+ *  2. Calcula los meses reales que pasaron desde ese último ajuste.
+ *  3. Determina si el contrato ya está vencido para ajuste o todavía no.
+ *  4. Aplica el índice (ICL/IPC/CER) solo por la cantidad de meses real, no por la frecuencia nominal.
+ *  5. Procesa todos los contratos en paralelo (Promise.allSettled) con validación individual.
  *
- * No escribe en Firestore — sólo calcula y reporta.
- * El admin decide qué contratos actualizar desde la UI.
+ * No escribe en Firestore — solo calcula y reporta.
  */
 
 import { calculateRentAdjustment, type AdjustmentMechanism } from './calculate-rent-adjustment-action';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPES
+// TIPOS
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface BatchContractInput {
@@ -27,6 +27,7 @@ export interface BatchContractInput {
   currency: 'ARS' | 'USD';
   adjustmentMechanism?: string;
   adjustmentFrequencyMonths: number;
+  startDate?: string;             // YYYY-MM-DD — necesario para calcular períodos reales
 }
 
 export interface BatchAdjustmentLine {
@@ -35,12 +36,17 @@ export interface BatchAdjustmentLine {
   tenantName: string;
   currentRent: number;
   newRent: number;
-  increase: number;           // diferencia absoluta
-  coefficient: number;        // factor multiplicador (ej: 1.037)
-  variationPct: number;       // porcentaje de variación
-  indexUsed: string;          // etiqueta del índice (ej: "ICL – BCRA (Abril 2025)")
+  increase: number;
+  coefficient: number;
+  variationPct: number;
+  indexUsed: string;
   referencePeriod: string;
-  isEstimated: boolean;       // true si el índice es fallback
+  isEstimated: boolean;
+  // Datos de período por contrato
+  lastAdjDate: string;            // fecha del último ajuste (calculada)
+  nextAdjDate: string;            // fecha del próximo ajuste esperado
+  isDue: boolean;                 // true si ya corresponde ajustar
+  monthsElapsed: number;          // meses reales desde el último ajuste
   error?: string;
 }
 
@@ -49,7 +55,56 @@ export type BatchRentAdjustmentResult =
   | { ok: false; error: string };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FLOW
+// UTILIDADES DE PERÍODO
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PeriodInfo {
+  lastAdjDate: string;
+  nextAdjDate: string;
+  isDue: boolean;
+  monthsElapsed: number;
+}
+
+function calcPeriodInfo(startDate: string, frequencyMonths: number): PeriodInfo {
+  const start = new Date(startDate);
+  const now   = new Date();
+
+  // Meses completos transcurridos desde el inicio del contrato
+  const totalMonths =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth()   - start.getMonth());
+
+  // Cuántos períodos completos de ajuste pasaron
+  const periodsPassed = Math.max(0, Math.floor(totalMonths / frequencyMonths));
+
+  // Fecha del último ajuste aplicado
+  const lastAdj = new Date(start);
+  lastAdj.setMonth(lastAdj.getMonth() + periodsPassed * frequencyMonths);
+
+  // Fecha del próximo ajuste esperado
+  const nextAdj = new Date(lastAdj);
+  nextAdj.setMonth(nextAdj.getMonth() + frequencyMonths);
+
+  const isDue = now >= nextAdj;
+
+  // Meses reales desde el último ajuste (para el acumulado del índice)
+  const monthsElapsed = isDue
+    ? Math.round(
+        (now.getFullYear() - lastAdj.getFullYear()) * 12 +
+        (now.getMonth()    - lastAdj.getMonth())
+      )
+    : frequencyMonths; // todavía no vence → proyectamos con la frecuencia nominal
+
+  return {
+    lastAdjDate: lastAdj.toISOString().split('T')[0],
+    nextAdjDate: nextAdj.toISOString().split('T')[0],
+    isDue,
+    monthsElapsed: Math.max(monthsElapsed, 1),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FLOW PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VALID_MECHANISMS = new Set<AdjustmentMechanism>(['ICL', 'IPC', 'CER', 'CasaPropia', 'Fixed']);
@@ -62,9 +117,17 @@ export async function batchRentAdjustment(
   }
 
   try {
-    // Stage 1: dispatch all calculations in parallel (Dexter decomposition pattern)
+    // Paso 1: enriquecer cada contrato con su período real antes de llamar las APIs
+    const enriched = contracts.map(c => {
+      const period = c.startDate
+        ? calcPeriodInfo(c.startDate, c.adjustmentFrequencyMonths)
+        : { lastAdjDate: '-', nextAdjDate: '-', isDue: true, monthsElapsed: c.adjustmentFrequencyMonths };
+      return { ...c, period };
+    });
+
+    // Paso 2: cálculo en paralelo, cada contrato con sus meses reales
     const settled = await Promise.allSettled(
-      contracts.map(async (c): Promise<BatchAdjustmentLine> => {
+      enriched.map(async (c): Promise<BatchAdjustmentLine> => {
         const mechanism: AdjustmentMechanism = VALID_MECHANISMS.has(c.adjustmentMechanism as AdjustmentMechanism)
           ? (c.adjustmentMechanism as AdjustmentMechanism)
           : 'ICL';
@@ -73,79 +136,74 @@ export async function batchRentAdjustment(
           mechanism,
           currentRentAmount: c.currentRentAmount,
           currency: c.currency,
-          adjustmentFrequencyMonths: c.adjustmentFrequencyMonths,
+          lastAdjustmentDate: c.period.lastAdjDate !== '-' ? c.period.lastAdjDate : undefined,
+          adjustmentFrequencyMonths: c.period.monthsElapsed, // meses REALES transcurridos
         });
 
-        if (!res.ok) {
-          return {
-            contractId: c.id,
-            propertyName: c.propertyName,
-            tenantName: c.tenantName,
-            currentRent: c.currentRentAmount,
-            newRent: c.currentRentAmount,
-            increase: 0,
-            coefficient: 1,
-            variationPct: 0,
-            indexUsed: mechanism,
-            referencePeriod: '-',
-            isEstimated: true,
-            error: res.error,
-          };
-        }
+        if (!res.ok) return mkErrorLine(c, c.period, res.error);
 
         const d = res.data;
-
-        // Stage 2: sanity validation — coefficient must be in [1.0, 4.0]
-        // Extreme values likely indicate a data issue rather than a real index spike
-        const isReasonable = d.coefficient >= 1.0 && d.coefficient <= 4.0;
+        if (d.coefficient < 1.0 || d.coefficient > 4.0) {
+          return mkErrorLine(c, c.period, `Coeficiente fuera de rango: ${d.coefficient}x`);
+        }
 
         return {
-          contractId: c.id,
-          propertyName: c.propertyName,
-          tenantName: c.tenantName,
-          currentRent: c.currentRentAmount,
-          newRent: d.newAmount,
-          increase: d.newAmount - c.currentRentAmount,
-          coefficient: d.coefficient,
-          variationPct: d.variationPct,
-          indexUsed: d.sourceLabel,
+          contractId:      c.id,
+          propertyName:    c.propertyName,
+          tenantName:      c.tenantName,
+          currentRent:     c.currentRentAmount,
+          newRent:         d.newAmount,
+          increase:        d.newAmount - c.currentRentAmount,
+          coefficient:     d.coefficient,
+          variationPct:    d.variationPct,
+          indexUsed:       d.sourceLabel,
           referencePeriod: d.referencePeriod,
-          isEstimated: d.isEstimated,
-          error: !isReasonable ? `Coeficiente fuera de rango: ${d.coefficient}x` : undefined,
+          isEstimated:     d.isEstimated,
+          lastAdjDate:     c.period.lastAdjDate,
+          nextAdjDate:     c.period.nextAdjDate,
+          isDue:           c.period.isDue,
+          monthsElapsed:   c.period.monthsElapsed,
         };
       })
     );
 
-    // Stage 3: collect results, surfacing rejection reasons as error lines
-    const lines: BatchAdjustmentLine[] = settled.map((result, i) => {
-      if (result.status === 'fulfilled') return result.value;
-      return {
-        contractId: contracts[i].id,
-        propertyName: contracts[i].propertyName,
-        tenantName: contracts[i].tenantName,
-        currentRent: contracts[i].currentRentAmount,
-        newRent: contracts[i].currentRentAmount,
-        increase: 0,
-        coefficient: 1,
-        variationPct: 0,
-        indexUsed: '-',
-        referencePeriod: '-',
-        isEstimated: true,
-        error: result.reason?.message ?? 'Error desconocido',
-      };
-    });
+    // Paso 3: unificar resultados
+    const lines: BatchAdjustmentLine[] = settled.map((result, i) =>
+      result.status === 'fulfilled'
+        ? result.value
+        : mkErrorLine(enriched[i], enriched[i].period, result.reason?.message ?? 'Error desconocido')
+    );
 
     const totalCurrentRent = lines.reduce((a, l) => a + l.currentRent, 0);
-    const totalNewRent      = lines.reduce((a, l) => a + l.newRent, 0);
+    const totalNewRent      = lines.reduce((a, l) => a + (l.error ? l.currentRent : l.newRent), 0);
 
-    return {
-      ok: true,
-      lines,
-      generatedAt: new Date().toISOString(),
-      totalCurrentRent,
-      totalNewRent,
-    };
+    return { ok: true, lines, generatedAt: new Date().toISOString(), totalCurrentRent, totalNewRent };
   } catch (err: any) {
     return { ok: false, error: err?.message ?? 'Error en ajuste masivo' };
   }
+}
+
+function mkErrorLine(
+  c: BatchContractInput,
+  period: PeriodInfo,
+  error: string,
+): BatchAdjustmentLine {
+  return {
+    contractId:      c.id,
+    propertyName:    c.propertyName,
+    tenantName:      c.tenantName,
+    currentRent:     c.currentRentAmount,
+    newRent:         c.currentRentAmount,
+    increase:        0,
+    coefficient:     1,
+    variationPct:    0,
+    indexUsed:       c.adjustmentMechanism ?? '-',
+    referencePeriod: '-',
+    isEstimated:     true,
+    lastAdjDate:     period.lastAdjDate,
+    nextAdjDate:     period.nextAdjDate,
+    isDue:           period.isDue,
+    monthsElapsed:   period.monthsElapsed,
+    error,
+  };
 }

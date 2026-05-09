@@ -166,6 +166,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
         currency: c.currency,
         adjustmentMechanism: c.adjustmentMechanism ?? undefined,
         adjustmentFrequencyMonths: c.adjustmentFrequencyMonths,
+        startDate: c.startDate,           // clave para calcular el período real
       }))
     );
     setIsBatchLoading(false);
@@ -650,32 +651,65 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
               <TableHeader>
                 <TableRow className="bg-muted/20">
                   <TableHead className="text-[10px] uppercase font-black">Propiedad / Inquilino</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black">Estado ajuste</TableHead>
                   <TableHead className="text-[10px] uppercase font-black text-right">Canon actual</TableHead>
                   <TableHead className="text-[10px] uppercase font-black text-right">Nuevo canon</TableHead>
                   <TableHead className="text-[10px] uppercase font-black text-center">Variación</TableHead>
-                  <TableHead className="text-[10px] uppercase font-black">Índice</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black">Índice / Período</TableHead>
                   <TableHead className="text-[10px] uppercase font-black" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {batchResult.lines.map(line => (
-                  <TableRow key={line.contractId} className={cn(line.error && 'bg-red-50/50')}>
+                  <TableRow key={line.contractId} className={cn(
+                    line.error && 'bg-red-50/50',
+                    line.isDue && !line.error && 'bg-amber-50/40'
+                  )}>
                     <TableCell>
                       <p className="font-bold text-xs leading-tight">{line.propertyName}</p>
                       <p className="text-[10px] text-muted-foreground">{line.tenantName}</p>
                     </TableCell>
+                    <TableCell>
+                      {line.isDue ? (
+                        <div>
+                          <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[9px] mb-0.5">
+                            VENCIDO
+                          </Badge>
+                          <p className="text-[9px] text-muted-foreground">
+                            {line.monthsElapsed} mes{line.monthsElapsed !== 1 ? 'es' : ''} sin ajustar
+                          </p>
+                          <p className="text-[9px] text-muted-foreground">
+                            Desde {line.lastAdjDate !== '-' ? new Date(line.lastAdjDate).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }) : '—'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <Badge className="bg-green-100 text-green-700 border-none font-black text-[9px] mb-0.5">
+                            Al día
+                          </Badge>
+                          <p className="text-[9px] text-muted-foreground">
+                            Próx.: {line.nextAdjDate !== '-' ? new Date(line.nextAdjDate).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }) : '—'}
+                          </p>
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-bold text-sm">
                       ${line.currentRent.toLocaleString('es-AR')}
                     </TableCell>
-                    <TableCell className="text-right font-black text-sm text-green-700">
+                    <TableCell className="text-right font-black text-sm">
                       {line.error
                         ? <span className="text-red-500 text-[10px]">{line.error}</span>
-                        : `$${line.newRent.toLocaleString('es-AR')}`
+                        : <span className={line.isDue ? 'text-amber-700' : 'text-green-700'}>
+                            ${line.newRent.toLocaleString('es-AR')}
+                          </span>
                       }
                     </TableCell>
                     <TableCell className="text-center">
                       {!line.error && (
-                        <Badge className="bg-green-100 text-green-700 border-none font-black text-[10px]">
+                        <Badge className={cn(
+                          'border-none font-black text-[10px]',
+                          line.isDue ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                        )}>
                           +{line.variationPct.toFixed(1)}%
                         </Badge>
                       )}
@@ -683,6 +717,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                     <TableCell>
                       <p className="text-[10px] font-bold leading-tight">{line.indexUsed.split(' – ')[0]}</p>
                       <p className="text-[9px] text-muted-foreground">{line.referencePeriod}</p>
+                      <p className="text-[9px] text-muted-foreground">{line.monthsElapsed} mes{line.monthsElapsed !== 1 ? 'es' : ''} acum.</p>
                       {line.isEstimated && (
                         <p className="text-[9px] text-amber-600 font-bold">estimado</p>
                       )}
