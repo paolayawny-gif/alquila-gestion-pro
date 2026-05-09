@@ -27,6 +27,9 @@ import { writePropertyEvent } from '@/lib/property-events';
 import { batchRentAdjustment, type BatchRentAdjustmentResult, type BatchAdjustmentLine } from '@/ai/flows/batch-rent-adjustment-flow';
 import { richCommunication } from '@/ai/flows/rich-communication-flow';
 import { AdvancePaymentPanel } from '@/components/dashboard/advance-payment-panel';
+import { WhatsAppButton } from '@/components/ui/whatsapp-button';
+import { WA_TEMPLATES } from '@/lib/whatsapp';
+import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -111,6 +114,8 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   const db = useFirestore();
   const { user } = useUser();
   const { canWrite } = useOrgPermissions();
+
+  const { whatsappNumber } = useAdminWhatsApp(userId);
 
   const [selectedContractId, setSelectedContractId] = useState<string>(contracts[0]?.id ?? '');
   const [showNotifDialog, setShowNotifDialog] = useState(false);
@@ -919,6 +924,23 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                 }
               </Button>
             )}
+            {(() => {
+              const notifContract = contracts.find(c => c.id === notifLine?.contractId);
+              const notifTenant = people.find(p => p.id === notifContract?.tenantId);
+              return whatsappNumber && notifTenant?.phone ? (
+                <WhatsAppButton
+                  phone={notifTenant.phone}
+                  message={WA_TEMPLATES.rentAdjustment({
+                    tenantName: notifLine?.tenantName ?? '',
+                    propertyName: notifLine?.propertyName ?? '',
+                    newRent: notifLine?.newRent.toLocaleString('es-AR') ?? '',
+                    currency: notifContract?.currency ?? 'ARS',
+                    effectiveDate: new Date().toLocaleDateString('es-AR'),
+                  })}
+                  label="Enviar ajuste por WhatsApp"
+                />
+              ) : null;
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -954,6 +976,19 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowNotifDialog(false)}>Cancelar</Button>
+            {whatsappNumber && tenant?.phone && (
+              <WhatsAppButton
+                phone={tenant.phone}
+                message={WA_TEMPLATES.mora({
+                  tenantName: contract?.tenantName ?? '',
+                  propertyName: contract?.propertyName ?? '',
+                  totalOverdue: mora?.totalOverdue.toLocaleString('es-AR') ?? '0',
+                  currency: contract?.currency ?? 'ARS',
+                  daysOverdue: mora?.daysOverdue ?? 0,
+                })}
+                label="Notificar por WhatsApp"
+              />
+            )}
             <Button className="gap-2 bg-orange-500 hover:bg-orange-600 font-bold" onClick={handleSendNotification} disabled={!canWrite}>
               <Bell className="h-4 w-4" /> Registrar
             </Button>
