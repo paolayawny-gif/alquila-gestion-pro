@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   KeyRound, Upload, CheckCircle2, Loader2, AlertTriangle,
   Wifi, WifiOff, FileText, Send, RefreshCw, Building2, User2,
-  ShieldCheck,
+  ShieldCheck, HelpCircle, ChevronDown, ChevronUp, ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -206,8 +206,71 @@ export function OwnerAfipPanel({ ownerEntry }: OwnerAfipPanelProps) {
 
   const tipoLabel = (t: number) => t === 11 ? 'Factura C (Monotributo)' : 'Factura B (Responsable Inscripto)';
 
+  const [guideOpen, setGuideOpen] = useState(!storedConfig);
+
+  const GUIDE_STEPS = [
+    {
+      num: '1',
+      title: 'Obtené tu certificado digital en AFIP',
+      color: 'bg-blue-100 text-blue-700',
+      items: [
+        'Ingresá a arca.afip.gob.ar con tu CUIT y clave fiscal (nivel 3 o superior).',
+        'En el menú, buscá "Administrador de Relaciones de Clave Fiscal".',
+        'Hacé clic en "Adherir servicio", buscá wsfe (Web Service de Facturación Electrónica) y confirmá.',
+        'Luego entrá a "Administración de Certificados Digitales" → "Nuevo certificado".',
+        'Descargá el archivo resultante (.pfx o .p12) y guardá la contraseña que elegiste.',
+      ],
+      note: 'Este trámite es gratuito y tarda unos 10 minutos. Si ya facturás electrónicamente, probablemente ya tenés este archivo.',
+    },
+    {
+      num: '2',
+      title: 'Conocé tu Punto de Venta',
+      color: 'bg-amber-100 text-amber-700',
+      items: [
+        'En el portal ARCA, entrá a "Comprobantes en línea" → "ABM Puntos de Venta".',
+        'Si ya tenés uno creado para facturación electrónica, anotá su número (ej: 1, 2, 3).',
+        'Si no tenés, creá uno nuevo de tipo "Web Services" (RECE).',
+      ],
+      note: 'El punto de venta es un número de 4 dígitos que identifica desde dónde emitís. Lo más común es el 0001.',
+    },
+    {
+      num: '3',
+      title: 'Elegí tu tipo de comprobante',
+      color: 'bg-purple-100 text-purple-700',
+      items: [
+        'Factura B: si sos Responsable Inscripto ante el IVA.',
+        'Factura C: si sos Monotributista.',
+      ],
+      note: 'Si no sabés cuál sos, podés verificarlo en tu constancia de inscripción de AFIP o consultando a tu contador.',
+    },
+    {
+      num: '4',
+      title: 'Configurá y probá la conexión',
+      color: 'bg-emerald-100 text-emerald-700',
+      items: [
+        'Completá el formulario de esta pantalla con tu CUIT, punto de venta y tipo de comprobante.',
+        'Subí el archivo .pfx y escribí su contraseña.',
+        'Primero usá el ambiente "Homologación (pruebas)" para verificar que todo funcione.',
+        'Hacé clic en "Guardar credenciales" y luego en "Probar conexión".',
+        'Cuando veas "Webservice Conectado", cambiá a "Producción" y volvé a guardar.',
+      ],
+      note: 'Tus datos quedan cifrados en nuestros servidores. Nunca los compartimos ni los vemos.',
+    },
+    {
+      num: '5',
+      title: 'Emití tu primera factura',
+      color: 'bg-teal-100 text-teal-700',
+      items: [
+        'Cuando la administración genere la liquidación mensual, aparecerá en "Facturas pendientes de emisión".',
+        'Todos los datos (inquilino, inmueble, período, monto) vienen precargados.',
+        'Hacé clic en "Emitir factura" — en segundos obtenés el CAE y queda registrado automáticamente.',
+      ],
+      note: 'El CAE (Código de Autorización Electrónico) es el comprobante de que AFIP autorizó tu factura.',
+    },
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
 
       <div>
         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Portal Propietario</p>
@@ -216,6 +279,70 @@ export function OwnerAfipPanel({ ownerEntry }: OwnerAfipPanelProps) {
           Emití tus facturas electrónicas directamente desde la plataforma con los datos precargados.
         </p>
       </div>
+
+      {/* ── Step-by-step guide ───────────────────────────────────────────── */}
+      <Card className="border-none shadow-sm overflow-hidden">
+        <button
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors"
+          onClick={() => setGuideOpen(v => !v)}
+        >
+          <div className="flex items-center gap-2.5">
+            <HelpCircle className="h-4 w-4 text-blue-600 shrink-0" />
+            <span className="text-sm font-black">
+              {storedConfig ? '¿Cómo funciona? Guía paso a paso' : '¿Es tu primera vez? Seguí estos pasos'}
+            </span>
+            {!storedConfig && (
+              <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Recomendado</span>
+            )}
+          </div>
+          {guideOpen
+            ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+            : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+        </button>
+
+        {guideOpen && (
+          <div className="px-5 pb-5 space-y-4 border-t border-border/40">
+            <p className="text-xs text-muted-foreground pt-4">
+              Para emitir facturas electrónicas desde esta plataforma necesitás un certificado digital de AFIP.
+              El proceso es gratuito y se hace una sola vez.
+            </p>
+
+            <div className="space-y-3">
+              {GUIDE_STEPS.map(step => (
+                <div key={step.num} className="flex gap-3">
+                  <div className={cn('h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 mt-0.5', step.color)}>
+                    {step.num}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <p className="text-xs font-black">{step.title}</p>
+                    <ul className="space-y-1">
+                      {step.items.map((item, i) => (
+                        <li key={i} className="text-[11px] text-muted-foreground flex gap-1.5">
+                          <span className="shrink-0 mt-0.5 text-muted-foreground/40">·</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="bg-muted/40 rounded-lg px-3 py-2 mt-1">
+                      <p className="text-[10px] text-muted-foreground italic">{step.note}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <a
+              href="https://arca.afip.gob.ar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:underline mt-1"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Ir al portal ARCA / AFIP
+            </a>
+          </div>
+        )}
+      </Card>
 
       {/* ── Config + Status grid ─────────────────────────────────────────── */}
       <div className="grid md:grid-cols-2 gap-6">
