@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -93,6 +93,67 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos'));
   }, [db, userId]);
   const { data: people } = useCollection<Person>(peopleQuery);
+
+  // Day-28/29 liquidación reminder
+  const [showLiquidacionReminder, setShowLiquidacionReminder] = useState(false);
+  useEffect(() => {
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const daysUntilMonthEnd = lastDayOfMonth - dayOfMonth;
+    if (daysUntilMonthEnd <= 2) {
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+        .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+      const nextMonthAlreadyGenerated = invoices.some(i => i.period === nextMonth && i.charges.some(c => c.type === 'Alquiler'));
+      setShowLiquidacionReminder(!nextMonthAlreadyGenerated && contracts.some(c => c.status === 'Vigente'));
+    }
+  }, [invoices, contracts]);
+
+  // Auto-trigger ARCA request when invoice reaches due date unpaid
+  useEffect(() => {
+    if (!db || !userId) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    invoices.forEach(inv => {
+      if (inv.status !== 'Pendiente' && inv.status !== 'Vencido') return;
+      if (!inv.ownerEmail || inv.ownerNotifiedAt) return;
+      if (!inv.charges?.some(c => c.type === 'Alquiler')) return;
+
+      // Parse dueDate (dd/MM/yyyy)
+      const parts = (inv.dueDate ?? '').split('/');
+      if (parts.length !== 3) return;
+      const due = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      due.setHours(0, 0, 0, 0);
+      if (due > today) return;
+
+      // Mark as Vencido and notify owner
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
+      setDocumentNonBlocking(docRef, { status: 'Vencido', ownerNotifiedAt: new Date().toISOString() }, { merge: true });
+
+      const totalAmt = (inv.totalAmount ?? 0) + (inv.lateFees ?? 0);
+      const currency = inv.currency === 'USD' ? 'U$D' : '$';
+      sendEmail({
+        to: inv.ownerEmail,
+        subject: `Vencimiento de alquiler — Emití tu factura ARCA (${inv.period ?? ''})`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <h2 style="color:#c0392b;">Vencimiento del plazo de pago</h2>
+            <p>Se cumplió el vencimiento pactado (<strong>${inv.dueDate}</strong>) para el alquiler del período <strong>${inv.period ?? ''}</strong> de la propiedad <strong>${inv.propertyName ?? ''}</strong>.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+              <tr style="background:#f5f5f5;"><td style="padding:8px 12px;font-size:13px;">Inquilino</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${inv.tenantName ?? ''}</td></tr>
+              <tr><td style="padding:8px 12px;font-size:13px;">Monto total</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${currency} ${totalAmt.toLocaleString('es-AR')}</td></tr>
+            </table>
+            <div style="background:#fef9ec;border:1px solid #f5c842;border-radius:8px;padding:14px;margin:16px 0;">
+              <p style="margin:0;font-size:12px;color:#856404;"><strong>📋 RG AFIP 1415/03:</strong> Habiéndose cumplido el vencimiento del plazo de pago sin recepción del importe, corresponde emitir la factura ARCA. Ingresá a <strong>arca.afip.gob.ar</strong>, emití el comprobante por ${currency} ${totalAmt.toLocaleString('es-AR')} (alquiler${inv.lateFees ? ' + intereses' : ''}), y subí el PDF desde tu Portal Propietario.</p>
+            </div>
+            <p style="font-size:11px;color:#aaa;margin-top:24px;">Aviso automático del sistema de administración. No respondas este correo.</p>
+          </div>
+        `,
+      }).catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, db]);
 
   const informedPayments = invoices.filter(i => i.status === 'Pago Informado');
   const ownerSubmissions = invoices.filter(i => i.isFromOwner && i.status === 'Esperando Factura ARCA');
@@ -189,23 +250,76 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         setDocumentNonBlocking(docRef, invoiceData, { merge: true });
         count++;
 
-        // Send notification email to tenant if email is available
+        // Resolve owner person to get bank details (CBU)
+        const ownerPerson = people?.find(p => p.email === ownerEmail);
+        const bankInfo = ownerPerson?.bankDetails;
+        const cbuLine = bankInfo?.cbu
+          ? `CBU: ${bankInfo.cbu}${bankInfo.alias ? ` · Alias: ${bankInfo.alias}` : ''}${bankInfo.bank ? ` (${bankInfo.bank})` : ''}`
+          : null;
+        const fmt = (n: number) => `${contract.currency === 'USD' ? 'U$D' : '$'} ${n.toLocaleString('es-AR')}`;
+
+        // Previous month's overdue interests for this contract
+        const prevOverdue = invoices.filter(
+          inv => inv.contractId === contract.id && inv.status !== 'Pagado' && inv.status !== 'Anulado' && inv.period !== currentMonth
+        );
+        const prevInterestTotal = prevOverdue.reduce((acc, inv) => acc + (inv.lateFees ?? 0), 0);
+        const hasOverdue = prevInterestTotal > 0;
+
+        // Email to tenant with payment instructions + legal note
         if (contract.tenantEmail) {
+          const cbuCtx = cbuLine ? ` Datos de transferencia: ${cbuLine}.` : '';
+          const overdueCtx = hasOverdue
+            ? ` Nota: su cuenta también registra intereses por mora de períodos anteriores por ${fmt(prevInterestTotal)}, que se liquidarán junto con el pago del mes.`
+            : '';
+          const legalNote = ` Conforme a la RG AFIP 1415/03, la factura fiscal se emitirá en el momento en que se perciba el pago o al vencimiento del plazo fijado para su pago, lo que ocurra primero.`;
+          const paymentCtx = `Liquidación de alquiler ${currentMonth} por ${fmt(contract.currentRentAmount)}.${overdueCtx} Vencimiento: ${dueDate}.${cbuCtx}${legalNote}`;
           const emailTask = aiCommunicationAssistant({
             communicationType: 'rentReminder',
             tenantName: contract.tenantName ?? 'Inquilino',
             propertyName: contract.propertyName ?? 'Propiedad',
-            amountDue: `${contract.currency} ${contract.currentRentAmount.toLocaleString('es-AR')}`,
+            amountDue: fmt(contract.currentRentAmount + prevInterestTotal),
             dueDate,
-            additionalContext: `Nueva factura de alquiler generada para el período ${currentMonth}. El comprobante ya está disponible en su portal personal.`,
+            additionalContext: paymentCtx,
           }).then(draft =>
             sendEmail({
               to: contract.tenantEmail!,
               subject: draft.subjectLine,
               html: `<div style="text-align:justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`,
             })
-          ).catch(() => {}); // silent — don't block invoice creation
+          ).catch(() => {});
           emailPromises.push(emailTask);
+        }
+
+        // Email to owner(s) with liquidación details + ARCA timing note
+        if (ownerEmail) {
+          const ownerName = property?.owners?.[0]?.name ?? 'Propietario';
+          const totalWithInterest = contract.currentRentAmount + prevInterestTotal;
+          const overdueRow = hasOverdue
+            ? `<tr style="background:#fff3cd;"><td style="padding:8px 12px;font-size:13px;color:#856404;">Intereses mora anterior</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;color:#856404;">${fmt(prevInterestTotal)}</td></tr>`
+            : '';
+          const ownerEmailTask = sendEmail({
+            to: ownerEmail,
+            subject: `Liquidación ${currentMonth} — ${contract.propertyName ?? 'Propiedad'}`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                <h2 style="color:#1a1a2e;">Liquidación de alquiler — ${currentMonth}</h2>
+                <p>Estimado/a <strong>${ownerName}</strong>,</p>
+                <p>Se ha generado la liquidación del período <strong>${currentMonth}</strong> para la propiedad <strong>${contract.propertyName ?? ''}</strong>.</p>
+                <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                  <tr style="background:#f5f5f5;"><td style="padding:8px 12px;font-size:13px;">Inquilino</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${contract.tenantName ?? ''}</td></tr>
+                  <tr><td style="padding:8px 12px;font-size:13px;">Alquiler del mes</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${fmt(contract.currentRentAmount)}</td></tr>
+                  ${overdueRow}
+                  <tr style="background:#e8f5e9;"><td style="padding:8px 12px;font-size:13px;font-weight:bold;">Total a cobrar</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;color:#2e7d32;">${fmt(totalWithInterest)}</td></tr>
+                  <tr><td style="padding:8px 12px;font-size:13px;">Vencimiento</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${dueDate}</td></tr>
+                </table>
+                <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:14px;margin:16px 0;">
+                  <p style="margin:0;font-size:12px;color:#1565c0;"><strong>📋 Emisión de factura ARCA:</strong> Conforme a la RG AFIP 1415/03, usted debe emitir la factura en el momento en que perciba el pago <strong>o</strong> al vencimiento del plazo pactado (${dueDate}), lo que ocurra primero. Recibirá un aviso automático cuando se registre el pago o se cumpla el vencimiento.</p>
+                </div>
+                <p style="font-size:11px;color:#aaa;margin-top:24px;">Aviso automático del sistema de administración. No respondas este correo.</p>
+              </div>
+            `,
+          }).catch(() => {});
+          emailPromises.push(ownerEmailTask);
         }
       }
     });
@@ -214,9 +328,10 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     Promise.allSettled(emailPromises);
 
     setIsGeneratingRent(false);
+    setShowLiquidacionReminder(false);
     toast({
-      title: "Proceso Completado",
-      description: `Se han generado ${count} facturas para ${currentMonth}${emailPromises.length > 0 ? ` · Notificando a ${emailPromises.length} inquilino${emailPromises.length > 1 ? 's' : ''} por email` : ''}.`,
+      title: "Liquidaciones Generadas",
+      description: `${count} factura${count !== 1 ? 's' : ''} para ${currentMonth}. Se notificó a inquilinos y propietarios por email${count > 0 ? ' con datos de pago y aviso ARCA.' : '.'}`,
     });
   };
 
@@ -433,7 +548,30 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     <div className="space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={arcaInputRef} className="hidden" accept=".pdf,image/*" onChange={handleArcaFileChange} />
       <input type="file" ref={receiptInputRef} className="hidden" accept=".pdf,image/*" onChange={handleReceiptFileChange} />
-      
+
+      {/* Day-28/29 liquidación reminder banner */}
+      {showLiquidacionReminder && canWrite && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-black text-amber-800">Es momento de generar las liquidaciones del próximo mes</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Faltan {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate()} días para fin de mes.
+              Se enviarán correos al inquilino (con CBU y vencimiento) y al propietario (con nota sobre emisión ARCA).
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold shrink-0"
+            onClick={handleGenerateMonthlyRent}
+            disabled={isGeneratingRent}
+          >
+            {isGeneratingRent ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Generar y enviar'}
+          </Button>
+          <button onClick={() => setShowLiquidacionReminder(false)} className="text-amber-400 hover:text-amber-600 text-xs ml-1">✕</button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-blue-50 border-blue-200 border shadow-none">
           <CardContent className="p-4 space-y-3">
