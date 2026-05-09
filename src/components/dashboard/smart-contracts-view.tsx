@@ -623,6 +623,19 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
               }
             </Button>
           </div>
+          <div className="mt-3 flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-[11px] text-amber-800 space-y-1">
+              <p className="font-black">Para que el cálculo sea correcto, cada contrato debe tener actualizados:</p>
+              <ul className="space-y-0.5 pl-1">
+                <li>• <strong>Canon actual</strong> — el monto vigente tras el último ajuste aplicado</li>
+                <li>• <strong>Fecha de inicio</strong> — para derivar cuándo corresponde cada ajuste</li>
+                <li>• <strong>Índice de ajuste</strong> — ICL, IPC, CER u otro según lo pactado</li>
+                <li>• <strong>Frecuencia</strong> — cada cuántos meses se ajusta según el contrato</li>
+              </ul>
+              <p className="text-amber-700 mt-1">Si algún ajuste fue aplicado manualmente sin actualizar estos datos, el resultado no va a reflejar la realidad.</p>
+            </div>
+          </div>
         </CardHeader>
 
         {batchResult && batchResult.ok && (
