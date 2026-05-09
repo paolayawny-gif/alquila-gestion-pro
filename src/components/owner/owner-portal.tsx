@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Building2, Calculator,
   LogOut, ChevronLeft, ChevronRight, Home, Menu,
-  ShieldOff, ShieldAlert, Bell, ShoppingBag, Wrench, FileText, Users, Receipt,
+  ShieldOff, ShieldAlert, Bell, ShoppingBag, Wrench, FileText, Users, Receipt, Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -19,6 +19,7 @@ import { OwnerMaintenanceApprovals } from './owner-maintenance-approvals';
 import { OwnerInvoices } from './owner-invoices';
 import { OwnerCommunity } from './owner-community';
 import { OwnerAfipPanel } from './owner-afip-panel';
+import { OwnerOpportunities } from './owner-opportunities';
 import { BottomNav } from '@/components/ui/bottom-nav';
 
 export interface OwnerRegistryEntry {
@@ -37,6 +38,7 @@ type OwnerTab =
   | 'Facturas'
   | 'Facturación AFIP'
   | 'Aprobaciones'
+  | 'Oportunidades'
   | 'Reclamos'
   | 'Comunidad'
   | 'Marketplace'
@@ -47,7 +49,8 @@ const OWNER_MENU: { id: OwnerTab; icon: React.ElementType; label: string }[] = [
   { id: 'Propiedades',   icon: Building2,       label: 'Mis Propiedades' },
   { id: 'Liquidaciones', icon: Calculator,      label: 'Liquidaciones'   },
   { id: 'Facturas',         icon: FileText,  label: 'Facturas'         },
-  { id: 'Facturación AFIP', icon: Receipt,   label: 'Facturación AFIP' },
+  { id: 'Facturación AFIP', icon: Receipt,    label: 'Facturación AFIP' },
+  { id: 'Oportunidades',    icon: Lightbulb, label: 'Oportunidades'    },
   { id: 'Aprobaciones',     icon: Wrench,    label: 'Aprobaciones'     },
   { id: 'Reclamos',      icon: Bell,            label: 'Reclamos'        },
   { id: 'Comunidad',     icon: Users,           label: 'Comunidad'       },
@@ -121,6 +124,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
       case 'Liquidaciones': return <OwnerLiquidations         ownerEntry={ownerEntry} />;
       case 'Facturas':           return <OwnerInvoices             ownerEntry={ownerEntry} />;
       case 'Facturación AFIP':   return <OwnerAfipPanel            ownerEntry={ownerEntry} />;
+      case 'Oportunidades':      return <OwnerOpportunities        ownerEntry={ownerEntry} />;
       case 'Aprobaciones':       return <OwnerMaintenanceApprovals ownerEntry={ownerEntry} />;
       case 'Reclamos':      return <OwnerClaims               ownerEntry={ownerEntry} />;
       case 'Comunidad':     return <OwnerCommunity            ownerEntry={ownerEntry} />;

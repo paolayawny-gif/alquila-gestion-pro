@@ -369,6 +369,70 @@ export interface MonetizableAsset {
   createdAt: string;
 }
 
+// ── Espacios monetizables (ofertas / solicitudes / sugerencias) ──────────────
+
+export type SpaceType =
+  | 'Publicidad exterior'
+  | 'Cochera / Estacionamiento'
+  | 'Baulera / Depósito'
+  | 'Local comercial'
+  | 'Terraza (antenas / paneles)'
+  | 'Vending machines'
+  | 'SUM / Salón de eventos'
+  | 'Coworking'
+  | 'Otro';
+
+export interface MonetizationOffer {
+  id: string;
+  ownerEmail: string;
+  ownerName: string;
+  propertyId: string;
+  propertyName: string;
+  spaceType: SpaceType;
+  description: string;
+  estimatedPrice?: number;
+  currency?: 'ARS' | 'USD';
+  area?: string;
+  conditions?: string;
+  status: 'pendiente' | 'publicada' | 'en_negociacion' | 'confirmada' | 'rechazada';
+  createdAt: string;
+  updatedAt: string;
+  adminNotes?: string;
+}
+
+export interface MonetizationRequest {
+  id: string;
+  tenantEmail: string;
+  tenantName: string;
+  propertyId: string;
+  propertyName: string;
+  spaceType: SpaceType;
+  description: string;
+  budget?: number;
+  currency?: 'ARS' | 'USD';
+  duration?: string;
+  status: 'pendiente' | 'en_proceso' | 'match_encontrado' | 'confirmada' | 'rechazada';
+  createdAt: string;
+  adminNotes?: string;
+}
+
+export interface MonetizationSuggestion {
+  id: string;
+  ownerEmail: string;
+  ownerName: string;
+  propertyId?: string;
+  propertyName?: string;
+  templateId: string;
+  templateTitle: string;
+  templateDescription: string;
+  customMessage?: string;
+  sentAt: string;
+  seenAt?: string;
+  repliedAt?: string;
+  status: 'enviada' | 'vista' | 'interesado' | 'no_por_ahora';
+  isAutomatic?: boolean;
+}
+
 // ── Redes Sociales ────────────────────────────────────────────────────────────
 
 export type SocialNetworkType =

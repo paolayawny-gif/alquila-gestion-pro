@@ -30,6 +30,7 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import {
   MonetizableAsset, AssetCategory, AssetStatus, AssetRentUnit, Property,
 } from '@/lib/types';
+import { MonetizationSpacesPanel } from './monetization-spaces-panel';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface MonetizationViewProps {
@@ -686,6 +687,9 @@ export function MonetizationView({ assets, properties, userId, userEmail }: Mone
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Espacios: ofertas, solicitudes y sugerencias a propietarios ── */}
+      <MonetizationSpacesPanel userId={userId} properties={properties} />
     </div>
   );
 }

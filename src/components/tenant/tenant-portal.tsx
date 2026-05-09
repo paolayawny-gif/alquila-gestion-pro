@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Wrench, Users, ShoppingBag,
   Shield, LogOut, ChevronLeft, ChevronRight, Home, Menu,
-  ShieldOff, ShieldAlert, FileText, CreditCard,
+  ShieldOff, ShieldAlert, FileText, CreditCard, Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -17,6 +17,7 @@ import { TenantMarketplace } from './tenant-marketplace';
 import { TenantInsurance } from './tenant-insurance';
 import { TenantInvoices } from './tenant-invoices';
 import { TenantPaymentPlans } from './tenant-payment-plans';
+import { TenantSpaces } from './tenant-spaces';
 import { BottomNav } from '@/components/ui/bottom-nav';
 
 export interface TenantRegistryEntry {
@@ -29,14 +30,15 @@ export interface TenantRegistryEntry {
   status?: 'activo' | 'suspendido' | 'inactivo';
 }
 
-type TenantTab = 'Inicio' | 'Recibos' | 'Pagos' | 'Mensajes' | 'Mantenimiento' | 'Comunidad' | 'Marketplace' | 'Seguros';
+type TenantTab = 'Inicio' | 'Recibos' | 'Pagos' | 'Mensajes' | 'Mantenimiento' | 'Espacios' | 'Comunidad' | 'Marketplace' | 'Seguros';
 
 const TENANT_MENU: { id: TenantTab; icon: React.ElementType; label: string }[] = [
   { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'           },
   { id: 'Recibos',       icon: FileText,        label: 'Mis Recibos'      },
   { id: 'Pagos',         icon: CreditCard,      label: 'Planes de Pago'   },
   { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'         },
-  { id: 'Mantenimiento', icon: Wrench,          label: 'Mantenimiento'    },
+  { id: 'Mantenimiento', icon: Wrench,           label: 'Mantenimiento'    },
+  { id: 'Espacios',      icon: Lightbulb,       label: 'Espacios'         },
   { id: 'Comunidad',     icon: Users,           label: 'Mi Edificio'      },
   { id: 'Marketplace',   icon: ShoppingBag,     label: 'Marketplace'      },
   { id: 'Seguros',       icon: Shield,          label: 'Seguros'          },
@@ -111,6 +113,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
       case 'Pagos':         return <TenantPaymentPlans tenantEntry={tenantEntry} />;
       case 'Mensajes':      return <TenantMessages     tenantEntry={tenantEntry} />;
       case 'Mantenimiento': return <TenantMaintenance  tenantEntry={tenantEntry} />;
+      case 'Espacios':      return <TenantSpaces       tenantEntry={tenantEntry} />;
       case 'Comunidad':     return <TenantCommunity    tenantEntry={tenantEntry} />;
       case 'Marketplace':   return <TenantMarketplace  tenantEntry={tenantEntry} />;
       case 'Seguros':       return <TenantInsurance    tenantEntry={tenantEntry} />;
