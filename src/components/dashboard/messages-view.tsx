@@ -19,7 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Contract, Property, Person } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { richCommunication, fetchIndexTicker } from '@/ai/flows/rich-communication-flow';
@@ -241,6 +241,13 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     messages.some(m => m.sender !== 'admin' && !isLikelySpanish(m.text)),
   [messages]);
 
+  // Marcar chat como leído cuando el admin lo abre
+  useEffect(() => {
+    if (!db || !selectedChatId || !selectedChat || selectedChat.unreadAdmin === 0) return;
+    const chatRef = doc(db, 'artifacts', APP_ID, 'sharedChats', selectedChatId);
+    setDocumentNonBlocking(chatRef, { unreadAdmin: 0 }, { merge: true });
+  }, [selectedChatId, db]);
+
   // Scroll al último mensaje
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -365,7 +372,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     };
     setDocumentNonBlocking(msgRef, msg, {});
     const chatRef = doc(db, 'artifacts', APP_ID, 'sharedChats', selectedChatId);
-    setDocumentNonBlocking(chatRef, { lastMessage: txt, lastMessageAt: now, unreadAdmin: 0, unreadTenant: (selectedChat?.unreadAdmin ?? 0) + 1 }, { merge: true });
+    setDocumentNonBlocking(chatRef, { lastMessage: txt, lastMessageAt: now, unreadAdmin: 0, unreadTenant: increment(1) }, { merge: true });
     if (!text) setMessageText('');
     setIsSending(false);
   };

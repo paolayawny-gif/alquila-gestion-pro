@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { OwnerRegistryEntry } from './owner-portal';
 
@@ -103,7 +103,7 @@ export function OwnerMessages({ ownerEntry }: OwnerMessagesProps) {
       lastMessage: txt,
       lastMessageAt: now,
       unreadTenant: 0,
-      unreadAdmin: (messages.filter(m => m.sender === 'owner').length + 1),
+      unreadAdmin: increment(1),
     }, { merge: true });
     setMessageText('');
     setIsSending(false);

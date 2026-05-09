@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, Building2, Hash } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { TenantRegistryEntry } from './tenant-portal';
 
@@ -130,7 +130,7 @@ export function TenantMessages({ tenantEntry }: TenantMessagesProps) {
     setDocumentNonBlocking(msgRef, msg, {});
     const chatRef = doc(db, 'artifacts', APP_ID, 'sharedChats', selectedChatId);
     setDocumentNonBlocking(chatRef, {
-      lastMessage: txt, lastMessageAt: now, unreadAdmin: (selectedChat?.unreadAdmin ?? 0) + 1,
+      lastMessage: txt, lastMessageAt: now, unreadAdmin: increment(1),
     }, { merge: true });
     setMessageText('');
     setIsSending(false);
