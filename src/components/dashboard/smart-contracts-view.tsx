@@ -6,12 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ShieldCheck, AlertTriangle, CheckCircle2, Clock, FileText,
   Bell, ChevronRight, Zap, Scale, RefreshCw, FilePen, ExternalLink, Info,
-  Calendar, DollarSign, User, Building2, XCircle
+  Calendar, DollarSign, User, Building2, XCircle, Loader2, TrendingUp, Copy, CheckCheck
 } from 'lucide-react';
 import { ContractRiskPanel } from '@/components/ui/contract-risk-panel';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,8 @@ import { useFirestore, useUser } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { batchRentAdjustment, type BatchRentAdjustmentResult, type BatchAdjustmentLine } from '@/ai/flows/batch-rent-adjustment-flow';
+import { richCommunication } from '@/ai/flows/rich-communication-flow';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -111,6 +114,14 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   const [notifNote, setNotifNote] = useState('');
   const [sentNotifications, setSentNotifications] = useState<Set<string>>(new Set());
 
+  // Ajuste masivo
+  const [batchResult, setBatchResult] = useState<BatchRentAdjustmentResult | null>(null);
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
+  const [notifLine, setNotifLine] = useState<BatchAdjustmentLine | null>(null);
+  const [notifDraft, setNotifDraft] = useState('');
+  const [notifDraftLoading, setNotifDraftLoading] = useState(false);
+  const [notifCopied, setNotifCopied] = useState(false);
+
   const contract = contracts.find(c => c.id === selectedContractId);
   const contractInvoices = useMemo(() =>
     invoices.filter(i => i.contractId === selectedContractId),
@@ -136,6 +147,56 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
     });
     return map;
   }, [contracts, invoices]);
+
+  const handleBatchAdjustment = async () => {
+    const active = contracts.filter(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer');
+    if (active.length === 0) {
+      toast({ title: 'Sin contratos activos', description: 'No hay contratos vigentes para calcular.' });
+      return;
+    }
+    setIsBatchLoading(true);
+    setBatchResult(null);
+    const result = await batchRentAdjustment(
+      active.map(c => ({
+        id: c.id,
+        propertyName: c.propertyName ?? '',
+        tenantName: c.tenantName ?? '',
+        tenantEmail: c.tenantEmail ?? undefined,
+        currentRentAmount: c.currentRentAmount,
+        currency: c.currency,
+        adjustmentMechanism: c.adjustmentMechanism ?? undefined,
+        adjustmentFrequencyMonths: c.adjustmentFrequencyMonths,
+      }))
+    );
+    setIsBatchLoading(false);
+    if (result.ok) {
+      setBatchResult(result);
+    } else {
+      toast({ title: 'Error al calcular ajuste', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  const handleGenerateNotif = async (line: BatchAdjustmentLine) => {
+    setNotifLine(line);
+    setNotifDraft('');
+    setNotifDraftLoading(true);
+    try {
+      const contract = contracts.find(c => c.id === line.contractId);
+      const res = await richCommunication({
+        communicationType: 'leaseAdjustment',
+        channel: 'email',
+        tone: 'formal',
+        tenantName: line.tenantName,
+        propertyName: line.propertyName,
+        currentRentAmount: line.currentRent,
+        currency: (contract?.currency ?? 'ARS') as 'ARS' | 'USD',
+        adjustmentMonths: contract?.adjustmentFrequencyMonths ?? 3,
+        autoEnrichIndex: false,
+      });
+      if (res.ok) setNotifDraft(res.data.channelFormattedMessage);
+    } catch { /* best-effort */ }
+    setNotifDraftLoading(false);
+  };
 
   const handleSendNotification = () => {
     if (!db || !user || !contract) return;
@@ -533,6 +594,177 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
           )}
         </div>
       </div>
+
+      {/* ── Panel: Ajuste Masivo de Cánones ── */}
+      <Card className="border-none shadow-sm bg-white">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-black">Simulación de Ajuste Masivo</CardTitle>
+                <CardDescription className="text-xs">
+                  Proyección del próximo ajuste ICL/IPC/CER para todos los contratos vigentes.
+                </CardDescription>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="gap-2 font-bold text-xs"
+              disabled={isBatchLoading}
+              onClick={handleBatchAdjustment}
+            >
+              {isBatchLoading
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculando...</>
+                : <><Zap className="h-3.5 w-3.5" /> {batchResult && batchResult.ok ? 'Recalcular' : 'Calcular ajuste'}</>
+              }
+            </Button>
+          </div>
+        </CardHeader>
+
+        {batchResult && batchResult.ok && (
+          <CardContent className="space-y-4">
+            {/* Barra resumen */}
+            <div className="flex items-center gap-6 p-4 bg-primary/5 rounded-xl border border-primary/10 flex-wrap">
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Canon total actual</p>
+                <p className="text-xl font-black">${batchResult.totalCurrentRent.toLocaleString('es-AR')}</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Nuevo total estimado</p>
+                <p className="text-xl font-black text-green-700">${batchResult.totalNewRent.toLocaleString('es-AR')}</p>
+              </div>
+              <div className="ml-auto text-right shrink-0">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Aumento total</p>
+                <p className="text-xl font-black text-green-600">
+                  +${(batchResult.totalNewRent - batchResult.totalCurrentRent).toLocaleString('es-AR')}
+                </p>
+              </div>
+            </div>
+
+            {/* Tabla por contrato */}
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/20">
+                  <TableHead className="text-[10px] uppercase font-black">Propiedad / Inquilino</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black text-right">Canon actual</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black text-right">Nuevo canon</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black text-center">Variación</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black">Índice</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {batchResult.lines.map(line => (
+                  <TableRow key={line.contractId} className={cn(line.error && 'bg-red-50/50')}>
+                    <TableCell>
+                      <p className="font-bold text-xs leading-tight">{line.propertyName}</p>
+                      <p className="text-[10px] text-muted-foreground">{line.tenantName}</p>
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-sm">
+                      ${line.currentRent.toLocaleString('es-AR')}
+                    </TableCell>
+                    <TableCell className="text-right font-black text-sm text-green-700">
+                      {line.error
+                        ? <span className="text-red-500 text-[10px]">{line.error}</span>
+                        : `$${line.newRent.toLocaleString('es-AR')}`
+                      }
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {!line.error && (
+                        <Badge className="bg-green-100 text-green-700 border-none font-black text-[10px]">
+                          +{line.variationPct.toFixed(1)}%
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-[10px] font-bold leading-tight">{line.indexUsed.split(' – ')[0]}</p>
+                      <p className="text-[9px] text-muted-foreground">{line.referencePeriod}</p>
+                      {line.isEstimated && (
+                        <p className="text-[9px] text-amber-600 font-bold">estimado</p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {!line.error && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[10px] font-bold gap-1 px-2"
+                          onClick={() => handleGenerateNotif(line)}
+                        >
+                          <FileText className="h-3 w-3" /> Aviso
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            <p className="text-[9px] text-muted-foreground text-right">
+              Generado {new Date(batchResult.generatedAt).toLocaleString('es-AR')} · Solo simulación, no modifica contratos.
+            </p>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Dialog: Aviso de ajuste por contrato */}
+      <Dialog open={!!notifLine} onOpenChange={open => { if (!open) { setNotifLine(null); setNotifDraft(''); setNotifCopied(false); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" /> Aviso de Ajuste — {notifLine?.propertyName}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Borrador de email de ajuste de canon para {notifLine?.tenantName}.
+              Nuevo canon estimado: <strong>${notifLine?.newRent.toLocaleString('es-AR')}</strong> (+{notifLine?.variationPct.toFixed(1)}%)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {notifDraftLoading ? (
+              <div className="flex items-center gap-2 py-6 justify-center text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" /> Redactando aviso con IA...
+              </div>
+            ) : notifDraft ? (
+              <Textarea
+                value={notifDraft}
+                onChange={e => setNotifDraft(e.target.value)}
+                className="min-h-[200px] text-sm resize-none"
+              />
+            ) : (
+              <div className="py-6 text-center text-muted-foreground text-sm">
+                No se pudo generar el borrador. Podés redactarlo manualmente.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setNotifLine(null); setNotifDraft(''); setNotifCopied(false); }}>
+              Cerrar
+            </Button>
+            {notifDraft && (
+              <Button
+                className="gap-2 font-bold"
+                onClick={() => {
+                  navigator.clipboard.writeText(notifDraft);
+                  setNotifCopied(true);
+                  setTimeout(() => setNotifCopied(false), 2000);
+                  toast({ title: 'Copiado', description: 'Pegalo en tu cliente de email o en Mensajes.' });
+                }}
+              >
+                {notifCopied
+                  ? <><CheckCheck className="h-4 w-4" /> Copiado</>
+                  : <><Copy className="h-4 w-4" /> Copiar aviso</>
+                }
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: Registrar notificación */}
       <Dialog open={showNotifDialog} onOpenChange={setShowNotifDialog}>
