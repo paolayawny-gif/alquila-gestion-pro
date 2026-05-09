@@ -297,6 +297,7 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
             </Button>
           </CardHeader>
           <CardContent>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
@@ -341,6 +342,7 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
                 </TableRow>
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
 

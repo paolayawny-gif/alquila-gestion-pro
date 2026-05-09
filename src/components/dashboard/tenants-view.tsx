@@ -969,6 +969,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         {activeTab === 'contracts' ? (
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/50"><TableHead>Inquilino / Unidad</TableHead><TableHead>Fin Contrato</TableHead><TableHead>Ajuste</TableHead><TableHead className="text-right">Alquiler Actual</TableHead><TableHead className="text-right">Notificaciones e IA</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -1052,7 +1053,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               {contracts.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay contratos activos.</TableCell></TableRow>}
             </TableBody>
           </Table>
+          </div>
         ) : activeTab === 'people' ? (
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Rol en Sistema</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -1080,6 +1083,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               {people.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">No hay personas registradas.</TableCell></TableRow>}
             </TableBody>
           </Table>
+          </div>
         ) : (
           /* ── Accesos Portal ── */
           <div className="p-6 space-y-4">

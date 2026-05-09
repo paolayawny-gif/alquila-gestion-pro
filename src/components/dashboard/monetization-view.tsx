@@ -404,6 +404,7 @@ export function MonetizationView({ assets, properties, userId, userEmail }: Mone
               )}
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
@@ -481,6 +482,7 @@ export function MonetizationView({ assets, properties, userId, userEmail }: Mone
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

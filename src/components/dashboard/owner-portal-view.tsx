@@ -390,6 +390,7 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
               <ReceiptText className="h-5 w-5 text-muted-foreground opacity-50" />
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
@@ -420,6 +421,7 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </div>

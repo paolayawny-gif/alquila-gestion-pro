@@ -310,6 +310,7 @@ export function ReportsView() {
             </Button>
           </CardHeader>
           <CardContent>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
@@ -341,6 +342,7 @@ export function ReportsView() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
 

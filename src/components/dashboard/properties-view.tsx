@@ -605,6 +605,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
       </Dialog>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -691,6 +692,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       {/* Dialog: Historial del inmueble */}

@@ -652,6 +652,7 @@ function ApplicationsTable({ apps, onEval, onDelete, getStatusBadge }: { apps: R
   const { canDelete } = useOrgPermissions();
   return (
     <Card className="border-none shadow-sm overflow-hidden bg-white">
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
@@ -683,6 +684,7 @@ function ApplicationsTable({ apps, onEval, onDelete, getStatusBadge }: { apps: R
           {apps.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground">No hay solicitudes en esta categoría.</TableCell></TableRow>}
         </TableBody>
       </Table>
+      </div>
     </Card>
   );
 }

@@ -17,6 +17,7 @@ import { TenantMarketplace } from './tenant-marketplace';
 import { TenantInsurance } from './tenant-insurance';
 import { TenantInvoices } from './tenant-invoices';
 import { TenantPaymentPlans } from './tenant-payment-plans';
+import { BottomNav } from '@/components/ui/bottom-nav';
 
 export interface TenantRegistryEntry {
   tenantEmail: string;
@@ -218,10 +219,21 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
           </div>
         </header>
 
-        <div className="p-4 md:p-6">
+        <div className="p-4 md:p-6 pb-20 md:pb-6">
           {renderContent()}
         </div>
       </main>
+      <BottomNav
+        activeId={activeTab}
+        onSelect={(id) => setActiveTab(id as TenantTab)}
+        items={[
+          { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'    },
+          { id: 'Recibos',       icon: FileText,        label: 'Recibos'   },
+          { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'  },
+          { id: 'Mantenimiento', icon: Wrench,          label: 'Reparac.'  },
+          { id: 'Seguros',       icon: Shield,          label: 'Seguros'   },
+        ]}
+      />
     </div>
   );
 }

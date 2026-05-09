@@ -42,6 +42,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BottomNav } from '@/components/ui/bottom-nav';
 import { SummaryView } from '@/components/dashboard/summary-view';
 import { PropertiesView } from '@/components/dashboard/properties-view';
 import { TenantsView } from '@/components/dashboard/tenants-view';
@@ -634,12 +635,25 @@ export default function AppClient() {
             Modo <strong>solo lectura</strong> — podés consultar toda la información pero no realizar cambios.
           </div>
         )}
-        <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)] pb-20 md:pb-8">
           <OrgPermissionsProvider value={{ canWrite: orgCtx.canWrite, canDelete: orgCtx.canDelete }}>
             {renderContent()}
           </OrgPermissionsProvider>
         </div>
       </main>
+      {activeRole === 'Administrador' && (
+        <BottomNav
+          activeId={activeTab}
+          onSelect={(id) => setActiveTab(id as Tab)}
+          items={[
+            { id: 'Resumen',      icon: LayoutDashboard,  label: 'Panel'      },
+            { id: 'Facturas',     icon: FileSpreadsheet,  label: 'Facturas'   },
+            { id: 'Personas',     icon: Users,            label: 'Personas'   },
+            { id: 'Mensajes',     icon: MessagesSquare,   label: 'Mensajes'   },
+            { id: 'Mantenimiento',icon: Wrench,           label: 'Mantenim.'  },
+          ]}
+        />
+      )}
     </div>
   );
 }

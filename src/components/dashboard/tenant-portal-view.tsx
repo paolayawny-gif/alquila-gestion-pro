@@ -754,6 +754,7 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                   <CardDescription>Consultá tus cuotas de alquiler, expensas y servicios.</CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
@@ -817,6 +818,7 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                       )}
                     </TableBody>
                   </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>

@@ -677,6 +677,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
             </div>
 
             {/* Tabla por contrato */}
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/20">
@@ -768,6 +769,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                 ))}
               </TableBody>
             </Table>
+            </div>
 
             <p className="text-[9px] text-muted-foreground text-right">
               Generado {new Date(batchResult.generatedAt).toLocaleString('es-AR')} · Solo simulación, no modifica contratos.

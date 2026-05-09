@@ -19,6 +19,7 @@ import { OwnerMaintenanceApprovals } from './owner-maintenance-approvals';
 import { OwnerInvoices } from './owner-invoices';
 import { OwnerCommunity } from './owner-community';
 import { OwnerAfipPanel } from './owner-afip-panel';
+import { BottomNav } from '@/components/ui/bottom-nav';
 
 export interface OwnerRegistryEntry {
   ownerEmail: string;
@@ -232,10 +233,22 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
           </div>
         </header>
 
-        <div className="p-4 md:p-6">
+        <div className="p-4 md:p-6 pb-20 md:pb-6">
           {renderContent()}
         </div>
       </main>
+      <BottomNav
+        activeId={activeTab}
+        onSelect={(id) => setActiveTab(id as OwnerTab)}
+        activeColor="text-emerald-600"
+        items={[
+          { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'    },
+          { id: 'Propiedades',   icon: Building2,       label: 'Propied.'  },
+          { id: 'Liquidaciones', icon: Calculator,      label: 'Liquid.'   },
+          { id: 'Facturas',      icon: FileText,        label: 'Facturas'  },
+          { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'  },
+        ]}
+      />
     </div>
   );
 }

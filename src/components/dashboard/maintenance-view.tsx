@@ -386,6 +386,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
       </div>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -450,6 +451,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       {/* Diálogo de Gestión Detallada */}

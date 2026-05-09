@@ -365,6 +365,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
               </div>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
@@ -396,6 +397,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                   )}
                 </TableBody>
               </Table>
+              </div>
               {cerPageCount > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t text-xs text-muted-foreground">
                   <span>Página {cerPage + 1} de {cerPageCount} · {filteredCer.length} registros</span>
@@ -463,6 +465,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                 <CardDescription className="text-[11px]">Estos datos se usan para calcular aumentos de alquiler automáticamente.</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
@@ -500,6 +503,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </div>

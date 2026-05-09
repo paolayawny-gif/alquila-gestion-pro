@@ -194,6 +194,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       </div>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -240,6 +241,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
     </div>
   );
