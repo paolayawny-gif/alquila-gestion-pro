@@ -396,7 +396,12 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
               {/* Blockchain notarization */}
               {(() => {
                 const txHash = notarizedContracts[contract.id] ?? contract.blockchainTxHash;
-                const hasSigs = (contract.signatures?.length ?? 0) >= 1;
+                const sigs = contract.signatures ?? [];
+                const ownerOrMandatarioSigned = sigs.some(
+                  s => s.signerRole === 'Propietario' || s.signerRole === 'Administrador',
+                );
+                const tenantSigned = sigs.some(s => s.signerRole === 'Inquilino');
+                const readyToNotarize = ownerOrMandatarioSigned && tenantSigned;
                 if (txHash) {
                   return (
                     <div className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-green-200 bg-green-50">
@@ -426,12 +431,12 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                     </div>
                   );
                 }
-                if (!hasSigs || !canWrite) return null;
+                if (!readyToNotarize || !canWrite) return null;
                 return (
                   <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-dashed border-primary/40 bg-primary/5">
                     <div>
                       <p className="text-xs font-black text-foreground">Notarizar en Blockchain</p>
-                      <p className="text-[10px] text-muted-foreground">Ancla el hash del contrato en Polygon para prueba de fecha cierta ante un juez.</p>
+                      <p className="text-[10px] text-muted-foreground">Disponible una vez firmado por propietario e inquilino. Ancla el hash en Polygon como prueba de fecha cierta.</p>
                     </div>
                     <Button
                       size="sm"
