@@ -1,47 +1,78 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for answering specific questions about a contract based on its transcription.
+ * Flow para responder preguntas específicas sobre un contrato de locación,
+ * con soporte de perspectiva (locador / locatario / garante / neutral)
+ * y referencias al marco legal argentino vigente.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
 const QueryContractInputSchema = z.object({
-  contractTranscription: z.string().describe('The full transcription of the rental contract.'),
-  question: z.string().describe('The user question about the contract clauses.'),
+  contractTranscription: z.string().describe('Transcripción completa del contrato de locación.'),
+  question: z.string().describe('Pregunta del usuario sobre el contrato.'),
+  perspective: z.enum(['locador', 'locatario', 'garante', 'neutral']).default('neutral').describe(
+    'Perspectiva desde la cual se responde: locador (propietario), locatario (inquilino), garante o neutral.'
+  ),
+  contractType: z.enum(['vivienda', 'comercial', 'otro']).default('vivienda'),
 });
+
 export type QueryContractInput = z.infer<typeof QueryContractInputSchema>;
 
 const QueryContractOutputSchema = z.object({
-  answer: z.string().describe('The AI answer based ONLY on the provided contract text.'),
-  sourceQuote: z.string().optional().describe('A literal quote from the contract that supports the answer.'),
+  answer: z.string().describe('Respuesta basada exclusivamente en el texto del contrato, con contexto legal argentino si corresponde.'),
+  sourceQuote: z.string().optional().describe('Cita literal del contrato que sustenta la respuesta.'),
+  fundamentoLegal: z.string().optional().describe('Artículo o norma argentina que complementa o corrige lo pactado, si es relevante.'),
+  alertaLegal: z.string().optional().describe('Advertencia si lo pactado en el contrato contradice la normativa argentina vigente.'),
 });
+
 export type QueryContractOutput = z.infer<typeof QueryContractOutputSchema>;
 
 export type QueryContractResult =
   | { ok: true; data: QueryContractOutput }
   | { ok: false; error: string };
 
+const PERSPECTIVA_TEXTO: Record<string, string> = {
+  locador: 'Respondé desde la perspectiva del LOCADOR (propietario del inmueble). Destacá qué derechos y obligaciones tiene el locador según el contrato y la ley.',
+  locatario: 'Respondé desde la perspectiva del LOCATARIO (inquilino). Destacá qué derechos y protecciones tiene el inquilino según el contrato y la ley argentina.',
+  garante: 'Respondé desde la perspectiva del GARANTE (fiador). Destacá el alcance de su responsabilidad, límites y condiciones según el contrato.',
+  neutral: 'Respondé de forma neutral y equilibrada, sin tomar partido por ninguna de las partes.',
+};
+
 const queryContractPrompt = ai.definePrompt({
   name: 'queryContractPrompt',
-  input: {schema: QueryContractInputSchema},
-  output: {schema: QueryContractOutputSchema},
-  prompt: `You are a specialized legal assistant for Argentinian rental contracts.
-Your task is to answer the user's question accurately and ONLY using the information contained in the provided contract transcription.
+  input: { schema: QueryContractInputSchema },
+  output: { schema: QueryContractOutputSchema },
+  prompt: `Sos un abogado especialista en derecho inmobiliario argentino. Respondé la pregunta del usuario sobre el contrato de locación.
 
-INSTRUCTIONS:
-1. Answer in SPANISH.
-2. If the answer is not explicitly in the text, state: "Esta información no se encuentra detallada en el contrato proporcionado."
-3. Be precise and professional.
-4. If possible, provide a literal quote (sourceQuote) from the text that justifies your answer.
+PERSPECTIVA: {{{perspective}}}
+INSTRUCCIÓN DE PERSPECTIVA: {{perspectivaTxt}}
+TIPO DE CONTRATO: {{{contractType}}}
 
-CONTRACT TRANSCRIPTION:
+MARCO LEGAL ARGENTINO DE REFERENCIA:
+${MARCO_LEGAL_ALQUILER}
+
+INSTRUCCIONES:
+1. Respondé SIEMPRE en español rioplatense (voseo).
+2. Basate PRINCIPALMENTE en el texto del contrato proporcionado.
+3. Si el contrato no contiene la información, decilo claramente: "Esta información no está especificada en el contrato."
+4. Si la cláusula relevante contradice la normativa argentina vigente, indicalo en "alertaLegal" con la norma exacta.
+5. Si podés agregar contexto legal relevante (un artículo que ampara o limita lo pactado), incluilo en "fundamentoLegal".
+6. Siempre que sea posible, citá la cláusula exacta en "sourceQuote".
+7. Sé preciso y directo. No des respuestas genéricas.
+
+TRANSCRIPCIÓN DEL CONTRATO:
 """
 {{{contractTranscription}}}
 """
 
-USER QUESTION:
-{{{question}}}`,
+PREGUNTA DEL USUARIO:
+{{{question}}}
+`,
+  config: {
+    version: 'gemini-2.5-flash',
+  },
 });
 
 const queryContractFlow = ai.defineFlow(
@@ -50,8 +81,9 @@ const queryContractFlow = ai.defineFlow(
     inputSchema: QueryContractInputSchema,
     outputSchema: QueryContractOutputSchema,
   },
-  async input => {
-    const {output} = await queryContractPrompt(input);
+  async (input) => {
+    const perspectivaTxt = PERSPECTIVA_TEXTO[input.perspective] ?? PERSPECTIVA_TEXTO.neutral;
+    const { output } = await queryContractPrompt({ ...input, perspectivaTxt } as any);
     if (!output) throw new Error('La IA no devolvió respuesta.');
     return output;
   }

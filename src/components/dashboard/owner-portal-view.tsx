@@ -3,24 +3,28 @@
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Building, 
-  TrendingUp, 
+import {
+  Building,
+  TrendingUp,
   CheckCircle2,
-  Sparkles,
   Eye,
   AlertTriangle,
-  Plus,
   Upload,
   Loader2,
   FileUp,
-  ReceiptText
+  ReceiptText,
+  ClipboardCheck,
+  Bell,
+  FileText,
+  Download,
+  ShieldCheck
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Property, Liquidation, RentalApplication, DocumentInfo, Invoice, ChargeType } from '@/lib/types';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { Property, Liquidation, RentalApplication, DocumentInfo, Invoice, ChargeType, Cobro } from '@/lib/types';
+import { uploadReceiptToStorage } from '@/lib/upload-receipt';
+import { useUser, useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { query, collection, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { 
@@ -46,13 +50,16 @@ interface OwnerPortalViewProps {
 const APP_ID = "alquilagestion-pro";
 
 export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewProps) {
-  const { toast } = useToast();
-  const { user } = useUser();
-  const db = useFirestore();
+  const { toast }   = useToast();
+  const { user }    = useUser();
+  const db          = useFirestore();
+  const storage     = useStorage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl,  setPreviewUrl]  = useState<string | null>(null);
+  const [confirming,  setConfirming]  = useState<string | null>(null);
   
   const [newInvoice, setNewInvoice] = useState({
     propertyId: '',
@@ -94,16 +101,71 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
     .filter(l => l.status === 'Pagada')
     .reduce((acc, l) => acc + l.netAmount, 0);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Comprobantes pendientes de confirmación del propietario
+  const pendingReceipts = myInvoices.filter(inv =>
+    (inv.paymentReceiptUrl || inv.tenantReceiptUrl) &&
+    inv.status !== 'Pagado' &&
+    inv.status !== 'Anulado'
+  );
+
+  const handleConfirmInBank = async (inv: Invoice) => {
+    if (!db) return;
+    setConfirming(inv.id);
+    const now = new Date().toLocaleDateString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+
+    // 1. Actualizar la factura a Pagado
+    const facturaRef = doc(db, 'artifacts', APP_ID, 'users', ADMIN_ID, 'facturas', inv.id);
+    setDocumentNonBlocking(facturaRef, {
+      status:           'Pagado',
+      ownerConfirmedAt: now,
+    }, { merge: true });
+
+    // 2. Crear asiento de cobro en el libro contable
+    const cobroId  = `cobro_${inv.id}_${Date.now()}`;
+    const cobroRef = doc(db, 'artifacts', APP_ID, 'users', ADMIN_ID, 'cobros', cobroId);
+    const cobro: Cobro = {
+      id:             cobroId,
+      invoiceId:      inv.id,
+      contractId:     inv.contractId,
+      propertyId:     inv.propertyId,
+      propertyName:   inv.propertyName,
+      tenantName:     inv.tenantName,
+      tenantEmail:    inv.tenantEmail,
+      ownerEmail:     inv.ownerEmail ?? user?.email ?? undefined,
+      period:         inv.period,
+      amount:         inv.totalAmount,
+      currency:       inv.currency,
+      confirmedAt:    now,
+      receiptUrl:     inv.tenantReceiptUrl ?? inv.paymentReceiptUrl,
+      tenantNote:     inv.tenantReceiptNote,
+      adminVerifiedAt: inv.adminVerifiedAt,
+      source:         'owner_confirmed',
+    };
+    setDocumentNonBlocking(cobroRef, cobro, {});
+
+    toast({
+      title: '✅ Pago confirmado y registrado',
+      description: `El cobro de ${inv.period} quedó asentado en el libro contable.`,
+    });
+    setConfirming(null);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setNewInvoice({ ...newInvoice, fileName: file.name, fileUrl: event.target?.result as string });
+    try {
+      const tempId = `owner_invoice_${Date.now()}`;
+      const result = await uploadReceiptToStorage(storage, file, ADMIN_ID, tempId);
+      setNewInvoice(prev => ({ ...prev, fileName: result.name, fileUrl: result.url }));
+    } catch {
+      toast({ title: 'Error al subir archivo', description: 'Intentá de nuevo o usá un archivo más pequeño.', variant: 'destructive' });
+    } finally {
       setIsUploading(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmitInvoice = () => {
@@ -147,6 +209,30 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {/* ── Alerta: comprobantes pendientes de confirmación ── */}
+      {pendingReceipts.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+              <Bell className="h-4 w-4 text-blue-600 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-blue-800">
+                {pendingReceipts.length === 1
+                  ? '1 comprobante de pago esperando tu confirmación'
+                  : `${pendingReceipts.length} comprobantes esperando tu confirmación`}
+              </p>
+              <p className="text-xs text-blue-600">
+                Revisalos y confirmá en tu banco para cerrar el ciclo de pago.
+              </p>
+            </div>
+          </div>
+          <a href="#comprobantes" className="text-xs font-black text-blue-700 hover:underline whitespace-nowrap">
+            Ver abajo ↓
+          </a>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-none shadow-sm bg-white border-l-4 border-l-green-600">
           <CardContent className="p-6">
@@ -192,6 +278,106 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Comprobantes Recibidos ── */}
+      {pendingReceipts.length > 0 && (
+        <Card id="comprobantes" className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-base">Comprobantes de Pago Recibidos</CardTitle>
+              <span className="ml-auto text-[10px] font-black bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
+                {pendingReceipts.length} pendiente{pendingReceipts.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <CardDescription className="text-xs">
+              El inquilino subió su comprobante de transferencia. Verificá en tu banco y confirmá la recepción.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {pendingReceipts.map(inv => {
+              const url = inv.tenantReceiptUrl ?? inv.paymentReceiptUrl;
+              const isVerified = inv.status === 'En Verificación con Propietario';
+              return (
+                <div key={inv.id} className={cn(
+                  'rounded-xl border p-4 space-y-3 transition-all',
+                  isVerified ? 'border-blue-200 bg-blue-50/50' : 'border-amber-200 bg-amber-50/30'
+                )}>
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-black">{inv.period}</p>
+                        <Badge className={cn(
+                          'text-[9px] font-black border-none',
+                          isVerified ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                        )}>
+                          {isVerified ? 'Verificado por Admin' : 'Pago Informado'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{inv.propertyName} · {inv.tenantName}</p>
+                      <p className="text-lg font-black text-primary">
+                        {inv.currency} {inv.totalAmount.toLocaleString('es-AR')}
+                      </p>
+                      {inv.paymentDate && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Comprobante enviado el {inv.paymentDate}
+                        </p>
+                      )}
+                      {inv.adminVerifiedAt && (
+                        <p className="text-[10px] text-blue-600 font-medium">
+                          ✓ Admin verificó el {inv.adminVerifiedAt}
+                        </p>
+                      )}
+                      {inv.tenantReceiptNote && (
+                        <p className="text-[10px] text-muted-foreground italic">
+                          Nota del inquilino: "{inv.tenantReceiptNote}"
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Ver comprobante */}
+                    {url && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1.5 text-xs font-bold shrink-0"
+                        onClick={() => setPreviewUrl(url)}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Ver comprobante
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Instrucción + botón confirmar */}
+                  <div className="bg-white rounded-lg border border-muted p-3 flex items-center gap-3">
+                    <ShieldCheck className="h-8 w-8 text-blue-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-foreground">¿Lo corroboraste en tu banco?</p>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        Verificá que el importe acreditado coincide con el comprobante.
+                        Al confirmar, el pago quedará registrado como <strong>Pagado</strong>.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white font-black h-9 px-4 shrink-0 gap-1.5"
+                      disabled={confirming === inv.id}
+                      onClick={() => handleConfirmInBank(inv)}
+                    >
+                      {confirming === inv.id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <CheckCircle2 className="h-3.5 w-3.5" />
+                      }
+                      Confirmar
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
@@ -264,6 +450,36 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
           </Card>
         </div>
       </div>
+
+      {/* ── Modal: Vista previa comprobante ── */}
+      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" /> Comprobante de Pago del Inquilino
+            </DialogTitle>
+            <DialogDescription>
+              Verificá que el monto y la fecha coincidan con lo registrado antes de confirmar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-xl overflow-hidden border bg-muted/10 max-h-[60vh] flex items-center justify-center">
+            {previewUrl?.startsWith('data:image') || previewUrl?.match(/\.(jpg|jpeg|png|gif|webp)/i) ? (
+              <img src={previewUrl ?? ''} alt="Comprobante" className="max-w-full max-h-[60vh] object-contain" />
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+                <FileText className="h-12 w-12" />
+                <p className="text-sm font-medium">Archivo PDF</p>
+                <Button size="sm" variant="outline" onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
+                  <Download className="h-4 w-4 mr-2" /> Abrir PDF en nueva pestaña
+                </Button>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPreviewUrl(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogo: Cargar Factura Propietario */}
       <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>

@@ -5,20 +5,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import {
-  MessageSquare, Send, Plus, Users, User, Search,
-  Languages, Sparkles, PenLine, Building2,
-  CheckCircle2, Hash, Info, Paperclip
+  MessageSquare, Send, Users, User, Search,
+  Languages, Sparkles, PenLine,
+  Hash, Info, Paperclip, TrendingUp, AlertTriangle,
+  Zap, FileText, Copy, CheckCheck, ChevronDown, ChevronUp,
+  BarChart3, Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Contract, Property, Person } from '@/lib/types';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
+import { richCommunication, fetchIndexTicker } from '@/ai/flows/rich-communication-flow';
+import type { RichCommunicationInput, IndexTicker } from '@/ai/flows/rich-communication-flow';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -128,6 +133,16 @@ function formatTimeLabel(ts: number): string {
   return isToday ? `Hoy, ${time}` : d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) + ` ${time}`;
 }
 
+// ── Plantillas rápidas ─────────────────────────────────
+const QUICK_TEMPLATES: { label: string; icon: React.ReactNode; type: RichCommunicationInput['communicationType']; channel: RichCommunicationInput['channel']; tone: RichCommunicationInput['tone']; moraStep?: 1 | 5 | 15 | 30 | 45 }[] = [
+  { label: 'Recordatorio de pago',   icon: <Clock className="h-3 w-3" />,         type: 'rentReminder',           channel: 'whatsapp', tone: 'amigable'  },
+  { label: 'Aviso de mora (día 5)',   icon: <AlertTriangle className="h-3 w-3" />, type: 'rentOverdue',            channel: 'whatsapp', tone: 'firme',     moraStep: 5  },
+  { label: 'Intimación legal',        icon: <FileText className="h-3 w-3" />,      type: 'intimacionPago',         channel: 'email',    tone: 'juridico',  moraStep: 15 },
+  { label: 'Carta Documento',         icon: <AlertTriangle className="h-3 w-3" />, type: 'cartaDocumentoDesalojo', channel: 'carta_documento', tone: 'urgente', moraStep: 30 },
+  { label: 'Aviso de ajuste',         icon: <TrendingUp className="h-3 w-3" />,    type: 'leaseAdjustment',        channel: 'email',    tone: 'formal'    },
+  { label: 'Vencimiento próximo',     icon: <Clock className="h-3 w-3" />,         type: 'notificacionVencimientoProximo', channel: 'email', tone: 'formal' },
+];
+
 // ── Componente principal ───────────────────────────────
 export function MessagesView({ contracts, properties, people, userId }: MessagesViewProps) {
   const db = useFirestore();
@@ -139,7 +154,25 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
   const [showNewDirect,  setShowNewDirect]  = useState(false);
   const [showNewGroup,   setShowNewGroup]   = useState(false);
   const [isSending,      setIsSending]      = useState(false);
-  const [isTyping,       setIsTyping]       = useState(false); // indicador "está escribiendo"
+  const [isTyping,       setIsTyping]       = useState(false);
+
+  // Panel IA de redacción
+  const [showAiDraft,    setShowAiDraft]    = useState(false);
+  const [aiDraftType,    setAiDraftType]    = useState<RichCommunicationInput['communicationType']>('rentReminder');
+  const [aiChannel,      setAiChannel]      = useState<RichCommunicationInput['channel']>('whatsapp');
+  const [aiTone,         setAiTone]         = useState<RichCommunicationInput['tone']>('formal');
+  const [aiMoraStep,     setAiMoraStep]     = useState<1|5|15|30|45|undefined>(undefined);
+  const [aiAutoIndex,    setAiAutoIndex]    = useState(false);
+  const [aiDraftResult,  setAiDraftResult]  = useState<string>('');
+  const [aiSubject,      setAiSubject]      = useState<string>('');
+  const [aiIndexInfo,    setAiIndexInfo]    = useState<string>('');
+  const [aiToneNote,     setAiToneNote]     = useState<string>('');
+  const [aiLoading,      setAiLoading]      = useState(false);
+  const [aiCopied,       setAiCopied]       = useState(false);
+
+  // Ticker de índices en vivo
+  const [indexTicker,    setIndexTicker]    = useState<IndexTicker | null>(null);
+  const [tickerLoading,  setTickerLoading]  = useState(false);
 
   // Traducciones en memoria: msgId → texto traducido
   const [translations,   setTranslations]   = useState<Record<string, string>>({});
@@ -236,6 +269,87 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
       return () => clearTimeout(t);
     }
   }, [lastTenantMsg?.id]);
+
+  // Cargar ticker de índices al montar
+  useEffect(() => {
+    setTickerLoading(true);
+    fetchIndexTicker()
+      .then(t => setIndexTicker(t))
+      .finally(() => setTickerLoading(false));
+  }, []);
+
+  // ── Redactar con IA ──
+  const handleAiDraft = async (template?: typeof QUICK_TEMPLATES[number]) => {
+    setAiLoading(true);
+    setAiDraftResult('');
+    setAiSubject('');
+    setAiIndexInfo('');
+    setAiToneNote('');
+
+    const effectiveType    = template?.type    ?? aiDraftType;
+    const effectiveChannel = template?.channel ?? aiChannel;
+    const effectiveTone    = template?.tone    ?? aiTone;
+    const effectiveMora    = template?.moraStep ?? aiMoraStep;
+
+    const isAdjustment = effectiveType === 'leaseAdjustment';
+    const indexType = isAdjustment
+      ? ((relatedContract?.adjustmentType === 'Index' ? 'ICL' : 'IPC') as RichCommunicationInput['indexType'])
+      : undefined;
+
+    const input: RichCommunicationInput = {
+      communicationType: effectiveType,
+      channel: effectiveChannel,
+      tone: effectiveTone,
+      moraSequenceStep: effectiveMora,
+      autoEnrichIndex: isAdjustment,
+      indexType,
+      adjustmentMonths: 12,
+      tenantName: relatedContract?.tenantName ?? selectedChat?.name,
+      ownerName: relatedProperty?.owners?.[0]?.name ?? undefined,
+      propertyName: relatedProperty?.name ?? selectedChat?.propertyName,
+      propertyAddress: relatedProperty?.address ?? undefined,
+      currentRentAmount: relatedContract?.currentRentAmount ?? undefined,
+      currency: (relatedContract?.currency as 'ARS' | 'USD') ?? 'ARS',
+      currentLeaseEndDate: relatedContract?.endDate ?? undefined,
+      daysOverdue: effectiveMora,
+    };
+
+    try {
+      const result = await richCommunication(input);
+      if (!result.ok) {
+        toast({ title: 'Error al generar mensaje', description: result.error, variant: 'destructive' });
+        return;
+      }
+      setAiDraftResult(result.data.channelFormattedMessage);
+      setAiSubject(result.data.subjectLine);
+      setAiToneNote(result.data.toneNote ?? '');
+
+      if (result.data.indexDataUsed) {
+        const idx = result.data.indexDataUsed;
+        setAiIndexInfo(
+          `${idx.sourceLabel} — variación ${idx.accumulatedPct.toFixed(1)}%${idx.newRentCalculated ? ` → Nuevo alquiler estimado: ${(relatedContract?.currency ?? 'ARS')} ${idx.newRentCalculated.toLocaleString('es-AR')}` : ''}`
+        );
+      }
+
+      if (result.data.moraStepLabel) {
+        toast({ title: result.data.moraStepLabel, description: 'Mensaje generado con el tono apropiado para esta etapa.' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e?.message ?? 'No se pudo generar el mensaje.', variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
+      setShowAiDraft(true);
+    }
+  };
+
+  const handleCopyAndUse = () => {
+    if (!aiDraftResult) return;
+    setMessageText(aiDraftResult);
+    setAiCopied(true);
+    setShowAiDraft(false);
+    setTimeout(() => setAiCopied(false), 2000);
+    toast({ title: 'Mensaje copiado al campo de texto' });
+  };
 
   // ── Enviar mensaje ──
   const handleSend = async (text?: string) => {
@@ -635,51 +749,241 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
 
         {/* ══ Panel derecho: IA + contexto ══ */}
         {selectedChat && (
-          <div className="w-72 border-l flex flex-col shrink-0 overflow-y-auto bg-white">
+          <div className="w-80 border-l flex flex-col shrink-0 overflow-y-auto bg-white">
 
-            {/* Asistente IA */}
-            <div className="p-4 border-b space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                </div>
-                <p className="font-black text-sm">Asistente IA</p>
-              </div>
-
-              {lastTenantMsg ? (
-                <>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    La IA ha detectado una pregunta sobre el contrato. Aquí tienes sugerencias de respuesta:
-                  </p>
-                  <div className="space-y-2">
-                    {aiSuggestions.map((s, i) => (
-                      <button key={i} onClick={() => handleSend(s)}
-                        className="w-full text-left text-[12px] font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-xl px-3 py-2.5 transition-colors leading-relaxed border border-primary/10">
-                        "{s}"
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => { setMessageText(''); document.querySelector<HTMLInputElement>('input[placeholder="Escribe un mensaje..."]')?.focus(); }}
-                    className="w-full flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground border border-muted rounded-xl py-2 hover:bg-muted/40 transition-colors"
-                  >
-                    <PenLine className="h-3.5 w-3.5" /> Redactar respuesta propia
-                  </button>
-                </>
-              ) : (
-                <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-3 leading-relaxed">
-                  Las sugerencias aparecen cuando el inquilino envíe un mensaje.
+            {/* ── Ticker de índices en vivo ── */}
+            <div className="px-4 pt-4 pb-3 border-b space-y-2">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                <p className="font-black text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Índices en vivo
                 </p>
+                {tickerLoading && (
+                  <span className="ml-auto text-[9px] text-muted-foreground animate-pulse">Actualizando...</span>
+                )}
+              </div>
+              {indexTicker ? (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(['ICL', 'IPC', 'CER'] as const).map(key => {
+                    const t = indexTicker[key];
+                    if (!t) return null;
+                    return (
+                      <div key={key} className={cn(
+                        'rounded-lg px-2 py-1.5 text-center border',
+                        t.source === 'api'
+                          ? 'bg-emerald-50 border-emerald-100'
+                          : 'bg-amber-50 border-amber-100'
+                      )}>
+                        <p className="text-[9px] font-black text-muted-foreground">{key}</p>
+                        <p className={cn('text-sm font-black leading-tight', t.source === 'api' ? 'text-emerald-700' : 'text-amber-700')}>
+                          {t.monthlyPct.toFixed(1)}%
+                        </p>
+                        <p className="text-[8px] text-muted-foreground/70 truncate">{t.period}</p>
+                        {t.source !== 'api' && (
+                          <p className="text-[8px] text-amber-600 font-bold">est.</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {['ICL', 'IPC', 'CER'].map(k => (
+                    <div key={k} className="rounded-lg px-2 py-1.5 text-center border bg-muted/20 animate-pulse h-14" />
+                  ))}
+                </div>
               )}
             </div>
 
-            {/* Contexto activo */}
+            {/* ── Asistente IA de redacción ── */}
+            <div className="p-4 border-b space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <p className="font-black text-sm">Redactar con IA</p>
+              </div>
+
+              {/* Plantillas rápidas */}
+              <div className="space-y-1.5">
+                <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-wider">Plantillas rápidas</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {QUICK_TEMPLATES.map((t, i) => (
+                    <button key={i}
+                      onClick={() => handleAiDraft(t)}
+                      disabled={aiLoading}
+                      className={cn(
+                        'flex items-center gap-1.5 text-left text-[10px] font-bold rounded-lg px-2.5 py-2 border transition-all',
+                        t.moraStep && t.moraStep >= 15
+                          ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                          : t.moraStep
+                          ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                          : 'border-primary/20 bg-primary/5 text-primary hover:bg-primary/10'
+                      )}
+                    >
+                      {t.icon}
+                      <span className="leading-tight">{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Redactor personalizado */}
+              <details className="group">
+                <summary className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground cursor-pointer hover:text-foreground select-none list-none">
+                  <PenLine className="h-3 w-3" />
+                  Personalizar mensaje
+                  <ChevronDown className="h-3 w-3 ml-auto group-open:hidden" />
+                  <ChevronUp className="h-3 w-3 ml-auto hidden group-open:block" />
+                </summary>
+                <div className="mt-2 space-y-2 pl-1">
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Tipo</Label>
+                    <Select value={aiDraftType} onValueChange={v => setAiDraftType(v as any)}>
+                      <SelectTrigger className="h-7 text-[11px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="rentReminder">Recordatorio de pago</SelectItem>
+                        <SelectItem value="rentOverdue">Aviso de mora</SelectItem>
+                        <SelectItem value="intimacionPago">Intimación de pago</SelectItem>
+                        <SelectItem value="cartaDocumentoDesalojo">Carta documento</SelectItem>
+                        <SelectItem value="leaseAdjustment">Ajuste de alquiler</SelectItem>
+                        <SelectItem value="leaseRenewal">Renovación de contrato</SelectItem>
+                        <SelectItem value="notificacionVencimientoProximo">Vencimiento próximo</SelectItem>
+                        <SelectItem value="informeMoraGarante">Informe al garante</SelectItem>
+                        <SelectItem value="maintenanceUpdate">Actualización mantenimiento</SelectItem>
+                        <SelectItem value="ownerLiquidationReport">Liquidación al propietario</SelectItem>
+                        <SelectItem value="generalMessage">Mensaje general</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Canal</Label>
+                      <Select value={aiChannel} onValueChange={v => setAiChannel(v as any)}>
+                        <SelectTrigger className="h-7 text-[11px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="carta_documento">Carta Documento</SelectItem>
+                          <SelectItem value="sms">SMS</SelectItem>
+                          <SelectItem value="portal">Portal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Tono</Label>
+                      <Select value={aiTone} onValueChange={v => setAiTone(v as any)}>
+                        <SelectTrigger className="h-7 text-[11px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="amigable">Amigable</SelectItem>
+                          <SelectItem value="formal">Formal</SelectItem>
+                          <SelectItem value="firme">Firme</SelectItem>
+                          <SelectItem value="juridico">Jurídico</SelectItem>
+                          <SelectItem value="urgente">Urgente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full h-8 text-xs font-bold gap-2"
+                    onClick={() => handleAiDraft()}
+                    disabled={aiLoading}
+                  >
+                    {aiLoading
+                      ? <><span className="animate-spin">⟳</span> Generando...</>
+                      : <><Zap className="h-3.5 w-3.5" /> Generar mensaje</>
+                    }
+                  </Button>
+                </div>
+              </details>
+
+              {/* Resultado del borrador */}
+              {(aiLoading || aiDraftResult) && (
+                <div className="space-y-2 mt-1">
+                  {aiLoading ? (
+                    <div className="bg-muted/30 rounded-xl p-3 space-y-2 animate-pulse">
+                      <div className="h-3 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted rounded w-full" />
+                      <div className="h-3 bg-muted rounded w-5/6" />
+                      <div className="h-3 bg-muted rounded w-2/3" />
+                    </div>
+                  ) : aiDraftResult && (
+                    <div className="space-y-2">
+                      {aiSubject && (
+                        <div className="bg-primary/5 border border-primary/10 rounded-lg px-3 py-1.5">
+                          <p className="text-[9px] font-black text-primary/70 uppercase tracking-wider">Asunto</p>
+                          <p className="text-[11px] font-bold text-primary">{aiSubject}</p>
+                        </div>
+                      )}
+                      {aiIndexInfo && (
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <TrendingUp className="h-3 w-3 text-emerald-600" />
+                            <p className="text-[9px] font-black text-emerald-700 uppercase tracking-wider">Índice aplicado</p>
+                          </div>
+                          <p className="text-[10px] text-emerald-800">{aiIndexInfo}</p>
+                        </div>
+                      )}
+                      <div className="bg-muted/20 border border-muted rounded-xl p-3">
+                        <Textarea
+                          value={aiDraftResult}
+                          onChange={e => setAiDraftResult(e.target.value)}
+                          className="text-[11px] leading-relaxed bg-transparent border-none shadow-none resize-none min-h-[120px] p-0 focus-visible:ring-0"
+                        />
+                      </div>
+                      {aiToneNote && (
+                        <p className="text-[10px] text-muted-foreground italic px-1 leading-relaxed">{aiToneNote}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 h-8 text-[11px] font-bold gap-1.5"
+                          onClick={() => handleAiDraft()}
+                          disabled={aiLoading}
+                        >
+                          <Sparkles className="h-3 w-3" /> Regenerar
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 h-8 text-[11px] font-bold gap-1.5 bg-primary"
+                          onClick={handleCopyAndUse}
+                        >
+                          {aiCopied
+                            ? <><CheckCheck className="h-3 w-3" /> Copiado</>
+                            : <><Copy className="h-3 w-3" /> Usar</>
+                          }
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sugerencias contextuales */}
+              {!aiDraftResult && !aiLoading && lastTenantMsg && (
+                <div className="space-y-1.5">
+                  <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-wider">Respuestas rápidas</p>
+                  {aiSuggestions.map((s, i) => (
+                    <button key={i} onClick={() => handleSend(s)}
+                      className="w-full text-left text-[11px] font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-xl px-3 py-2 transition-colors leading-relaxed border border-primary/10">
+                      "{s}"
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Contexto activo ── */}
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center">
-                  <Info className="h-4 w-4 text-orange-500" />
+                <div className="h-7 w-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                  <Info className="h-3.5 w-3.5 text-orange-500" />
                 </div>
-                <p className="font-black text-sm">Contexto Activo</p>
+                <p className="font-black text-sm">Contexto</p>
                 {relatedProperty && (
                   <Badge variant="outline" className="ml-auto text-[9px] font-bold border-primary/30 text-primary bg-primary/5 shrink-0">
                     {relatedProperty.name}
@@ -688,51 +992,35 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
               </div>
 
               {relatedContract ? (
-                <div className="space-y-3">
-                  {/* Cláusula de pagos */}
-                  <div className="bg-muted/30 rounded-xl p-3 space-y-1.5">
-                    <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-widest">
-                      Cláusula 4.1 – Pagos
-                    </p>
-                    <p className="text-[11px] text-foreground leading-relaxed">
-                      El canon mensual debe ser abonado entre el día 1 y 5 de cada mes calendario.
-                    </p>
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Inquilino</span>
+                    <span className="font-bold truncate max-w-[130px]">{relatedContract.tenantName}</span>
                   </div>
-                  {/* Estado de cuenta */}
-                  <div className="space-y-1">
-                    <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-widest">
-                      Estado de cuenta
-                    </p>
-                    <p className="text-[12px] font-bold text-green-600">
-                      Al día.{relatedContract.endDate ? ` (Últ. pago: ${relatedContract.endDate})` : ''}
-                    </p>
-                  </div>
-                  {/* Datos del contrato */}
-                  <Separator />
-                  <div className="space-y-2 text-[11px]">
+                  {relatedContract.currentRentAmount && (
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Inquilino</span>
-                      <span className="font-bold truncate max-w-[120px]">{relatedContract.tenantName}</span>
+                      <span className="text-muted-foreground">Alquiler</span>
+                      <span className="font-bold text-primary">
+                        {relatedContract.currency} {relatedContract.currentRentAmount.toLocaleString('es-AR')}
+                      </span>
                     </div>
-                    {relatedContract.currentRentAmount && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Alquiler</span>
-                        <span className="font-bold text-primary">
-                          {relatedContract.currency} {relatedContract.currentRentAmount.toLocaleString('es-AR')}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Vencimiento</span>
-                      <span className="font-bold">{relatedContract.endDate}</span>
-                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Vencimiento contrato</span>
+                    <span className="font-bold">{relatedContract.endDate ?? '—'}</span>
                   </div>
+                  {relatedContract.adjustmentType && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Mecanismo ajuste</span>
+                      <Badge variant="outline" className="text-[9px] font-bold">{relatedContract.adjustmentType}</Badge>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-3 leading-relaxed">
                   {selectedChat.type === 'group'
                     ? `Grupo con ${selectedChat.members.length} inquilino${selectedChat.members.length !== 1 ? 's' : ''} de ${selectedChat.propertyName}.`
-                    : 'No se encontró un contrato activo vinculado a esta conversación.'}
+                    : 'Sin contrato activo vinculado a esta conversación.'}
                 </div>
               )}
 

@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,19 +12,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   TrendingUp, MapPin, Edit2, Download, PieChart as PieChartIcon,
-  Building2, Loader2
+  Building2, Loader2, CheckCircle2, Clock, AlertCircle
 } from 'lucide-react';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { Property, Invoice, Contract } from '@/lib/types';
+import { Property, Invoice, Contract, Cobro } from '@/lib/types';
+import { useCollection, useMemoFirebase } from '@/firebase';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { calculateRentAdjustment, type RentAdjustmentResult } from '@/ai/flows/calculate-rent-adjustment-action';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -46,6 +49,42 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
   const [editNotes, setEditNotes] = useState('');
   const [editPurchasePrice, setEditPurchasePrice] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [adjData, setAdjData] = useState<RentAdjustmentResult | null>(null);
+  const [isLoadingAdj, setIsLoadingAdj] = useState(false);
+
+  const handleSelectProperty = (id: string) => {
+    setSelectedPropertyId(id);
+    setAdjData(null);
+  };
+
+  const handleCalcAdjustment = async () => {
+    if (!propertyContract?.adjustmentMechanism) return;
+    setIsLoadingAdj(true);
+    setAdjData(null);
+    const result = await calculateRentAdjustment({
+      mechanism: propertyContract.adjustmentMechanism as any,
+      currentRentAmount: propertyContract.currentRentAmount,
+      currency: propertyContract.currency,
+      adjustmentFrequencyMonths: propertyContract.adjustmentFrequencyMonths,
+    });
+    setIsLoadingAdj(false);
+    if (result.ok) {
+      setAdjData(result.data);
+    } else {
+      toast({ title: 'Error al calcular ajuste', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  // Cobros reales confirmados desde Firestore
+  const cobrosQ = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return query(
+      collection(db, 'artifacts', APP_ID, 'users', userId, 'cobros'),
+      orderBy('confirmedAt', 'desc'),
+    );
+  }, [db, userId]);
+  const { data: cobrosRaw } = useCollection<Cobro>(cobrosQ);
+  const cobros = cobrosRaw ?? [];
 
   const selectedProperty = selectedPropertyId
     ? properties.find(p => p.id === selectedPropertyId)
@@ -59,12 +98,17 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
     contracts.find(c => !selectedProperty || c.propertyId === selectedProperty?.id),
     [contracts, selectedProperty]);
 
+  // Cobros de esta propiedad
+  const propertyCobros = useMemo(() =>
+    cobros.filter(c => !selectedProperty || c.propertyName === selectedProperty.name),
+    [cobros, selectedProperty]);
+
   const ledgerRows = useMemo(() => {
     if (propertyInvoices.length === 0) {
       return [
-        { month: 'Enero', rent: 4500, repairs: 0, taxes: 0, net: 4500 },
-        { month: 'Febrero', rent: 4500, repairs: 350, taxes: 0, net: 4150 },
-        { month: 'Marzo', rent: 4500, repairs: 0, taxes: 1200, net: 3300 },
+        { month: 'Enero',    rentCobrado: 4500, rentPorCobrar: 0, repairs: 0, taxes: 0, net: 4500 },
+        { month: 'Febrero',  rentCobrado: 4500, rentPorCobrar: 0, repairs: 350, taxes: 0, net: 4150 },
+        { month: 'Marzo',    rentCobrado: 4500, rentPorCobrar: 0, repairs: 0, taxes: 1200, net: 3300 },
       ];
     }
     const now = new Date();
@@ -73,21 +117,26 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
         const d = new Date(inv.dueDate || inv.period || '');
         return d.getMonth() === i;
       });
-      const rent = monthInvs.filter(inv => inv.charges.some(c => c.type === 'Alquiler')).reduce((a, inv) => a + inv.totalAmount, 0);
-      const repairs = monthInvs.filter(inv => inv.charges.some(c => c.type === 'Reparaciones' || c.type === 'Mantenimiento')).reduce((a, inv) => a + inv.totalAmount, 0);
-      const taxes = monthInvs.filter(inv => inv.charges.some(c => c.type === 'Impuestos')).reduce((a, inv) => a + inv.totalAmount, 0);
-      return { month, rent, repairs, taxes, net: rent - repairs - taxes };
-    }).filter(r => r.rent > 0 || r.repairs > 0 || r.taxes > 0);
+      const paid   = (inv: Invoice) => inv.status === 'Pagado';
+      const unpaid = (inv: Invoice) => inv.status !== 'Pagado' && inv.status !== 'Anulado';
+
+      const rentCobrado    = monthInvs.filter(inv => paid(inv)   && inv.charges.some(c => c.type === 'Alquiler')).reduce((a, inv) => a + inv.totalAmount, 0);
+      const rentPorCobrar  = monthInvs.filter(inv => unpaid(inv) && inv.charges.some(c => c.type === 'Alquiler')).reduce((a, inv) => a + inv.totalAmount, 0);
+      const repairs        = monthInvs.filter(inv => inv.charges.some(c => c.type === 'Reparaciones' || c.type === 'Mantenimiento')).reduce((a, inv) => a + inv.totalAmount, 0);
+      const taxes          = monthInvs.filter(inv => inv.charges.some(c => c.type === 'Impuestos')).reduce((a, inv) => a + inv.totalAmount, 0);
+      return { month, rentCobrado, rentPorCobrar, repairs, taxes, net: rentCobrado - repairs - taxes };
+    }).filter(r => r.rentCobrado > 0 || r.rentPorCobrar > 0 || r.repairs > 0 || r.taxes > 0);
   }, [propertyInvoices]);
 
   const totals = useMemo(() => ({
-    rent: ledgerRows.reduce((a, r) => a + r.rent, 0),
-    repairs: ledgerRows.reduce((a, r) => a + r.repairs, 0),
-    taxes: ledgerRows.reduce((a, r) => a + r.taxes, 0),
-    net: ledgerRows.reduce((a, r) => a + r.net, 0),
+    rentCobrado:   ledgerRows.reduce((a, r) => a + r.rentCobrado, 0),
+    rentPorCobrar: ledgerRows.reduce((a, r) => a + r.rentPorCobrar, 0),
+    repairs:       ledgerRows.reduce((a, r) => a + r.repairs, 0),
+    taxes:         ledgerRows.reduce((a, r) => a + r.taxes, 0),
+    net:           ledgerRows.reduce((a, r) => a + r.net, 0),
   }), [ledgerRows]);
 
-  const purchasePrice = 192500;
+  const purchasePrice = selectedProperty?.purchasePrice ?? 192500;
   const roi = totals.net > 0 ? ((totals.net / purchasePrice) * 100).toFixed(1) : '8.4';
   const projectedAnnualIncome = totals.net > 0 ? totals.net * (12 / Math.max(ledgerRows.length, 1)) : 42500;
 
@@ -96,16 +145,17 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
       const row = ledgerRows[i];
       return {
         name,
-        ingreso: row?.rent || 4500,
-        gastos: (row?.repairs || 0) + (row?.taxes || 0),
-        tendencia: row?.net || 4200,
+        cobrado:    row?.rentCobrado   || 0,
+        porCobrar:  row?.rentPorCobrar || 0,
+        gastos:     (row?.repairs || 0) + (row?.taxes || 0),
+        tendencia:  row?.net || 0,
       };
     });
   }, [ledgerRows]);
 
   const occupancyRate = selectedProperty?.status === 'Alquilada' ? 92 : selectedProperty?.status === 'Disponible' ? 0 : 75;
   const vacancyDays = Math.round((1 - occupancyRate / 100) * 30);
-  const lostIncome = vacancyDays * (propertyContract?.rentAmount || 4500) / 30;
+  const lostIncome = vacancyDays * (propertyContract?.currentRentAmount || 4500) / 30;
 
   const vacancyPieData = [
     { name: 'Ocupado', value: occupancyRate },
@@ -129,16 +179,67 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
           <p className="text-sm text-muted-foreground mt-0.5">Rendimiento financiero detallado por propiedad.</p>
         </div>
         <Button variant="outline" className="gap-2 font-bold" onClick={() => {
-          const rows = [['Mes', 'Ingreso Alquiler', 'Reparaciones', 'Impuestos', 'Neto'],
-            ...ledgerRows.map(r => [r.month, r.rent, r.repairs, r.taxes, r.net]),
-            ['TOTAL', totals.rent, totals.repairs, totals.taxes, totals.net]];
-          const csv = rows.map(r => r.join(',')).join('\n');
-          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-          a.download = `libro_mayor_${selectedProperty?.name || 'general'}_${new Date().getFullYear()}.csv`; a.click();
-          toast({ title: "Exportado", description: "Libro mayor descargado como CSV." });
+          const wb = XLSX.utils.book_new();
+
+          // Sheet 1: Libro Mayor mensual
+          const ws1 = XLSX.utils.aoa_to_sheet([
+            [`Libro Mayor — ${selectedProperty?.name ?? 'General'}`],
+            [`Período: ${new Date().getFullYear()}`],
+            [`Exportado: ${new Date().toLocaleDateString('es-AR')}`],
+            [],
+            ['Mes', 'Cobrado ($)', 'Por Cobrar ($)', 'Reparaciones ($)', 'Impuestos ($)', 'Neto Cobrado ($)'],
+            ...ledgerRows.map(r => [r.month, r.rentCobrado, r.rentPorCobrar, r.repairs, r.taxes, r.net]),
+            [],
+            ['TOTAL ACUMULADO', totals.rentCobrado, totals.rentPorCobrar, totals.repairs, totals.taxes, totals.net],
+            [],
+            ['ROI Anual Efectivo', `${roi}%`],
+            ['Precio de compra estimado ($)', purchasePrice],
+            ['Renta neta proyectada anual ($)', Math.round(projectedAnnualIncome)],
+          ]);
+          ws1['!cols'] = [{ wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 18 }];
+          XLSX.utils.book_append_sheet(wb, ws1, 'Libro Mayor');
+
+          // Sheet 2: Cobros confirmados por propietario
+          if (propertyCobros.length > 0) {
+            const ws2 = XLSX.utils.aoa_to_sheet([
+              ['Cobros Confirmados por Propietario'],
+              [],
+              ['Fecha Confirmación', 'Período', 'Inquilino', 'Monto ($)', 'Moneda'],
+              ...propertyCobros.map(c => [
+                c.confirmedAt.split('T')[0],
+                c.period,
+                c.tenantName,
+                c.amount,
+                c.currency,
+              ]),
+            ]);
+            ws2['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 26 }, { wch: 12 }, { wch: 8 }];
+            XLSX.utils.book_append_sheet(wb, ws2, 'Cobros');
+          }
+
+          // Sheet 3: Detalle de facturas
+          if (propertyInvoices.length > 0) {
+            const ws3 = XLSX.utils.aoa_to_sheet([
+              ['Detalle de Facturas'],
+              [],
+              ['Período', 'Inquilino', 'Total ($)', 'Vencimiento', 'Estado'],
+              ...propertyInvoices.map(inv => [
+                inv.period,
+                inv.tenantName,
+                inv.totalAmount,
+                inv.dueDate,
+                inv.status,
+              ]),
+            ]);
+            ws3['!cols'] = [{ wch: 10 }, { wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 24 }];
+            XLSX.utils.book_append_sheet(wb, ws3, 'Facturas');
+          }
+
+          const sheets = 1 + (propertyCobros.length > 0 ? 1 : 0) + (propertyInvoices.length > 0 ? 1 : 0);
+          XLSX.writeFile(wb, `libro_mayor_${(selectedProperty?.name ?? 'general').replace(/\s+/g, '_')}_${new Date().getFullYear()}.xlsx`);
+          toast({ title: 'Exportado', description: `Excel generado con ${sheets} hoja${sheets > 1 ? 's' : ''}: Libro Mayor · Cobros · Facturas.` });
         }}>
-          <Download className="h-4 w-4" /> Exportar
+          <Download className="h-4 w-4" /> Exportar Excel
         </Button>
       </div>
 
@@ -146,7 +247,7 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
       {properties.length > 1 && (
         <div className="flex gap-2 flex-wrap">
           {properties.map(p => (
-            <button key={p.id} onClick={() => setSelectedPropertyId(p.id)}
+            <button key={p.id} onClick={() => handleSelectProperty(p.id)}
               className={cn("px-4 py-1.5 rounded-full text-sm font-bold border transition-all",
                 (selectedPropertyId === p.id || (!selectedPropertyId && p.id === properties[0]?.id))
                   ? "bg-primary text-white border-primary"
@@ -200,21 +301,31 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-[10px] uppercase font-black">MES</TableHead>
-                  <TableHead className="text-[10px] uppercase font-black text-green-600">INGRESO DE ALQUILER</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black text-green-600">
+                    <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> COBRADO</span>
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase font-black text-amber-500">
+                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> POR COBRAR</span>
+                  </TableHead>
                   <TableHead className="text-[10px] uppercase font-black text-red-500">REPARACIONES</TableHead>
-                  <TableHead className="text-[10px] uppercase font-black text-red-400">IMPUESTOS (IBI)</TableHead>
-                  <TableHead className="text-[10px] uppercase font-black">NET</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black text-red-400">IMPUESTOS</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black">NETO</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ledgerRows.map((row, i) => (
                   <TableRow key={i} className="hover:bg-muted/10">
                     <TableCell className="font-medium text-sm">{row.month}</TableCell>
-                    <TableCell className="text-green-600 font-bold text-sm">${row.rent.toLocaleString('es-AR')}</TableCell>
-                    <TableCell className={cn("font-bold text-sm", row.repairs > 0 ? "text-red-500" : "text-muted-foreground")}>
+                    <TableCell className="text-green-600 font-bold text-sm">
+                      {row.rentCobrado > 0 ? `$${row.rentCobrado.toLocaleString('es-AR')}` : <span className="text-muted-foreground/40">$0</span>}
+                    </TableCell>
+                    <TableCell className={cn('font-bold text-sm', row.rentPorCobrar > 0 ? 'text-amber-600' : 'text-muted-foreground/40')}>
+                      {row.rentPorCobrar > 0 ? `$${row.rentPorCobrar.toLocaleString('es-AR')}` : '$0'}
+                    </TableCell>
+                    <TableCell className={cn('font-bold text-sm', row.repairs > 0 ? 'text-red-500' : 'text-muted-foreground/40')}>
                       {row.repairs > 0 ? `$${row.repairs.toLocaleString('es-AR')}` : '$0'}
                     </TableCell>
-                    <TableCell className={cn("font-bold text-sm", row.taxes > 0 ? "text-red-400" : "text-muted-foreground")}>
+                    <TableCell className={cn('font-bold text-sm', row.taxes > 0 ? 'text-red-400' : 'text-muted-foreground/40')}>
                       {row.taxes > 0 ? `$${row.taxes.toLocaleString('es-AR')}` : '$0'}
                     </TableCell>
                     <TableCell className="font-black text-sm">${row.net.toLocaleString('es-AR')}</TableCell>
@@ -222,7 +333,8 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
                 ))}
                 <TableRow className="bg-primary/5 font-black border-t-2 border-primary/20">
                   <TableCell className="font-black text-sm">Total Acumulado</TableCell>
-                  <TableCell className="text-green-600 font-black text-sm">${totals.rent.toLocaleString('es-AR')}</TableCell>
+                  <TableCell className="text-green-600 font-black text-sm">${totals.rentCobrado.toLocaleString('es-AR')}</TableCell>
+                  <TableCell className="text-amber-600 font-black text-sm">{totals.rentPorCobrar > 0 ? `$${totals.rentPorCobrar.toLocaleString('es-AR')}` : '$0'}</TableCell>
                   <TableCell className="text-red-500 font-black text-sm">{totals.repairs > 0 ? `$${totals.repairs.toLocaleString('es-AR')}` : '$0'}</TableCell>
                   <TableCell className="text-red-400 font-black text-sm">{totals.taxes > 0 ? `$${totals.taxes.toLocaleString('es-AR')}` : '$0'}</TableCell>
                   <TableCell className="font-black text-sm text-primary">${totals.net.toLocaleString('es-AR')}</TableCell>
@@ -239,21 +351,104 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
               <div className="absolute bottom-0 right-0 opacity-10">
                 <TrendingUp className="h-24 w-24" />
               </div>
-              <p className="text-xs text-white/70 font-bold uppercase">ROI Anual</p>
+              <p className="text-xs text-white/70 font-bold uppercase">ROI Anual Efectivo</p>
               <p className="text-4xl font-black mt-1">{roi}%</p>
               <p className="text-xs text-white/70 mt-1 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" /> +0.5% vs año pasado
+                <TrendingUp className="h-3 w-3" /> Sobre cobros confirmados
               </p>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-sm bg-white">
-            <CardContent className="p-5">
-              <p className="text-xs font-bold text-muted-foreground uppercase">Ingreso Operativo Neto</p>
-              <p className="text-3xl font-black mt-1">${Math.round(projectedAnnualIncome / 1000)}k</p>
-              <p className="text-xs text-muted-foreground mt-1">Proyectado para el año actual</p>
+            <CardContent className="p-5 space-y-3">
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase">Cobrado este año</p>
+                <p className="text-2xl font-black mt-0.5 text-green-700">${totals.rentCobrado.toLocaleString('es-AR')}</p>
+              </div>
+              {totals.rentPorCobrar > 0 && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 text-amber-500" /> Por cobrar
+                  </p>
+                  <p className="text-xl font-black mt-0.5 text-amber-600">${totals.rentPorCobrar.toLocaleString('es-AR')}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Últimos cobros confirmados */}
+          {propertyCobros.length > 0 && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-600" /> Últimos cobros
+                </p>
+                {propertyCobros.slice(0, 4).map(c => (
+                  <div key={c.id} className="flex items-center justify-between text-[11px]">
+                    <div className="min-w-0">
+                      <p className="font-bold truncate">{c.period}</p>
+                      <p className="text-muted-foreground truncate text-[10px]">{c.tenantName}</p>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <p className="font-black text-green-700">${c.amount.toLocaleString('es-AR')}</p>
+                      <p className="text-[9px] text-muted-foreground">{c.confirmedAt.split(' ')[0]}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Proyección de próximo ajuste */}
+          {propertyContract && propertyContract.adjustmentMechanism && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" /> Proyección de Ajuste
+                  </p>
+                  {isLoadingAdj
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    : (
+                      <Button variant="ghost" size="sm" className="h-6 text-[10px] font-bold px-2 text-primary"
+                        onClick={handleCalcAdjustment}>
+                        {adjData ? '↻ Recalcular' : 'Calcular'}
+                      </Button>
+                    )
+                  }
+                </div>
+
+                {!adjData ? (
+                  <div className="space-y-1 text-[11px]">
+                    <p className="text-muted-foreground">Índice: <span className="font-bold text-foreground">{propertyContract.adjustmentMechanism}</span></p>
+                    <p className="text-muted-foreground">Frecuencia: <span className="font-bold text-foreground">cada {propertyContract.adjustmentFrequencyMonths} mes(es)</span></p>
+                    <p className="text-muted-foreground">Canon actual: <span className="font-bold text-foreground">{propertyContract.currency} {propertyContract.currentRentAmount.toLocaleString('es-AR')}</span></p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="p-2 bg-green-50 rounded-lg border border-green-100">
+                      <p className="text-[9px] uppercase font-black text-green-700 mb-0.5">Nuevo Canon Estimado</p>
+                      <p className="text-lg font-black text-green-700">
+                        {adjData.currency} {adjData.newAmount.toLocaleString('es-AR')}
+                      </p>
+                      <p className="text-[10px] text-green-600 font-bold">
+                        +{adjData.variationPct.toFixed(1)}% · +{adjData.currency} {(adjData.newAmount - adjData.currentAmount).toLocaleString('es-AR')}
+                      </p>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground space-y-0.5">
+                      <p>Fuente: <span className="font-bold">{adjData.sourceLabel}</span></p>
+                      <p>Período ref.: {adjData.referencePeriod}</p>
+                      {adjData.isEstimated && (
+                        <p className="text-amber-600 flex items-center gap-1">
+                          <AlertCircle className="h-2.5 w-2.5" /> Estimación (API no disponible)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -273,10 +468,11 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
                     tickFormatter={v => `$${v / 1000}k`} />
                   <Tooltip
                     contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '11px' }}
-                    formatter={(v: any, n: string) => [`$${Number(v).toLocaleString('es-AR')}`, n === 'ingreso' ? 'Ingreso' : n === 'gastos' ? 'Gastos' : 'Neto']}
+                    formatter={(v: any, n: string) => [`$${Number(v).toLocaleString('es-AR')}`, n === 'cobrado' ? 'Cobrado' : n === 'porCobrar' ? 'Por cobrar' : n === 'gastos' ? 'Gastos' : 'Neto']}
                   />
-                  <Bar dataKey="ingreso" fill="#16a34a" opacity={0.7} radius={[4, 4, 0, 0]} barSize={18} />
-                  <Bar dataKey="gastos" fill="#dcfce7" radius={[4, 4, 0, 0]} barSize={18} />
+                  <Bar dataKey="cobrado"   fill="#16a34a" opacity={0.85} radius={[4, 4, 0, 0]} barSize={14} />
+                  <Bar dataKey="porCobrar" fill="#fbbf24" opacity={0.6}  radius={[4, 4, 0, 0]} barSize={14} />
+                  <Bar dataKey="gastos"    fill="#fecaca" radius={[4, 4, 0, 0]} barSize={14} />
                   <Line type="monotone" dataKey="tendencia" stroke="#16a34a" strokeWidth={2}
                     strokeDasharray="5 3" dot={false} />
                 </ComposedChart>

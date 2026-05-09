@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import {
   CreditCard, FileText, Wrench, Download, AlertCircle, Clock,
-  CheckCircle2, MessageSquare, Bell, FileCheck, Plus, Upload,
-  Loader2, Image as ImageIcon,
+  CheckCircle2, Bell, FileCheck, Plus, Upload,
+  Loader2, Image as ImageIcon, Eye, ClipboardCheck,
   // Onboarding icons
   KeyRound, Play, RotateCw, PenLine, ChevronDown, ChevronUp,
   BookOpen, Home, ListChecks
@@ -22,12 +22,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { Contract, Property, Invoice, MaintenanceTask } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { doc, collection, query } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
+import { uploadReceiptToStorage } from '@/lib/upload-receipt';
 import { Separator } from '@/components/ui/separator';
 
 interface TenantPortalViewProps {
@@ -397,6 +398,7 @@ function OnboardingStep({
 export function TenantPortalView({ contracts, properties, invoices, tasks }: TenantPortalViewProps) {
   const { user }  = useUser();
   const db        = useFirestore();
+  const storage   = useStorage();
   const { toast } = useToast();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -405,7 +407,10 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
   const [selectedInvoice,     setSelectedInvoice]     = useState<Invoice | null>(null);
   const [newClaim,             setNewClaim]            = useState({ concept: '', description: '' });
   const [isUploading,          setIsUploading]         = useState(false);
+  const [uploadProgress,       setUploadProgress]      = useState(0);
   const [receiptFile,          setReceiptFile]         = useState<{name: string; url: string} | null>(null);
+  const [receiptNote,          setReceiptNote]         = useState('');
+  const [previewUrl,           setPreviewUrl]          = useState<string | null>(null);
 
   const myContract = contracts.find(c =>
     c.tenantEmail?.toLowerCase() === user?.email?.toLowerCase() ||
@@ -441,16 +446,26 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
     toast({ title: 'Reclamo Enviado', description: 'La administración ha sido notificada.' });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !selectedInvoice) return;
+    const adminId = myContract?.ownerId || 'W1b1I6DKA7fEluL5gugUyKBuSvD3';
     setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setReceiptFile({ name: file.name, url: event.target?.result as string });
+    setUploadProgress(0);
+    try {
+      const result = await uploadReceiptToStorage(
+        storage,
+        file,
+        adminId,
+        selectedInvoice.id,
+        ({ percent }) => setUploadProgress(percent),
+      );
+      setReceiptFile({ name: result.name, url: result.url });
+    } catch {
+      toast({ title: 'Error al subir archivo', description: 'Intentá con una imagen más pequeña o en formato JPG/PDF.', variant: 'destructive' });
+    } finally {
       setIsUploading(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleInformPayment = () => {
@@ -458,14 +473,19 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
     const adminId = myContract?.ownerId || 'W1b1I6DKA7fEluL5gugUyKBuSvD3';
     const docRef  = doc(db, 'artifacts', APP_ID, 'users', adminId, 'facturas', selectedInvoice.id);
     setDocumentNonBlocking(docRef, {
-      status:             'Pago Informado',
-      paymentReceiptUrl:  receiptFile.url,
-      paymentReceiptName: receiptFile.name,
-      paymentDate:        new Date().toLocaleDateString('es-AR'),
+      status:              'Pago Informado',
+      paymentReceiptUrl:   receiptFile.url,
+      paymentReceiptName:  receiptFile.name,
+      tenantReceiptUrl:    receiptFile.url,
+      tenantReceiptNote:   receiptNote.trim() || undefined,
+      paymentDate:         new Date().toLocaleDateString('es-AR'),
+      tenantEmail:         user?.email ?? undefined,
+      ownerEmail:          myProperty?.owners?.[0]?.email ?? undefined,
     }, { merge: true });
-    toast({ title: 'Pago Informado', description: 'El administrador verificará tu comprobante pronto.' });
+    toast({ title: '✅ Comprobante enviado', description: 'La administración lo verificará y notificará al propietario.' });
     setIsPaymentDialogOpen(false);
     setReceiptFile(null);
+    setReceiptNote('');
     setSelectedInvoice(null);
   };
 
@@ -614,6 +634,117 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
             </Card>
           </div>
 
+          {/* ── Mis Comprobantes enviados ── */}
+          {myInvoices.some(i => i.paymentReceiptUrl || i.tenantReceiptUrl) && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Mis Comprobantes de Pago</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Seguí el estado de cada comprobante que enviaste a la administración.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {myInvoices
+                  .filter(i => i.paymentReceiptUrl || i.tenantReceiptUrl)
+                  .map(inv => {
+                    const url = inv.tenantReceiptUrl ?? inv.paymentReceiptUrl;
+                    const step =
+                      inv.status === 'Pagado'                          ? 3 :
+                      inv.status === 'En Verificación con Propietario' ? 2 : 1;
+
+                    return (
+                      <div key={inv.id} className="rounded-xl border border-muted p-4 space-y-3">
+                        {/* Encabezado */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black">{inv.period}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {inv.propertyName} · $ {inv.totalAmount.toLocaleString('es-AR')}
+                            </p>
+                            {inv.paymentDate && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                Enviado el {inv.paymentDate}
+                              </p>
+                            )}
+                            {inv.tenantReceiptNote && (
+                              <p className="text-[10px] text-muted-foreground italic mt-1">
+                                "{inv.tenantReceiptNote}"
+                              </p>
+                            )}
+                          </div>
+                          {url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1.5 text-xs font-bold shrink-0"
+                              onClick={() => setPreviewUrl(url)}
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Ver comprobante
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Timeline de 3 pasos */}
+                        <div className="flex items-center gap-0">
+                          {[
+                            { label: 'Enviado',              desc: 'Comprobante recibido por admin' },
+                            { label: 'Con Propietario',      desc: 'Admin notificó al propietario' },
+                            { label: 'Confirmado',           desc: 'Propietario confirmó en banco' },
+                          ].map((s, i) => {
+                            const done    = step > i;
+                            const current = step === i + 1;
+                            return (
+                              <React.Fragment key={i}>
+                                <div className="flex flex-col items-center gap-1 min-w-0">
+                                  <div className={cn(
+                                    'h-7 w-7 rounded-full flex items-center justify-center border-2 text-[10px] font-black transition-all',
+                                    done
+                                      ? 'bg-primary border-primary text-white'
+                                      : current
+                                      ? 'border-primary text-primary bg-primary/10 animate-pulse'
+                                      : 'border-muted-foreground/20 text-muted-foreground/40'
+                                  )}>
+                                    {done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+                                  </div>
+                                  <p className={cn(
+                                    'text-[9px] font-bold text-center leading-tight max-w-[64px]',
+                                    done || current ? 'text-foreground' : 'text-muted-foreground/40'
+                                  )}>
+                                    {s.label}
+                                  </p>
+                                </div>
+                                {i < 2 && (
+                                  <div className={cn(
+                                    'flex-1 h-0.5 mb-4 mx-1 transition-all',
+                                    step > i + 1 ? 'bg-primary' : 'bg-muted'
+                                  )} />
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+
+                        {/* Mensaje de estado */}
+                        <div className={cn(
+                          'rounded-lg px-3 py-2 text-[11px] font-medium',
+                          step === 3 ? 'bg-green-50 text-green-700' :
+                          step === 2 ? 'bg-blue-50 text-blue-700' :
+                                       'bg-amber-50 text-amber-700'
+                        )}>
+                          {step === 3 && '✅ El propietario confirmó la recepción del pago en su banco.'}
+                          {step === 2 && '🔔 La administración envió el comprobante al propietario para que lo corrobore en su banco.'}
+                          {step === 1 && '⏳ La administración está verificando tu comprobante. Te notificaremos cuando esté confirmado.'}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </CardContent>
+            </Card>
+          )}
+
           {/* ── Historial de pagos + Contrato ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
@@ -754,7 +885,18 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                 className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-all border-primary/20"
               >
                 {isUploading ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="w-full space-y-2 px-2">
+                    <Loader2 className="h-7 w-7 animate-spin text-primary mx-auto" />
+                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-center text-muted-foreground">
+                      Subiendo… {uploadProgress}%
+                    </p>
+                  </div>
                 ) : receiptFile ? (
                   <div className="text-center">
                     <FileCheck className="h-8 w-8 text-green-600 mx-auto mb-2" />
@@ -765,14 +907,26 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                   <>
                     <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                     <p className="text-sm font-medium">Subir comprobante</p>
-                    <p className="text-[10px] text-muted-foreground">JPG, PNG, PDF</p>
+                    <p className="text-[10px] text-muted-foreground">JPG, PNG, PDF · foto de transferencia o CBU</p>
                   </>
                 )}
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Nota para la administración (opcional)</Label>
+              <Textarea
+                placeholder="Ej: Transferí el lunes 5 desde Banco Nación, número de operación 123456…"
+                className="min-h-[70px] text-sm"
+                value={receiptNote}
+                onChange={e => setReceiptNote(e.target.value)}
+              />
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-700 leading-relaxed">
+              📋 <strong>¿Qué pasa después?</strong> La administración verifica el comprobante y notifica al propietario para que lo corrobore en su banco. Podés seguir el estado desde "Mis Comprobantes".
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => { setIsPaymentDialogOpen(false); setReceiptFile(null); setReceiptNote(''); }}>Cancelar</Button>
             <Button
               className="bg-primary text-white font-black px-8"
               disabled={!receiptFile || isUploading}
@@ -780,6 +934,33 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
             >
               Enviar a Administración
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Vista previa comprobante ── */}
+      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" /> Comprobante de Pago
+            </DialogTitle>
+          </DialogHeader>
+          <div className="rounded-xl overflow-hidden border bg-muted/20 max-h-[60vh] flex items-center justify-center">
+            {previewUrl?.startsWith('data:image') || previewUrl?.match(/\.(jpg|jpeg|png|gif|webp)/i) ? (
+              <img src={previewUrl ?? ''} alt="Comprobante" className="max-w-full max-h-[60vh] object-contain" />
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+                <FileText className="h-12 w-12" />
+                <p className="text-sm font-medium">Archivo PDF</p>
+                <Button size="sm" variant="outline" onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
+                  <Download className="h-4 w-4 mr-2" /> Abrir PDF
+                </Button>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPreviewUrl(null)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

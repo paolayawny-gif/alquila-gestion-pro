@@ -28,6 +28,7 @@ import { fillAndDownloadDocx, numberToWords, formatDateParts, monthsToLabel } fr
 import { extractTemplateStructure } from '@/ai/flows/extract-template-structure-flow';
 import { generateContract } from '@/ai/flows/generate-contract-flow';
 import { extractTextFromPdfDataUri, isPdfDataUri } from '@/lib/pdf-extract';
+import { ContractRiskPanel } from '@/components/ui/contract-risk-panel';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -131,6 +132,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const [editorContractId, setEditorContractId] = useState('');
   const [editorTitle, setEditorTitle] = useState('Nuevo Contrato');
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [lastGeneratedContractType, setLastGeneratedContractType] = useState<'vivienda' | 'comercial' | 'otro'>('vivienda');
 
   // ── AI Generator Dialog ──
   const [showAiDialog, setShowAiDialog] = useState(false);
@@ -279,6 +281,9 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
 
       setEditorTitle(result.data.title || aiContractType);
       setEditorContent(result.data.html);
+      setLastGeneratedContractType(
+        aiContractType.toLowerCase().includes('comercial') ? 'comercial' : 'vivienda'
+      );
       setShowAiDialog(false);
       toast({ title: '¡Contrato generado! ✓', description: 'El texto se cargó en el editor. Podés revisarlo y editarlo.' });
     } catch (err: any) {
@@ -811,6 +816,15 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 placeholder="Empezá escribiendo tu contrato, o cargá una plantilla desde el panel izquierdo…"
                 minHeight="560px"
               />
+
+              {/* Análisis Legal IA — aparece cuando hay contenido generado */}
+              {editorContent && editorContent.length > 200 && (
+                <ContractRiskPanel
+                  contractText={editorContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}
+                  contractType={lastGeneratedContractType}
+                  className="mt-4"
+                />
+              )}
             </div>
           </div>
         </TabsContent>

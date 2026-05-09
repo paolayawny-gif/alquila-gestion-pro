@@ -185,7 +185,7 @@ export interface Invoice {
   totalAmount: number;
   currency: Currency;
   dueDate: string;
-  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado' | 'Pago Informado' | 'Esperando Factura ARCA';
+  status: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado' | 'Pago Informado' | 'En Verificación con Propietario' | 'Esperando Factura ARCA';
   arcaInvoiceUrl?: string;
   arcaInvoiceName?: string;
   lastReminderSent?: string;
@@ -196,9 +196,32 @@ export interface Invoice {
   tenantReceiptUrl?: string;   // comprobante subido por el inquilino desde su portal
   tenantReceiptNote?: string;  // nota del inquilino al informar pago
   paymentDate?: string;
+  adminVerifiedAt?: string;     // cuando el admin verificó el comprobante
+  ownerNotifiedAt?: string;     // cuando el admin notificó al propietario
+  ownerConfirmedAt?: string;    // cuando el propietario confirmó recepción en banco
   isFromOwner?: boolean;
   ownerId?: string;
   internalNotes?: string;
+}
+
+/** Asiento de cobro efectivo — se crea cuando el propietario confirma recepción en banco. */
+export interface Cobro {
+  id: string;
+  invoiceId: string;
+  contractId: string;
+  propertyId?: string;
+  propertyName: string;
+  tenantName: string;
+  tenantEmail?: string;
+  ownerEmail?: string;
+  period: string;
+  amount: number;
+  currency: Currency;
+  confirmedAt: string;          // fecha/hora en que el propietario confirmó
+  receiptUrl?: string;          // URL del comprobante en Firebase Storage
+  tenantNote?: string;          // nota del inquilino al informar
+  adminVerifiedAt?: string;
+  source: 'owner_confirmed' | 'admin_manual';
 }
 
 export interface Liquidation {

@@ -2,45 +2,132 @@
 'use server';
 
 /**
- * @fileOverview Servicio para la obtención de índices de ajuste (ICL, IPC).
- * 
- * EXPLICACIÓN TÉCNICA (BCRA API):
- * El BCRA dispone de un endpoint de "Principales Variables". 
- * Para el ICL (Índice de Contrato de Locación), se requiere:
- * 1. Consultar el valor del índice en la fecha de inicio/último ajuste.
- * 2. Consultar el valor del índice en la fecha actual.
- * 3. Calcular el coeficiente: (Valor_Actual / Valor_Anterior).
- * 
- * En este prototipo, simulamos esa respuesta para asegurar estabilidad 
- * sin requerir un token de API de producción del BCRA.
+ * Servicio de índices de ajuste para contratos de locación argentinos.
+ *
+ * Fuentes reales:
+ * - ICL: API BCRA v4.0 (fetch-icl-bcra-action)
+ * - IPC: API INDEC datos.gob.ar (fetch-ipc-indec-action)
+ * - CER: API BCRA v4.0 (fetch-cer-bcra-action)
+ * - CasaPropia: estimación hasta que el Ministerio publique API pública
+ *
+ * El coeficiente devuelto es el factor multiplicador acumulado para N meses.
+ * Ej: 1.037 = 3.7% de aumento.
  */
 
-export type IndexType = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed';
+import { fetchIcl } from '@/ai/flows/fetch-icl-bcra-action';
+import { fetchIpc } from '@/ai/flows/fetch-ipc-indec-action';
+import { fetchCerFromBcra as fetchCer } from '@/ai/flows/fetch-cer-bcra-action';
 
-export async function fetchCurrentIndexCoefficient(type: IndexType, months: number): Promise<number> {
-  // Simulación de delay de red (como si estuviéramos llamando al servidor del BCRA)
-  await new Promise(resolve => setTimeout(resolve, 1500));
+export type IndexType = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed' | 'CER';
 
-  // Coeficientes de variación realistas basados en la inflación actual de Argentina (2024-2025)
-  // Nota: Un valor de 2.14 significa un 114% de aumento.
-  
-  const coefficients: Record<IndexType, number> = {
-    // El ICL suele ser un promedio entre inflación y salarios
-    'ICL': 1.0 + (0.10 * months), // Aprox 10% mensual acumulado
-    
-    // El IPC suele ser puramente inflación (generalmente más alto)
-    'IPC': 1.0 + (0.13 * months), // Aprox 13% mensual acumulado
-    
-    // Casa Propia suele ser el menor de los indicadores
-    'CasaPropia': 1.0 + (0.07 * months),
-    
-    'Fixed': 1.0
+export interface IndexResult {
+  coefficient: number;
+  monthlyPct: number;
+  accumulatedPct: number;
+  period: string;
+  source: 'api' | 'fallback';
+  sourceLabel: string;
+  note?: string;
+}
+
+export async function fetchCurrentIndexCoefficient(
+  type: IndexType,
+  months: number
+): Promise<number> {
+  const result = await fetchIndexResult(type, months);
+  return result.coefficient;
+}
+
+export async function fetchIndexResult(
+  type: IndexType,
+  months: number
+): Promise<IndexResult> {
+  const fallback = (pct: number, label: string, note?: string): IndexResult => {
+    const accumulated = (Math.pow(1 + pct / 100, months) - 1) * 100;
+    return {
+      coefficient: parseFloat(Math.pow(1 + pct / 100, months).toFixed(4)),
+      monthlyPct: pct,
+      accumulatedPct: parseFloat(accumulated.toFixed(2)),
+      period: new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
+      source: 'fallback',
+      sourceLabel: label,
+      note,
+    };
   };
 
-  // En una implementación real con API BCRA, aquí haríamos:
-  // const response = await fetch(`https://api.bcra.gob.ar/estadisticas/v1/PrincipalesVariables/30?desde=${fechaInicio}&hasta=${fechaFin}`);
-  // const data = await response.json();
-  // return data.results[ultimo].valor / data.results[primero].valor;
+  if (type === 'Fixed') {
+    return { coefficient: 1, monthlyPct: 0, accumulatedPct: 0, period: '-', source: 'api', sourceLabel: 'Escalonado fijo' };
+  }
 
-  return coefficients[type] || 1.0;
+  if (type === 'ICL') {
+    try {
+      const r = await fetchIcl();
+      if (r.ok && r.data.monthlyVariationPct > 0) {
+        const monthly = r.data.monthlyVariationPct;
+        const accumulated = (Math.pow(1 + monthly / 100, months) - 1) * 100;
+        return {
+          coefficient: parseFloat(Math.pow(1 + monthly / 100, months).toFixed(4)),
+          monthlyPct: monthly,
+          accumulatedPct: parseFloat(accumulated.toFixed(2)),
+          period: r.data.period,
+          source: r.data.source === 'bcra_api' ? 'api' : 'fallback',
+          sourceLabel: `ICL – BCRA (${r.data.period})`,
+          note: r.data.note,
+        };
+      }
+    } catch { /* fallthrough */ }
+    return fallback(3.7, 'ICL – BCRA (estimado)', 'API BCRA no disponible. Valor estimado.');
+  }
+
+  if (type === 'IPC') {
+    try {
+      const r = await fetchIpc();
+      if (r.ok && r.data.monthlyVariationPct > 0) {
+        const monthly = r.data.monthlyVariationPct;
+        const accumulated = (Math.pow(1 + monthly / 100, months) - 1) * 100;
+        return {
+          coefficient: parseFloat(Math.pow(1 + monthly / 100, months).toFixed(4)),
+          monthlyPct: monthly,
+          accumulatedPct: parseFloat(accumulated.toFixed(2)),
+          period: r.data.period,
+          source: r.data.source === 'indec_api' ? 'api' : 'fallback',
+          sourceLabel: `IPC – INDEC (${r.data.period})`,
+          note: r.data.note,
+        };
+      }
+    } catch { /* fallthrough */ }
+    return fallback(3.7, 'IPC – INDEC (estimado)', 'API INDEC no disponible. Valor estimado.');
+  }
+
+  if (type === 'CER') {
+    try {
+      const hasta = new Date().toISOString().split('T')[0];
+      const desde = new Date();
+      desde.setMonth(desde.getMonth() - months);
+      const r = await fetchCer(desde.toISOString().split('T')[0], hasta);
+      if (r.ok && r.data.length >= 2) {
+        const first = r.data[0].value;
+        const last  = r.data[r.data.length - 1].value;
+        const accumulated = first > 0 ? ((last - first) / first) * 100 : 3.5 * months;
+        const monthly = accumulated / months;
+        const period = new Date(r.data[r.data.length - 1].date).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+        return {
+          coefficient: parseFloat((1 + accumulated / 100).toFixed(4)),
+          monthlyPct: parseFloat(monthly.toFixed(2)),
+          accumulatedPct: parseFloat(accumulated.toFixed(2)),
+          period,
+          source: 'api',
+          sourceLabel: `CER – BCRA (${period})`,
+        };
+      }
+    } catch { /* fallthrough */ }
+    return fallback(3.5, 'CER – BCRA (estimado)', 'API BCRA no disponible. Valor estimado.');
+  }
+
+  if (type === 'CasaPropia') {
+    return fallback(2.8, 'Índice Casa Propia (estimado)',
+      'Sin API pública estable. Verificar en https://www.habitat.gob.ar');
+  }
+
+  return fallback(3.5, `${type} (estimado)`);
 }

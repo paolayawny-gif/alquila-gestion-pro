@@ -146,7 +146,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [selectedQAContract, setSelectedQAContract] = useState<Contract | null>(null);
   
   const [qaQuestion, setQAQuestion] = useState('');
-  const [qaAnswer, setQAAnswer] = useState<{answer: string, sourceQuote?: string} | null>(null);
+  const [qaAnswer, setQAAnswer] = useState<{answer: string, sourceQuote?: string, fundamentoLegal?: string, alertaLegal?: string} | null>(null);
   const [isAsking, setIsAsking] = useState(false);
 
   const [isExtracting, setIsExtracting] = useState(false);
@@ -254,7 +254,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     setQAAnswer(null);
     const result = await queryContract({
       contractTranscription: selectedQAContract.fullTranscription,
-      question: qaQuestion
+      question: qaQuestion,
+      perspective: 'neutral',
+      contractType: 'vivienda',
     });
     setIsAsking(false);
     if (!result.ok) {
@@ -853,6 +855,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl space-y-3">
                   <p className="text-sm leading-relaxed text-foreground font-medium">{qaAnswer.answer}</p>
+                  {qaAnswer.fundamentoLegal && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-blue-700">
+                      <span className="font-bold flex-shrink-0">⚖️</span>{qaAnswer.fundamentoLegal}
+                    </div>
+                  )}
+                  {qaAnswer.alertaLegal && (
+                    <div className="p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800">
+                      ⚠️ {qaAnswer.alertaLegal}
+                    </div>
+                  )}
                   {qaAnswer.sourceQuote && (
                     <div className="p-3 bg-white/50 border-l-4 border-primary rounded text-[11px] italic text-muted-foreground">
                       "{qaAnswer.sourceQuote}"

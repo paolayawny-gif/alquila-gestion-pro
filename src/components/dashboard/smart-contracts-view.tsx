@@ -13,6 +13,7 @@ import {
   Bell, ChevronRight, Zap, Scale, RefreshCw, FilePen, ExternalLink, Info,
   Calendar, DollarSign, User, Building2, XCircle
 } from 'lucide-react';
+import { ContractRiskPanel } from '@/components/ui/contract-risk-panel';
 import { cn } from '@/lib/utils';
 import { Contract, Invoice, Person, Property } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -463,6 +464,28 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                   </div>
                 </div>
               </div>
+
+              {/* Análisis Legal IA */}
+              {contract.fullTranscription && (
+                <ContractRiskPanel
+                  contractText={contract.fullTranscription}
+                  contractType={
+                    (property?.usage === 'Comercial' || property?.usage === 'Industrial' || property?.usage === 'Profesional')
+                      ? 'comercial'
+                      : 'vivienda'
+                  }
+                  extractedData={{
+                    baseRentAmount: contract.baseRentAmount,
+                    currency: contract.currency,
+                    adjustmentFrequencyMonths: contract.adjustmentFrequencyMonths,
+                    adjustmentMechanism: contract.adjustmentMechanism ?? undefined,
+                    tenantName: contract.tenantName ?? undefined,
+                    propertyAddress: property?.address,
+                    startDate: contract.startDate,
+                    endDate: contract.endDate,
+                  }}
+                />
+              )}
 
               {/* Facturas del contrato */}
               {contractInvoices.length > 0 && (
