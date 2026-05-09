@@ -62,6 +62,7 @@ interface OwnerPortalProps {
 export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
   const [activeTab, setActiveTab] = useState<OwnerTab>('Inicio');
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const auth = useAuth();
 
   // ── Blocked screens ──────────────────────────────────────────────────────
@@ -132,9 +133,14 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
     <div className="flex h-screen w-full bg-background overflow-hidden">
 
       {/* ── Sidebar ── */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
       <aside className={cn(
-        'bg-white border-r flex flex-col transition-all duration-300 relative z-20',
-        collapsed ? 'w-20' : 'w-64',
+        'bg-white border-r flex flex-col transition-all duration-300 z-40 shrink-0',
+        'fixed inset-y-0 left-0 md:static md:z-20',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        collapsed ? 'md:w-20 w-64' : 'w-64',
       )}>
         {/* Logo */}
         <div className="px-4 h-16 flex items-center border-b gap-3">
@@ -156,7 +162,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
           {OWNER_MENU.map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => { setActiveTab(item.id); setMobileOpen(false); }}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
                 activeTab === item.id
@@ -199,7 +205,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full flex items-center justify-center shadow-sm text-muted-foreground hover:text-emerald-600 z-50"
+          className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-emerald-600 z-50"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
@@ -208,7 +214,10 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
       {/* ── Main ── */}
       <main className="flex-1 overflow-y-auto bg-background/50">
         {/* Header */}
-        <header className="h-16 border-b flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+        <header className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 gap-3">
+          <button className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0" onClick={() => setMobileOpen(true)}>
+            <Menu className="h-5 w-5 text-muted-foreground" />
+          </button>
           <p className="font-black text-foreground">
             {OWNER_MENU.find(m => m.id === activeTab)?.label ?? 'Inicio'}
           </p>
@@ -223,7 +232,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
           </div>
         </header>
 
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {renderContent()}
         </div>
       </main>

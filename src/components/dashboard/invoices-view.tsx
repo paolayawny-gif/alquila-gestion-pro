@@ -872,6 +872,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
       </div>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -996,6 +997,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
             })}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       <Dialog open={isLateFeeDialogOpen} onOpenChange={setIsLateFeeDialogOpen}>

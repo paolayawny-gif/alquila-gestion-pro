@@ -38,7 +38,8 @@ import {
   Megaphone,
   Share2,
   ShoppingBag,
-  ClipboardList
+  ClipboardList,
+  Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -180,6 +181,7 @@ export default function AppClient() {
   const [activeRole, setActiveRole] = useState<Role>('Administrador');
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   
   const { user } = useUser();
@@ -455,7 +457,15 @@ export default function AppClient() {
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
-      <aside className={cn("bg-white border-r flex flex-col transition-all duration-300 relative z-20", isSidebarCollapsed ? "w-20" : "w-64")}>
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileMenuOpen(false)} />
+      )}
+      <aside className={cn(
+        "bg-white border-r flex flex-col transition-all duration-300 z-40 shrink-0",
+        "fixed inset-y-0 left-0 md:static md:z-20",
+        mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        isSidebarCollapsed ? "md:w-20 w-64" : "w-64",
+      )}>
         {/* Logo */}
         <div className="px-4 h-16 flex items-center border-b">
           {!isSidebarCollapsed ? (
@@ -515,7 +525,7 @@ export default function AppClient() {
                   {group.items.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id as Tab)}
+                      onClick={() => { setActiveTab(item.id as Tab); setMobileMenuOpen(false); }}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                         activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted",
@@ -531,7 +541,7 @@ export default function AppClient() {
             : menuItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id as Tab)}
+                  onClick={() => { setActiveTab(item.id as Tab); setMobileMenuOpen(false); }}
                   className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors", activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted")}
                 >
                   <item.icon className={cn("h-5 w-5", activeTab === item.id ? "text-primary" : "text-muted-foreground")} />
@@ -567,12 +577,15 @@ export default function AppClient() {
             {!isSidebarCollapsed && <span>Cerrar Sesión</span>}
            </button>
         </div>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full flex items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50">
+        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50">
           {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
       </aside>
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
-        <header className="h-16 border-b flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 gap-4">
+        <header className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 gap-3">
+          <button className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0" onClick={() => setMobileMenuOpen(true)}>
+            <Menu className="h-5 w-5 text-muted-foreground" />
+          </button>
           <div className="relative hidden md:flex items-center w-72">
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
@@ -621,7 +634,7 @@ export default function AppClient() {
             Modo <strong>solo lectura</strong> — podés consultar toda la información pero no realizar cambios.
           </div>
         )}
-        <div className="p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-[calc(100vh-5rem)]">
           <OrgPermissionsProvider value={{ canWrite: orgCtx.canWrite, canDelete: orgCtx.canDelete }}>
             {renderContent()}
           </OrgPermissionsProvider>
