@@ -22,6 +22,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { writePropertyEvent } from '@/lib/property-events';
 import { batchRentAdjustment, type BatchRentAdjustmentResult, type BatchAdjustmentLine } from '@/ai/flows/batch-rent-adjustment-flow';
 import { richCommunication } from '@/ai/flows/rich-communication-flow';
 
@@ -216,6 +217,22 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
       sentAt: new Date().toISOString(),
       ownerId: user.uid,
     }, {});
+    writePropertyEvent(db, user.uid, {
+      propertyId: contract.propertyId,
+      propertyName: contract.propertyName ?? '',
+      type: 'mora_notif',
+      title: `Notificación de mora — ${contract.tenantName}`,
+      detail: `${mora?.daysOverdue ?? 0} días vencidos · Deuda: ${contract.currency} ${mora?.totalOverdue?.toLocaleString('es-AR') ?? '0'}${notifNote ? ` · ${notifNote}` : ''}`,
+      actor: 'Administración',
+      actorRole: 'admin',
+      ts: Date.now(),
+      metadata: {
+        daysOverdue: mora?.daysOverdue,
+        amount: mora?.totalOverdue,
+        currency: contract.currency,
+        contractId: contract.id,
+      },
+    });
     setSentNotifications(prev => new Set([...prev, contract.id]));
     setShowNotifDialog(false);
     setNotifNote('');

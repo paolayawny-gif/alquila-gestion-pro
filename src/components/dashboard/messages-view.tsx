@@ -21,6 +21,7 @@ import { Contract, Property, Person } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { writePropertyEvent } from '@/lib/property-events';
 import { useToast } from '@/hooks/use-toast';
 import { richCommunication, fetchIndexTicker } from '@/ai/flows/rich-communication-flow';
 import type { RichCommunicationInput, IndexTicker } from '@/ai/flows/rich-communication-flow';
@@ -373,6 +374,19 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     setDocumentNonBlocking(msgRef, msg, {});
     const chatRef = doc(db, 'artifacts', APP_ID, 'sharedChats', selectedChatId);
     setDocumentNonBlocking(chatRef, { lastMessage: txt, lastMessageAt: now, unreadAdmin: 0, unreadTenant: increment(1) }, { merge: true });
+    if (selectedChat?.propertyId) {
+      writePropertyEvent(db, userId, {
+        propertyId: selectedChat.propertyId,
+        propertyName: selectedChat.propertyName,
+        type: 'message_admin',
+        title: `Admin → ${selectedChat.name}`,
+        detail: txt.length > 140 ? txt.slice(0, 140) + '…' : txt,
+        actor: 'Administración',
+        actorRole: 'admin',
+        ts: now,
+        metadata: { chatId: selectedChatId },
+      });
+    }
     if (!text) setMessageText('');
     setIsSending(false);
   };

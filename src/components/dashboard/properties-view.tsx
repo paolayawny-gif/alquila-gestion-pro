@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyManual } from '@/lib/types';
@@ -30,6 +30,7 @@ import { PhotoUpload } from '@/components/ui/photo-upload';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
+import { PropertyTimeline } from '@/components/ui/property-timeline';
 
 interface PropertiesViewProps {
   properties: Property[];
@@ -48,6 +49,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [timelineProperty, setTimelineProperty] = useState<Property | null>(null);
   
   const [invitingOwner, setInvitingOwner] = useState<{name: string, email: string} | null>(null);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
@@ -665,6 +667,9 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Historial del inmueble" onClick={() => setTimelineProperty(p)}>
+                      <History className="h-4 w-4" />
+                    </Button>
                     {canWrite && (
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleOpenDialog(p)}>
                         <Edit2 className="h-4 w-4" />
@@ -687,6 +692,26 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Dialog: Historial del inmueble */}
+      <Dialog open={!!timelineProperty} onOpenChange={open => { if (!open) setTimelineProperty(null); }}>
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <History className="h-4 w-4 text-primary" />
+              Historial — {timelineProperty?.name}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Mensajes, facturas, mora y ajustes registrados para este inmueble.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-1 mt-2">
+            {timelineProperty && userId && (
+              <PropertyTimeline propertyId={timelineProperty.id} adminId={userId} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

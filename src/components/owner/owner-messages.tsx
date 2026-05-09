@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { writePropertyEvent } from '@/lib/property-events';
 import { OwnerRegistryEntry } from './owner-portal';
 
 const APP_ID = 'alquilagestion-pro';
@@ -105,6 +106,17 @@ export function OwnerMessages({ ownerEntry }: OwnerMessagesProps) {
       unreadTenant: 0,
       unreadAdmin: increment(1),
     }, { merge: true });
+    writePropertyEvent(db, ownerEntry.adminId, {
+      propertyId: ownerEntry.propertyIds[0] ?? '',
+      propertyName: ownerEntry.propertyNames[0] ?? '',
+      type: 'message_owner',
+      title: `${ownerEntry.ownerName} → Administración`,
+      detail: txt.length > 140 ? txt.slice(0, 140) + '…' : txt,
+      actor: ownerEntry.ownerName,
+      actorRole: 'owner',
+      ts: now,
+      metadata: { chatId },
+    });
     setMessageText('');
     setIsSending(false);
   };

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { writePropertyEvent } from '@/lib/property-events';
 import { TenantRegistryEntry } from './tenant-portal';
 
 const APP_ID = 'alquilagestion-pro';
@@ -132,6 +133,17 @@ export function TenantMessages({ tenantEntry }: TenantMessagesProps) {
     setDocumentNonBlocking(chatRef, {
       lastMessage: txt, lastMessageAt: now, unreadAdmin: increment(1),
     }, { merge: true });
+    writePropertyEvent(db, tenantEntry.adminId, {
+      propertyId: tenantEntry.propertyId,
+      propertyName: tenantEntry.propertyName,
+      type: 'message_tenant',
+      title: `${tenantEntry.tenantName} → Administración`,
+      detail: txt.length > 140 ? txt.slice(0, 140) + '…' : txt,
+      actor: tenantEntry.tenantName,
+      actorRole: 'tenant',
+      ts: now,
+      metadata: { chatId: selectedChatId },
+    });
     setMessageText('');
     setIsSending(false);
   };

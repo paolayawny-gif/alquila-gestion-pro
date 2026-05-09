@@ -54,6 +54,7 @@ import { sendEmail } from '@/services/email-service';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, query, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { writePropertyEvent } from '@/lib/property-events';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -265,14 +266,33 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     if (!tempReceiptFile || !uploadingReceiptFor || !userId || !db) return;
 
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', uploadingReceiptFor);
-    setDocumentNonBlocking(docRef, { 
+    setDocumentNonBlocking(docRef, {
       paymentReceiptUrl: tempReceiptFile.url,
       paymentReceiptName: tempReceiptFile.name,
       status: 'Pagado',
       paymentDate: new Date().toLocaleDateString('es-AR'),
       internalNotes: receiptNote
     }, { merge: true });
-    
+    const paidInv = invoices.find(i => i.id === uploadingReceiptFor);
+    if (paidInv?.propertyId) {
+      writePropertyEvent(db, userId, {
+        propertyId: paidInv.propertyId,
+        propertyName: paidInv.propertyName,
+        type: 'invoice_paid',
+        title: `Pago registrado — ${paidInv.tenantName}`,
+        detail: `Período: ${paidInv.period}${receiptNote ? ` · ${receiptNote}` : ''}`,
+        actor: 'Administración',
+        actorRole: 'admin',
+        ts: Date.now(),
+        metadata: {
+          amount: paidInv.totalAmount,
+          currency: paidInv.currency,
+          period: paidInv.period,
+          invoiceId: paidInv.id,
+          contractId: paidInv.contractId,
+        },
+      });
+    }
     toast({ title: "Pago Registrado", description: "Comprobante cargado exitosamente." });
     setIsReceiptConfirmDialogOpen(false);
     setTempReceiptFile(null);
@@ -346,6 +366,23 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     };
 
     setDocumentNonBlocking(docRef, invoiceData, { merge: true });
+    writePropertyEvent(db, userId, {
+      propertyId: contract.propertyId,
+      propertyName: contract.propertyName ?? '',
+      type: 'invoice_created',
+      title: `Factura emitida — ${contract.tenantName}`,
+      detail: `${manualCharge.type}${manualCharge.description ? ` · ${manualCharge.description}` : ''} · Período: ${manualCharge.period}`,
+      actor: 'Administración',
+      actorRole: 'admin',
+      ts: Date.now(),
+      metadata: {
+        amount: manualCharge.amount,
+        currency: contract.currency,
+        period: manualCharge.period,
+        invoiceId: docId,
+        contractId: contract.id,
+      },
+    });
     setIsManualDialogOpen(false);
     toast({ title: "Cargo Generado", description: "El concepto ha sido registrado." });
 
