@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label';
 import {
   ShieldCheck, AlertTriangle, CheckCircle2, Clock, FileText,
   Bell, ChevronRight, Zap, Scale, RefreshCw, FilePen, ExternalLink, Info,
-  Calendar, DollarSign, User, Building2, XCircle, Loader2, TrendingUp, Copy, CheckCheck
+  Calendar, DollarSign, User, Building2, XCircle, Loader2, TrendingUp, Copy, CheckCheck,
+  Anchor, Link2
 } from 'lucide-react';
 import { ContractRiskPanel } from '@/components/ui/contract-risk-panel';
 import { cn } from '@/lib/utils';
@@ -122,6 +123,32 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   const [notifDraft, setNotifDraft] = useState('');
   const [notifDraftLoading, setNotifDraftLoading] = useState(false);
   const [notifCopied, setNotifCopied] = useState(false);
+
+  // Blockchain notarization
+  const [notarizing, setNotarizing]   = useState(false);
+  const [notarizedContracts, setNotarizedContracts] = useState<Record<string, string>>({});
+
+  async function handleNotarize() {
+    if (!contract || !userId) return;
+    setNotarizing(true);
+    try {
+      const res = await fetch('/api/notarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: userId, contractId: contract.id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setNotarizedContracts(prev => ({ ...prev, [contract.id]: data.txHash }));
+        toast({ title: '✅ Notarizado en Polygon', description: `TX: ${data.txHash.slice(0, 14)}…` });
+      } else {
+        toast({ title: 'Error', description: data.error, variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error de red', variant: 'destructive' });
+    }
+    setNotarizing(false);
+  }
 
   const contract = contracts.find(c => c.id === selectedContractId);
   const contractInvoices = useMemo(() =>
@@ -365,6 +392,60 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Blockchain notarization */}
+              {(() => {
+                const txHash = notarizedContracts[contract.id] ?? contract.blockchainTxHash;
+                const hasSigs = (contract.signatures?.length ?? 0) >= 1;
+                if (txHash) {
+                  return (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-green-200 bg-green-50">
+                      <Anchor className="h-4 w-4 text-green-700 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-green-900">Anclado en Polygon</p>
+                        <p className="text-[10px] text-green-700 font-mono truncate">{txHash}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <a
+                          href={`https://polygonscan.com/tx/${txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[10px] font-bold text-green-800 hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" /> PolygonScan
+                        </a>
+                        <a
+                          href={`/verificar/${txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[10px] font-bold text-green-800 hover:underline"
+                        >
+                          <Link2 className="h-3 w-3" /> Legajo
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+                if (!hasSigs || !canWrite) return null;
+                return (
+                  <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-dashed border-primary/40 bg-primary/5">
+                    <div>
+                      <p className="text-xs font-black text-foreground">Notarizar en Blockchain</p>
+                      <p className="text-[10px] text-muted-foreground">Ancla el hash del contrato en Polygon para prueba de fecha cierta ante un juez.</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 gap-1.5 font-bold text-xs border-primary text-primary hover:bg-primary/10"
+                      onClick={handleNotarize}
+                      disabled={notarizing}
+                    >
+                      {notarizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Anchor className="h-3.5 w-3.5" />}
+                      {notarizing ? 'Enviando…' : 'Notarizar'}
+                    </Button>
+                  </div>
+                );
+              })()}
 
               {/* Flujo del contrato */}
               <Card className="border-none shadow-sm bg-white">

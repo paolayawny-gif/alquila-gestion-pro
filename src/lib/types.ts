@@ -185,6 +185,8 @@ export interface Contract {
   };
   ownerId: string;
   signatures?: ContractSignature[];   // firmas electrónicas registradas
+  blockchainTxHash?: string;          // TX hash en Polygon (notarización)
+  notarizedAt?: string;               // ISO timestamp de la notarización
 }
 
 export interface ChargeItem {
