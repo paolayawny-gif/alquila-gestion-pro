@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   Building2, DollarSign, MessageSquare, Calculator,
   ArrowRight, CheckCircle2, Clock,
-  TrendingUp, Wrench, FileText, Bell, Users, ShoppingBag,
+  TrendingUp, Wrench, FileText, Bell, Users, ShoppingBag, Receipt, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -108,6 +108,19 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
     },
   ];
 
+  // Invoices pending AFIP emission
+  const invQ = useMemoFirebase(() => {
+    if (!db || !ownerEntry.adminId || !ownerEntry.ownerEmail) return null;
+    return query(
+      collection(db, 'artifacts', APP_ID, 'users', ownerEntry.adminId, 'facturas'),
+      where('ownerEmail', '==', ownerEntry.ownerEmail),
+    );
+  }, [db, ownerEntry.adminId, ownerEntry.ownerEmail]);
+  const { data: invRaw } = useCollection<any>(invQ);
+  const pendingAfip = (invRaw ?? []).filter(
+    (i: any) => !i.afipCae && (i.status === 'Pendiente' || i.status === 'Vencido' || i.status === 'Pagado' || i.status === 'Pago Informado'),
+  ).length;
+
   const recentLiquidations = [...liquidations]
     .sort((a, b) => (b.dateCreated ?? '').localeCompare(a.dateCreated ?? ''))
     .slice(0, 4);
@@ -125,6 +138,28 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
           Portal Propietario · {ownerEntry.propertyNames.length} propiedad{ownerEntry.propertyNames.length !== 1 ? 'es' : ''}
         </p>
       </div>
+
+      {/* Urgent action: AFIP pending */}
+      {pendingAfip > 0 && (
+        <div
+          className="rounded-xl bg-emerald-700 text-white p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-800 transition-colors"
+          onClick={() => onNavigate('Facturación AFIP')}
+        >
+          <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <Zap className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <p className="font-black text-sm">Acción urgente</p>
+            <p className="text-xs text-white/80">
+              {pendingAfip} liquidación{pendingAfip !== 1 ? 'es' : ''} lista{pendingAfip !== 1 ? 's' : ''} para facturar. Datos precargados.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 bg-white text-emerald-700 font-black text-xs rounded-lg px-3 py-1.5 shrink-0">
+            <Receipt className="h-3.5 w-3.5" />
+            Ir a Facturación AFIP
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

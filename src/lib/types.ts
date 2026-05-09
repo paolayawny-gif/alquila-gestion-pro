@@ -216,6 +216,13 @@ export interface Invoice {
   ownerCbu?: string;
   ownerAlias?: string;
   ownerBank?: string;
+  // ── AFIP / ARCA electrónica ───────────────────────────────────────────────
+  afipCae?:             string;
+  afipCaeVto?:          string;   // YYYYMMDD
+  afipNroComprobante?:  number;
+  afipPtoVenta?:        number;
+  afipTipoComprobante?: number;   // 6=B, 11=C
+  afipEmittedAt?:       string;   // ISO timestamp
 }
 
 /** Asiento de cobro efectivo — se crea cuando el propietario confirma recepción en banco. */
