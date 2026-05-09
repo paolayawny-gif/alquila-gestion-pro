@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/liquidacion",
+      "schedule": "0 9 28,29 * *"
+    }
+  ]
+}
