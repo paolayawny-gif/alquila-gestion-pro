@@ -57,6 +57,70 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import { writePropertyEvent } from '@/lib/property-events';
 import { uploadReceiptToStorage } from '@/lib/upload-receipt';
 
+// ── Prose email templates ─────────────────────────────────────────────────────
+
+function buildTenantLiquidacionHtml({ tenantName, propertyName, period, rentAmount, prevInterest, dueDate, currency, cbuLine }: {
+  tenantName: string; propertyName: string; period: string;
+  rentAmount: number; prevInterest: number; dueDate: string;
+  currency: 'ARS' | 'USD'; cbuLine: string | null;
+}): string {
+  const sym = currency === 'USD' ? 'U$D' : '$';
+  const fmt = (n: number) => `${sym} ${n.toLocaleString('es-AR')}`;
+  const total = rentAmount + prevInterest;
+  const overdueBlock = prevInterest > 0
+    ? `<p style="margin:12px 0;">Asimismo, registramos intereses por mora de períodos anteriores por un total de <strong>${fmt(prevInterest)}</strong>, los cuales deberán abonarse junto con el presente período.</p>`
+    : '';
+  const cbuBlock = cbuLine
+    ? `<p style="margin:12px 0;">Para realizar el pago por transferencia bancaria, le informamos los siguientes datos:</p><p style="background:#f5f5f5;padding:10px 14px;border-radius:6px;font-family:monospace;font-size:13px;margin:8px 0;">${cbuLine}</p>`
+    : '';
+  const totalLabel = prevInterest > 0 ? 'total a abonar (alquiler + mora)' : 'importe a abonar';
+  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#222;">
+  <h2 style="color:#1a1a2e;margin-bottom:4px;">Liquidación de alquiler — ${period}</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;margin-bottom:20px;">${propertyName}</p>
+  <p>Estimado/a <strong>${tenantName}</strong>:</p>
+  <p>Le escribimos para informarle la liquidación de alquiler correspondiente al período <strong>${period}</strong>, con vencimiento el día <strong>${dueDate}</strong>.</p>
+  <p>El ${totalLabel} es de <strong style="font-size:16px;color:#2e7d32;">${fmt(total)}</strong>.</p>
+  ${overdueBlock}
+  ${cbuBlock}
+  <div style="background:#e3f2fd;border-left:4px solid #90caf9;padding:12px 16px;margin:20px 0;border-radius:0 6px 6px 0;">
+    <p style="margin:0;font-size:12px;color:#1565c0;"><strong>Nota fiscal:</strong> Conforme a la RG AFIP N° 1415/03, la factura fiscal será emitida en el momento en que se perciba su pago o al vencimiento del plazo (${dueDate}), lo que ocurra primero.</p>
+  </div>
+  <p>Ante cualquier consulta, no dude en comunicarse con nuestra administración.</p>
+  <p>Atentamente,<br/><strong>Administración</strong></p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/>
+  <p style="font-size:10px;color:#aaa;">Aviso automático. Por favor no responda a este correo.</p>
+</div>`;
+}
+
+function buildOwnerLiquidacionHtml({ ownerName, propertyName, tenantName, period, rentAmount, prevInterest, dueDate, currency }: {
+  ownerName: string; propertyName: string; tenantName: string; period: string;
+  rentAmount: number; prevInterest: number; dueDate: string; currency: 'ARS' | 'USD';
+}): string {
+  const sym = currency === 'USD' ? 'U$D' : '$';
+  const fmt = (n: number) => `${sym} ${n.toLocaleString('es-AR')}`;
+  const total = rentAmount + prevInterest;
+  const overdueBlock = prevInterest > 0
+    ? `<p style="margin:12px 0;">Se registran además intereses por mora de períodos anteriores por <strong>${fmt(prevInterest)}</strong>, que se suman al total a cobrar.</p>`
+    : '';
+  const totalLabel = prevInterest > 0 ? 'total a cobrar (alquiler + mora)' : 'importe del alquiler';
+  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#222;">
+  <h2 style="color:#1a1a2e;margin-bottom:4px;">Liquidación mensual — ${period}</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;margin-bottom:20px;">${propertyName}</p>
+  <p>Estimado/a <strong>${ownerName}</strong>:</p>
+  <p>Le informamos que se ha generado la liquidación del período <strong>${period}</strong> para su propiedad <strong>${propertyName}</strong>. El inquilino <strong>${tenantName}</strong> ha sido notificado y cuenta con plazo hasta el <strong>${dueDate}</strong> para efectuar el pago.</p>
+  <p>El ${totalLabel} asciende a <strong style="font-size:16px;color:#2e7d32;">${fmt(total)}</strong>.</p>
+  ${overdueBlock}
+  <div style="background:#fef9ec;border-left:4px solid #f5c842;padding:12px 16px;margin:20px 0;border-radius:0 6px 6px 0;">
+    <p style="margin:0 0 8px;font-size:12px;color:#856404;"><strong>Recordatorio — RG AFIP N° 1415/03:</strong></p>
+    <p style="margin:0;font-size:12px;color:#856404;">Deberá emitir la factura ARCA al percibir el pago <strong>o</strong> al vencimiento (${dueDate}), lo que ocurra primero. Recibirá un aviso automático en ambas instancias.</p>
+  </div>
+  <p>Ante cualquier consulta, comuníquese con nuestra administración.</p>
+  <p>Atentamente,<br/><strong>Administración</strong></p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/>
+  <p style="font-size:10px;color:#aaa;">Aviso automático. Por favor no responda a este correo.</p>
+</div>`;
+}
+
 interface InvoicesViewProps {
   invoices: Invoice[];
   userId?: string;
@@ -79,7 +143,10 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   const [isGeneratingRent, setIsGeneratingRent] = useState(false);
   const [uploadingArcaFor, setUploadingArcaFor] = useState<string | null>(null);
   const [uploadingReceiptFor, setUploadingReceiptFor] = useState<string | null>(null);
-  
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [approvingInvoices, setApprovingInvoices] = useState(false);
+  const [showGeneratePreview, setShowGeneratePreview] = useState(false);
+
   const [isLateFeeDialogOpen, setIsLateFeeDialogOpen] = useState(false);
   const [selectedInvForFee, setSelectedInvForFee] = useState<Invoice | null>(null);
   const [manualFeeInput, setManualFeeInput] = useState<number>(0);
@@ -94,20 +161,39 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   }, [db, userId]);
   const { data: people } = useCollection<Person>(peopleQuery);
 
+  const nextMonthLabel = React.useMemo(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth() + 1, 1)
+      .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  }, []);
+
+  const nextMonthDueDate = React.useMemo(() => {
+    const today = new Date();
+    const nm = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return new Date(nm.getFullYear(), nm.getMonth(), 10).toLocaleDateString('es-AR');
+  }, []);
+
+  const pendingApprovalInvoices = invoices.filter(i => i.pendingApproval === true);
+
+  const contractsToProcess = React.useMemo(() =>
+    contracts.filter(c => {
+      if (c.status !== 'Vigente') return false;
+      return !invoices.find(i => i.contractId === c.id && i.period === nextMonthLabel && i.charges.some(ch => ch.type === 'Alquiler'));
+    }),
+    [contracts, invoices, nextMonthLabel]
+  );
+
   // Day-28/29 liquidación reminder
   const [showLiquidacionReminder, setShowLiquidacionReminder] = useState(false);
   useEffect(() => {
     const today = new Date();
-    const dayOfMonth = today.getDate();
     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysUntilMonthEnd = lastDayOfMonth - dayOfMonth;
+    const daysUntilMonthEnd = lastDayOfMonth - today.getDate();
     if (daysUntilMonthEnd <= 2) {
-      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-        .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-      const nextMonthAlreadyGenerated = invoices.some(i => i.period === nextMonth && i.charges.some(c => c.type === 'Alquiler'));
+      const nextMonthAlreadyGenerated = invoices.some(i => i.period === nextMonthLabel && i.charges.some(c => c.type === 'Alquiler'));
       setShowLiquidacionReminder(!nextMonthAlreadyGenerated && contracts.some(c => c.status === 'Vigente'));
     }
-  }, [invoices, contracts]);
+  }, [invoices, contracts, nextMonthLabel]);
 
   // Auto-trigger ARCA request when invoice reaches due date unpaid
   useEffect(() => {
@@ -169,15 +255,16 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   });
 
   const getStatusBadge = (status: Invoice['status']) => {
-    const styles = {
+    const styles: Record<string, string> = {
       'Pagado': 'bg-green-100 text-green-700 border-green-200',
       'Vencido': 'bg-red-100 text-red-700 border-red-200',
       'Pendiente': 'bg-orange-100 text-orange-700 border-orange-200',
       'Pago Informado': 'bg-blue-100 text-blue-700 border-blue-200',
       'Esperando Factura ARCA': 'bg-purple-100 text-purple-700 border-purple-200',
-      'Anulado': 'bg-gray-100 text-gray-700 border-gray-200'
+      'En Verificación con Propietario': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+      'Anulado': 'bg-gray-100 text-gray-700 border-gray-200',
     };
-    return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
+    return <Badge variant="outline" className={cn("border font-bold", styles[status] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>{status}</Badge>;
   };
 
   const calculateInterest = (inv: Invoice) => {
@@ -209,129 +296,189 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   const handleGenerateMonthlyRent = async () => {
     if (!userId || !db) return;
     setIsGeneratingRent(true);
-    const currentMonth = new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    const dueDate = new Date(new Date().getFullYear(), new Date().getMonth(), 10).toLocaleDateString('es-AR');
-
+    const now = new Date().toISOString();
     let count = 0;
     const emailPromises: Promise<any>[] = [];
 
-    contracts.filter(c => c.status === 'Vigente').forEach(contract => {
-      const exists = invoices.find(i => i.contractId === contract.id && i.period === currentMonth && i.charges.some(ch => ch.type === 'Alquiler'));
-      if (!exists) {
-        const docId = Math.random().toString(36).substr(2, 9);
-        const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', docId);
+    contractsToProcess.forEach(contract => {
+      const docId = Math.random().toString(36).substr(2, 9);
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', docId);
 
-        // Resolve owner email from property owners list
-        const property = properties.find(p => p.id === contract.propertyId);
-        const ownerEmail = property?.owners?.[0]?.email ?? '';
+      const property = properties.find(p => p.id === contract.propertyId);
+      const ownerEmail = property?.owners?.[0]?.email ?? '';
+      const ownerName = property?.owners?.[0]?.name ?? 'Propietario';
 
-        const invoiceData: Invoice = {
-          id: docId,
-          contractId: contract.id,
-          tenantName: contract.tenantName || 'Inquilino',
-          tenantEmail: contract.tenantEmail ?? '',
-          propertyName: contract.propertyName || 'Propiedad',
-          propertyId: contract.propertyId,
-          ownerEmail,
-          period: currentMonth,
-          charges: [{
-            id: 'rent-charge',
-            type: 'Alquiler',
-            description: `Alquiler mensual - ${currentMonth}`,
-            amount: contract.currentRentAmount,
-            imputedTo: 'Inquilino'
-          }],
-          lateFees: 0,
-          totalAmount: contract.currentRentAmount,
-          currency: contract.currency,
-          dueDate: dueDate,
-          status: 'Pendiente'
-        };
-        setDocumentNonBlocking(docRef, invoiceData, { merge: true });
-        count++;
+      const ownerPerson = people?.find(p => p.email === ownerEmail);
+      const bankInfo = ownerPerson?.bankDetails;
+      const cbuLine = bankInfo?.cbu
+        ? `CBU: ${bankInfo.cbu}${bankInfo.alias ? ` · Alias: ${bankInfo.alias}` : ''}${bankInfo.bank ? ` (${bankInfo.bank})` : ''}`
+        : null;
 
-        // Resolve owner person to get bank details (CBU)
-        const ownerPerson = people?.find(p => p.email === ownerEmail);
-        const bankInfo = ownerPerson?.bankDetails;
-        const cbuLine = bankInfo?.cbu
-          ? `CBU: ${bankInfo.cbu}${bankInfo.alias ? ` · Alias: ${bankInfo.alias}` : ''}${bankInfo.bank ? ` (${bankInfo.bank})` : ''}`
-          : null;
-        const fmt = (n: number) => `${contract.currency === 'USD' ? 'U$D' : '$'} ${n.toLocaleString('es-AR')}`;
+      const prevInterest = invoices
+        .filter(i => i.contractId === contract.id && i.status !== 'Pagado' && i.status !== 'Anulado' && i.period !== nextMonthLabel)
+        .reduce((acc, i) => acc + (i.lateFees ?? 0), 0);
 
-        // Previous month's overdue interests for this contract
-        const prevOverdue = invoices.filter(
-          inv => inv.contractId === contract.id && inv.status !== 'Pagado' && inv.status !== 'Anulado' && inv.period !== currentMonth
+      const sendLog: Array<{ ts: string; to: string; type: string }> = [];
+
+      const invoiceData: Invoice = {
+        id: docId,
+        contractId: contract.id,
+        tenantName: contract.tenantName || 'Inquilino',
+        tenantEmail: contract.tenantEmail ?? '',
+        propertyName: contract.propertyName || 'Propiedad',
+        propertyId: contract.propertyId,
+        ownerEmail,
+        period: nextMonthLabel,
+        charges: [{
+          id: 'rent-charge',
+          type: 'Alquiler',
+          description: `Alquiler mensual - ${nextMonthLabel}`,
+          amount: contract.currentRentAmount,
+          imputedTo: 'Inquilino',
+        }],
+        lateFees: 0,
+        totalAmount: contract.currentRentAmount,
+        currency: contract.currency,
+        dueDate: nextMonthDueDate,
+        status: 'Pendiente',
+        liquidacionEnviadaAt: now,
+      };
+      setDocumentNonBlocking(docRef, invoiceData, { merge: true });
+      count++;
+
+      if (contract.tenantEmail) {
+        sendLog.push({ ts: now, to: contract.tenantEmail, type: 'tenant' });
+        emailPromises.push(
+          sendEmail({
+            to: contract.tenantEmail,
+            subject: `Liquidación de alquiler ${nextMonthLabel} — ${contract.propertyName ?? ''}`,
+            html: buildTenantLiquidacionHtml({
+              tenantName: contract.tenantName ?? 'Inquilino',
+              propertyName: contract.propertyName ?? 'Propiedad',
+              period: nextMonthLabel,
+              rentAmount: contract.currentRentAmount,
+              prevInterest,
+              dueDate: nextMonthDueDate,
+              currency: contract.currency,
+              cbuLine,
+            }),
+          }).catch(() => {})
         );
-        const prevInterestTotal = prevOverdue.reduce((acc, inv) => acc + (inv.lateFees ?? 0), 0);
-        const hasOverdue = prevInterestTotal > 0;
+      }
 
-        // Email to tenant with payment instructions + legal note
-        if (contract.tenantEmail) {
-          const cbuCtx = cbuLine ? ` Datos de transferencia: ${cbuLine}.` : '';
-          const overdueCtx = hasOverdue
-            ? ` Nota: su cuenta también registra intereses por mora de períodos anteriores por ${fmt(prevInterestTotal)}, que se liquidarán junto con el pago del mes.`
-            : '';
-          const legalNote = ` Conforme a la RG AFIP 1415/03, la factura fiscal se emitirá en el momento en que se perciba el pago o al vencimiento del plazo fijado para su pago, lo que ocurra primero.`;
-          const paymentCtx = `Liquidación de alquiler ${currentMonth} por ${fmt(contract.currentRentAmount)}.${overdueCtx} Vencimiento: ${dueDate}.${cbuCtx}${legalNote}`;
-          const emailTask = aiCommunicationAssistant({
-            communicationType: 'rentReminder',
-            tenantName: contract.tenantName ?? 'Inquilino',
-            propertyName: contract.propertyName ?? 'Propiedad',
-            amountDue: fmt(contract.currentRentAmount + prevInterestTotal),
-            dueDate,
-            additionalContext: paymentCtx,
-          }).then(draft =>
-            sendEmail({
-              to: contract.tenantEmail!,
-              subject: draft.subjectLine,
-              html: `<div style="text-align:justify;">${draft.draftedMessage.replace(/\n/g, '<br/>')}</div>`,
-            })
-          ).catch(() => {});
-          emailPromises.push(emailTask);
-        }
-
-        // Email to owner(s) with liquidación details + ARCA timing note
-        if (ownerEmail) {
-          const ownerName = property?.owners?.[0]?.name ?? 'Propietario';
-          const totalWithInterest = contract.currentRentAmount + prevInterestTotal;
-          const overdueRow = hasOverdue
-            ? `<tr style="background:#fff3cd;"><td style="padding:8px 12px;font-size:13px;color:#856404;">Intereses mora anterior</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;color:#856404;">${fmt(prevInterestTotal)}</td></tr>`
-            : '';
-          const ownerEmailTask = sendEmail({
+      if (ownerEmail) {
+        sendLog.push({ ts: now, to: ownerEmail, type: 'owner' });
+        emailPromises.push(
+          sendEmail({
             to: ownerEmail,
-            subject: `Liquidación ${currentMonth} — ${contract.propertyName ?? 'Propiedad'}`,
-            html: `
-              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                <h2 style="color:#1a1a2e;">Liquidación de alquiler — ${currentMonth}</h2>
-                <p>Estimado/a <strong>${ownerName}</strong>,</p>
-                <p>Se ha generado la liquidación del período <strong>${currentMonth}</strong> para la propiedad <strong>${contract.propertyName ?? ''}</strong>.</p>
-                <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-                  <tr style="background:#f5f5f5;"><td style="padding:8px 12px;font-size:13px;">Inquilino</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${contract.tenantName ?? ''}</td></tr>
-                  <tr><td style="padding:8px 12px;font-size:13px;">Alquiler del mes</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${fmt(contract.currentRentAmount)}</td></tr>
-                  ${overdueRow}
-                  <tr style="background:#e8f5e9;"><td style="padding:8px 12px;font-size:13px;font-weight:bold;">Total a cobrar</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;color:#2e7d32;">${fmt(totalWithInterest)}</td></tr>
-                  <tr><td style="padding:8px 12px;font-size:13px;">Vencimiento</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${dueDate}</td></tr>
-                </table>
-                <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:14px;margin:16px 0;">
-                  <p style="margin:0;font-size:12px;color:#1565c0;"><strong>📋 Emisión de factura ARCA:</strong> Conforme a la RG AFIP 1415/03, usted debe emitir la factura en el momento en que perciba el pago <strong>o</strong> al vencimiento del plazo pactado (${dueDate}), lo que ocurra primero. Recibirá un aviso automático cuando se registre el pago o se cumpla el vencimiento.</p>
-                </div>
-                <p style="font-size:11px;color:#aaa;margin-top:24px;">Aviso automático del sistema de administración. No respondas este correo.</p>
-              </div>
-            `,
-          }).catch(() => {});
-          emailPromises.push(ownerEmailTask);
-        }
+            subject: `Liquidación ${nextMonthLabel} — ${contract.propertyName ?? ''}`,
+            html: buildOwnerLiquidacionHtml({
+              ownerName,
+              propertyName: contract.propertyName ?? 'Propiedad',
+              tenantName: contract.tenantName ?? 'Inquilino',
+              period: nextMonthLabel,
+              rentAmount: contract.currentRentAmount,
+              prevInterest,
+              dueDate: nextMonthDueDate,
+              currency: contract.currency,
+            }),
+          }).catch(() => {})
+        );
+      }
+
+      if (sendLog.length > 0) {
+        setDocumentNonBlocking(docRef, { sendLog }, { merge: true });
       }
     });
 
-    // Fire emails in background (don't await — they're best-effort)
     Promise.allSettled(emailPromises);
-
     setIsGeneratingRent(false);
+    setShowGeneratePreview(false);
     setShowLiquidacionReminder(false);
     toast({
-      title: "Liquidaciones Generadas",
-      description: `${count} factura${count !== 1 ? 's' : ''} para ${currentMonth}. Se notificó a inquilinos y propietarios por email${count > 0 ? ' con datos de pago y aviso ARCA.' : '.'}`,
+      title: 'Liquidaciones generadas',
+      description: `${count} factura${count !== 1 ? 's' : ''} para ${nextMonthLabel}. Se notificó a inquilinos y propietarios por email.`,
+    });
+  };
+
+  const handleApproveAndSend = async () => {
+    if (!userId || !db) return;
+    setApprovingInvoices(true);
+    const now = new Date().toISOString();
+    const emailPromises: Promise<any>[] = [];
+
+    for (const inv of pendingApprovalInvoices) {
+      const property = properties.find(p => p.id === inv.propertyId);
+      const ownerName = property?.owners?.[0]?.name ?? 'Propietario';
+
+      const ownerPerson = people?.find(p => p.email === inv.ownerEmail);
+      const bankInfo = ownerPerson?.bankDetails;
+      const cbuLine = bankInfo?.cbu
+        ? `CBU: ${bankInfo.cbu}${bankInfo.alias ? ` · Alias: ${bankInfo.alias}` : ''}${bankInfo.bank ? ` (${bankInfo.bank})` : ''}`
+        : null;
+
+      const prevInterest = invoices
+        .filter(i => i.contractId === inv.contractId && i.status !== 'Pagado' && i.status !== 'Anulado' && i.period !== inv.period)
+        .reduce((acc, i) => acc + (i.lateFees ?? 0), 0);
+
+      const rentAmount = inv.charges?.find(c => c.type === 'Alquiler')?.amount ?? inv.totalAmount;
+      const currency = (inv.currency ?? 'ARS') as 'ARS' | 'USD';
+      const sendLog: Array<{ ts: string; to: string; type: string }> = [];
+
+      if (inv.tenantEmail) {
+        sendLog.push({ ts: now, to: inv.tenantEmail, type: 'tenant' });
+        emailPromises.push(
+          sendEmail({
+            to: inv.tenantEmail,
+            subject: `Liquidación de alquiler ${inv.period} — ${inv.propertyName}`,
+            html: buildTenantLiquidacionHtml({
+              tenantName: inv.tenantName,
+              propertyName: inv.propertyName,
+              period: inv.period,
+              rentAmount,
+              prevInterest,
+              dueDate: inv.dueDate,
+              currency,
+              cbuLine,
+            }),
+          }).catch(() => {})
+        );
+      }
+
+      if (inv.ownerEmail) {
+        sendLog.push({ ts: now, to: inv.ownerEmail, type: 'owner' });
+        emailPromises.push(
+          sendEmail({
+            to: inv.ownerEmail,
+            subject: `Liquidación ${inv.period} — ${inv.propertyName}`,
+            html: buildOwnerLiquidacionHtml({
+              ownerName,
+              propertyName: inv.propertyName,
+              tenantName: inv.tenantName,
+              period: inv.period,
+              rentAmount,
+              prevInterest,
+              dueDate: inv.dueDate,
+              currency,
+            }),
+          }).catch(() => {})
+        );
+      }
+
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
+      setDocumentNonBlocking(docRef, {
+        pendingApproval: false,
+        liquidacionEnviadaAt: now,
+        sendLog,
+      }, { merge: true });
+    }
+
+    await Promise.allSettled(emailPromises);
+    setApprovingInvoices(false);
+    setShowApprovalDialog(false);
+    toast({
+      title: 'Liquidaciones enviadas',
+      description: `Se notificó a inquilinos y propietarios de ${pendingApprovalInvoices.length} factura${pendingApprovalInvoices.length !== 1 ? 's' : ''}.`,
     });
   };
 
@@ -549,6 +696,28 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
       <input type="file" ref={arcaInputRef} className="hidden" accept=".pdf,image/*" onChange={handleArcaFileChange} />
       <input type="file" ref={receiptInputRef} className="hidden" accept=".pdf,image/*" onChange={handleReceiptFileChange} />
 
+      {/* Pending cron approval banner */}
+      {pendingApprovalInvoices.length > 0 && canWrite && (
+        <div className="flex items-start gap-3 rounded-xl border border-blue-300 bg-blue-50 p-4">
+          <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-black text-blue-800">
+              {pendingApprovalInvoices.length} liquidación{pendingApprovalInvoices.length !== 1 ? 'es' : ''} esperando tu aprobación
+            </p>
+            <p className="text-xs text-blue-700 mt-0.5">
+              El sistema generó las facturas del mes próximo. Revisalas y aprobá el envío de correos a inquilinos y propietarios.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold shrink-0"
+            onClick={() => setShowApprovalDialog(true)}
+          >
+            Revisar y enviar
+          </Button>
+        </div>
+      )}
+
       {/* Day-28/29 liquidación reminder banner */}
       {showLiquidacionReminder && canWrite && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
@@ -563,7 +732,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
           <Button
             size="sm"
             className="bg-amber-600 hover:bg-amber-700 text-white font-bold shrink-0"
-            onClick={handleGenerateMonthlyRent}
+            onClick={() => setShowGeneratePreview(true)}
             disabled={isGeneratingRent}
           >
             {isGeneratingRent ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Generar y enviar'}
@@ -626,7 +795,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         
         <div className="flex gap-2 w-full sm:w-auto">
           {canWrite && (
-            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 gap-2 font-bold" onClick={handleGenerateMonthlyRent} disabled={isGeneratingRent}>
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 gap-2 font-bold" onClick={() => setShowGeneratePreview(true)} disabled={isGeneratingRent}>
               {isGeneratingRent ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
               Generar Mensuales
             </Button>
@@ -720,6 +889,12 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
                       {i.isFromOwner && <Badge className="w-fit text-[8px] bg-purple-100 text-purple-700 h-4 px-1 mt-1">Enviado por Dueño</Badge>}
                       {!i.isFromOwner && i.charges?.some(c => c.type === 'Alquiler') && (
                         <Badge className="w-fit text-[8px] bg-orange-100 text-orange-700 h-4 px-1 mt-1">Propietario emite ARCA</Badge>
+                      )}
+                      {i.pendingApproval && (
+                        <Badge className="w-fit text-[8px] bg-yellow-100 text-yellow-700 h-4 px-1 mt-1">Pendiente envío</Badge>
+                      )}
+                      {i.liquidacionEnviadaAt && !i.pendingApproval && (
+                        <Badge className="w-fit text-[8px] bg-teal-100 text-teal-700 h-4 px-1 mt-1">Liquidación enviada</Badge>
                       )}
                       {!i.isFromOwner && !i.charges?.some(c => c.type === 'Alquiler') && (
                         <Badge className="w-fit text-[8px] bg-blue-100 text-blue-700 h-4 px-1 mt-1">Honorarios / Admin</Badge>
@@ -837,6 +1012,104 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsLateFeeDialogOpen(false)}>Cancelar</Button>
             <Button className="bg-primary font-black px-8" onClick={handleSaveManualFee}>Guardar Punitorio</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate preview dialog */}
+      <Dialog open={showGeneratePreview} onOpenChange={setShowGeneratePreview}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Generar liquidaciones — {nextMonthLabel}</DialogTitle>
+            <DialogDescription>
+              Se crearán {contractsToProcess.length} factura{contractsToProcess.length !== 1 ? 's' : ''} y se enviarán correos a inquilinos y propietarios.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3 space-y-2 max-h-64 overflow-y-auto">
+            {contractsToProcess.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay contratos vigentes sin liquidación para {nextMonthLabel}.
+              </p>
+            ) : (
+              contractsToProcess.map(c => {
+                const property = properties.find(p => p.id === c.propertyId);
+                const ownerEmail = property?.owners?.[0]?.email;
+                return (
+                  <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 text-sm">
+                    <div>
+                      <p className="font-bold text-xs">{c.tenantName ?? '—'}</p>
+                      <p className="text-[10px] text-muted-foreground">{c.propertyName ?? '—'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-xs text-primary">
+                        {c.currency === 'USD' ? 'U$D' : '$'} {c.currentRentAmount.toLocaleString('es-AR')}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">
+                        {c.tenantEmail ? 'inquilino ✓' : 'sin email'}{ownerEmail ? ' · propietario ✓' : ''}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">Vencimiento: {nextMonthDueDate}</p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowGeneratePreview(false)}>Cancelar</Button>
+            <Button
+              className="bg-primary font-black px-8"
+              onClick={handleGenerateMonthlyRent}
+              disabled={isGeneratingRent || contractsToProcess.length === 0}
+            >
+              {isGeneratingRent ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar y enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval dialog for cron-generated invoices */}
+      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Aprobar envío de liquidaciones</DialogTitle>
+            <DialogDescription>
+              El sistema generó {pendingApprovalInvoices.length} factura{pendingApprovalInvoices.length !== 1 ? 's' : ''} automáticamente. Revisalas y aprobá el envío de correos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3 space-y-2 max-h-72 overflow-y-auto">
+            {pendingApprovalInvoices.map(inv => {
+              const rentAmount = inv.charges?.find(c => c.type === 'Alquiler')?.amount ?? inv.totalAmount;
+              const sym = inv.currency === 'USD' ? 'U$D' : '$';
+              return (
+                <div key={inv.id} className="p-2.5 rounded-lg bg-muted/30 text-sm space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-xs">{inv.tenantName}</p>
+                    <p className="font-black text-xs text-primary">{sym} {rentAmount.toLocaleString('es-AR')}</p>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{inv.propertyName} · {inv.period}</p>
+                  <p className="text-[9px] text-muted-foreground">
+                    Vence: {inv.dueDate}
+                    {inv.tenantEmail ? ` · inquilino: ${inv.tenantEmail}` : ''}
+                    {inv.ownerEmail ? ` · propietario: ${inv.ownerEmail}` : ''}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-[11px] text-blue-700">
+            Se enviarán correos con el detalle de la liquidación, datos bancarios para transferencia y el recordatorio de emisión ARCA a cada destinatario.
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowApprovalDialog(false)}>Revisar después</Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black px-8"
+              onClick={handleApproveAndSend}
+              disabled={approvingInvoices}
+            >
+              {approvingInvoices ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Aprobar y enviar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

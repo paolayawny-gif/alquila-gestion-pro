@@ -171,6 +171,14 @@ export interface Contract {
   ownerId: string;
 }
 
+export interface ChargeItem {
+  id: string;
+  type: ChargeType;
+  description?: string;
+  amount: number;
+  imputedTo: ChargePayer;
+}
+
 export interface Invoice {
   id: string;
   contractId: string;
@@ -180,7 +188,7 @@ export interface Invoice {
   propertyId?: string;        // para vincular al propietario
   ownerEmail?: string;        // email del propietario; permite que el portal propietario vea las facturas
   period: string;
-  charges: { id: string; type: ChargeType; amount: number; imputedTo: ChargePayer }[];
+  charges: ChargeItem[];
   lateFees: number;
   totalAmount: number;
   currency: Currency;
@@ -202,6 +210,9 @@ export interface Invoice {
   isFromOwner?: boolean;
   ownerId?: string;
   internalNotes?: string;
+  pendingApproval?: boolean;
+  liquidacionEnviadaAt?: string;
+  sendLog?: Array<{ ts: string; to: string; type: string }>;
 }
 
 /** Asiento de cobro efectivo — se crea cuando el propietario confirma recepción en banco. */
