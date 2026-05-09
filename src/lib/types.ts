@@ -174,7 +174,7 @@ export interface Contract {
   lateFeePercentage?: number; // Tasa diaria por mora
   depositAmount: number;
   depositCurrency: Currency;
-  commissionAmount: number; 
+  commissionAmount: number;
   status: 'Vigente' | 'Próximo a Vencer' | 'Finalizado' | 'Rescindido';
   fullTranscription?: string;
   documents: {
@@ -187,6 +187,11 @@ export interface Contract {
   signatures?: ContractSignature[];   // firmas electrónicas registradas
   blockchainTxHash?: string;          // TX hash en Polygon (notarización)
   notarizedAt?: string;               // ISO timestamp de la notarización
+  // ── Pago Anticipado de Rentas ─────────────────────────────────────────────
+  advancePaymentDiscountPct?: number;      // % descuento al inquilino
+  advancePaymentCommissionPct?: number;    // % comisión admin
+  advancePaymentMaxMonths?: number;        // máximo meses (1-12)
+  advancePaymentActive?: boolean;          // si la oferta está activa
 }
 
 export interface ChargeItem {
@@ -490,4 +495,34 @@ export interface SocialPost {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// ── Pago Anticipado de Rentas ─────────────────────────────────────────────────
+
+export type AdvancePaymentStatus = 'Solicitado' | 'Aprobado' | 'Pagado' | 'Cancelado';
+
+export interface AdvancePayment {
+  id: string;
+  adminId: string;
+  contractId: string;
+  propertyId: string;
+  propertyName: string;
+  tenantEmail: string;
+  tenantName: string;
+  monthsAdvanced: number;
+  monthlyRent: number;
+  currency: string;
+  grossAmount: number;        // monthlyRent × monthsAdvanced
+  discountPct: number;
+  discountAmount: number;
+  adminCommissionPct: number;
+  adminCommissionAmount: number;
+  tenantPays: number;         // grossAmount - discountAmount
+  netToOwner: number;         // tenantPays - adminCommissionAmount
+  status: AdvancePaymentStatus;
+  requestedAt: string;
+  approvedAt?: string;
+  paidAt?: string;
+  coveredPeriods: string[];   // ['2025-06', '2025-07', ...]
+  notes?: string;
 }

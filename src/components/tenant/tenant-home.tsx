@@ -14,6 +14,7 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import { TenantRegistryEntry } from './tenant-portal';
 import { TenantContractSign } from './tenant-contract-sign';
+import { TenantAdvancePayment } from './tenant-advance-payment';
 import { Contract, Property } from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
@@ -338,6 +339,15 @@ export function TenantHome({ tenantEntry, onNavigate }: TenantHomeProps) {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pago Anticipado de Rentas */}
+      {contract && (
+        <TenantAdvancePayment
+          contract={contract}
+          tenantEntry={tenantEntry}
+          adminId={tenantEntry.adminId}
+        />
       )}
     </div>
   );

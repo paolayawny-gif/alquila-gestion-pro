@@ -26,6 +26,7 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { writePropertyEvent } from '@/lib/property-events';
 import { batchRentAdjustment, type BatchRentAdjustmentResult, type BatchAdjustmentLine } from '@/ai/flows/batch-rent-adjustment-flow';
 import { richCommunication } from '@/ai/flows/rich-communication-flow';
+import { AdvancePaymentPanel } from '@/components/dashboard/advance-payment-panel';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -694,6 +695,9 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                   </CardContent>
                 </Card>
               )}
+
+              {/* Pago Anticipado */}
+              <AdvancePaymentPanel contract={contract} userId={userId ?? ''} db={db} invoices={contractInvoices} />
             </>
           )}
         </div>
