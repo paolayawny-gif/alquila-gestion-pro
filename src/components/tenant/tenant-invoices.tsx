@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
   FileText, DollarSign, Clock, CheckCircle2, AlertTriangle,
-  Upload, ExternalLink, ChevronDown, ChevronUp, Send,
+  Upload, ExternalLink, ChevronDown, ChevronUp, Send, Copy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -36,6 +36,19 @@ const fmt = (n: number, cur = 'ARS') =>
 
 interface TenantInvoicesProps {
   tenantEntry: TenantRegistryEntry;
+}
+
+function CopyButton({ text }: { text: string }) {
+  const { toast } = useToast();
+  return (
+    <button
+      className="ml-1.5 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+      onClick={() => { navigator.clipboard.writeText(text); toast({ title: 'Copiado', description: text }); }}
+      title="Copiar"
+    >
+      <Copy className="h-3 w-3" />
+    </button>
+  );
 }
 
 export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
@@ -226,6 +239,35 @@ export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
                           </a>
                           {inv.tenantReceiptNote && (
                             <p className="text-xs text-blue-700 italic">"{inv.tenantReceiptNote}"</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* CBU transfer info — only when pending/overdue */}
+                      {canInform && (inv.ownerCbu || inv.ownerAlias) && (
+                        <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl space-y-1.5">
+                          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wide mb-1">
+                            Datos para transferencia
+                          </p>
+                          {inv.ownerCbu && (
+                            <div className="flex items-center text-xs">
+                              <span className="text-muted-foreground w-12 shrink-0">CBU</span>
+                              <span className="font-mono font-bold">{inv.ownerCbu}</span>
+                              <CopyButton text={inv.ownerCbu} />
+                            </div>
+                          )}
+                          {inv.ownerAlias && (
+                            <div className="flex items-center text-xs">
+                              <span className="text-muted-foreground w-12 shrink-0">Alias</span>
+                              <span className="font-mono font-bold">{inv.ownerAlias}</span>
+                              <CopyButton text={inv.ownerAlias} />
+                            </div>
+                          )}
+                          {inv.ownerBank && (
+                            <div className="flex items-center text-xs">
+                              <span className="text-muted-foreground w-12 shrink-0">Banco</span>
+                              <span className="font-bold">{inv.ownerBank}</span>
+                            </div>
                           )}
                         </div>
                       )}

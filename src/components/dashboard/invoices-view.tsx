@@ -328,6 +328,9 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         propertyName: contract.propertyName || 'Propiedad',
         propertyId: contract.propertyId,
         ownerEmail,
+        ownerCbu: bankInfo?.cbu ?? '',
+        ownerAlias: bankInfo?.alias ?? '',
+        ownerBank: bankInfo?.bank ?? '',
         period: nextMonthLabel,
         charges: [{
           id: 'rent-charge',
@@ -470,6 +473,9 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         pendingApproval: false,
         liquidacionEnviadaAt: now,
         sendLog,
+        ownerCbu: bankInfo?.cbu ?? '',
+        ownerAlias: bankInfo?.alias ?? '',
+        ownerBank: bankInfo?.bank ?? '',
       }, { merge: true });
     }
 

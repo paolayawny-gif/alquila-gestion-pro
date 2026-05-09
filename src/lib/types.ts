@@ -213,6 +213,9 @@ export interface Invoice {
   pendingApproval?: boolean;
   liquidacionEnviadaAt?: string;
   sendLog?: Array<{ ts: string; to: string; type: string }>;
+  ownerCbu?: string;
+  ownerAlias?: string;
+  ownerBank?: string;
 }
 
 /** Asiento de cobro efectivo — se crea cuando el propietario confirma recepción en banco. */

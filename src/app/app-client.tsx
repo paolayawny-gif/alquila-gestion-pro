@@ -37,7 +37,8 @@ import {
   Store,
   Megaphone,
   Share2,
-  ShoppingBag
+  ShoppingBag,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SummaryView } from '@/components/dashboard/summary-view';
@@ -69,6 +70,7 @@ import { MonetizationView } from '@/components/dashboard/monetization-view';
 import { SocialMediaView } from '@/components/dashboard/social-media-view';
 import { CommunityWallView } from '@/components/dashboard/community-wall-view';
 import { MarketplaceView } from '@/components/dashboard/marketplace-view';
+import { CentroLiquidacionesView } from '@/components/dashboard/centro-liquidaciones-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -97,7 +99,7 @@ import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -123,6 +125,7 @@ const ADMIN_MENU_GROUPS = [
     section: 'Operaciones',
     items: [
       { id: 'Facturas',                icon: FileSpreadsheet, label: 'Facturas y Servicios'     },
+      { id: 'Centro Liquidaciones',    icon: ClipboardList,   label: 'Centro de Liquidaciones'   },
       { id: 'Mantenimiento',           icon: Wrench,          label: 'Mantenimiento'             },
       { id: 'Mantenimiento Predictivo',icon: ShieldPlus,      label: 'Mantenimiento Predictivo'  },
       { id: 'Proveedores',             icon: HardHat,         label: 'Proveedores'               },
@@ -419,6 +422,7 @@ export default function AppClient() {
       case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} />;
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;
       case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} />;
+      case 'Centro Liquidaciones': return <CentroLiquidacionesView invoices={invoices} contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
       case 'Proveedores': return <ProvidersView tasks={tasks} properties={properties} userId={user?.uid} />;
