@@ -138,6 +138,21 @@ export interface RentalApplication {
   };
 }
 
+// ── Firma electrónica (Ley 25.506 — firma electrónica simple) ─────────────────
+
+export type SignerRole = 'Inquilino' | 'Propietario' | 'Administrador';
+
+export interface ContractSignature {
+  signerEmail: string;
+  signerName: string;
+  signerRole: SignerRole;
+  signedAt: string;          // ISO timestamp
+  signatureImage: string;    // base64 PNG del trazado
+  documentHash: string;      // SHA-256 hex de los campos clave del contrato
+  ipAddress?: string;        // capturado server-side
+  userAgent?: string;
+}
+
 export interface Contract {
   id: string;
   tenantId: string;
@@ -169,6 +184,7 @@ export interface Contract {
     annexes: DocumentInfo[];
   };
   ownerId: string;
+  signatures?: ContractSignature[];   // firmas electrónicas registradas
 }
 
 export interface ChargeItem {

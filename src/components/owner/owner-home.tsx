@@ -13,7 +13,8 @@ import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { OwnerRegistryEntry } from './owner-portal';
-import { Liquidation, Property } from '@/lib/types';
+import { OwnerContractSign } from './owner-contract-sign';
+import { Contract, Liquidation, Property } from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
 const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
@@ -27,6 +28,7 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
   const db = useFirestore();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loadingProps, setLoadingProps] = useState(true);
+  const [contracts, setContracts] = useState<Contract[]>([]);
 
   // Fetch owner's properties from admin namespace
   useEffect(() => {
@@ -45,6 +47,24 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
       .catch(() => {})
       .finally(() => setLoadingProps(false));
   }, [db, ownerEntry.adminId, ownerEntry.propertyIds?.join(',')]);
+
+  // Fetch active contracts for owner's properties
+  useEffect(() => {
+    if (!db || !ownerEntry.adminId || !properties.length) return;
+    const propertyIds = new Set(properties.map(p => p.id));
+    getDocs(collection(db, 'artifacts', APP_ID, 'users', ownerEntry.adminId, 'contratos'))
+      .then(snap => {
+        setContracts(
+          snap.docs
+            .map(d => ({ id: d.id, ...d.data() } as Contract))
+            .filter(c =>
+              propertyIds.has(c.propertyId) &&
+              (c.status === 'Vigente' || c.status === 'Próximo a Vencer'),
+            ),
+        );
+      })
+      .catch(() => {});
+  }, [db, ownerEntry.adminId, properties]);
 
   // Fetch liquidations
   const liqQ = useMemoFirebase(() => {
@@ -160,6 +180,16 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
           </div>
         </div>
       )}
+
+      {/* Contract signing banners */}
+      {contracts.map(c => (
+        <OwnerContractSign
+          key={c.id}
+          contract={c}
+          adminId={ownerEntry.adminId}
+          ownerEntry={ownerEntry}
+        />
+      ))}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

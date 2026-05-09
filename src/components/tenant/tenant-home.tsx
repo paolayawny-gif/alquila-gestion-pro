@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import { TenantRegistryEntry } from './tenant-portal';
+import { TenantContractSign } from './tenant-contract-sign';
 import { Contract, Property } from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
@@ -88,6 +89,15 @@ export function TenantHome({ tenantEntry, onNavigate }: TenantHomeProps) {
           {tenantEntry.propertyName}
         </p>
       </div>
+
+      {/* Banner de firma electrónica */}
+      {contract && (
+        <TenantContractSign
+          contract={contract}
+          adminId={tenantEntry.adminId}
+          tenantEntry={tenantEntry}
+        />
+      )}
 
       {/* Quick-stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
