@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   FileText, CheckCircle2, Clock, AlertTriangle,
-  ExternalLink, ChevronDown, ChevronUp, Send,
+  ExternalLink, ChevronDown, ChevronUp, Send, Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -58,6 +58,22 @@ export function OwnerInvoices({ ownerEntry }: OwnerInvoicesProps) {
         <p className="text-sm text-muted-foreground mt-0.5">
           Recibos de alquiler generados por la administración para tus propiedades.
         </p>
+      </div>
+
+      {/* ARCA workflow guidance */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-3">
+        <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+        <div className="space-y-1">
+          <p className="text-xs font-black text-amber-800">¿Cómo emitir tu factura ARCA?</p>
+          <ol className="text-[11px] text-amber-700 space-y-0.5 list-decimal list-inside">
+            <li>Ingresá a <strong>arca.afip.gob.ar</strong> con tu CUIL y clave fiscal.</li>
+            <li>En <em>Comprobantes Online</em>, emití la factura por el alquiler del período correspondiente.</li>
+            <li>Descargá el PDF y subilo desde el panel de la administración cuando te lo soliciten.</li>
+          </ol>
+          <p className="text-[10px] text-amber-600 mt-1">
+            La administración te avisará por email cuando registre un pago y sea momento de emitir el comprobante.
+          </p>
+        </div>
       </div>
 
       {/* Summary */}

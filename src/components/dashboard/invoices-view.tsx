@@ -51,10 +51,11 @@ import { useToast } from '@/hooks/use-toast';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { sendEmail } from '@/services/email-service';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useCollection, useMemoFirebase, useStorage } from '@/firebase';
 import { doc, query, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { writePropertyEvent } from '@/lib/property-events';
+import { uploadReceiptToStorage } from '@/lib/upload-receipt';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -69,6 +70,7 @@ const CHARGE_TYPES: ChargeType[] = ['Alquiler', 'Expensa Ordinaria', 'Expensa Ex
 export function InvoicesView({ invoices, userId, contracts, properties = [] }: InvoicesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const { canWrite, canDelete } = useOrgPermissions();
   const arcaInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
@@ -228,23 +230,24 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     receiptInputRef.current?.click();
   };
 
-  const handleArcaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleArcaFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadingArcaFor || !userId || !db) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
+    try {
+      const result = await uploadReceiptToStorage(storage, file, userId, `arca_${uploadingArcaFor}`);
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', uploadingArcaFor);
-      setDocumentNonBlocking(docRef, { 
-        arcaInvoiceUrl: event.target?.result as string,
+      setDocumentNonBlocking(docRef, {
+        arcaInvoiceUrl: result.url,
         arcaInvoiceName: file.name,
-        status: 'Esperando Factura ARCA' 
+        status: 'Esperando Factura ARCA',
       }, { merge: true });
-      
-      toast({ title: "Factura Cargada", description: "El documento legal ha sido vinculado." });
-      setUploadingArcaFor(null);
-    };
-    reader.readAsDataURL(file);
+      toast({ title: "Factura Cargada", description: "El documento ARCA ha sido vinculado." });
+    } catch {
+      toast({ title: "Error al subir", description: "No se pudo cargar el archivo.", variant: "destructive" });
+    }
+    setUploadingArcaFor(null);
+    if (arcaInputRef.current) arcaInputRef.current.value = '';
   };
 
   const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -271,8 +274,9 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
       paymentReceiptName: tempReceiptFile.name,
       status: 'Pagado',
       paymentDate: new Date().toLocaleDateString('es-AR'),
-      internalNotes: receiptNote
+      internalNotes: receiptNote,
     }, { merge: true });
+
     const paidInv = invoices.find(i => i.id === uploadingReceiptFor);
     if (paidInv?.propertyId) {
       writePropertyEvent(db, userId, {
@@ -284,15 +288,41 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         actor: 'Administración',
         actorRole: 'admin',
         ts: Date.now(),
-        metadata: {
-          amount: paidInv.totalAmount,
-          currency: paidInv.currency,
-          period: paidInv.period,
-          invoiceId: paidInv.id,
-          contractId: paidInv.contractId,
-        },
+        metadata: { amount: paidInv.totalAmount, currency: paidInv.currency, period: paidInv.period, invoiceId: paidInv.id, contractId: paidInv.contractId },
       });
     }
+
+    // Notify property owner to emit ARCA invoice for rent charges
+    if (paidInv?.ownerEmail && paidInv.charges?.some(c => c.type === 'Alquiler')) {
+      const amount = paidInv.totalAmount?.toLocaleString('es-AR') ?? '—';
+      const currency = paidInv.currency === 'USD' ? 'U$D' : '$';
+      sendEmail({
+        to: paidInv.ownerEmail,
+        subject: `Pago de alquiler confirmado — Emití tu factura ARCA`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <h2 style="color:#1a1a2e;">Pago de alquiler confirmado ✓</h2>
+            <p>Se registró el pago del período <strong>${paidInv.period ?? ''}</strong> de la propiedad <strong>${paidInv.propertyName ?? ''}</strong>.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+              <tr style="background:#f5f5f5;"><td style="padding:8px 12px;font-size:13px;">Inquilino</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${paidInv.tenantName ?? ''}</td></tr>
+              <tr><td style="padding:8px 12px;font-size:13px;">Período</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${paidInv.period ?? ''}</td></tr>
+              <tr style="background:#f5f5f5;"><td style="padding:8px 12px;font-size:13px;">Monto</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${currency} ${amount}</td></tr>
+            </table>
+            <div style="background:#fef9ec;border:1px solid #f5c842;border-radius:8px;padding:16px;margin:16px 0;">
+              <p style="margin:0 0 8px;font-weight:bold;color:#856404;">📄 Acción requerida: emití tu factura ARCA</p>
+              <ol style="margin:0;padding-left:20px;font-size:13px;color:#555;">
+                <li>Ingresá a <strong>arca.afip.gob.ar</strong> con tu CUIL y clave fiscal.</li>
+                <li>En <em>Comprobantes Online</em>, emití la factura por el alquiler de este período.</li>
+                <li>Descargá el PDF de la factura.</li>
+                <li>Subí el PDF desde tu <strong>Portal Propietario → Facturas</strong>.</li>
+              </ol>
+            </div>
+            <p style="font-size:12px;color:#888;">Aviso automático del sistema de administración. No respondas este correo.</p>
+          </div>
+        `,
+      }).catch(() => {}); // best-effort
+    }
+
     toast({ title: "Pago Registrado", description: "Comprobante cargado exitosamente." });
     setIsReceiptConfirmDialogOpen(false);
     setTempReceiptFile(null);
@@ -375,13 +405,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
       actor: 'Administración',
       actorRole: 'admin',
       ts: Date.now(),
-      metadata: {
-        amount: manualCharge.amount,
-        currency: contract.currency,
-        period: manualCharge.period,
-        invoiceId: docId,
-        contractId: contract.id,
-      },
+      metadata: { amount: manualCharge.amount, currency: contract.currency, period: manualCharge.period, invoiceId: docId, contractId: contract.id },
     });
     setIsManualDialogOpen(false);
     toast({ title: "Cargo Generado", description: "El concepto ha sido registrado." });
@@ -556,6 +580,12 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
                       <span className="font-black text-foreground">{i.tenantName}</span>
                       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{i.propertyName} • {i.period}</span>
                       {i.isFromOwner && <Badge className="w-fit text-[8px] bg-purple-100 text-purple-700 h-4 px-1 mt-1">Enviado por Dueño</Badge>}
+                      {!i.isFromOwner && i.charges?.some(c => c.type === 'Alquiler') && (
+                        <Badge className="w-fit text-[8px] bg-orange-100 text-orange-700 h-4 px-1 mt-1">Propietario emite ARCA</Badge>
+                      )}
+                      {!i.isFromOwner && !i.charges?.some(c => c.type === 'Alquiler') && (
+                        <Badge className="w-fit text-[8px] bg-blue-100 text-blue-700 h-4 px-1 mt-1">Honorarios / Admin</Badge>
+                      )}
                       {i.internalNotes && (
                         <div className="flex items-center gap-1 text-[9px] text-blue-600 mt-1 italic font-medium">
                           <MessageSquare className="h-2.5 w-2.5" /> {i.internalNotes}
