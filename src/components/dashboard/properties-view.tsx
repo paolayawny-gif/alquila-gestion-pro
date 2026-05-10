@@ -28,6 +28,7 @@ import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { doc, collection, query, where } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
@@ -71,6 +72,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [formErrors, setFormErrors] = useState<{ name?: string; address?: string }>({});
   const [timelineProperty, setTimelineProperty] = useState<Property | null>(null);
   
   const [invitingOwner, setInvitingOwner] = useState<{name: string, email: string} | null>(null);
@@ -174,6 +176,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
         virtualTourUrl: '', manuals: [],
       });
     }
+    setFormErrors({});
     setIsDialogOpen(true);
   };
 
@@ -222,14 +225,11 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.address || !userId || !db) {
-      toast({
-        title: "Error",
-        description: "Complete todos los campos requeridos.",
-        variant: "destructive"
-      });
-      return;
-    }
+    const errors: { name?: string; address?: string } = {};
+    if (!formData.name?.trim()) errors.name = 'El nombre es requerido.';
+    if (!formData.address?.trim()) errors.address = 'La dirección es requerida.';
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0 || !userId || !db) return;
 
     const docId = editingProperty?.id || Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'propiedades', docId);
@@ -373,21 +373,24 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
             <TabsContent value="specs" className="space-y-5 pt-6">
               {/* Fila 1: Nombre + Dirección */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Nombre / Referencia *</Label>
                   <Input
                     placeholder="Ej: Las Heras 4B"
                     value={formData.name || ''}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    onChange={e => { setFormData({ ...formData, name: e.target.value }); if (formErrors.name) setFormErrors(p => ({ ...p, name: undefined })); }}
+                    className={formErrors.name ? 'border-destructive focus-visible:ring-destructive' : ''}
                   />
+                  {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Dirección *</Label>
                   <AddressAutocomplete
                     placeholder="Calle y número"
                     value={formData.address || ''}
-                    onChange={val => setFormData({ ...formData, address: val })}
+                    onChange={val => { setFormData({ ...formData, address: val }); if (formErrors.address) setFormErrors(p => ({ ...p, address: undefined })); }}
                   />
+                  {formErrors.address && <p className="text-xs text-destructive">{formErrors.address}</p>}
                 </div>
               </div>
 
@@ -772,7 +775,14 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
             ))}
             {filteredProperties.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No hay propiedades cargadas.</TableCell>
+                <TableCell colSpan={5}>
+                  <EmptyState
+                    icon={Building2}
+                    title={searchTerm ? 'Sin resultados' : 'No hay propiedades cargadas'}
+                    description={searchTerm ? `No se encontraron propiedades para "${searchTerm}".` : 'Agregá tu primera propiedad para empezar a gestionar contratos y facturas.'}
+                    action={!searchTerm ? { label: 'Nueva Propiedad', onClick: () => setIsDialogOpen(true), icon: PlusCircle } : undefined}
+                  />
+                </TableCell>
               </TableRow>
             )}
           </TableBody>

@@ -107,6 +107,8 @@ import { TimelineView } from '@/components/dashboard/timeline-view';
 import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
+import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda';
@@ -200,6 +202,8 @@ export default function AppClient() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   const { user } = useUser();
   const auth = useAuth();
@@ -253,6 +257,20 @@ export default function AppClient() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Ctrl+K / Cmd+K → open command palette
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdOpen(v => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // Show onboarding wizard on first load when no data yet — declared after data arrays
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -343,6 +361,17 @@ export default function AppClient() {
   const monetizableAssets = monetizacionData || [];
   const socialPosts = socialPostsData || [];
   const socialLinks = socialLinksData || [];
+
+  // Show onboarding wizard on first load when no data yet
+  useEffect(() => {
+    if (!isMounted) return;
+    if (tenantEntry || ownerEntry || isSuperAdmin) return;
+    if (properties.length === 0 && contracts.length === 0) {
+      const seen = localStorage.getItem('onboarding_seen_v1');
+      if (!seen) setShowOnboarding(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMounted, properties.length, contracts.length]);
 
   // ── Sync tenant emails to registry whenever contracts change ──────────────
   useEffect(() => {
@@ -586,6 +615,36 @@ export default function AppClient() {
 
   const menuItems = activeRole === 'Administrador' ? ADMIN_MENU : [{ id: 'Mi Portal', icon: User, label: 'Mi Portal' }];
 
+  const cmdItems: CommandItem[] = [
+    ...ADMIN_MENU.map(item => ({
+      id: `nav-${item.id}`,
+      label: item.label,
+      category: 'nav' as const,
+      onSelect: () => setActiveTab(item.id as Tab),
+    })),
+    ...properties.map(p => ({
+      id: `prop-${p.id}`,
+      label: p.name,
+      sublabel: p.address,
+      category: 'property' as const,
+      onSelect: () => setActiveTab('Propiedades'),
+    })),
+    ...people.map((p: any) => ({
+      id: `tenant-${p.id}`,
+      label: p.name,
+      sublabel: p.email,
+      category: 'tenant' as const,
+      onSelect: () => setActiveTab('Personas'),
+    })),
+    ...contracts.map(c => ({
+      id: `contract-${c.id}`,
+      label: `${c.tenantName ?? '—'} — ${c.propertyName ?? '—'}`,
+      sublabel: c.status,
+      category: 'contract' as const,
+      onSelect: () => setActiveTab('Personas'),
+    })),
+  ];
+
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
       {mobileMenuOpen && (
@@ -717,14 +776,17 @@ export default function AppClient() {
           <button className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0" onClick={() => setMobileMenuOpen(true)}>
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
-          <div className="relative hidden md:flex items-center w-72">
-            <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar propiedades, inquilinos..."
-              className="w-full pl-9 pr-4 h-9 rounded-lg bg-muted/50 border border-transparent focus:border-primary/30 focus:bg-card text-sm outline-none transition-all"
-            />
-          </div>
+          <button
+            onClick={() => setCmdOpen(true)}
+            className="relative hidden md:flex items-center w-72 h-9 rounded-lg bg-muted/50 border border-transparent hover:border-primary/30 hover:bg-card transition-colors text-left px-3 gap-2 group"
+            aria-label="Abrir búsqueda global"
+          >
+            <Search className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" aria-hidden="true" />
+            <span className="text-sm text-muted-foreground flex-1">Buscar propiedades, inquilinos...</span>
+            <kbd className="hidden lg:flex h-5 items-center gap-0.5 rounded border bg-background/60 px-1.5 text-[10px] font-medium text-muted-foreground">
+              Ctrl K
+            </kbd>
+          </button>
           <h1 className="text-xl font-bold text-foreground md:hidden">{activeRole === 'Administrador' ? activeTab : `Portal de ${activeRole}`}</h1>
           <div className="flex items-center gap-3 ml-auto">
             <ThemeToggle />
@@ -786,6 +848,21 @@ export default function AppClient() {
           ]}
         />
       )}
+
+      <CommandPalette
+        open={cmdOpen}
+        onOpenChange={setCmdOpen}
+        items={cmdItems}
+      />
+
+      <OnboardingWizard
+        open={showOnboarding}
+        onFinish={(goTo) => {
+          localStorage.setItem('onboarding_seen_v1', '1');
+          setShowOnboarding(false);
+          if (goTo) setActiveTab(goTo);
+        }}
+      />
     </div>
   );
 }

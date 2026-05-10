@@ -20,7 +20,10 @@ import {
   Percent,
   Eye,
   Loader2,
+  Sheet,
 } from 'lucide-react';
+import { exportToPDF, exportToExcel } from '@/lib/export-utils';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Liquidation, Property, Person, Invoice, MaintenanceTask } from '@/lib/types';
@@ -331,12 +334,47 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
     }
   };
 
+  const handleExport = (format: 'pdf' | 'excel') => {
+    const cols = [
+      { header: 'Propietario',  key: 'ownerName',    width: 24 },
+      { header: 'Propiedad',    key: 'propertyName', width: 28 },
+      { header: 'Período',      key: 'period',       width: 18 },
+      { header: 'Bruto',        key: 'bruto',        width: 16 },
+      { header: 'Deducciones',  key: 'deductions',   width: 16 },
+      { header: 'Neto',         key: 'net',          width: 16 },
+      { header: 'Estado',       key: 'status',       width: 14 },
+    ];
+    const rows = liquidations.map(l => ({
+      ownerName:    l.ownerName ?? '—',
+      propertyName: l.propertyName ?? '—',
+      period:       l.period ?? '—',
+      bruto:        l.ingresoAlquiler?.toLocaleString('es-AR') ?? '0',
+      deductions:   (l.maintenanceDeductions + l.expenseDeductions + l.adminFeeDeduction).toLocaleString('es-AR'),
+      net:          l.netAmount?.toLocaleString('es-AR') ?? '0',
+      status:       l.status ?? '—',
+    }));
+    const filename = `liquidaciones_${new Date().toLocaleDateString('es-AR').replace(/\//g, '-')}`;
+    if (format === 'pdf') {
+      exportToPDF('Liquidaciones', `${liquidations.length} registros`, cols, rows, filename);
+    } else {
+      exportToExcel('Liquidaciones', cols, rows, filename);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar liquidación..." className="pl-9 bg-white" />
+      <div className="flex flex-wrap justify-between items-center gap-3">
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar liquidación..." className="pl-9 bg-white" />
+          </div>
+          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={() => handleExport('pdf')} disabled={liquidations.length === 0} aria-label="Exportar PDF">
+            <Download className="h-3.5 w-3.5" aria-hidden="true" /> PDF
+          </Button>
+          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={() => handleExport('excel')} disabled={liquidations.length === 0} aria-label="Exportar Excel">
+            <Sheet className="h-3.5 w-3.5" aria-hidden="true" /> Excel
+          </Button>
         </div>
         <Dialog open={isNewLiqOpen} onOpenChange={setIsNewLiqOpen}>
           {canWrite && (
@@ -518,7 +556,16 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
               </TableRow>
             ))}
             {liquidations.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">No se han generado liquidaciones en este período.</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <EmptyState
+                    icon={Calculator}
+                    title="Sin liquidaciones generadas"
+                    description="Generá el período mensual para calcular automáticamente las liquidaciones de tus propietarios."
+                    action={{ label: 'Generar Período', onClick: () => setIsNewLiqOpen(true), icon: Plus }}
+                  />
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>

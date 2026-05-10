@@ -53,6 +53,7 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import { createNotification } from '@/lib/notifications';
 import { OwnerRegistryEntry } from '@/components/owner/owner-portal';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -512,7 +513,15 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
               </TableRow>
             ))}
             {filteredTasks.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay reclamos en esta categoría.</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <EmptyState
+                    icon={Wrench}
+                    title="Sin tareas en esta categoría"
+                    description="No hay reclamos ni tareas registradas. Podés crear una tarea interna o esperar solicitudes de inquilinos."
+                  />
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>

@@ -5,13 +5,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  Plus, 
-  Search, 
-  Sparkles, 
-  Loader2, 
-  Trash2, 
-  Eye, 
-  FileSearch, 
+  Plus,
+  Search,
+  Sparkles,
+  Loader2,
+  Trash2,
+  Eye,
+  FileSearch,
   CreditCard,
   CalendarCheck,
   Zap,
@@ -27,8 +27,12 @@ import {
   UploadCloud,
   FileCheck,
   MessageSquare,
-  Gavel
+  Gavel,
+  Download,
+  Sheet,
 } from 'lucide-react';
+import { exportToPDF, exportToExcel } from '@/lib/export-utils';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -725,6 +729,33 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     }
   };
 
+  const handleExport = (format: 'pdf' | 'excel') => {
+    const cols = [
+      { header: 'Inquilino',   key: 'tenantName', width: 24 },
+      { header: 'Propiedad',   key: 'propertyName', width: 28 },
+      { header: 'Período',     key: 'period', width: 18 },
+      { header: 'Vencimiento', key: 'dueDate', width: 16 },
+      { header: 'Moneda',      key: 'currency', width: 10 },
+      { header: 'Total',       key: 'total', width: 14 },
+      { header: 'Estado',      key: 'status', width: 18 },
+    ];
+    const rows = filteredInvoices.map(i => ({
+      tenantName:   i.tenantName ?? '—',
+      propertyName: i.propertyName ?? '—',
+      period:       i.period ?? '—',
+      dueDate:      i.dueDate ?? '—',
+      currency:     i.currency ?? 'ARS',
+      total:        i.totalAmount?.toLocaleString('es-AR') ?? '0',
+      status:       i.status ?? '—',
+    }));
+    const filename = `facturas_${new Date().toLocaleDateString('es-AR').replace(/\//g, '-')}`;
+    if (format === 'pdf') {
+      exportToPDF('Facturas y Servicios', `${filteredInvoices.length} registros exportados`, cols, rows, filename);
+    } else {
+      exportToExcel('Facturas', cols, rows, filename);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={arcaInputRef} className="hidden" accept=".pdf,image/*" onChange={handleArcaFileChange} />
@@ -858,8 +889,16 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         {filteredInvoices.length !== invoices.length && (
           <p className="text-[10px] text-muted-foreground">Mostrando {filteredInvoices.length} de {invoices.length} facturas</p>
         )}
-        <div className="flex justify-end gap-2 w-full sm:w-auto">
-        
+        <div className="flex justify-between items-center gap-2 flex-wrap">
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => handleExport('pdf')} disabled={filteredInvoices.length === 0} aria-label="Exportar PDF">
+              <Download className="h-3.5 w-3.5" aria-hidden="true" /> PDF
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => handleExport('excel')} disabled={filteredInvoices.length === 0} aria-label="Exportar Excel">
+              <Sheet className="h-3.5 w-3.5" aria-hidden="true" /> Excel
+            </Button>
+          </div>
+
         <div className="flex gap-2 w-full sm:w-auto">
           {canWrite && (
             <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 gap-2 font-bold" onClick={() => setShowGeneratePreview(true)} disabled={isGeneratingRent}>
@@ -1066,6 +1105,18 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
                 </TableRow>
               );
             })}
+            {filteredInvoices.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <EmptyState
+                    icon={FileText}
+                    title={filterSearch || filterProperty || filterStatus ? 'Sin resultados para ese filtro' : 'Sin facturas cargadas'}
+                    description={filterSearch || filterProperty || filterStatus ? 'Probá ajustando los filtros de búsqueda.' : 'Generá las facturas mensuales o cargá un cargo manual.'}
+                    action={!filterSearch && !filterProperty && !filterStatus ? { label: 'Generar Mensuales', onClick: () => setShowGeneratePreview(true), icon: CalendarCheck } : undefined}
+                  />
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
         </div>
