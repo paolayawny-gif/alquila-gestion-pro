@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Mail,
   MessageCircle,
-  Percent
+  Percent,
+  Eye,
+  Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -101,6 +103,8 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
   const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
   const [period, setPeriod] = useState(new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }));
   const [propSearch, setPropSearch] = useState('');
+  const [previewLiq, setPreviewLiq] = useState<Liquidation | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const sortedProperties = React.useMemo(
     () => [...properties].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
@@ -271,6 +275,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
   };
 
   const handleDownloadPdf = async (l: Liquidation) => {
+    setPdfLoading(true);
     try {
       const { jsPDF } = await import('jspdf');
       const autoTable  = (await import('jspdf-autotable')).default;
@@ -321,6 +326,8 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       toast({ title: 'PDF generado', description: `Liquidación ${l.period} descargada.` });
     } catch {
       toast({ title: 'Error', description: 'No se pudo generar el PDF.', variant: 'destructive' });
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -494,6 +501,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                       title="Enviar por Email"
                       onClick={() => window.open(buildMailtoLink(l), '_blank')}
                     ><Mail className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600" title="Vista previa del informe" onClick={() => setPreviewLiq(l)}><Eye className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Informe PDF" onClick={() => handleDownloadPdf(l)}><Download className="h-4 w-4" /></Button>
                     {canDelete && (
                       <ConfirmDeleteButton
@@ -558,6 +566,109 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
             <Button variant="outline" onClick={() => { setInterestDialog(null); setInterestInput(''); }}>Cancelar</Button>
             <Button onClick={handleSaveInterest} disabled={!interestInput || parseFloat(interestInput) < 0}>Guardar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Vista previa HTML del informe ── */}
+      <Dialog open={!!previewLiq} onOpenChange={(o) => !o && setPreviewLiq(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {previewLiq && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-indigo-600" />
+                  Informe de Liquidación — {previewLiq.period}
+                </DialogTitle>
+              </DialogHeader>
+
+              {/* ── HTML preview ── */}
+              <div className="rounded-xl border bg-white p-6 space-y-5 text-sm font-sans">
+                {/* Encabezado */}
+                <div className="border-b pb-4">
+                  <h2 className="text-xl font-black text-gray-900">Informe Ejecutivo de Liquidación</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Generado el {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                </div>
+
+                {/* Datos identificatorios */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  {[
+                    ['Propietario',  previewLiq.ownerName],
+                    ['Propiedad',    previewLiq.propertyName],
+                    ['Período',      previewLiq.period],
+                    ['Email',        previewLiq.ownerEmail ?? '—'],
+                  ].map(([label, val]) => (
+                    <div key={label} className="bg-muted/40 rounded-lg p-3">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase">{label}</p>
+                      <p className="font-semibold text-foreground mt-0.5">{val}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tabla de conceptos */}
+                <div className="rounded-lg overflow-hidden border">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-orange-500 text-white">
+                        <th className="text-left py-2 px-3 font-black">Concepto</th>
+                        <th className="text-right py-2 px-3 font-black">Importe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: 'Ingreso por alquiler',        amount: previewLiq.ingresoAlquiler,        plus: true  },
+                        { label: 'Comisión administración',     amount: previewLiq.adminFeeDeduction,      plus: false },
+                        { label: 'Gastos de mantenimiento',     amount: previewLiq.maintenanceDeductions,  plus: false },
+                        { label: 'Gastos varios / servicios',   amount: previewLiq.expenseDeductions,      plus: false },
+                        ...(previewLiq.interestAmount ? [{ label: 'Intereses a favor', amount: previewLiq.interestAmount, plus: true }] : []),
+                      ].map((row, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-muted/20'}>
+                          <td className="py-2 px-3 text-gray-700">
+                            {!row.plus && <span className="text-red-500 font-bold mr-1">−</span>}
+                            {row.label}
+                          </td>
+                          <td className={`py-2 px-3 text-right font-semibold ${row.plus ? 'text-gray-800' : 'text-red-600'}`}>
+                            $ {row.amount.toLocaleString('es-AR')}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-green-50 border-t-2 border-green-400">
+                        <td className="py-3 px-3 font-black text-green-800 text-sm">NETO A TRANSFERIR</td>
+                        <td className="py-3 px-3 text-right font-black text-green-700 text-base">
+                          $ {previewLiq.netAmount.toLocaleString('es-AR')}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Aviso legal */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[10px] text-amber-800">
+                  <p className="font-bold mb-0.5">RG AFIP N° 1415/03</p>
+                  <p>El propietario debe emitir la factura ARCA al percibir el pago o al vencimiento, lo que ocurra primero.</p>
+                </div>
+
+                {/* Estado */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span className="text-xs text-muted-foreground">Estado de la liquidación:</span>
+                  <Badge className={previewLiq.status === 'Pagada' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}>
+                    {previewLiq.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setPreviewLiq(null)}>Cerrar</Button>
+                <Button
+                  className="bg-primary text-white gap-2"
+                  disabled={pdfLoading}
+                  onClick={() => handleDownloadPdf(previewLiq)}
+                >
+                  {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {pdfLoading ? 'Generando...' : 'Descargar PDF'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
