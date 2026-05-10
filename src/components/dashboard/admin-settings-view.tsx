@@ -31,7 +31,7 @@ import {
   CreditCard, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2,
   Settings, Briefcase, Scale, Wrench, Shield, FileText, Landmark,
   ChevronsUpDown, Eye, EyeOff, ExternalLink, DollarSign, Pencil,
-  LogOut, Info,
+  LogOut, Info, Globe, Copy, Lock,
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -83,7 +83,9 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
         </TabsList>
 
         <TabsContent value="general" className="max-w-2xl space-y-6">
+          <PublicPageCard userId={userId} />
           <WhatsAppCard userId={userId} />
+          <WhatsAppApiCard userId={userId} />
           <BillingCard userId={userId} />
           <BajaCard userId={userId} />
         </TabsContent>
@@ -1178,6 +1180,162 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public Page Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PublicPageCard({ userId }: { userId?: string }) {
+  const { toast } = useToast();
+  const publicUrl = userId
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://alquilagestionpro.com'}/p/${userId}`
+    : '';
+
+  const handleCopy = () => {
+    if (!publicUrl) return;
+    navigator.clipboard.writeText(publicUrl).then(() => {
+      toast({ title: 'URL copiada', description: 'Compartila con tus clientes.' });
+    });
+  };
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-blue-50">
+            <Globe className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base font-black">Página pública de propiedades</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Compartí este link con tus clientes para que vean tus propiedades disponibles.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Input
+            readOnly
+            value={publicUrl}
+            className="text-xs font-mono bg-muted/50"
+          />
+          <Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={handleCopy}>
+            <Copy className="h-3.5 w-3.5" />
+            Copiar
+          </Button>
+          {publicUrl && (
+            <Button variant="outline" size="sm" className="shrink-0 gap-1.5" asChild>
+              <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ver
+              </a>
+            </Button>
+          )}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          La página muestra todas las propiedades con estado "Disponible". Se actualiza automáticamente cuando cambiás el estado de una propiedad.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WhatsApp Cloud API Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function WhatsAppApiCard({ userId }: { userId?: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const [phoneId, setPhoneId] = useState('');
+  const [token, setToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !userId) { setLoading(false); return; }
+    getDoc(doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'profile'))
+      .then(snap => {
+        if (snap.exists()) {
+          const d = snap.data() as any;
+          setPhoneId(d.waPhoneNumberId ?? '');
+          setToken(d.waAccessToken ?? '');
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [db, userId]);
+
+  const handleSave = async () => {
+    if (!db || !userId) return;
+    setSaving(true);
+    try {
+      await setDoc(
+        doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'profile'),
+        { waPhoneNumberId: phoneId.trim(), waAccessToken: token.trim(), updatedAt: new Date().toISOString() },
+        { merge: true },
+      );
+      toast({ title: 'Guardado', description: 'Credenciales de WhatsApp Cloud API guardadas.' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar.', variant: 'destructive' });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-emerald-50">
+            <Lock className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base font-black">WhatsApp Business Cloud API</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Opcional: configurá las credenciales de Meta para enviar mensajes automáticos (ajustes, recordatorios, vencimientos).
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 flex items-start gap-2">
+          <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span>Obtenés el <strong>Phone Number ID</strong> y el <strong>Access Token</strong> en <em>Meta for Developers → WhatsApp → API Setup</em>. Sin esto, los recordatorios se envían solo por email.</span>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-bold">Phone Number ID</Label>
+          <Input
+            placeholder="ej: 123456789012345"
+            value={phoneId}
+            onChange={e => setPhoneId(e.target.value)}
+            className="text-sm font-mono"
+            disabled={loading}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-bold">Access Token</Label>
+          <div className="flex gap-2">
+            <Input
+              type={showToken ? 'text' : 'password'}
+              placeholder="EAAxxxxx…"
+              value={token}
+              onChange={e => setToken(e.target.value)}
+              className="text-sm font-mono flex-1"
+              disabled={loading}
+            />
+            <Button variant="outline" size="sm" onClick={() => setShowToken(v => !v)} className="shrink-0">
+              {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+        </div>
+        <Button onClick={handleSave} disabled={saving || loading || (!phoneId && !token)} className="gap-2 font-bold">
+          {saving ? 'Guardando…' : 'Guardar credenciales'}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
