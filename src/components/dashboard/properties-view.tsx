@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink, Share2, Copy, Link2, CheckCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyManual } from '@/lib/types';
@@ -78,6 +78,36 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const [invitingOwner, setInvitingOwner] = useState<{name: string, email: string} | null>(null);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
+
+  const [shareProperty, setShareProperty] = useState<Property | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const getApplyLink = (p: Property) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/apply?adminId=${userId}&propertyId=${p.id}`;
+  };
+
+  const getWhatsAppText = (p: Property) => {
+    const link = getApplyLink(p);
+    const rooms = p.rooms ? `${p.rooms} amb.` : '';
+    const sqm = p.squareMeters ? ` · ${p.squareMeters}m²` : '';
+    const amenities = (p.amenities || []).slice(0, 4).map(a => `• ${a}`).join('\n');
+    return `🏠 *${p.name}*\n📍 ${p.address}\n${p.type}${rooms ? ' · ' + rooms : ''}${sqm}\n\n${amenities ? amenities + '\n\n' : ''}✅ Disponible para alquilar\n\n📲 Completá tu solicitud acá:\n${link}`;
+  };
+
+  const getSocialText = (p: Property) => {
+    const link = getApplyLink(p);
+    const rooms = p.rooms ? `${p.rooms} ambientes` : '';
+    const sqm = p.squareMeters ? ` | ${p.squareMeters}m²` : '';
+    const amenities = (p.amenities || []).slice(0, 5).join(' · ');
+    return `🏠 ¡Propiedad disponible!\n\n${p.name}\n📍 ${p.address}\n${p.type}${rooms ? ' · ' + rooms : ''}${sqm}\n\n${amenities ? '✨ ' + amenities + '\n\n' : ''}📲 Consultá y completá tu solicitud:\n${link}\n\n#Alquiler #InmobiliariaArgentina #PropiedadDisponible`;
+  };
 
   // ── Referencias de mercado ──────────────────────────────────────────────────
   type MarketResult = {
@@ -739,6 +769,16 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    {(p.status === 'Disponible' || p.status === 'Reservada') && (
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-green-600"
+                        title="Compartir propiedad"
+                        onClick={() => setShareProperty(p)}
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Historial del inmueble" onClick={() => setTimelineProperty(p)}>
                       <History className="h-4 w-4" />
                     </Button>
@@ -918,6 +958,88 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Compartir propiedad ────────────────────────────────── */}
+      <Dialog open={!!shareProperty} onOpenChange={o => !o && setShareProperty(null)}>
+        <DialogContent className="max-w-lg">
+          {shareProperty && (() => {
+            const applyLink = getApplyLink(shareProperty);
+            const waText    = getWhatsAppText(shareProperty);
+            const socialTxt = getSocialText(shareProperty);
+            const waUrl     = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+
+            const CopyBtn = ({ text, k, label }: { text: string; k: string; label: string }) => (
+              <Button
+                variant="outline" size="sm"
+                className="gap-1.5 text-xs h-8"
+                onClick={() => copyToClipboard(text, k)}
+              >
+                {copiedKey === k
+                  ? <><CheckCheck className="h-3.5 w-3.5 text-green-600" /> Copiado</>
+                  : <><Copy className="h-3.5 w-3.5" /> {label}</>
+                }
+              </Button>
+            );
+
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Share2 className="h-5 w-5 text-primary" />
+                    Compartir — {shareProperty.name}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    {shareProperty.status === 'Disponible' ? 'Propiedad vacante · publicá y recibí consultas de candidatos.' : 'Propiedad reservada · compartí para confirmar interesados.'}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 pt-1">
+
+                  {/* Link de consulta */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-black tracking-[0.15em] uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Link2 className="h-3 w-3" /> Link de consulta
+                    </p>
+                    <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-lg border border-border">
+                      <span className="flex-1 text-[12px] text-muted-foreground truncate font-mono">{applyLink}</span>
+                      <CopyBtn text={applyLink} k="link" label="Copiar" />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      El candidato completa nombre, email, ingresos y garantía. Vos recibís la solicitud en el panel de onboarding con análisis de IA.
+                    </p>
+                  </div>
+
+                  {/* WhatsApp */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-black tracking-[0.15em] uppercase text-muted-foreground">WhatsApp</p>
+                    <pre className="text-[11.5px] leading-[1.55] whitespace-pre-wrap bg-[hsl(142_60%_97%)] dark:bg-muted/40 border border-[hsl(142_25%_88%)] dark:border-border rounded-lg p-3 max-h-40 overflow-y-auto font-sans">
+                      {waText}
+                    </pre>
+                    <div className="flex gap-2">
+                      <CopyBtn text={waText} k="wa" label="Copiar texto" />
+                      <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 text-green-700 border-green-200 hover:bg-green-50">
+                          <ExternalLink className="h-3.5 w-3.5" /> Abrir WhatsApp
+                        </Button>
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Instagram / Facebook */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-black tracking-[0.15em] uppercase text-muted-foreground">Instagram · Facebook</p>
+                    <pre className="text-[11.5px] leading-[1.55] whitespace-pre-wrap bg-muted/30 border border-border rounded-lg p-3 max-h-40 overflow-y-auto font-sans">
+                      {socialTxt}
+                    </pre>
+                    <CopyBtn text={socialTxt} k="social" label="Copiar para redes" />
+                  </div>
+
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
