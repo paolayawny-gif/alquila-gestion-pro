@@ -146,10 +146,10 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
 
       {/* ── Sidebar ── */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" aria-hidden="true" onClick={() => setMobileOpen(false)} />
       )}
       <aside className={cn(
-        'bg-white border-r flex flex-col transition-all duration-300 z-40 shrink-0',
+        'bg-white border-r flex flex-col transition-colors duration-300 z-40 shrink-0',
         'fixed inset-y-0 left-0 md:static md:z-20',
         mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         collapsed ? 'md:w-20 w-64' : 'w-64',

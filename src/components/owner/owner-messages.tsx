@@ -189,7 +189,7 @@ export function OwnerMessages({ ownerEntry }: OwnerMessagesProps) {
             onKeyDown={handleKeyDown}
             placeholder="Escribí un mensaje a la administración…"
             rows={2}
-            className="flex-1 resize-none rounded-xl border border-border/60 px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+            className="flex-1 resize-none rounded-xl border border-border/60 px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-colors"
           />
           <Button
             onClick={handleSend}

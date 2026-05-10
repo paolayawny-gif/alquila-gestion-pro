@@ -926,7 +926,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
 
       {/* DIÁLOGO NOTIFICACIÓN AUMENTO (Aviso de suba de alquiler) */}
       <Dialog open={isAdjNotifOpen} onOpenChange={setIsAdjNotifOpen}>
-        <DialogContent className={cn("transition-all duration-500", adjDraft ? "max-w-3xl" : "max-w-md")}>
+        <DialogContent className={cn("transition-colors duration-500", adjDraft ? "max-w-3xl" : "max-w-md")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-orange-600" /> Aviso de Aumento de Alquiler
@@ -975,7 +975,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
 
       {/* DIÁLOGO NOTIFICACIÓN VENCIMIENTO (Renovación) */}
       <Dialog open={isRenewalNotifOpen} onOpenChange={setIsRenewalNotifOpen}>
-        <DialogContent className={cn("transition-all duration-500", renewalDraft ? "max-w-3xl" : "max-w-md")}>
+        <DialogContent className={cn("transition-colors duration-500", renewalDraft ? "max-w-3xl" : "max-w-md")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarClock className="h-5 w-5 text-accent" /> Aviso de Vencimiento de Contrato

@@ -225,8 +225,8 @@ export function AIAssistantView() {
           </div>
           {result && (
             <div className="flex gap-2">
-              <Button size="icon" variant="ghost" onClick={handleCopy}>
-                <Copy className="h-4 w-4" />
+              <Button size="icon" variant="ghost" aria-label="Copiar resultado" onClick={handleCopy}>
+                <Copy className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           )}

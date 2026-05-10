@@ -196,7 +196,7 @@ export function ROISimulatorView({ userId }: ROISimulatorViewProps) {
                     key={s.id}
                     onClick={() => setScenario(s.id)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all",
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors",
                       scenario === s.id
                         ? "bg-primary text-white border-primary"
                         : "bg-white text-muted-foreground border-border hover:border-primary/40"

@@ -92,30 +92,30 @@ function ImageCarousel({ images, title, onOpenGallery }: { images: string[]; tit
   const prev = (e: React.MouseEvent) => { e.stopPropagation(); setIdx(i => Math.max(0, i - 1)); };
   const next = (e: React.MouseEvent) => { e.stopPropagation(); setIdx(i => Math.min(images.length - 1, i + 1)); };
   return (
-    <div className="relative w-full h-full group/car" onClick={onOpenGallery}>
+    <button className="relative w-full h-full group/car block" aria-label="Ver galería de imágenes" onClick={onOpenGallery}>
       <img src={images[idx]} alt={title} className="w-full h-full object-cover cursor-pointer" />
       {images.length > 1 && (
         <>
           {idx > 0 && (
-            <button onClick={prev}
+            <button onClick={prev} aria-label="Imagen anterior"
               className="absolute left-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/car:opacity-100 transition-opacity z-10">
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
           {idx < images.length - 1 && (
-            <button onClick={next}
+            <button onClick={next} aria-label="Imagen siguiente"
               className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/car:opacity-100 transition-opacity z-10">
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
-          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-10" aria-hidden="true">
             {images.map((_, i) => (
-              <div key={i} className={cn('h-1.5 rounded-full transition-all', i === idx ? 'w-4 bg-white' : 'w-1.5 bg-white/50')} />
+              <div key={i} className={cn('h-1.5 rounded-full transition-colors', i === idx ? 'w-4 bg-white' : 'w-1.5 bg-white/50')} />
             ))}
           </div>
         </>
       )}
-    </div>
+    </button>
   );
 }
 
@@ -438,7 +438,7 @@ export function MarketplaceView({ userId, userEmail, userName }: MarketplaceView
               const CatIcon = ITEM_CATEGORY_ICONS[item.category] || ShoppingBag;
               const isOwner = item.sellerId === uid || (canWrite && item.sellerAdminId === uid);
               return (
-                <div key={item.id} className="group relative rounded-2xl overflow-hidden border border-border/50 bg-white hover:shadow-lg transition-all duration-200 flex flex-col">
+                <div key={item.id} className="group relative rounded-2xl overflow-hidden border border-border/50 bg-white hover:shadow-lg transition-colors duration-200 flex flex-col">
                   {/* Imagen / carrusel */}
                   <div className="relative aspect-[4/3] bg-muted/30 shrink-0">
                     {item.images.length > 0 ? (
@@ -642,7 +642,7 @@ export function MarketplaceView({ userId, userEmail, userName }: MarketplaceView
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
                     {galleryItem.images.map((_, i) => (
                       <button key={i} onClick={() => setGalleryIdx(i)}
-                        className={cn('h-2 rounded-full transition-all', i === galleryIdx ? 'w-6 bg-white' : 'w-2 bg-white/40')} />
+                        className={cn('h-2 rounded-full transition-colors', i === galleryIdx ? 'w-6 bg-white' : 'w-2 bg-white/40')} />
                     ))}
                   </div>
                   <div className="absolute top-4 right-4 bg-black/60 text-white text-xs font-bold px-2.5 py-1 rounded-full">

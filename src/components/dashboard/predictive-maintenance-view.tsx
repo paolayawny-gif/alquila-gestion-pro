@@ -306,7 +306,7 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
                     <span className={cn("font-black", asset.lifeColor)}>{asset.lifeRemaining}</span>
                   </div>
                   <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${asset.lifeWidth}%`, backgroundColor: healthColor }} />
+                    <div className="h-full rounded-full transition-colors" style={{ width: `${asset.lifeWidth}%`, backgroundColor: healthColor }} />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground flex items-start gap-1.5">

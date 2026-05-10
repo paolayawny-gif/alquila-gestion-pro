@@ -300,7 +300,7 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
               const isVerified = inv.status === 'En Verificación con Propietario';
               return (
                 <div key={inv.id} className={cn(
-                  'rounded-xl border p-4 space-y-3 transition-all',
+                  'rounded-xl border p-4 space-y-3 transition-colors',
                   isVerified ? 'border-blue-200 bg-blue-50/50' : 'border-amber-200 bg-amber-50/30'
                 )}>
                   {/* Header */}
@@ -433,7 +433,7 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
               {myProperties.map((p) => (
-                <div key={p.id} className="p-4 bg-white rounded-xl border hover:shadow-md transition-all group">
+                <div key={p.id} className="p-4 bg-white rounded-xl border hover:shadow-md transition-colors group">
                   <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-black truncate max-w-[150px] group-hover:text-primary transition-colors">{p.name}</p>
                     <Badge className={cn("text-[9px] font-black uppercase px-2 py-0 h-4 border-none", p.status === 'Alquilada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
@@ -527,7 +527,7 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
               <div 
                 onClick={() => fileInputRef.current?.click()} 
-                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:bg-muted/50 border-primary/20 transition-all"
+                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:bg-muted/50 border-primary/20 transition-colors"
               >
                 {isUploading ? (
                   <Loader2 className="animate-spin mx-auto text-primary" />

@@ -248,7 +248,7 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
         <div className="flex gap-2 flex-wrap">
           {properties.map(p => (
             <button key={p.id} onClick={() => handleSelectProperty(p.id)}
-              className={cn("px-4 py-1.5 rounded-full text-sm font-bold border transition-all",
+              className={cn("px-4 py-1.5 rounded-full text-sm font-bold border transition-colors",
                 (selectedPropertyId === p.id || (!selectedPropertyId && p.id === properties[0]?.id))
                   ? "bg-primary text-white border-primary"
                   : "bg-white text-muted-foreground border-border hover:border-primary/40"

@@ -290,7 +290,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
                 />
                 <div
                   onClick={() => !isImportingXlsx && xlsxInputRef.current?.click()}
-                  className="border-2 border-dashed border-primary/30 rounded-xl p-6 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+                  className="border-2 border-dashed border-primary/30 rounded-xl p-6 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-colors"
                 >
                   {isImportingXlsx ? (
                     <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />

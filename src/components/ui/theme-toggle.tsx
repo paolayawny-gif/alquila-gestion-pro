@@ -30,7 +30,7 @@ export function ThemeToggle() {
             aria-label={label}
             onClick={() => setTheme(value)}
             className={cn(
-              'h-7 w-7 rounded-full flex items-center justify-center transition-all duration-200',
+              'h-7 w-7 rounded-full flex items-center justify-center transition-colors duration-200',
               active
                 ? 'bg-white dark:bg-background shadow-sm text-primary'
                 : 'text-muted-foreground hover:text-foreground',

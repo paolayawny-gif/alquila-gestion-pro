@@ -219,7 +219,7 @@ export function TimelineView({ contracts, invoices, tasks, liquidations = [], on
               key={type}
               onClick={() => toggleType(type)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all',
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors',
                 active
                   ? `${cfg.bg} ${cfg.color} border-transparent shadow-sm`
                   : 'bg-white text-muted-foreground border-border opacity-60 hover:opacity-90',
@@ -293,7 +293,7 @@ export function TimelineView({ contracts, invoices, tasks, liquidations = [], on
                     <div
                       key={event.id}
                       className={cn(
-                        'flex items-start gap-3 p-3 rounded-xl border-l-4 bg-white shadow-sm transition-all hover:shadow cursor-pointer',
+                        'flex items-start gap-3 p-3 rounded-xl border-l-4 bg-white shadow-sm transition-colors hover:shadow cursor-pointer',
                         SEVERITY_STYLE[event.severity],
                       )}
                       onClick={() => onNavigate(event.tab)}

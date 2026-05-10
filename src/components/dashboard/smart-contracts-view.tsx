@@ -320,7 +320,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                 key={c.id}
                 onClick={() => setSelectedContractId(c.id)}
                 className={cn(
-                  "w-full text-left p-3 rounded-xl border transition-all",
+                  "w-full text-left p-3 rounded-xl border transition-colors",
                   isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30 bg-white",
                   cMora && "border-l-4 border-l-red-400"
                 )}
@@ -479,7 +479,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                         <div className="flex flex-col items-center flex-1 px-1">
                           {/* Circle */}
                           <div className={cn(
-                            "h-10 w-10 rounded-full border-2 flex items-center justify-center transition-all",
+                            "h-10 w-10 rounded-full border-2 flex items-center justify-center transition-colors",
                             stage.status === 'completed' ? "bg-primary border-primary" :
                             stage.status === 'active' ? "bg-primary/10 border-primary" :
                             "bg-muted border-muted-foreground/20"

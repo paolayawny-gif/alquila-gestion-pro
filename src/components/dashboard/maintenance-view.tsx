@@ -338,7 +338,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all", filterStatus === 'all' && "ring-2 ring-primary")}
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors", filterStatus === 'all' && "ring-2 ring-primary")}
           onClick={() => setFilterStatus('all')}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -350,7 +350,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
           </CardContent>
         </Card>
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all border-l-4 border-l-red-400", filterStatus === 'open' && "ring-2 ring-red-400")}
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors border-l-4 border-l-red-400", filterStatus === 'open' && "ring-2 ring-red-400")}
           onClick={() => setFilterStatus('open')}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -362,7 +362,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
           </CardContent>
         </Card>
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all border-l-4 border-l-blue-400", filterStatus === 'inprogress' && "ring-2 ring-blue-400")}
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors border-l-4 border-l-blue-400", filterStatus === 'inprogress' && "ring-2 ring-blue-400")}
           onClick={() => setFilterStatus('inprogress')}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -374,7 +374,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
           </CardContent>
         </Card>
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-all border-l-4 border-l-green-400", filterStatus === 'resolved' && "ring-2 ring-green-400")}
+          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors border-l-4 border-l-green-400", filterStatus === 'resolved' && "ring-2 ring-green-400")}
           onClick={() => setFilterStatus('resolved')}
         >
           <CardContent className="p-4 flex items-center gap-3">

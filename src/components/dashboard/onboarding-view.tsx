@@ -272,7 +272,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
             <div className="flex flex-col gap-4 py-4">
               <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-xl border border-dashed border-primary/20">
                 <code className="text-[10px] flex-1 truncate font-mono text-primary font-bold">/apply?adminId={userId}</code>
-                <Button size="icon" variant="ghost" onClick={copyPublicLink}><Copy className="h-4 w-4 text-primary" /></Button>
+                <Button size="icon" variant="ghost" aria-label="Copiar enlace público" onClick={copyPublicLink}><Copy className="h-4 w-4 text-primary" aria-hidden="true" /></Button>
               </div>
             </div>
           </DialogContent>

@@ -360,7 +360,7 @@ function OnboardingStep({
 }) {
   return (
     <div className={cn(
-      'flex items-start gap-3 p-3 rounded-xl border transition-all',
+      'flex items-start gap-3 p-3 rounded-xl border transition-colors',
       done ? 'bg-primary/5 border-primary/15' : 'bg-white border-muted-foreground/10'
     )}>
       {/* Círculo indicador */}
@@ -700,7 +700,7 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                               <React.Fragment key={i}>
                                 <div className="flex flex-col items-center gap-1 min-w-0">
                                   <div className={cn(
-                                    'h-7 w-7 rounded-full flex items-center justify-center border-2 text-[10px] font-black transition-all',
+                                    'h-7 w-7 rounded-full flex items-center justify-center border-2 text-[10px] font-black transition-colors',
                                     done
                                       ? 'bg-primary border-primary text-white'
                                       : current
@@ -718,7 +718,7 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
                                 </div>
                                 {i < 2 && (
                                   <div className={cn(
-                                    'flex-1 h-0.5 mb-4 mx-1 transition-all',
+                                    'flex-1 h-0.5 mb-4 mx-1 transition-colors',
                                     step > i + 1 ? 'bg-primary' : 'bg-muted'
                                   )} />
                                 )}
@@ -884,14 +884,14 @@ export function TenantPortalView({ contracts, properties, invoices, tasks }: Ten
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-all border-primary/20"
+                className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors border-primary/20"
               >
                 {isUploading ? (
                   <div className="w-full space-y-2 px-2">
                     <Loader2 className="h-7 w-7 animate-spin text-primary mx-auto" />
                     <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                        className="bg-primary h-1.5 rounded-full transition-colors duration-300"
                         style={{ width: `${uploadProgress}%` }}
                       />
                     </div>

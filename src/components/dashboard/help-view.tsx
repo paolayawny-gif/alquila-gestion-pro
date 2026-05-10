@@ -655,7 +655,7 @@ export function HelpView({ onNavigate, currentSection, portalRole = 'admin' }: H
                     <div
                       key={section.id}
                       className={cn(
-                        'border rounded-xl transition-all overflow-hidden',
+                        'border rounded-xl transition-colors overflow-hidden',
                         isOpen ? 'border-primary/30 bg-primary/[0.02] shadow-sm' : 'border-border/60 hover:border-border'
                       )}
                     >
@@ -861,8 +861,8 @@ export function HelpView({ onNavigate, currentSection, portalRole = 'admin' }: H
                   placeholder="Escribí tu pregunta… (Enter para enviar)"
                   className="min-h-[44px] max-h-[120px] resize-none text-sm"
                 />
-                <Button onClick={() => handleAsk()} disabled={asking || !chatInput.trim()} size="icon" className="h-11 w-11 shrink-0">
-                  {asking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <Button onClick={() => handleAsk()} disabled={asking || !chatInput.trim()} size="icon" aria-label="Enviar pregunta" className="h-11 w-11 shrink-0">
+                  {asking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground mt-2 text-center">

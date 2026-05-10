@@ -365,7 +365,7 @@ export function CommunityVotingView({ properties, contracts, people, userId }: C
                 const tenantCount = contracts.filter(c => c.propertyId === p.id).length;
                 return (
                   <button key={p.id} onClick={() => setSelectedPropertyId(p.id)}
-                    className="text-left rounded-2xl border hover:border-primary/40 hover:shadow-md transition-all p-4 bg-white group space-y-3">
+                    className="text-left rounded-2xl border hover:border-primary/40 hover:shadow-md transition-colors p-4 bg-white group space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                         {p.photos?.[0]
@@ -386,7 +386,7 @@ export function CommunityVotingView({ properties, contracts, people, userId }: C
                       <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {tenantCount} inquilinos</span>
                       <span className="flex items-center gap-1"><Vote className="h-3 w-3" /> {propCount} propuestas</span>
                     </div>
-                    <div className="flex items-center text-[11px] text-primary font-bold gap-1 group-hover:gap-2 transition-all">
+                    <div className="flex items-center text-[11px] text-primary font-bold gap-1 group-hover:gap-2 transition-colors">
                       Ver votaciones <ChevronRight className="h-3.5 w-3.5" />
                     </div>
                   </button>
@@ -512,7 +512,7 @@ export function CommunityVotingView({ properties, contracts, people, userId }: C
                       <span className="text-red-500">En contra: {featuredProposal.votesAgainst} ({100 - favorPercent(featuredProposal)}%)</span>
                     </div>
                     <div className="h-2 rounded-full bg-red-200 overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all"
+                      <div className="h-full bg-primary rounded-full transition-colors"
                         style={{ width: `${favorPercent(featuredProposal)}%` }} />
                     </div>
                   </div>
@@ -521,7 +521,7 @@ export function CommunityVotingView({ properties, contracts, people, userId }: C
                 {/* Botones de voto */}
                 <div className="flex gap-3">
                   <Button variant="outline"
-                    className={cn('flex-1 gap-2 font-bold border-2 transition-all',
+                    className={cn('flex-1 gap-2 font-bold border-2 transition-colors',
                       featuredProposal.status !== 'activa'
                         ? 'opacity-40 cursor-not-allowed'
                         : 'border-primary/30 hover:border-primary hover:bg-primary/5 text-primary'
@@ -531,7 +531,7 @@ export function CommunityVotingView({ properties, contracts, people, userId }: C
                     <ThumbsUp className="h-4 w-4" /> A Favor ({featuredProposal.votesFor})
                   </Button>
                   <Button variant="outline"
-                    className={cn('flex-1 gap-2 font-bold border-2 transition-all',
+                    className={cn('flex-1 gap-2 font-bold border-2 transition-colors',
                       featuredProposal.status !== 'activa'
                         ? 'opacity-40 cursor-not-allowed'
                         : 'border-muted hover:border-destructive/30 hover:bg-destructive/5 text-muted-foreground hover:text-destructive'
@@ -657,7 +657,7 @@ export function CommunityVotingView({ properties, contracts, people, userId }: C
                   onKeyDown={e => { if (e.key === 'Enter') handleComment(); }}
                   className="flex-1 bg-muted/30 rounded-xl border-muted text-sm" />
                 <button onClick={handleComment} disabled={!commentText.trim()}
-                  className={cn('h-9 w-9 rounded-xl flex items-center justify-center transition-all shrink-0',
+                  className={cn('h-9 w-9 rounded-xl flex items-center justify-center transition-colors shrink-0',
                     commentText.trim() ? 'bg-primary text-white hover:bg-primary/90' : 'bg-muted text-muted-foreground cursor-not-allowed'
                   )}>
                   <Send className="h-4 w-4" />
@@ -696,7 +696,7 @@ export function CommunityVotingView({ properties, contracts, people, userId }: C
                   filteredProposals.map(p => (
                     <div key={p.id}
                       className={cn(
-                        'flex items-center gap-3 rounded-xl border transition-all px-3 py-3',
+                        'flex items-center gap-3 rounded-xl border transition-colors px-3 py-3',
                         p.id === featuredProposal?.id
                           ? 'border-primary/30 bg-primary/5'
                           : 'hover:border-primary/20 hover:bg-muted/20 cursor-pointer'
@@ -1056,12 +1056,12 @@ function RegisterVoteDialog({ open, onClose, proposal, contracts, onRegister }: 
             <div className="space-y-2">
               <div className="flex gap-2">
                 <button onClick={() => setUseExisting(true)}
-                  className={cn('flex-1 py-2 rounded-xl text-xs font-bold border transition-all',
+                  className={cn('flex-1 py-2 rounded-xl text-xs font-bold border transition-colors',
                     useExisting ? 'bg-primary text-white border-primary' : 'border-muted text-muted-foreground hover:border-primary/30')}>
                   Desde contratos
                 </button>
                 <button onClick={() => setUseExisting(false)}
-                  className={cn('flex-1 py-2 rounded-xl text-xs font-bold border transition-all',
+                  className={cn('flex-1 py-2 rounded-xl text-xs font-bold border transition-colors',
                     !useExisting ? 'bg-primary text-white border-primary' : 'border-muted text-muted-foreground hover:border-primary/30')}>
                   Ingresar manualmente
                 </button>
@@ -1098,14 +1098,14 @@ function RegisterVoteDialog({ open, onClose, proposal, contracts, onRegister }: 
             <Label>Tipo de voto</Label>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setVoteType('for')}
-                className={cn('flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all',
+                className={cn('flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-colors',
                   voteType === 'for'
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-muted text-muted-foreground hover:border-primary/30')}>
                 <ThumbsUp className="h-4 w-4" /> A Favor
               </button>
               <button onClick={() => setVoteType('against')}
-                className={cn('flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all',
+                className={cn('flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-colors',
                   voteType === 'against'
                     ? 'border-destructive bg-destructive/10 text-destructive'
                     : 'border-muted text-muted-foreground hover:border-destructive/20')}>
