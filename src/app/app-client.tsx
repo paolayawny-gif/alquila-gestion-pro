@@ -94,10 +94,11 @@ import {
   useMemoFirebase
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, doc, getDoc } from 'firebase/firestore';
+import { collection, query, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { createNotification } from '@/lib/notifications';
-import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink } from '@/lib/types';
+import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink, PendingRentAdjustment, IndexRecord } from '@/lib/types';
+import { isAdjustmentDue, calculateProposedAmount, buildPendingAdjustment } from '@/lib/rent-adjustment';
 import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
 import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal';
 import { Button } from '@/components/ui/button';
@@ -109,9 +110,10 @@ import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
+import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda';
+type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -157,6 +159,7 @@ const ADMIN_MENU_GROUPS = [
   {
     section: 'Finanzas',
     items: [
+      { id: 'Ajustes Alquiler',      icon: TrendingUp,   label: 'Ajustes de Alquiler'    },
       { id: 'Seguros',              icon: ShieldCheck,  label: 'Seguros y Coberturas'   },
       { id: 'Legales',              icon: Scale,        label: 'Casos Legales'          },
       { id: 'Centro Liquidaciones', icon: ClipboardList,label: 'Centro de Liquidaciones'},
@@ -336,6 +339,11 @@ export default function AppClient() {
     return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'socialLinks'));
   }, [db, user]);
 
+  const adjustmentsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'rentAdjustments'));
+  }, [db, user]);
+
   const { data: propertiesData } = useCollection(propiedadesQuery);
   const { data: peopleData } = useCollection(inquilinosQuery);
   const { data: contractsData } = useCollection<Contract>(contratosQuery);
@@ -348,6 +356,7 @@ export default function AppClient() {
   const { data: monetizacionData } = useCollection<MonetizableAsset>(monetizacionQuery);
   const { data: socialPostsData } = useCollection<SocialPost>(socialPostsQuery);
   const { data: socialLinksData } = useCollection<SocialNetworkLink>(socialLinksQuery);
+  const { data: adjustmentsData } = useCollection<PendingRentAdjustment>(adjustmentsQuery);
 
   const properties = propertiesData || [];
   const people = peopleData || [];
@@ -361,6 +370,8 @@ export default function AppClient() {
   const monetizableAssets = monetizacionData || [];
   const socialPosts = socialPostsData || [];
   const socialLinks = socialLinksData || [];
+  const rentAdjustments = adjustmentsData || [];
+  const pendingAdjustmentsCount = rentAdjustments.filter(a => a.status === 'pendiente').length;
 
   // Show onboarding wizard on first load when no data yet
   useEffect(() => {
@@ -434,6 +445,24 @@ export default function AppClient() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts.length, db, user?.uid]);
+
+  // ── Auto-generate rent adjustment proposals when due ──────────────────────
+  useEffect(() => {
+    if (!db || !user?.uid || !contracts.length) return;
+    const existingContractIds = new Set(rentAdjustments.map(a => a.contractId));
+    contracts.forEach(contract => {
+      if (!isAdjustmentDue(contract)) return;
+      // Skip if there's already a pending adjustment for this contract
+      if (rentAdjustments.some(a => a.contractId === contract.id && a.status === 'pendiente')) return;
+      const calc = calculateProposedAmount(contract, indexRecords as IndexRecord[]);
+      if (!calc) return;
+      const newAdj = buildPendingAdjustment(contract, calc, user.uid);
+      const id = `${contract.id}_${Date.now()}`;
+      const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'rentAdjustments', id);
+      setDocumentNonBlocking(ref, { ...newAdj, id, createdAt: new Date().toISOString() }, { merge: false });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contracts.length, indexRecords.length, db, user?.uid]);
 
   // ── Sync property owners to ownerRegistry whenever properties change ──────
   useEffect(() => {
@@ -551,6 +580,57 @@ export default function AppClient() {
   // Still loading role check → show nothing
   if (tenantEntry === undefined || ownerEntry === undefined) return null;
 
+  // ── Rent adjustment handlers ───────────────────────────────────────────────
+  const approveAdjustment = async (id: string) => {
+    if (!db || !user?.uid) return;
+    const adj = rentAdjustments.find(a => a.id === id);
+    if (!adj) return;
+    const now = new Date().toISOString();
+    const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'rentAdjustments', id);
+    await updateDoc(ref, { status: 'aprobado', approvedAt: now, approvedBy: user.email ?? user.uid });
+    // Update contract currentRentAmount + lastAdjustmentDate
+    const contractRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos', adj.contractId);
+    setDocumentNonBlocking(contractRef, {
+      currentRentAmount: adj.proposedAmount,
+      lastAdjustmentDate: now,
+    }, { merge: true });
+    toast({ title: 'Ajuste aprobado', description: `Nuevo alquiler: ${adj.proposedAmount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}` });
+  };
+
+  const rejectAdjustment = async (id: string, reason: string) => {
+    if (!db || !user?.uid) return;
+    const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'rentAdjustments', id);
+    await updateDoc(ref, { status: 'rechazado', rejectedAt: new Date().toISOString(), rejectionReason: reason });
+    toast({ title: 'Ajuste rechazado' });
+  };
+
+  const notifyAdjustment = async (id: string) => {
+    if (!db || !user?.uid) return;
+    const adj = rentAdjustments.find(a => a.id === id);
+    if (!adj) return;
+    // Mark as notified — actual email/WhatsApp would be triggered server-side via webhook
+    const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'rentAdjustments', id);
+    const now = new Date().toISOString();
+    await updateDoc(ref, { notifiedTenantAt: now, notifiedOwnerAt: now });
+    // Queue notification record for server-side sending
+    const notifRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'pendingNotifications', `adj_${id}`);
+    setDocumentNonBlocking(notifRef, {
+      type: 'rent_adjustment',
+      adjustmentId: id,
+      contractId: adj.contractId,
+      tenantEmail: adj.tenantEmail ?? '',
+      ownerEmail: adj.ownerEmail ?? '',
+      currentAmount: adj.currentAmount,
+      proposedAmount: adj.proposedAmount,
+      variationPct: adj.variationPct,
+      propertyName: adj.propertyName,
+      tenantName: adj.tenantName,
+      createdAt: now,
+      sent: false,
+    }, { merge: false });
+    toast({ title: 'Notificación enviada', description: 'Se notificó al propietario e inquilino del nuevo valor.' });
+  };
+
   const renderContent = () => {
     if (activeRole === 'Inquilino') {
       return <TenantPortalView contracts={contracts} properties={properties} invoices={invoices} tasks={tasks} />;
@@ -609,6 +689,7 @@ export default function AppClient() {
       case 'Super Admin': return <SuperAdminView userId={user?.uid} userEmail={user?.email ?? ''} />;
       case 'Configuración': return <AdminSettingsView userId={user?.uid} />;
       case 'Ayuda': return <HelpView onNavigate={(tab) => setActiveTab(tab as Tab)} currentSection={activeTab} />;
+      case 'Ajustes Alquiler': return <PendingAdjustmentsView adjustments={rentAdjustments} onApprove={approveAdjustment} onReject={rejectAdjustment} onNotify={notifyAdjustment} />;
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
     }
   };
@@ -723,7 +804,12 @@ export default function AppClient() {
                       )}
                     >
                       <item.icon className={cn("h-5 w-5 shrink-0", activeTab === item.id ? "text-primary" : "text-muted-foreground")} />
-                      {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+                      {!isSidebarCollapsed && <span className="truncate flex-1">{item.label}</span>}
+                      {!isSidebarCollapsed && item.id === 'Ajustes Alquiler' && pendingAdjustmentsCount > 0 && (
+                        <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold px-1">
+                          {pendingAdjustmentsCount}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

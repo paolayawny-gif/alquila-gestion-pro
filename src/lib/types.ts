@@ -194,6 +194,9 @@ export interface Contract {
   advancePaymentCommissionPct?: number;    // % comisión admin
   advancePaymentMaxMonths?: number;        // máximo meses (1-12)
   advancePaymentActive?: boolean;          // si la oferta está activa
+  // ── Ajuste automático ────────────────────────────────────────────────────────
+  adjustmentRate?: number;        // % para tipo Percentage (ej: 10 = 10%)
+  lastAdjustmentDate?: string;    // ISO date del último ajuste aprobado
 }
 
 export interface ChargeItem {
@@ -659,4 +662,35 @@ export interface AdvancePayment {
   paidAt?: string;
   coveredPeriods: string[];   // ['2025-06', '2025-07', ...]
   notes?: string;
+}
+
+// ── Ajuste Automático de Alquiler ─────────────────────────────────────────────
+
+export type AdjustmentStatus = 'pendiente' | 'aprobado' | 'rechazado';
+
+export interface PendingRentAdjustment {
+  id: string;
+  contractId: string;
+  propertyId: string;
+  propertyName: string;
+  tenantName: string;
+  tenantEmail?: string;
+  ownerEmail?: string;
+  currentAmount: number;
+  proposedAmount: number;
+  variationPct: number;          // % de variación, ej: 12.5
+  mechanism: AdjustmentMechanism | 'Percentage' | 'Scale' | 'Fixed';
+  indexUsed?: string;            // ej: 'ICL 2025-04'
+  indexValue?: number;           // valor del índice aplicado
+  previousIndexValue?: number;   // valor del índice base (período anterior)
+  dueDate: string;               // fecha en que debe aplicarse (YYYY-MM-DD)
+  status: AdjustmentStatus;
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  notifiedOwnerAt?: string;
+  notifiedTenantAt?: string;
+  ownerId: string;               // admin que gestiona
+  createdAt: string;
 }
