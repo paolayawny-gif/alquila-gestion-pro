@@ -112,6 +112,29 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
     }
 
+    // Solicitudes de pago anticipado: admin (adminId) e inquilino (tenantEmail) leen/actualizan
+    match /artifacts/{appId}/advancePaymentRequests/{reqId} {
+      allow get: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (
+        request.resource.data.tenantEmail == request.auth.token.email ||
+        request.resource.data.adminId == request.auth.uid ||
+        isSuperAdmin()
+      );
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        isSuperAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId || isSuperAdmin()
+      );
+    }
+
     // Tickets de mantenimiento compartidos admin↔inquilino↔propietario
     match /artifacts/{appId}/maintenanceTickets/{ticketId} {
       allow read: if isSignedIn() && (
