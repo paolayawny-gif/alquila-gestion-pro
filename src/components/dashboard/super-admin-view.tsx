@@ -12,8 +12,9 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Crown, Building2, Users, Plus, CheckCircle2, Clock, XCircle,
-  Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight
+  Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight, CreditCard
 } from 'lucide-react';
+import { SuperAdminBillingPanel } from './super-admin-billing-panel';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
@@ -282,6 +283,14 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
         </Button>
       </div>
 
+      <Tabs defaultValue="orgs" className="w-full">
+        <TabsList className="bg-muted/40 mb-4">
+          <TabsTrigger value="orgs" className="gap-1.5"><Building2 className="h-3.5 w-3.5" /> Organizaciones</TabsTrigger>
+          <TabsTrigger value="billing" className="gap-1.5"><CreditCard className="h-3.5 w-3.5" /> Facturación</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="orgs" className="space-y-6">
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -525,6 +534,13 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
           )}
         </Card>
       </div>
+
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <SuperAdminBillingPanel />
+        </TabsContent>
+      </Tabs>
 
       {/* New Org Dialog */}
       <Dialog open={showNewOrgDialog} onOpenChange={setShowNewOrgDialog}>

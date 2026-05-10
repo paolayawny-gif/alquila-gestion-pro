@@ -34,6 +34,23 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
     }
 
+    // Notas internas de billing del super admin sobre cada cliente — solo super admin
+    match /artifacts/{appId}/billingNotes/{adminId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // Lookup de suscripciones (escrito por server vía Admin SDK; solo lectura super admin)
+    match /artifacts/{appId}/billingSubscriptions/{subscriptionId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    // Eventos de webhook (escritos por server vía Admin SDK; solo lectura super admin)
+    match /artifacts/{appId}/billingEvents/{eventId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
     // ── Comunidad & Marketplace — compartido entre todos los usuarios ─────────
 
     // Muro: cualquier autenticado lee/crea; solo el autor (o superAdmin) puede editar/borrar
