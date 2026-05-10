@@ -14,12 +14,13 @@ import {
   Crown, Building2, Users, Plus, CheckCircle2, Clock, XCircle,
   Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight,
   BarChart3, Home, DollarSign, TrendingUp, Activity, FileText, Wrench,
+  LogOut, AlertTriangle,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
+import { collection, query, doc, updateDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const APP_ID = 'alquilagestion-pro';
@@ -52,6 +53,26 @@ interface OrgUser {
   status: 'Activo' | 'Invitado' | 'Suspendido';
   addedAt: string;
 }
+
+interface CancelRequest {
+  id: string;
+  adminId: string;
+  adminEmail: string;
+  reason: string;
+  notes?: string;
+  requestedAt: string;
+  status: 'pendiente' | 'procesada' | 'cancelada_por_usuario';
+  processedAt?: string;
+}
+
+const CANCEL_REASONS: Record<string, string> = {
+  cambio_plataforma:  'Cambio de plataforma',
+  sin_uso:            'Ya no necesita el servicio',
+  precio:             'Precio no adecuado',
+  problemas_tecnicos: 'Problemas técnicos',
+  funcionalidades:    'Faltan funcionalidades',
+  otro:               'Otro motivo',
+};
 
 interface SuperAdminViewProps {
   userId?: string;
@@ -146,6 +167,15 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   }, [db, user]);
   const { data: allStatsData } = useCollection<AdminStats>(statsQuery);
   const allStats: AdminStats[] = allStatsData || [];
+
+  // — Load cancel requests —
+  const cancelQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'superadmin', 'data', 'cancelRequests'));
+  }, [db, user]);
+  const { data: cancelData } = useCollection<CancelRequest>(cancelQuery);
+  const cancelRequests: CancelRequest[] = cancelData || [];
+  const pendingCancelCount = cancelRequests.filter(r => r.status === 'pendiente').length;
 
   // Stats del org seleccionado
   const selectedOrgStats = useMemo(() => {
@@ -348,6 +378,7 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
           { label: 'Activas', value: stats.active, icon: CheckCircle2, color: 'text-green-600' },
           { label: 'Pendientes', value: stats.pending, icon: Clock, color: 'text-orange-500' },
           { label: 'Enterprise', value: stats.enterprise, icon: Crown, color: 'text-amber-600' },
+          { label: 'Bajas pendientes', value: pendingCancelCount, icon: LogOut, color: pendingCancelCount > 0 ? 'text-destructive' : 'text-muted-foreground' },
         ].map(k => (
           <Card key={k.label} className="border-none shadow-sm bg-white">
             <CardContent className="p-4 flex items-center gap-3">
@@ -746,6 +777,108 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
           )}
         </Card>
       </div>
+
+      {/* ── Solicitudes de baja ── */}
+      {cancelRequests.length > 0 && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${pendingCancelCount > 0 ? 'bg-destructive/10' : 'bg-muted/30'}`}>
+                  <LogOut className={`h-5 w-5 ${pendingCancelCount > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-black">Solicitudes de baja</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Pedidos de cancelación de servicio — Ley 24.240 Art. 34
+                  </CardDescription>
+                </div>
+              </div>
+              {pendingCancelCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-destructive/10 text-destructive">
+                  <AlertTriangle className="h-3 w-3" />
+                  {pendingCancelCount} pendiente{pendingCancelCount !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {cancelRequests
+              .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+              .map(r => (
+                <div
+                  key={r.id}
+                  className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
+                    r.status === 'pendiente'
+                      ? 'border-destructive/30 bg-destructive/5'
+                      : 'border-border/50 bg-muted/20'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold">{r.adminEmail}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        r.status === 'pendiente'
+                          ? 'bg-amber-100 text-amber-700'
+                          : r.status === 'procesada'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {r.status === 'pendiente' ? 'Pendiente' : r.status === 'procesada' ? 'Procesada' : 'Revocada'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      <span className="font-medium">{CANCEL_REASONS[r.reason] ?? r.reason}</span>
+                      {' · '}{new Date(r.requestedAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                    {r.notes && (
+                      <p className="text-xs text-muted-foreground mt-1 italic">"{r.notes}"</p>
+                    )}
+                    {r.processedAt && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Procesada: {new Date(r.processedAt).toLocaleDateString('es-AR')}
+                      </p>
+                    )}
+                  </div>
+                  {r.status === 'pendiente' && (
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        className="text-xs h-7 font-bold bg-green-600 hover:bg-green-700"
+                        onClick={async () => {
+                          if (!db) return;
+                          const now = new Date().toISOString();
+                          await updateDoc(
+                            doc(db, 'artifacts', APP_ID, 'superadmin', 'data', 'cancelRequests', r.id),
+                            { status: 'procesada', processedAt: now },
+                          );
+                          toast({ title: 'Baja procesada', description: `Se registró la baja de ${r.adminEmail}.` });
+                        }}
+                      >
+                        Marcar procesada
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 font-bold text-muted-foreground"
+                        onClick={async () => {
+                          if (!db) return;
+                          await updateDoc(
+                            doc(db, 'artifacts', APP_ID, 'superadmin', 'data', 'cancelRequests', r.id),
+                            { status: 'cancelada_por_usuario' },
+                          );
+                          toast({ title: 'Solicitud archivada' });
+                        }}
+                      >
+                        Archivar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* New Org Dialog */}
       <Dialog open={showNewOrgDialog} onOpenChange={setShowNewOrgDialog}>
