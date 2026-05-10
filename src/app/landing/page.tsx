@@ -211,7 +211,7 @@ function Hero() {
             <div className="flex flex-wrap gap-3 mb-7">
               <Link href="/login"
                 className="inline-flex items-center gap-2 h-[52px] px-6 rounded-xl bg-primary text-primary-foreground text-[15.5px] font-bold shadow-primary hover:bg-primary/90 transition-colors">
-                Empezar gratis 14 días
+                Empezar gratis 7 días
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a href="#producto"
@@ -523,7 +523,7 @@ function Pricing() {
             <Check className="h-4 w-4" strokeWidth={2.5} />
           </span>
           <p className="text-[14px] font-semibold text-[hsl(var(--status-paid-fg))]">
-            <strong>Período de prueba gratuito:</strong> hasta {TRIAL_TIER.maxUnits} contratos durante 14 días, sin tarjeta requerida.
+            <strong>Período de prueba gratuito:</strong> hasta {TRIAL_TIER.maxUnits} contratos durante 7 días, sin tarjeta requerida.
           </p>
         </div>
 
@@ -570,7 +570,7 @@ function Pricing() {
                       ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary"
                       : "border border-border bg-card hover:bg-muted",
                   )}>
-                  {isF ? 'Probar 14 días gratis' : 'Empezar'}
+                  {isF ? 'Probar 7 días gratis' : 'Empezar'}
                 </Link>
               </div>
             );
@@ -687,7 +687,7 @@ function CTABanner() {
               className="text-[clamp(1.45rem,1.1rem+1.2vw,2rem)] font-extrabold tracking-[-0.02em] leading-[1.15] text-white mb-3"
               style={{ textWrap: 'balance' } as React.CSSProperties}
             >
-              Probá AlquilaGestión Pro 14 días, sin tarjeta.
+              Probá AlquilaGestión Pro 7 días, sin tarjeta.
             </h3>
             <p className="text-[15px] text-white/75 leading-[1.55] max-w-[52ch]">
               Te ayudamos a importar tu cartera el mismo día. Si al final del trial no te suma, no pagás nada.
