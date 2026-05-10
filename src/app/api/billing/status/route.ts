@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const adminId = req.nextUrl.searchParams.get('adminId');
+    if (!adminId) return NextResponse.json({ error: 'adminId requerido' }, { status: 400 });
 
     const auth = await requireSessionForAdmin(req, adminId);
     if (auth instanceof NextResponse) return auth;

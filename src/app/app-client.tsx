@@ -371,9 +371,9 @@ export default function AppClient() {
       if (contract.status === 'Finalizado' || contract.status === 'Rescindido') return;
       const end = new Date(contract.endDate);
       if (isNaN(end.getTime())) return;
-      let nextStatus: typeof contract.status | null = null;
+      let nextStatus: Contract['status'] | null = null;
       let notifInput: { type: 'contract_expiring' | 'contract_expired'; title: string; message: string } | null = null;
-      if (end < now && contract.status !== 'Finalizado') {
+      if (end < now) {
         nextStatus = 'Finalizado';
         notifInput = {
           type: 'contract_expired',
