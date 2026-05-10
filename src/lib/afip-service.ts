@@ -28,7 +28,7 @@ export function parsePfx(pfxBase64: string, password: string): { certPem: string
 
   return {
     certPem: forge.pki.certificateToPem(cert),
-    keyPem:  forge.pki.privateKeyToPem(key as forge.pki.rsa.PrivateKey),
+    keyPem:  forge.pki.privateKeyToPem(key as any),
   };
 }
 
