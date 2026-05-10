@@ -4,8 +4,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Plus, 
+import {
+  Plus,
   Trash2,
   Search,
   Download,
@@ -14,7 +14,10 @@ import {
   TrendingUp,
   FileCheck,
   Wrench,
-  CheckCircle2
+  CheckCircle2,
+  Mail,
+  MessageCircle,
+  Percent
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -85,6 +88,34 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
     }
   };
 
+  const [interestDialog, setInterestDialog] = useState<{ liq: Liquidation } | null>(null);
+  const [interestInput, setInterestInput] = useState('');
+
+  const handleSaveInterest = () => {
+    if (!interestDialog || !userId || !db) return;
+    const amount = parseFloat(interestInput.replace(',', '.')) || 0;
+    const l = interestDialog.liq;
+    const newNet = l.ingresoAlquiler - l.adminFeeDeduction - l.expenseDeductions - l.maintenanceDeductions + amount;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', l.id);
+    setDocumentNonBlocking(docRef, { interestAmount: amount, netAmount: newNet }, { merge: true });
+    setInterestDialog(null);
+    setInterestInput('');
+    toast({ title: 'Intereses registrados', description: `+$${amount.toLocaleString('es-AR')} sumados al neto de ${l.propertyName}.` });
+  };
+
+  const buildWhatsAppLink = (l: Liquidation) => {
+    const interests = l.interestAmount ? `\n➕ *Intereses mes ant.:* $${l.interestAmount.toLocaleString('es-AR')}` : '';
+    const msg = `*Liquidación ${l.period} — ${l.propertyName}*\n\nAlquiler bruto: $${l.ingresoAlquiler.toLocaleString('es-AR')}\nHonorarios admin: -$${l.adminFeeDeduction.toLocaleString('es-AR')}\nServicios/impuestos: -$${l.expenseDeductions.toLocaleString('es-AR')}\nReparaciones: -$${l.maintenanceDeductions.toLocaleString('es-AR')}${interests}\n────────────────\n💰 *Neto a transferir: $${l.netAmount.toLocaleString('es-AR')}*\n\nAlquilaGestión Pro`;
+    const phone = l.ownerPhone?.replace(/\D/g, '');
+    return `https://wa.me/${phone ? `54${phone.replace(/^0/, '')}` : ''}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const buildMailtoLink = (l: Liquidation) => {
+    const interests = l.interestAmount ? `\nIntereses mes ant.: +$${l.interestAmount.toLocaleString('es-AR')}` : '';
+    const body = `Estimado/a ${l.ownerName},\n\nAdjunto el detalle de su liquidación correspondiente a ${l.period}:\n\nPropiedad: ${l.propertyName}\nAlquiler bruto: $${l.ingresoAlquiler.toLocaleString('es-AR')}\nHonorarios admin (10%): -$${l.adminFeeDeduction.toLocaleString('es-AR')}\nServicios/impuestos: -$${l.expenseDeductions.toLocaleString('es-AR')}\nReparaciones: -$${l.maintenanceDeductions.toLocaleString('es-AR')}${interests}\n\nNeto a transferir: $${l.netAmount.toLocaleString('es-AR')}\n\nSaludos,\nAlquilaGestión Pro`;
+    return `mailto:${l.ownerEmail || ''}?subject=${encodeURIComponent(`Liquidación ${l.period} — ${l.propertyName}`)}&body=${encodeURIComponent(body)}`;
+  };
+
   const facturasQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'facturas'));
@@ -109,7 +140,8 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       const property = properties.find(p => p.id === propId);
       if (!property) return;
 
-      const owner = people.find(p => p.id === property.owners?.[0]?.ownerId) || { id: 'dueño-ext', fullName: property.owners?.[0]?.name || 'Propietario' };
+      const ownerPerson = people.find(p => p.id === property.owners?.[0]?.ownerId);
+      const owner = ownerPerson || { id: 'dueño-ext', fullName: property.owners?.[0]?.name || 'Propietario', phone: '' };
 
       const propInvoices = invoices.filter(i => i.propertyName === property.name && i.period === period);
 
@@ -145,11 +177,13 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
         ownerId: owner.id,
         ownerName: owner.fullName,
         ownerEmail: property.owners?.[0]?.email,
+        ownerPhone: ownerPerson?.phone,
         period: period,
         ingresoAlquiler: rentIncome,
         adminFeeDeduction: adminFee,
         maintenanceDeductions: maintenanceDeductions,
         expenseDeductions: serviceDeductions,
+        interestAmount: 0,
         netAmount: net,
         status: 'Pendiente',
         dateCreated: new Date().toLocaleDateString('es-AR')
@@ -190,12 +224,12 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
               </Button>
             </DialogTrigger>
           )}
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="max-w-md flex flex-col max-h-[90vh]">
+            <DialogHeader className="shrink-0">
               <DialogTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-primary" /> Liquidación Mensual</DialogTitle>
               <DialogDescription>El sistema aplicará deducciones bajo reglas estrictas de responsabilidad.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
+            <div className="space-y-4 pt-4 overflow-y-auto flex-1 pr-1">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Propiedades / Unidades</Label>
@@ -223,7 +257,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                       {allFilteredSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
                     </span>
                   </label>
-                  <ScrollArea className="h-48">
+                  <ScrollArea className="h-36">
                     {filteredProperties.length === 0 ? (
                       <div className="text-center py-6 text-xs text-muted-foreground italic">
                         Sin coincidencias.
@@ -269,7 +303,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                 </div>
               </div>
             </div>
-            <DialogFooter className="mt-4">
+            <DialogFooter className="mt-4 shrink-0">
               <Button
                 className="w-full h-11 font-black"
                 onClick={handleCreateLiq}
@@ -313,14 +347,40 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                     {l.maintenanceDeductions > 0 && <span className="text-[8px] flex items-center gap-0.5"><Wrench className="h-2 w-2" /> Reparaciones incl.</span>}
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-black text-green-700 text-base">$ {l.netAmount.toLocaleString('es-AR')}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex flex-col items-end">
+                    <span className="font-black text-green-700 text-base">$ {l.netAmount.toLocaleString('es-AR')}</span>
+                    {(l.interestAmount ?? 0) > 0 && (
+                      <span className="text-[9px] text-blue-600 flex items-center gap-0.5 font-semibold">
+                        <TrendingUp className="h-2.5 w-2.5" /> +${(l.interestAmount!).toLocaleString('es-AR')} intereses
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>
                    <Badge className={cn("border-none", l.status === 'Pagada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
                     {l.status}
                    </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {canWrite && (
+                      <Button
+                        variant="ghost" size="icon" className="h-8 w-8 text-blue-500"
+                        title="Agregar intereses"
+                        onClick={() => { setInterestDialog({ liq: l }); setInterestInput(String(l.interestAmount ?? '')); }}
+                      ><Percent className="h-4 w-4" /></Button>
+                    )}
+                    <Button
+                      variant="ghost" size="icon" className="h-8 w-8 text-green-600"
+                      title="Enviar por WhatsApp"
+                      onClick={() => window.open(buildWhatsAppLink(l), '_blank')}
+                    ><MessageCircle className="h-4 w-4" /></Button>
+                    <Button
+                      variant="ghost" size="icon" className="h-8 w-8 text-primary"
+                      title="Enviar por Email"
+                      onClick={() => window.open(buildMailtoLink(l), '_blank')}
+                    ><Mail className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Recibo"><Download className="h-4 w-4" /></Button>
                     {canDelete && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(l.id)}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
@@ -334,6 +394,50 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
         </Table>
         </div>
       </Card>
+
+      {/* Dialog: agregar intereses del mes anterior */}
+      <Dialog open={!!interestDialog} onOpenChange={open => { if (!open) { setInterestDialog(null); setInterestInput(''); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-500" /> Intereses del mes anterior
+            </DialogTitle>
+            <DialogDescription>
+              Se sumarán al neto a pagar al propietario de <strong>{interestDialog?.liq.propertyName}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <Label>Monto de intereses ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ej: 15000"
+                value={interestInput}
+                onChange={e => setInterestInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveInterest()}
+                autoFocus
+              />
+            </div>
+            {interestDialog && (
+              <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2 space-y-0.5">
+                <div className="flex justify-between"><span>Neto actual:</span><span className="font-semibold">$ {interestDialog.liq.netAmount.toLocaleString('es-AR')}</span></div>
+                {parseFloat(interestInput.replace(',', '.')) > 0 && (
+                  <div className="flex justify-between text-green-700 font-bold">
+                    <span>Neto con intereses:</span>
+                    <span>$ {(interestDialog.liq.ingresoAlquiler - interestDialog.liq.adminFeeDeduction - interestDialog.liq.expenseDeductions - interestDialog.liq.maintenanceDeductions + (parseFloat(interestInput.replace(',', '.')) || 0)).toLocaleString('es-AR')}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => { setInterestDialog(null); setInterestInput(''); }}>Cancelar</Button>
+            <Button onClick={handleSaveInterest} disabled={!interestInput || parseFloat(interestInput) < 0}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
