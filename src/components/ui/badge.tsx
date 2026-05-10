@@ -20,6 +20,7 @@ const badgeVariants = cva(
         pending: "border-transparent bg-[hsl(var(--status-pending-bg))] text-[hsl(var(--status-pending-fg))]",
         overdue: "border-transparent bg-[hsl(var(--status-overdue-bg))] text-[hsl(var(--status-overdue-fg))]",
         info:    "border-transparent bg-[hsl(var(--status-info-bg))] text-[hsl(var(--status-info-fg))]",
+        active:  "border-transparent bg-[hsl(var(--status-info-bg))] text-[hsl(var(--status-info-fg))]",
       },
     },
     defaultVariants: {
