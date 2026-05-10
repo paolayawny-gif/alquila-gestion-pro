@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { parsePfx } from '@/lib/afip-service';
 import { encrypt } from '@/lib/afip-crypto';
+import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,16 @@ export async function POST(req: NextRequest) {
         pfxPassword: string;
         environment: 'testing' | 'production';
       };
+
+    const auth = await requireFirebaseAuth(req);
+    if (auth instanceof NextResponse) return auth;
+
+    // Permitir: el admin del namespace, o el propio owner cuyo email coincide.
+    const isAdmin = auth.userId === adminId;
+    const isOwner = !!auth.email && !!ownerEmail && auth.email.toLowerCase() === ownerEmail.toLowerCase();
+    if (!isAdmin && !isOwner && !isSuperAdminUid(auth.userId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     if (!adminId || !ownerEmail || !cuit || !pfxBase64) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 });

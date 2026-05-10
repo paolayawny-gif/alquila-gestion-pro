@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { notarizeOnPolygon } from '@/lib/polygon-notarize';
+import { requireSessionForAdmin } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,8 +27,11 @@ export async function POST(req: NextRequest) {
   try {
     const { adminId, contractId } = (await req.json()) as { adminId: string; contractId: string };
 
-    if (!adminId || !contractId) {
-      return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
+    const auth = await requireSessionForAdmin(req, adminId);
+    if (auth instanceof NextResponse) return auth;
+
+    if (!contractId) {
+      return NextResponse.json({ error: 'Falta contractId' }, { status: 400 });
     }
 
     const db = getAdminDb();

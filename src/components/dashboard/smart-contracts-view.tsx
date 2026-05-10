@@ -23,6 +23,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { authedFetch } from '@/lib/authed-fetch';
 import { writePropertyEvent } from '@/lib/property-events';
 import { batchRentAdjustment, type BatchRentAdjustmentResult, type BatchAdjustmentLine } from '@/ai/flows/batch-rent-adjustment-flow';
 import { richCommunication } from '@/ai/flows/rich-communication-flow';
@@ -138,9 +139,8 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
     if (!contract || !userId) return;
     setNotarizing(true);
     try {
-      const res = await fetch('/api/notarize', {
+      const res = await authedFetch('/api/notarize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId: userId, contractId: contract.id }),
       });
       const data = await res.json();

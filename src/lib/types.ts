@@ -338,6 +338,30 @@ export interface PaymentPlan {
   createdAt: string;
 }
 
+export type NotificationType =
+  | 'maintenance_approved'
+  | 'maintenance_rejected'
+  | 'invoice_paid'
+  | 'invoice_overdue'
+  | 'contract_expiring'
+  | 'contract_expired'
+  | 'liquidation_ready'
+  | 'tenant_request'
+  | 'system';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  createdAt: string;       // ISO
+  read: boolean;
+  /** Referencia al recurso que disparó la notif (id de propiedad / contrato / factura). */
+  refId?: string;
+  /** Vista a navegar al click (ej: 'liquidaciones', 'contratos'). */
+  link?: string;
+}
+
 export interface LegalCase {
   id: string;
   type: string;

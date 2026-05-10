@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrInitBillingState, calculateCurrentTier } from '@/lib/billing/state';
 import { getTierById } from '@/lib/billing';
+import { requireSessionForAdmin } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,9 +13,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const adminId = req.nextUrl.searchParams.get('adminId');
-    if (!adminId) {
-      return NextResponse.json({ error: 'Falta adminId' }, { status: 400 });
-    }
+
+    const auth = await requireSessionForAdmin(req, adminId);
+    if (auth instanceof NextResponse) return auth;
 
     const state = await getOrInitBillingState(adminId);
     const { tier: shouldBeTier, activeUnits } = await calculateCurrentTier(adminId);

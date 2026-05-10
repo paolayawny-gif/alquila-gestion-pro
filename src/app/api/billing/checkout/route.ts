@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBillingProvider } from '@/lib/billing';
 import { calculateCurrentTier, updateBillingState, setSubscriptionLookup, getOrInitBillingState } from '@/lib/billing/state';
+import { requireSessionForAdmin } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,8 +15,12 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const { adminId, adminEmail } = (await req.json()) as { adminId: string; adminEmail: string };
-    if (!adminId || !adminEmail) {
-      return NextResponse.json({ error: 'Faltan parámetros (adminId, adminEmail)' }, { status: 400 });
+
+    const auth = await requireSessionForAdmin(req, adminId);
+    if (auth instanceof NextResponse) return auth;
+
+    if (!adminEmail) {
+      return NextResponse.json({ error: 'Falta adminEmail' }, { status: 400 });
     }
 
     await getOrInitBillingState(adminId);

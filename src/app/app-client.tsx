@@ -77,6 +77,7 @@ import { MarketplaceView } from '@/components/dashboard/marketplace-view';
 import { CentroLiquidacionesView } from '@/components/dashboard/centro-liquidaciones-view';
 import { AdminSettingsView } from '@/components/dashboard/admin-settings-view';
 import { HelpView } from '@/components/dashboard/help-view';
+import { NotificationBell } from '@/components/ui/notification-bell';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -95,6 +96,7 @@ import {
 import { signOut } from 'firebase/auth';
 import { collection, query, doc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { createNotification } from '@/lib/notifications';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink } from '@/lib/types';
 import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
 import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal';
@@ -345,6 +347,48 @@ export default function AppClient() {
         contractId:   contract.id,
       };
       setDocumentNonBlocking(ref, entry, { merge: true });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contracts.length, db, user?.uid]);
+
+  // ── Auto-actualizar status de contratos según fecha de vencimiento ────────
+  useEffect(() => {
+    if (!db || !user?.uid || !contracts.length) return;
+    const now = new Date();
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    contracts.forEach(contract => {
+      if (!contract.endDate) return;
+      if (contract.status === 'Finalizado' || contract.status === 'Rescindido') return;
+      const end = new Date(contract.endDate);
+      if (isNaN(end.getTime())) return;
+      let nextStatus: typeof contract.status | null = null;
+      let notifInput: { type: 'contract_expiring' | 'contract_expired'; title: string; message: string } | null = null;
+      if (end < now && contract.status !== 'Finalizado') {
+        nextStatus = 'Finalizado';
+        notifInput = {
+          type: 'contract_expired',
+          title: 'Contrato vencido',
+          message: `El contrato de ${contract.tenantName ?? 'inquilino'} en ${contract.propertyName ?? 'la propiedad'} venció el ${end.toLocaleDateString('es-AR')}.`,
+        };
+      } else if (end <= in30Days && contract.status === 'Vigente') {
+        nextStatus = 'Próximo a Vencer';
+        notifInput = {
+          type: 'contract_expiring',
+          title: 'Contrato próximo a vencer',
+          message: `El contrato de ${contract.tenantName ?? 'inquilino'} en ${contract.propertyName ?? 'la propiedad'} vence el ${end.toLocaleDateString('es-AR')}.`,
+        };
+      }
+      if (nextStatus && nextStatus !== contract.status) {
+        const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos', contract.id);
+        setDocumentNonBlocking(ref, { status: nextStatus }, { merge: true });
+        if (notifInput) {
+          createNotification(db, user.uid, {
+            ...notifInput,
+            refId: contract.id,
+            link: 'Contratos',
+          });
+        }
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts.length, db, user?.uid]);
@@ -626,12 +670,13 @@ export default function AppClient() {
                 <span>{orgCtx.role}</span>
               </div>
             )}
-            <button className="relative h-9 w-9 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              {(tasks.filter(t => t.priority === 'Urgente' && t.status !== 'Cerrado').length > 0) && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
-              )}
-            </button>
+            <NotificationBell
+              userId={user?.uid}
+              onNavigate={(link) => {
+                if (link) setActiveTab(link as Tab);
+              }}
+            />
+
             <div className="flex flex-col items-end hidden sm:flex">
               <span className="text-xs font-bold text-foreground">{user?.email}</span>
               <span className="text-[10px] text-muted-foreground">

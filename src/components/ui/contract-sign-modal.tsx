@@ -13,6 +13,7 @@ import { SignaturePad } from '@/components/ui/signature-pad';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Contract, SignerRole } from '@/lib/types';
+import { authedFetch } from '@/lib/authed-fetch';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,9 +140,8 @@ export function ContractSignModal({
       const hashInput = `${contract.id}|${contract.tenantEmail}|${contract.propertyId}|${contract.startDate}|${contract.endDate}|${contract.baseRentAmount}|${contract.currency}`;
       const documentHash = await sha256(hashInput);
 
-      const res = await fetch('/api/signature', {
+      const res = await authedFetch('/api/signature', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           adminId,
           contractId: contract.id,

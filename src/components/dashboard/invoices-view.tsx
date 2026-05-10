@@ -48,6 +48,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { sendEmail } from '@/services/email-service';
@@ -986,9 +987,18 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
                       )}
                       
                       {canDelete && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id)); }}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton
+                          trigger={
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          }
+                          title="Eliminar factura"
+                          itemName={`${i.tenantName} • ${i.period}`}
+                          description={<p>Si esta factura ya fue cobrada, eliminarla romperá la trazabilidad fiscal.</p>}
+                          blockedReason={i.status === 'Pagado' ? 'No se puede eliminar una factura ya pagada. Anulala en su lugar.' : null}
+                          onConfirm={() => { if (userId && db) deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', i.id)); }}
+                        />
                       )}
                     </div>
                   </TableCell>

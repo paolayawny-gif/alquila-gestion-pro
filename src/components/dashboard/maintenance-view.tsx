@@ -50,6 +50,7 @@ import { useFirestore } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -438,9 +439,18 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                       <Settings2 className="h-3.5 w-3.5" /> Gestionar
                     </Button>
                     {canDelete && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteTicket(t.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton
+                        trigger={
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        }
+                        title="Eliminar tarea de mantenimiento"
+                        itemName={t.concept}
+                        description={<p>Si esta tarea fue aprobada por el propietario y ya se descontó en una liquidación, eliminarla puede romper auditorías.</p>}
+                        blockedReason={t.isApprovedByOwner && t.status === 'Cerrado' ? 'Esta tarea ya fue aprobada y cerrada (puede haber sido deducida en liquidación). No se recomienda eliminar.' : null}
+                        onConfirm={() => handleDeleteTicket(t.id)}
+                      />
                     )}
                   </div>
                 </TableCell>

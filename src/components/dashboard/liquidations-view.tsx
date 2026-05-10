@@ -36,12 +36,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Separator } from '@/components/ui/separator';
+import { formatCurrency, normalizePhoneForWhatsApp } from '@/lib/format';
+import { calculateLiquidationNet, recalculateNetWithInterest, computeLiquidationFromSources } from '@/lib/calculations/liquidation';
 
 interface LiquidationsViewProps {
   liquidations: Liquidation[];
@@ -95,24 +98,24 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
     if (!interestDialog || !userId || !db) return;
     const amount = parseFloat(interestInput.replace(',', '.')) || 0;
     const l = interestDialog.liq;
-    const newNet = l.ingresoAlquiler - l.adminFeeDeduction - l.expenseDeductions - l.maintenanceDeductions + amount;
+    const newNet = recalculateNetWithInterest(l, amount);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', l.id);
     setDocumentNonBlocking(docRef, { interestAmount: amount, netAmount: newNet }, { merge: true });
     setInterestDialog(null);
     setInterestInput('');
-    toast({ title: 'Intereses registrados', description: `+$${amount.toLocaleString('es-AR')} sumados al neto de ${l.propertyName}.` });
+    toast({ title: 'Intereses registrados', description: `+${formatCurrency(amount)} sumados al neto de ${l.propertyName}.` });
   };
 
   const buildWhatsAppLink = (l: Liquidation) => {
-    const interests = l.interestAmount ? `\n➕ *Intereses mes ant.:* $${l.interestAmount.toLocaleString('es-AR')}` : '';
-    const msg = `*Liquidación ${l.period} — ${l.propertyName}*\n\nAlquiler bruto: $${l.ingresoAlquiler.toLocaleString('es-AR')}\nHonorarios admin: -$${l.adminFeeDeduction.toLocaleString('es-AR')}\nServicios/impuestos: -$${l.expenseDeductions.toLocaleString('es-AR')}\nReparaciones: -$${l.maintenanceDeductions.toLocaleString('es-AR')}${interests}\n────────────────\n💰 *Neto a transferir: $${l.netAmount.toLocaleString('es-AR')}*\n\nAlquilaGestión Pro`;
-    const phone = l.ownerPhone?.replace(/\D/g, '');
-    return `https://wa.me/${phone ? `54${phone.replace(/^0/, '')}` : ''}?text=${encodeURIComponent(msg)}`;
+    const interests = l.interestAmount ? `\n➕ *Intereses mes ant.:* ${formatCurrency(l.interestAmount)}` : '';
+    const msg = `*Liquidación ${l.period} — ${l.propertyName}*\n\nAlquiler bruto: ${formatCurrency(l.ingresoAlquiler)}\nHonorarios admin: -${formatCurrency(l.adminFeeDeduction)}\nServicios/impuestos: -${formatCurrency(l.expenseDeductions)}\nReparaciones: -${formatCurrency(l.maintenanceDeductions)}${interests}\n────────────────\n💰 *Neto a transferir: ${formatCurrency(l.netAmount)}*\n\nAlquilaGestión Pro`;
+    const phone = normalizePhoneForWhatsApp(l.ownerPhone);
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   };
 
   const buildMailtoLink = (l: Liquidation) => {
-    const interests = l.interestAmount ? `\nIntereses mes ant.: +$${l.interestAmount.toLocaleString('es-AR')}` : '';
-    const body = `Estimado/a ${l.ownerName},\n\nAdjunto el detalle de su liquidación correspondiente a ${l.period}:\n\nPropiedad: ${l.propertyName}\nAlquiler bruto: $${l.ingresoAlquiler.toLocaleString('es-AR')}\nHonorarios admin (10%): -$${l.adminFeeDeduction.toLocaleString('es-AR')}\nServicios/impuestos: -$${l.expenseDeductions.toLocaleString('es-AR')}\nReparaciones: -$${l.maintenanceDeductions.toLocaleString('es-AR')}${interests}\n\nNeto a transferir: $${l.netAmount.toLocaleString('es-AR')}\n\nSaludos,\nAlquilaGestión Pro`;
+    const interests = l.interestAmount ? `\nIntereses mes ant.: +${formatCurrency(l.interestAmount)}` : '';
+    const body = `Estimado/a ${l.ownerName},\n\nAdjunto el detalle de su liquidación correspondiente a ${l.period}:\n\nPropiedad: ${l.propertyName}\nAlquiler bruto: ${formatCurrency(l.ingresoAlquiler)}\nHonorarios admin (10%): -${formatCurrency(l.adminFeeDeduction)}\nServicios/impuestos: -${formatCurrency(l.expenseDeductions)}\nReparaciones: -${formatCurrency(l.maintenanceDeductions)}${interests}\n\nNeto a transferir: ${formatCurrency(l.netAmount)}\n\nSaludos,\nAlquilaGestión Pro`;
     return `mailto:${l.ownerEmail || ''}?subject=${encodeURIComponent(`Liquidación ${l.period} — ${l.propertyName}`)}&body=${encodeURIComponent(body)}`;
   };
 
@@ -135,6 +138,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
 
     let totalDeductions = 0;
     let generated = 0;
+    const skipped: string[] = [];
 
     selectedPropIds.forEach(propId => {
       const property = properties.find(p => p.id === propId);
@@ -143,29 +147,18 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       const ownerPerson = people.find(p => p.id === property.owners?.[0]?.ownerId);
       const owner = ownerPerson || { id: 'dueño-ext', fullName: property.owners?.[0]?.name || 'Propietario', phone: '' };
 
-      const propInvoices = invoices.filter(i => i.propertyName === property.name && i.period === period);
-
-      let rentIncome = 0;
-      let serviceDeductions = 0;
-
-      propInvoices.forEach(inv => {
-        inv.charges.forEach(charge => {
-          if (charge.type === 'Alquiler') rentIncome += charge.amount;
-          if (charge.imputedTo === 'Propietario') serviceDeductions += charge.amount;
-        });
+      const calc = computeLiquidationFromSources({
+        property: { id: property.id, name: property.name },
+        period,
+        invoices,
+        tasks,
       });
 
-      const approvedRepairs = tasks.filter(t =>
-        t.propertyId === propId &&
-        t.chargedTo === 'Propietario' &&
-        t.isApprovedByOwner === true &&
-        t.status === 'Cerrado'
-      );
-
-      const maintenanceDeductions = approvedRepairs.reduce((acc, t) => acc + (t.actualCost || 0), 0);
-
-      const adminFee = rentIncome * 0.1;
-      const net = rentIncome - adminFee - serviceDeductions - maintenanceDeductions;
+      // Saltar propiedades sin datos del período: nada que liquidar
+      if (!calc.hasData) {
+        skipped.push(property.name);
+        return;
+      }
 
       const docId = Math.random().toString(36).substr(2, 9);
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', docId);
@@ -179,27 +172,40 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
         ownerEmail: property.owners?.[0]?.email,
         ownerPhone: ownerPerson?.phone,
         period: period,
-        ingresoAlquiler: rentIncome,
-        adminFeeDeduction: adminFee,
-        maintenanceDeductions: maintenanceDeductions,
-        expenseDeductions: serviceDeductions,
+        ingresoAlquiler: calc.rentIncome,
+        adminFeeDeduction: calc.adminFee,
+        maintenanceDeductions: calc.maintenanceDeductions,
+        expenseDeductions: calc.serviceDeductions,
         interestAmount: 0,
-        netAmount: net,
+        netAmount: calc.netAmount,
         status: 'Pendiente',
         dateCreated: new Date().toLocaleDateString('es-AR')
       };
 
       setDocumentNonBlocking(docRef, liqData, { merge: true });
-      totalDeductions += serviceDeductions + maintenanceDeductions;
+      totalDeductions += calc.serviceDeductions + calc.maintenanceDeductions;
       generated += 1;
     });
 
     setIsNewLiqOpen(false);
     setSelectedPropIds([]);
     setPropSearch('');
+
+    if (generated === 0) {
+      toast({
+        title: 'No se generó ninguna liquidación',
+        description: `Las ${selectedPropIds.length} unidades seleccionadas no tienen facturas ni mantenimientos cargados para "${period}".`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const skipNote = skipped.length > 0
+      ? ` (${skipped.length} omitida${skipped.length > 1 ? 's' : ''} por falta de datos)`
+      : '';
     toast({
-      title: generated > 1 ? `${generated} Liquidaciones Generadas` : "Liquidación Generada",
-      description: `Deducciones totales aplicadas: $${totalDeductions.toLocaleString('es-AR')}.`
+      title: generated > 1 ? `${generated} Liquidaciones Generadas` : 'Liquidación Generada',
+      description: `Deducciones totales aplicadas: ${formatCurrency(totalDeductions)}.${skipNote}`,
     });
   };
 
@@ -382,7 +388,16 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                       onClick={() => window.open(buildMailtoLink(l), '_blank')}
                     ><Mail className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Recibo"><Download className="h-4 w-4" /></Button>
-                    {canDelete && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(l.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    {canDelete && (
+                      <ConfirmDeleteButton
+                        trigger={<Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>}
+                        title="Eliminar liquidación"
+                        itemName={`${l.ownerName} • ${l.period}`}
+                        description={<p>La liquidación se podrá regenerar después, pero los intereses y ajustes manuales se perderán.</p>}
+                        blockedReason={l.status === 'Pagada' ? 'No se puede eliminar una liquidación ya pagada.' : null}
+                        onConfirm={() => handleDelete(l.id)}
+                      />
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

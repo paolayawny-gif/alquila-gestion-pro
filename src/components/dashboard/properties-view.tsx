@@ -23,11 +23,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { PhotoUpload } from '@/components/ui/photo-upload';
-import { doc } from 'firebase/firestore';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
+import { doc, collection, query, where } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { PropertyTimeline } from '@/components/ui/property-timeline';
@@ -43,6 +44,26 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
+
+  // Cuento dependencias de cada propiedad para bloquear deletes peligrosos
+  const contractsQ = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'contratos'), where('status', '==', 'Vigente'));
+  }, [db, userId]);
+  const { data: vigentesData } = useCollection<{ propertyId: string }>(contractsQ);
+  const vigentesByProp = useMemo(() => {
+    const map = new Map<string, number>();
+    (vigentesData ?? []).forEach(c => map.set(c.propertyId, (map.get(c.propertyId) ?? 0) + 1));
+    return map;
+  }, [vigentesData]);
+
+  const getDeleteBlocker = (p: Property): string | null => {
+    const vigentes = vigentesByProp.get(p.id) ?? 0;
+    if (vigentes > 0) {
+      return `Esta propiedad tiene ${vigentes} contrato${vigentes > 1 ? 's' : ''} vigente${vigentes > 1 ? 's' : ''}. Finalizalo${vigentes > 1 ? 's' : ''} antes de eliminar.`;
+    }
+    return null;
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'available' | 'maintenance'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -677,9 +698,18 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                       </Button>
                     )}
                     {canDelete && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(p.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton
+                        trigger={
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        }
+                        title="Eliminar propiedad"
+                        itemName={p.name}
+                        description={<p>Se eliminará la propiedad y todos sus datos asociados (no se puede deshacer).</p>}
+                        blockedReason={getDeleteBlocker(p)}
+                        onConfirm={() => handleDelete(p.id)}
+                      />
                     )}
                   </div>
                 </TableCell>

@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { createNotification } from '@/lib/notifications';
 import { useToast } from '@/hooks/use-toast';
 import { OwnerRegistryEntry } from './owner-portal';
 import { MaintenanceTask } from '@/lib/types';
@@ -75,6 +76,16 @@ export function OwnerMaintenanceApprovals({ ownerEntry }: OwnerMaintenanceApprov
       ownerComment: comment.trim() || '',
       updatedAt: new Date().toISOString(),
     }, { merge: true });
+
+    // Notificar al admin que el propietario respondió
+    createNotification(db, ownerEntry.adminId, {
+      type: approve ? 'maintenance_approved' : 'maintenance_rejected',
+      title: approve ? 'Mantenimiento aprobado' : 'Mantenimiento rechazado',
+      message: `${ownerEntry.ownerName ?? 'Propietario'} ${approve ? 'aprobó' : 'rechazó'} la tarea "${task.concept}"${comment.trim() ? `: "${comment.trim().slice(0, 80)}"` : ''}.`,
+      refId: task.id,
+      link: 'Mantenimiento',
+    });
+
     toast({
       title: approve ? '✅ Tarea aprobada' : '❌ Tarea rechazada',
       description: 'Tu respuesta fue registrada. La administración fue notificada.',

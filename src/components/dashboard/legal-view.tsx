@@ -35,6 +35,7 @@ import { situacionLabel, situacionColor } from '@/lib/bcra-utils';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Progress } from '@/components/ui/progress';
 
 interface LegalViewProps {
@@ -487,9 +488,18 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
                             </Select>
                           )}
                           {canDelete && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-current opacity-50 hover:opacity-100" onClick={() => handleDelete(c.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <ConfirmDeleteButton
+                              trigger={
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-current opacity-50 hover:opacity-100">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              }
+                              title="Eliminar caso legal"
+                              itemName={`${c.tenantName ?? 'Inquilino'} • ${c.type}`}
+                              description={<p>Si este caso tiene plan de pago activo o reclamos en curso, eliminarlo puede afectar la cobranza.</p>}
+                              blockedReason={c.status !== 'Cerrado' ? `Este caso está "${c.status}". Cambialo a "Cerrado" antes de eliminar.` : null}
+                              onConfirm={() => handleDelete(c.id)}
+                            />
                           )}
                         </div>
                       </div>
