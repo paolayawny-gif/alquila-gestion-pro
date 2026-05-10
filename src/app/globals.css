@@ -32,6 +32,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 222 35% 9%;
     --foreground: 210 20% 95%;
     --card: 222 30% 13%;
@@ -88,6 +89,14 @@
 
   .bottom-nav-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* Números alineados en tablas */
+  td.text-right, th.text-right {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Headings balanceados */
+  h1, h2, h3 {
+    text-wrap: balance;
   }
 }
 /* TipTap editor prose styles */

@@ -823,7 +823,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por inquilino, unidad o período..." className="pl-9 h-9 border bg-muted/30 text-sm" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
+            <Input placeholder="Buscar por inquilino, unidad o período…" aria-label="Buscar facturas" className="pl-9 h-9 border bg-muted/30 text-sm" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
           </div>
           <Select value={filterProperty || 'all'} onValueChange={v => setFilterProperty(v === 'all' ? '' : v)}>
             <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue placeholder="Todas las propiedades" /></SelectTrigger>
@@ -845,9 +845,9 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
             </SelectContent>
           </Select>
           <div className="flex items-center gap-1">
-            <Input type="date" className="h-9 text-sm w-[140px]" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} title="Vencimiento desde" />
+            <Input type="date" className="h-9 text-sm w-[140px]" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} aria-label="Vencimiento desde" />
             <span className="text-xs text-muted-foreground">–</span>
-            <Input type="date" className="h-9 text-sm w-[140px]" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} title="Vencimiento hasta" />
+            <Input type="date" className="h-9 text-sm w-[140px]" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} aria-label="Vencimiento hasta" />
           </div>
           {(filterSearch || filterProperty || filterStatus || filterDateFrom || filterDateTo) && (
             <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => { setFilterSearch(''); setFilterProperty(''); setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo(''); }}>

@@ -27,6 +27,7 @@ export function ThemeToggle() {
           <button
             key={value}
             title={label}
+            aria-label={label}
             onClick={() => setTheme(value)}
             className={cn(
               'h-7 w-7 rounded-full flex items-center justify-center transition-all duration-200',
