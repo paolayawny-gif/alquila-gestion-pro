@@ -190,12 +190,12 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
               </Button>
             </DialogTrigger>
           )}
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="max-w-md flex flex-col max-h-[90vh]">
+            <DialogHeader className="shrink-0">
               <DialogTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-primary" /> Liquidación Mensual</DialogTitle>
               <DialogDescription>El sistema aplicará deducciones bajo reglas estrictas de responsabilidad.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
+            <div className="space-y-4 pt-4 overflow-y-auto flex-1 pr-1">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Propiedades / Unidades</Label>
@@ -223,7 +223,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                       {allFilteredSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
                     </span>
                   </label>
-                  <ScrollArea className="h-48">
+                  <ScrollArea className="h-36">
                     {filteredProperties.length === 0 ? (
                       <div className="text-center py-6 text-xs text-muted-foreground italic">
                         Sin coincidencias.
@@ -269,7 +269,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                 </div>
               </div>
             </div>
-            <DialogFooter className="mt-4">
+            <DialogFooter className="mt-4 shrink-0">
               <Button
                 className="w-full h-11 font-black"
                 onClick={handleCreateLiq}
