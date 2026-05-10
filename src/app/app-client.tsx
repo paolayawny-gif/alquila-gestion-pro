@@ -602,7 +602,7 @@ export default function AppClient() {
           {!isSidebarCollapsed ? (
             <div className="flex items-center gap-3 overflow-hidden">
               {/* Ícono cuadrado: casa + barras + tendencia */}
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0" aria-hidden="true">
                 <rect width="36" height="36" rx="9" fill="#1D9E75"/>
                 {/* Techo */}
                 <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -629,7 +629,7 @@ export default function AppClient() {
               </div>
             </div>
           ) : (
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto">
+            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto" aria-hidden="true">
               <rect width="36" height="36" rx="9" fill="#1D9E75"/>
               <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
               <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
