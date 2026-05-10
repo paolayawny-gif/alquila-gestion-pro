@@ -825,17 +825,17 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar por inquilino, unidad o período..." className="pl-9 h-9 border bg-muted/30 text-sm" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
           </div>
-          <Select value={filterProperty} onValueChange={setFilterProperty}>
+          <Select value={filterProperty || 'all'} onValueChange={v => setFilterProperty(v === 'all' ? '' : v)}>
             <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue placeholder="Todas las propiedades" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todas las propiedades</SelectItem>
+              <SelectItem value="all">Todas las propiedades</SelectItem>
               {properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+          <Select value={filterStatus || 'all'} onValueChange={(v: any) => setFilterStatus(v === 'all' ? '' : v)}>
             <SelectTrigger className="h-9 w-[160px] text-sm"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos los estados</SelectItem>
+              <SelectItem value="all">Todos los estados</SelectItem>
               <SelectItem value="Pendiente">Pendiente</SelectItem>
               <SelectItem value="Pagado">Pagado</SelectItem>
               <SelectItem value="Vencido">Vencido</SelectItem>
