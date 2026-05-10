@@ -101,3 +101,30 @@ export function normalizePhoneForWhatsApp(phone: string | null | undefined): str
   if (!p.startsWith('54')) p = '54' + p;
   return p;
 }
+
+/**
+ * Normaliza una dirección de calle argentina:
+ * - Capitaliza cada palabra principal
+ * - Elimina espacios dobles y caracteres extraños
+ * - Estandariza abreviaciones comunes (Av. / Avda. → Av., Bv. → Bv.)
+ * - No modifica números de puerta
+ */
+export function normalizeAddress(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const ABBR: [RegExp, string][] = [
+    [/\bAvda?\b\.?/gi,    'Av.'],
+    [/\bBvard?\b\.?/gi,   'Bv.'],
+    [/\bCalle\b/gi,       'Calle'],
+    [/\bPassaje\b/gi,     'Pasaje'],
+    [/\bDto\.?/gi,        'Dpto.'],
+    [/\bDepto\.?/gi,      'Dpto.'],
+    [/\bPiso\b/gi,        'Piso'],
+  ];
+  let s = raw.trim().replace(/\s+/g, ' ');
+  // Capitalize each word, preserving numbers
+  s = s.replace(/\b([a-záéíóúüñ]+)/gi, (w) =>
+    w.length > 2 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase(),
+  );
+  for (const [re, rep] of ABBR) s = s.replace(re, rep);
+  return s;
+}

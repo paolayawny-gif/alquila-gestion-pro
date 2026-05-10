@@ -79,6 +79,22 @@ interface TenantsViewProps {
 
 const APP_ID = "alquilagestion-pro";
 
+function contractRiskBadge(c: Contract): React.ReactNode {
+  if (c.status === 'Finalizado' || c.status === 'Rescindido' || c.status === 'Borrador') return null;
+  const end = new Date(c.endDate);
+  const days = (end.getTime() - Date.now()) / 86_400_000;
+  if (days < 0) {
+    return <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">⚠ Vencido</span>;
+  }
+  if (days <= 30) {
+    return <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">🔴 {Math.round(days)}d</span>;
+  }
+  if (days <= 60) {
+    return <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">🟡 {Math.round(days)}d</span>;
+  }
+  return <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">🟢 OK</span>;
+}
+
 /** Converts YYYY-MM-DD → DD/MM/YYYY for display */
 function formatDateDisplay(dateStr: string): string {
   if (!dateStr) return '';
@@ -502,6 +518,22 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       toast({ title: "Falta seleccionar la Propiedad", description: "Andá a la pestaña 'Datos Generales' y elegí la propiedad.", variant: "destructive" });
       return;
     }
+    if (!contractFormData.startDate) {
+      toast({ title: "Falta la fecha de inicio", description: "Completá la fecha de inicio del contrato antes de guardar.", variant: "destructive" });
+      return;
+    }
+    if (!contractFormData.endDate) {
+      toast({ title: "Falta la fecha de fin", description: "Completá la fecha de finalización del contrato antes de guardar.", variant: "destructive" });
+      return;
+    }
+    if (new Date(contractFormData.endDate) <= new Date(contractFormData.startDate)) {
+      toast({ title: "Fechas inválidas", description: "La fecha de fin debe ser posterior a la fecha de inicio.", variant: "destructive" });
+      return;
+    }
+    if (!contractFormData.baseRentAmount || contractFormData.baseRentAmount <= 0) {
+      toast({ title: "Falta el monto de alquiler", description: "Ingresá el monto base de alquiler antes de guardar.", variant: "destructive" });
+      return;
+    }
 
     const tenant = people.find(p => p.id === contractFormData.tenantId);
     const property = properties.find(p => p.id === contractFormData.propertyId);
@@ -534,6 +566,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       documents: documentsSafe,
       fullTranscription,
       ownerId: userId,
+      ...(editingContract ? { updatedBy: userId } : { createdBy: userId }),
     } as Contract;
 
     setDocumentNonBlocking(docRef, newContract, { merge: true });
@@ -621,6 +654,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                 <div className="space-y-2">
                   <Label>Fecha de Inicio</Label>
                   <Input type="date" value={contractFormData.startDate} onChange={e => setContractFormData({...contractFormData, startDate: e.target.value})} />
+
                 </div>
                 <div className="space-y-2">
                   <Label>Duración</Label>
@@ -651,6 +685,19 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                     <p className="text-[10px] text-muted-foreground font-bold">{formatDateDisplay(contractFormData.endDate as string)}</p>
                   )}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Estado del contrato</Label>
+                <Select value={contractFormData.status} onValueChange={(v: any) => setContractFormData({...contractFormData, status: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Borrador">Borrador (sin ejecutar)</SelectItem>
+                    <SelectItem value="Vigente">Vigente</SelectItem>
+                    <SelectItem value="Próximo a Vencer">Próximo a Vencer</SelectItem>
+                    <SelectItem value="Finalizado">Finalizado</SelectItem>
+                    <SelectItem value="Rescindido">Rescindido</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </TabsContent>
             <TabsContent value="economic" className="space-y-4 pt-4">
@@ -982,9 +1029,10 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col gap-0.5">
                       <span className="text-xs font-bold">{formatDateDisplay(c.endDate)}</span>
                       <Badge variant="ghost" className="text-[8px] p-0 h-auto font-black uppercase text-muted-foreground">Estado: {c.status}</Badge>
+                      {contractRiskBadge(c)}
                     </div>
                   </TableCell>
                   <TableCell>

@@ -156,6 +156,13 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   const [receiptNote, setReceiptNote] = useState('');
   const [tempReceiptFile, setTempReceiptFile] = useState<{ url: string, name: string } | null>(null);
 
+  // ── Filtros avanzados ──────────────────────────────────────────────────────
+  const [filterSearch,   setFilterSearch]   = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo,   setFilterDateTo]   = useState('');
+  const [filterProperty, setFilterProperty] = useState('');
+  const [filterStatus,   setFilterStatus]   = useState<Invoice['status'] | ''>('');
+
   const peopleQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos'));
@@ -244,6 +251,26 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
 
   const informedPayments = invoices.filter(i => i.status === 'Pago Informado');
   const ownerSubmissions = invoices.filter(i => i.isFromOwner && i.status === 'Esperando Factura ARCA');
+
+  const filteredInvoices = React.useMemo(() => {
+    return invoices.filter(i => {
+      if (filterSearch) {
+        const q = filterSearch.toLowerCase();
+        if (!i.tenantName.toLowerCase().includes(q) && !i.propertyName.toLowerCase().includes(q) && !(i.period ?? '').toLowerCase().includes(q)) return false;
+      }
+      if (filterProperty && i.propertyId !== filterProperty) return false;
+      if (filterStatus && i.status !== filterStatus) return false;
+      if (filterDateFrom && i.dueDate) {
+        const due = new Date(i.dueDate);
+        if (!isNaN(due.getTime()) && due < new Date(filterDateFrom)) return false;
+      }
+      if (filterDateTo && i.dueDate) {
+        const due = new Date(i.dueDate);
+        if (!isNaN(due.getTime()) && due > new Date(filterDateTo)) return false;
+      }
+      return true;
+    });
+  }, [invoices, filterSearch, filterProperty, filterStatus, filterDateFrom, filterDateTo]);
 
   const [manualCharge, setManualCharge] = useState({
     contractId: '',
@@ -792,13 +819,46 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         </Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border shadow-sm">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
+      <div className="flex flex-col gap-3 bg-white p-4 rounded-xl border shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar facturas..." className="pl-9 h-10 border-none bg-muted/50" />
+            <Input placeholder="Buscar por inquilino, unidad o período..." className="pl-9 h-9 border bg-muted/30 text-sm" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
           </div>
+          <Select value={filterProperty} onValueChange={setFilterProperty}>
+            <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue placeholder="Todas las propiedades" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todas las propiedades</SelectItem>
+              {properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+            <SelectTrigger className="h-9 w-[160px] text-sm"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todos los estados</SelectItem>
+              <SelectItem value="Pendiente">Pendiente</SelectItem>
+              <SelectItem value="Pagado">Pagado</SelectItem>
+              <SelectItem value="Vencido">Vencido</SelectItem>
+              <SelectItem value="Pago Informado">Pago Informado</SelectItem>
+              <SelectItem value="En Verificación con Propietario">En Verificación</SelectItem>
+              <SelectItem value="Anulado">Anulado</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1">
+            <Input type="date" className="h-9 text-sm w-[140px]" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} title="Vencimiento desde" />
+            <span className="text-xs text-muted-foreground">–</span>
+            <Input type="date" className="h-9 text-sm w-[140px]" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} title="Vencimiento hasta" />
+          </div>
+          {(filterSearch || filterProperty || filterStatus || filterDateFrom || filterDateTo) && (
+            <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => { setFilterSearch(''); setFilterProperty(''); setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo(''); }}>
+              Limpiar filtros
+            </Button>
+          )}
         </div>
+        {filteredInvoices.length !== invoices.length && (
+          <p className="text-[10px] text-muted-foreground">Mostrando {filteredInvoices.length} de {invoices.length} facturas</p>
+        )}
+        <div className="flex justify-end gap-2 w-full sm:w-auto">
         
         <div className="flex gap-2 w-full sm:w-auto">
           {canWrite && (
@@ -871,6 +931,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
           </Dialog>
         </div>
       </div>
+      </div>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         <div className="overflow-x-auto">
@@ -885,7 +946,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.map((i) => {
+            {filteredInvoices.map((i) => {
               const interest = calculateInterest(i);
               
               return (

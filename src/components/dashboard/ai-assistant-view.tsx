@@ -7,10 +7,30 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Copy, Send, Sparkles, MessageSquareCode } from 'lucide-react';
+import { Loader2, Copy, Send, Sparkles, MessageSquareCode, Zap, ArrowRight } from 'lucide-react';
 import { aiCommunicationAssistant, AiCommunicationAssistantInput, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { sendEmail } from '@/services/email-service';
 import { useToast } from '@/hooks/use-toast';
+
+// ── Intent routing ────────────────────────────────────────────────────────────
+
+const COMMAND_INTENTS = [
+  { cmd: '/recordatorio', label: 'Recordatorio de pago',      type: 'rentReminder'           as const, hint: 'Ej: /recordatorio Carlos Sosa Depto 4B' },
+  { cmd: '/renovacion',   label: 'Aviso de renovación',       type: 'leaseRenewal'            as const, hint: 'Ej: /renovacion inquilino propiedad' },
+  { cmd: '/reporte',      label: 'Reporte al propietario',    type: 'ownerLiquidationReport'  as const, hint: 'Ej: /reporte Marta Rodríguez Torre A' },
+  { cmd: '/mensaje',      label: 'Mensaje general',           type: 'generalMessage'          as const, hint: 'Ej: /mensaje Juan sobre expensas' },
+  { cmd: '/mantenimiento',label: 'Actualización de reclamo',  type: 'maintenanceUpdate'       as const, hint: 'Ej: /mantenimiento filtración baño Depto 3' },
+];
+
+function parseIntent(text: string): { type: AiCommunicationAssistantInput['communicationType']; context: string } | null {
+  const lower = text.trim().toLowerCase();
+  for (const intent of COMMAND_INTENTS) {
+    if (lower.startsWith(intent.cmd)) {
+      return { type: intent.type, context: text.slice(intent.cmd.length).trim() };
+    }
+  }
+  return null;
+}
 
 export function AIAssistantView() {
   const { toast } = useToast();
@@ -21,6 +41,10 @@ export function AIAssistantView() {
     communicationType: 'rentReminder',
   });
   const [result, setResult] = useState<AiCommunicationAssistantOutput | null>(null);
+
+  // Command bar
+  const [cmdText, setCmdText] = useState('');
+  const [cmdResult, setCmdResult] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!input.communicationType) return;
@@ -68,8 +92,54 @@ export function AIAssistantView() {
     }
   };
 
+  const handleCommandRoute = () => {
+    const parsed = parseIntent(cmdText);
+    if (!parsed) {
+      setCmdResult('Comando no reconocido. Usá: /recordatorio, /renovacion, /reporte, /mensaje, /mantenimiento');
+      return;
+    }
+    setInput({ communicationType: parsed.type, additionalContext: parsed.context });
+    setCmdResult(`Comando detectado: "${parsed.type}". Campos pre-cargados abajo.`);
+    setCmdText('');
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
+      {/* ── Command bar ── */}
+      <Card className="border-none shadow-sm bg-white">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            <span className="text-sm font-black">Comandos rápidos</span>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              className="flex-1 font-mono text-sm"
+              placeholder="/recordatorio · /reporte · /renovacion · /mensaje · /mantenimiento"
+              value={cmdText}
+              onChange={e => setCmdText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCommandRoute()}
+            />
+            <Button size="sm" className="gap-1 bg-primary text-white" onClick={handleCommandRoute}>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+          {cmdResult && (
+            <p className={`text-[11px] font-bold px-2 py-1 rounded ${cmdResult.startsWith('Comando detectado') ? 'text-green-700 bg-green-50' : 'text-orange-700 bg-orange-50'}`}>
+              {cmdResult}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1">
+            {COMMAND_INTENTS.map(c => (
+              <button key={c.cmd} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setCmdText(c.cmd + ' ')}>
+                {c.cmd}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <Card className="shadow-sm border-none bg-white h-fit">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -203,6 +273,7 @@ export function AIAssistantView() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

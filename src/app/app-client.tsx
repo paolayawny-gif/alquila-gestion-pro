@@ -103,11 +103,12 @@ import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
+import { TimelineView } from '@/components/dashboard/timeline-view';
 import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda';
+type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -115,7 +116,8 @@ const ADMIN_MENU_GROUPS = [
   {
     section: null, // no label — solo el dashboard
     items: [
-      { id: 'Resumen', icon: LayoutDashboard, label: 'Panel de Control' },
+      { id: 'Resumen',     icon: LayoutDashboard, label: 'Panel de Control' },
+      { id: 'Cronograma',  icon: CalendarRange,   label: 'Cronograma'       },
     ],
   },
   {
@@ -368,7 +370,7 @@ export default function AppClient() {
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     contracts.forEach(contract => {
       if (!contract.endDate) return;
-      if (contract.status === 'Finalizado' || contract.status === 'Rescindido') return;
+      if (contract.status === 'Finalizado' || contract.status === 'Rescindido' || contract.status === 'Borrador') return;
       const end = new Date(contract.endDate);
       if (isNaN(end.getTime())) return;
       let nextStatus: Contract['status'] | null = null;
@@ -569,6 +571,7 @@ export default function AppClient() {
       case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} userId={user?.uid} />;
       case 'Legales': return <LegalView legalCases={legalCases} userId={user?.uid} properties={properties} />;
       case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} />;
+      case 'Cronograma': return <TimelineView contracts={contracts} invoices={invoices} tasks={tasks} liquidations={liquidations} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
       case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases} assets={monetizableAssets} userId={user?.uid} />;
       case 'Análisis IA': return <AIAnalyticsView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;

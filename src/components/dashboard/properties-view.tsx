@@ -32,6 +32,7 @@ import { doc, collection, query, where } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { PropertyTimeline } from '@/components/ui/property-timeline';
+import { normalizeAddress } from '@/lib/format';
 
 interface PropertiesViewProps {
   properties: Property[];
@@ -119,6 +120,13 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     return <Badge className={cn("border-none", styles[status])}>{status}</Badge>;
   };
 
+  const getPropertyRisk = (status: PropertyStatus) => {
+    if (status === 'Alquilada')        return <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Sin riesgo</span>;
+    if (status === 'Disponible')       return <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">🔴 Vacante</span>;
+    if (status === 'En Mantenimiento') return <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">🟡 En obra</span>;
+    return <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">🔵 Reservada</span>;
+  };
+
   const handleOpenDialog = (property?: Property) => {
     if (property) {
       setEditingProperty(property);
@@ -197,6 +205,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
       ...formData,
       id: docId,
       ownerId: userId,
+      address: normalizeAddress(formData.address),
       photos: formData.photos || [],
       amenities: formData.amenities || [],
       owners: formData.owners || []
@@ -666,7 +675,12 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                     <span className="text-[10px] text-muted-foreground uppercase">{p.usage}</span>
                   </div>
                 </TableCell>
-                <TableCell>{getStatusBadge(p.status)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-1">
+                    {getStatusBadge(p.status)}
+                    {getPropertyRisk(p.status)}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     {(p.owners || []).map((o, idx) => (
