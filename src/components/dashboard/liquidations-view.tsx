@@ -36,6 +36,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
@@ -135,6 +136,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
 
     let totalDeductions = 0;
     let generated = 0;
+    const skipped: string[] = [];
 
     selectedPropIds.forEach(propId => {
       const property = properties.find(p => p.id === propId);
@@ -163,6 +165,12 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       );
 
       const maintenanceDeductions = approvedRepairs.reduce((acc, t) => acc + (t.actualCost || 0), 0);
+
+      // Saltar propiedades sin datos del período: nada que liquidar
+      if (rentIncome === 0 && serviceDeductions === 0 && maintenanceDeductions === 0) {
+        skipped.push(property.name);
+        return;
+      }
 
       const adminFee = rentIncome * 0.1;
       const net = rentIncome - adminFee - serviceDeductions - maintenanceDeductions;
@@ -197,9 +205,22 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
     setIsNewLiqOpen(false);
     setSelectedPropIds([]);
     setPropSearch('');
+
+    if (generated === 0) {
+      toast({
+        title: 'No se generó ninguna liquidación',
+        description: `Las ${selectedPropIds.length} unidades seleccionadas no tienen facturas ni mantenimientos cargados para "${period}".`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const skipNote = skipped.length > 0
+      ? ` (${skipped.length} omitida${skipped.length > 1 ? 's' : ''} por falta de datos)`
+      : '';
     toast({
-      title: generated > 1 ? `${generated} Liquidaciones Generadas` : "Liquidación Generada",
-      description: `Deducciones totales aplicadas: $${totalDeductions.toLocaleString('es-AR')}.`
+      title: generated > 1 ? `${generated} Liquidaciones Generadas` : 'Liquidación Generada',
+      description: `Deducciones totales aplicadas: $${totalDeductions.toLocaleString('es-AR')}.${skipNote}`,
     });
   };
 
@@ -382,7 +403,16 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                       onClick={() => window.open(buildMailtoLink(l), '_blank')}
                     ><Mail className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Recibo"><Download className="h-4 w-4" /></Button>
-                    {canDelete && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(l.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    {canDelete && (
+                      <ConfirmDeleteButton
+                        trigger={<Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>}
+                        title="Eliminar liquidación"
+                        itemName={`${l.ownerName} • ${l.period}`}
+                        description={<p>La liquidación se podrá regenerar después, pero los intereses y ajustes manuales se perderán.</p>}
+                        blockedReason={l.status === 'Pagada' ? 'No se puede eliminar una liquidación ya pagada.' : null}
+                        onConfirm={() => handleDelete(l.id)}
+                      />
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
