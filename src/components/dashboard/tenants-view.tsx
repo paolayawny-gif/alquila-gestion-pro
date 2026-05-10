@@ -68,6 +68,7 @@ import { extractTextFromPdfDataUri, isPdfDataUri } from '@/lib/pdf-extract';
 import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface TenantsViewProps {
   people: Person[];
@@ -173,6 +174,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [renewalDraft, setRenewalDraft] = useState<any>(null);
   const [newRentValueInput, setNewRentValueInput] = useState<number>(0);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [personErrors, setPersonErrors] = useState<{ fullName?: string; email?: string }>({});
 
   const handleOpenPersonDialog = (person?: Person) => {
     if (person) {
@@ -189,6 +191,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         documents: []
       });
     }
+    setPersonErrors({});
     setIsPersonDialogOpen(true);
   };
 
@@ -219,10 +222,11 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   });
 
   const handleSavePerson = () => {
-    if (!personFormData.fullName || !userId || !db) {
-      toast({ title: "Error", description: "Complete los datos obligatorios.", variant: "destructive" });
-      return;
-    }
+    const errors: { fullName?: string; email?: string } = {};
+    if (!personFormData.fullName?.trim()) errors.fullName = 'El nombre es requerido.';
+    if (personFormData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personFormData.email)) errors.email = 'Email inválido.';
+    setPersonErrors(errors);
+    if (Object.keys(errors).length > 0 || !userId || !db) return;
 
     const docId = editingPerson?.id || Math.random().toString(36).substr(2, 9);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos', docId);
@@ -783,13 +787,15 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <DialogDescription>Complete los datos de contacto y fiscales.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Nombre Completo</Label>
-              <Input 
-                placeholder="Ej: Juan Pérez" 
-                value={personFormData.fullName} 
-                onChange={e => setPersonFormData({...personFormData, fullName: e.target.value})} 
+            <div className="space-y-1.5">
+              <Label>Nombre Completo *</Label>
+              <Input
+                placeholder="Ej: Juan Pérez"
+                value={personFormData.fullName}
+                onChange={e => { setPersonFormData({...personFormData, fullName: e.target.value}); if (personErrors.fullName) setPersonErrors(p => ({ ...p, fullName: undefined })); }}
+                className={personErrors.fullName ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
+              {personErrors.fullName && <p className="text-xs text-destructive">{personErrors.fullName}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -816,14 +822,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Email</Label>
-              <Input 
-                type="email" 
-                placeholder="correo@ejemplo.com" 
-                value={personFormData.email} 
-                onChange={e => setPersonFormData({...personFormData, email: e.target.value})} 
+              <Input
+                type="email"
+                placeholder="correo@ejemplo.com"
+                value={personFormData.email}
+                onChange={e => { setPersonFormData({...personFormData, email: e.target.value}); if (personErrors.email) setPersonErrors(p => ({ ...p, email: undefined })); }}
+                className={personErrors.email ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
+              {personErrors.email && <p className="text-xs text-destructive">{personErrors.email}</p>}
             </div>
             <div className="space-y-2">
               <Label>Teléfono</Label>
@@ -1128,7 +1136,17 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                   </TableCell>
                 </TableRow>
               ))}
-              {people.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">No hay personas registradas.</TableCell></TableRow>}
+              {people.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>
+                    <EmptyState
+                      icon={UserPlus}
+                      title="Sin personas registradas"
+                      description="Agregá inquilinos y propietarios para asociarlos a contratos y propiedades."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
           </div>
