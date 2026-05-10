@@ -106,7 +106,7 @@ function SuggestionCard({
   return (
     <Card
       className={cn(
-        'border-none shadow-sm transition-all',
+        'border-none shadow-sm transition-colors',
         isReplied ? 'bg-muted/30 opacity-60' : 'bg-white',
       )}
     >

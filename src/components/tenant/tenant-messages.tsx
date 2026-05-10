@@ -257,7 +257,7 @@ export function TenantMessages({ tenantEntry }: TenantMessagesProps) {
               onClick={handleSend}
               disabled={!messageText.trim() || isSending}
               className={cn(
-                'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all',
+                'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors',
                 messageText.trim()
                   ? 'bg-primary text-white hover:bg-primary/90 shadow-sm'
                   : 'bg-muted text-muted-foreground cursor-not-allowed',

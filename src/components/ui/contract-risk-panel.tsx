@@ -273,7 +273,7 @@ export function ContractRiskPanel({
                       )}
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={runRiskAnalysis} disabled={riskLoading}>
+                  <Button variant="ghost" size="icon" aria-label="Analizar riesgo" className="h-8 w-8 flex-shrink-0" onClick={runRiskAnalysis} disabled={riskLoading}>
                     <RefreshCw className={cn('h-3.5 w-3.5', riskLoading && 'animate-spin')} />
                   </Button>
                 </div>
@@ -367,7 +367,7 @@ export function ContractRiskPanel({
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">{consistencyData.resumen}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={runConsistencyCheck} disabled={consistencyLoading}>
+                  <Button variant="ghost" size="icon" aria-label="Verificar consistencia" className="h-8 w-8 flex-shrink-0" onClick={runConsistencyCheck} disabled={consistencyLoading}>
                     <RefreshCw className={cn('h-3.5 w-3.5', consistencyLoading && 'animate-spin')} />
                   </Button>
                 </div>
@@ -467,7 +467,7 @@ export function ContractRiskPanel({
                   <div className="flex-1">
                     <p className="text-sm text-gray-700 leading-relaxed">{marketData.dictamenGeneral}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={runMarketComparison} disabled={marketLoading}>
+                  <Button variant="ghost" size="icon" aria-label="Comparar mercado" className="h-8 w-8 flex-shrink-0" onClick={runMarketComparison} disabled={marketLoading}>
                     <RefreshCw className={cn('h-3.5 w-3.5', marketLoading && 'animate-spin')} />
                   </Button>
                 </div>

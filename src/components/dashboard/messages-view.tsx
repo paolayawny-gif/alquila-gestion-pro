@@ -755,7 +755,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                   onClick={() => handleSend()}
                   disabled={!messageText.trim() || isSending}
                   className={cn(
-                    'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all',
+                    'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors',
                     messageText.trim()
                       ? 'bg-primary text-white hover:bg-primary/90 shadow-sm'
                       : 'bg-muted text-muted-foreground cursor-not-allowed'
@@ -834,7 +834,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                       onClick={() => handleAiDraft(t)}
                       disabled={aiLoading}
                       className={cn(
-                        'flex items-center gap-1.5 text-left text-[10px] font-bold rounded-lg px-2.5 py-2 border transition-all',
+                        'flex items-center gap-1.5 text-left text-[10px] font-bold rounded-lg px-2.5 py-2 border transition-colors',
                         t.moraStep && t.moraStep >= 15
                           ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
                           : t.moraStep

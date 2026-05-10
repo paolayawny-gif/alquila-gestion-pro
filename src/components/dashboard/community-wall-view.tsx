@@ -434,7 +434,7 @@ export function CommunityWallView({ userId, userEmail, userName, propertyFilter,
                             {(isSuperAdmin || ev.creatorId === uid) && (
                               <button
                                 onClick={() => { if (!db) return; deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadEventos', ev.id)); toast({ title: 'Evento eliminado' }); }}
-                                className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+                                className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                                 <Trash2 className="h-3 w-3" />
                               </button>
                             )}
@@ -473,7 +473,7 @@ export function CommunityWallView({ userId, userEmail, userName, propertyFilter,
                 beneficios.slice(0, 5).map(b => {
                   const BIcon = BENEFIT_ICON[b.iconType] || Tag;
                   return (
-                    <div key={b.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/20 border border-border/40 hover:bg-white hover:shadow-sm transition-all group">
+                    <div key={b.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/20 border border-border/40 hover:bg-white hover:shadow-sm transition-colors group">
                       <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                         <BIcon className="h-5 w-5 text-emerald-600" />
                       </div>
@@ -483,7 +483,7 @@ export function CommunityWallView({ userId, userEmail, userName, propertyFilter,
                           {(isSuperAdmin || b.adminId === uid) && (
                             <button
                               onClick={() => { if (!db) return; deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadBeneficios', b.id)); toast({ title: 'Beneficio eliminado' }); }}
-                              className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all shrink-0">
+                              className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0">
                               <Trash2 className="h-3 w-3" />
                             </button>
                           )}
@@ -535,7 +535,7 @@ export function CommunityWallView({ userId, userEmail, userName, propertyFilter,
                 { type: 'beneficio' as const, icon: Tag,         label: 'Beneficio',       sub: 'Para todos los vecinos', color: 'amber', adminOnly: true },
               ].filter(t => !t.adminOnly || canWrite).map(({ type, icon: Icon, label, sub, color }) => (
                 <button key={type} onClick={() => setNewType(type)}
-                  className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-emerald-400 hover:bg-emerald-50/30 transition-all text-center">
+                  className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors text-center">
                   <div className={cn('h-12 w-12 rounded-xl flex items-center justify-center', `bg-${color}-50`)}>
                     <Icon className={cn('h-6 w-6', `text-${color}-600`)} />
                   </div>

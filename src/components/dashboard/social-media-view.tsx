@@ -377,7 +377,7 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
                           key={n.id} type="button"
                           onClick={() => toggleNet(n.id)}
                           className={cn(
-                            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all',
+                            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
                             targetNets.includes(n.id)
                               ? 'border-primary bg-primary/10 text-primary'
                               : 'border-muted text-muted-foreground hover:border-primary/40'
@@ -407,7 +407,7 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
                     />
                     <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
                       <div
-                        className={cn('h-full rounded-full transition-all', charPct > 90 ? 'bg-red-500' : charPct > 70 ? 'bg-orange-400' : 'bg-primary')}
+                        className={cn('h-full rounded-full transition-colors', charPct > 90 ? 'bg-red-500' : charPct > 70 ? 'bg-orange-400' : 'bg-primary')}
                         style={{ width: `${charPct}%` }}
                       />
                     </div>
@@ -519,7 +519,7 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
             {canWrite && (
               <Dialog open={isLinkOpen} onOpenChange={setIsLinkOpen}>
                 <DialogTrigger asChild>
-                  <Button size="icon" variant="outline" className="h-7 w-7"><Plus className="h-3.5 w-3.5" /></Button>
+                  <Button size="icon" variant="outline" aria-label="Agregar" className="h-7 w-7"><Plus className="h-3.5 w-3.5" aria-hidden="true" /></Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-sm">
                   <DialogHeader><DialogTitle>Agregar red social o página</DialogTitle></DialogHeader>
@@ -570,7 +570,7 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
               networkLinks.map(link => {
                 const nc = NETWORKS.find(n => n.id === link.network);
                 return (
-                  <div key={link.id} className="flex items-center gap-2 p-2.5 rounded-xl border bg-gray-50/60 hover:bg-white hover:border-primary/30 transition-all group">
+                  <div key={link.id} className="flex items-center gap-2 p-2.5 rounded-xl border bg-gray-50/60 hover:bg-white hover:border-primary/30 transition-colors group">
                     <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center text-white flex-shrink-0', nc?.bg ?? 'bg-gray-500')}>
                       {nc?.icon ?? <Globe className="h-4 w-4" />}
                     </div>

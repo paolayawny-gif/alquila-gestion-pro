@@ -293,7 +293,7 @@ export function SummaryView({
               </span>
             </div>
             <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className={cn('h-full rounded-full transition-all', advancedKpis.collectionRate >= 80 ? 'bg-green-500' : advancedKpis.collectionRate >= 60 ? 'bg-orange-400' : 'bg-red-500')}
+              <div className={cn('h-full rounded-full transition-colors', advancedKpis.collectionRate >= 80 ? 'bg-green-500' : advancedKpis.collectionRate >= 60 ? 'bg-orange-400' : 'bg-red-500')}
                 style={{ width: `${advancedKpis.collectionRate}%` }} />
             </div>
             <p className="text-[9px] text-muted-foreground mt-1.5">{invoices.filter(i => i.status === 'Pagado').length} de {invoices.length} facturas</p>
@@ -326,7 +326,7 @@ export function SummaryView({
               <span className="text-[10px] text-muted-foreground">/100</span>
             </div>
             <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className={cn('h-full rounded-full transition-all', advancedKpis.riskScore >= 80 ? 'bg-green-500' : advancedKpis.riskScore >= 55 ? 'bg-orange-400' : 'bg-red-500')}
+              <div className={cn('h-full rounded-full transition-colors', advancedKpis.riskScore >= 80 ? 'bg-green-500' : advancedKpis.riskScore >= 55 ? 'bg-orange-400' : 'bg-red-500')}
                 style={{ width: `${advancedKpis.riskScore}%` }} />
             </div>
             <p className={cn('text-[9px] mt-1.5 font-bold', advancedKpis.riskColor)}>{advancedKpis.riskLevel}</p>
@@ -415,7 +415,7 @@ export function SummaryView({
                 <div
                   key={alert.id}
                   className={cn(
-                    "p-3 rounded-xl border transition-all hover:bg-muted/50 flex flex-col gap-1.5",
+                    "p-3 rounded-xl border transition-colors hover:bg-muted/50 flex flex-col gap-1.5",
                     alert.severity === 'high' ? "border-red-100 bg-red-50/20" : "border-transparent bg-muted/20"
                   )}
                 >

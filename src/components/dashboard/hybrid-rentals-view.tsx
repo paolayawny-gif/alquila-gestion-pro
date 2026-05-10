@@ -241,7 +241,7 @@ export function HybridRentalsView({ properties, contracts, userId }: HybridRenta
                 const cfg = hybridConfigs.find(h => h.id === p.id);
                 return (
                   <button key={p.id} onClick={() => handleSelectProperty(p.id)}
-                    className="text-left rounded-2xl border hover:border-primary/40 hover:shadow-md transition-all p-4 bg-white group space-y-3">
+                    className="text-left rounded-2xl border hover:border-primary/40 hover:shadow-md transition-colors p-4 bg-white group space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                         {p.photos?.[0]
@@ -259,7 +259,7 @@ export function HybridRentalsView({ properties, contracts, userId }: HybridRenta
                       <p className="font-black text-sm">{p.name}</p>
                       <p className="text-[11px] text-muted-foreground truncate">{p.address}</p>
                     </div>
-                    <div className="flex items-center text-[11px] text-primary font-bold gap-1 group-hover:gap-2 transition-all">
+                    <div className="flex items-center text-[11px] text-primary font-bold gap-1 group-hover:gap-2 transition-colors">
                       Configurar <ChevronRight className="h-3.5 w-3.5" />
                     </div>
                   </button>

@@ -511,7 +511,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                         const sel = selectedTemplateId === t.id;
                         return (
                           <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); setSelectedLocadorId(''); setSelectedLocatarioId(''); setSelectedFiadorId(''); setSelectedPropiedadId(''); }}
-                            className={cn("w-full text-left p-2.5 rounded-xl border transition-all flex items-start gap-2.5",
+                            className={cn("w-full text-left p-2.5 rounded-xl border transition-colors flex items-start gap-2.5",
                               sel ? "border-primary bg-primary/5" : "border-border hover:border-primary/30 hover:bg-muted/20")}>
                             <div className={cn("p-1.5 rounded-lg shrink-0", sel ? "bg-primary/10" : "bg-muted")}>
                               <Icon className={cn("h-3.5 w-3.5", sel ? "text-primary" : "text-muted-foreground")} />
@@ -530,7 +530,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                         const sel = selectedTemplateId === t.id;
                         return (
                           <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setFieldValues({}); setSelectedLocadorId(''); setSelectedLocatarioId(''); setSelectedFiadorId(''); setSelectedPropiedadId(''); }}
-                            className={cn("w-full text-left p-2.5 rounded-xl border transition-all flex items-start gap-2.5",
+                            className={cn("w-full text-left p-2.5 rounded-xl border transition-colors flex items-start gap-2.5",
                               sel ? "border-primary bg-primary/5" : "border-border hover:border-primary/30 hover:bg-muted/20")}>
                             <div className={cn("p-1.5 rounded-lg shrink-0", sel ? "bg-primary/10" : "bg-muted")}>
                               <Icon className={cn("h-3.5 w-3.5", sel ? "text-primary" : "text-muted-foreground")} />
@@ -581,7 +581,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 </CardHeader>
                 <CardContent>
                   <div className="w-full bg-muted rounded-full h-1.5 mb-5">
-                    <div className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                    <div className="bg-primary h-1.5 rounded-full transition-colors duration-300"
                       style={{ width: `${totalCount ? (filledCount / totalCount) * 100 : 0}%` }} />
                   </div>
 

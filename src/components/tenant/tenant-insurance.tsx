@@ -148,7 +148,7 @@ export function TenantInsurance({ tenantEntry }: TenantInsuranceProps) {
                     key={opt.id}
                     onClick={() => setSelectedType(opt.id)}
                     className={cn(
-                      'text-left p-4 rounded-xl border-2 transition-all',
+                      'text-left p-4 rounded-xl border-2 transition-colors',
                       sel ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40',
                     )}
                   >

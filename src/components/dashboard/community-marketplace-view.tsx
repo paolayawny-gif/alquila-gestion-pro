@@ -655,7 +655,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
               {beneficios.slice(0, 4).map(b => {
                 const BIcon = BENEFIT_ICON[b.iconType] || Tag;
                 return (
-                  <div key={b.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/20 border border-border/40 hover:bg-white hover:shadow-sm transition-all group">
+                  <div key={b.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/20 border border-border/40 hover:bg-white hover:shadow-sm transition-colors group">
                     <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                       <BIcon className="h-5 w-5 text-emerald-600" />
                     </div>
@@ -669,7 +669,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                               deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadBeneficios', b.id));
                               toast({ title: 'Beneficio eliminado' });
                             }}
-                            className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all shrink-0"
+                            className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
@@ -744,7 +744,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                                 deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'comunidadEventos', ev.id));
                                 toast({ title: 'Evento eliminado' });
                               }}
-                              className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                              className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                               title={isSuperAdmin ? 'Eliminar (moderación)' : 'Eliminar'}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -797,7 +797,7 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                   key={type}
                   onClick={() => setNewType(type)}
                   className={cn(
-                    'flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-emerald-400 hover:bg-emerald-50/30 transition-all text-center',
+                    'flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors text-center',
                     'group'
                   )}
                 >

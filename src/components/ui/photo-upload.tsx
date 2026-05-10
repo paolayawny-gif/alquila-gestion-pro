@@ -148,7 +148,7 @@ export function PhotoUpload({
                   <Loader2 className="h-5 w-5 text-white animate-spin drop-shadow" />
                   <span className="text-[10px] font-black text-white drop-shadow">{item.progress}%</span>
                   {/* Barra */}
-                  <div className="absolute bottom-0 left-0 h-1 bg-primary transition-all" style={{ width: `${item.progress}%` }} />
+                  <div className="absolute bottom-0 left-0 h-1 bg-primary transition-colors" style={{ width: `${item.progress}%` }} />
                 </div>
               )}
             </div>
