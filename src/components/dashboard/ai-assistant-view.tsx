@@ -125,7 +125,7 @@ export function AIAssistantView() {
             </Button>
           </div>
           {cmdResult && (
-            <p className={`text-[11px] font-bold px-2 py-1 rounded ${cmdResult.startsWith('Comando detectado') ? 'text-green-700 bg-green-50' : 'text-orange-700 bg-orange-50'}`}>
+            <p className={['text-[11px] font-bold px-2 py-1 rounded', cmdResult.startsWith('Comando detectado') ? 'text-green-700 bg-green-50' : 'text-orange-700 bg-orange-50'].join(' ')}>
               {cmdResult}
             </p>
           )}

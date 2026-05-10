@@ -60,6 +60,16 @@ export function TimelineView({ contracts, invoices, tasks, liquidations = [], on
   today.setHours(0, 0, 0, 0);
 
   const [monthOffset, setMonthOffset] = useState(0);
+  const [activeTypes, setActiveTypes] = useState<Set<EventType>>(
+    new Set(['contract_end', 'invoice_due', 'maintenance', 'liquidation'])
+  );
+
+  const toggleType = (t: EventType) =>
+    setActiveTypes(prev => {
+      const next = new Set(prev);
+      next.has(t) ? next.delete(t) : next.add(t);
+      return next;
+    });
 
   const viewStart = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const viewEnd   = new Date(today.getFullYear(), today.getMonth() + monthOffset + 1, 0);
@@ -141,7 +151,21 @@ export function TimelineView({ contracts, invoices, tasks, liquidations = [], on
     return result.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [contracts, invoices, tasks, liquidations]);
 
-  const visibleEvents = events.filter(e => e.date >= viewStart && e.date <= viewEnd);
+  const visibleEvents = useMemo(
+    () => events.filter(e => e.date >= viewStart && e.date <= viewEnd && activeTypes.has(e.type)),
+    [events, viewStart, viewEnd, activeTypes],
+  );
+
+  // Counts por tipo para los badges de los filtros (sin filtro de tipo aplicado)
+  const allMonthEvents = useMemo(
+    () => events.filter(e => e.date >= viewStart && e.date <= viewEnd),
+    [events, viewStart, viewEnd],
+  );
+  const countByType = useMemo(() => {
+    const m: Record<EventType, number> = { contract_end: 0, invoice_due: 0, maintenance: 0, liquidation: 0 };
+    allMonthEvents.forEach(e => m[e.type]++);
+    return m;
+  }, [allMonthEvents]);
 
   const stats = useMemo(() => ({
     total: visibleEvents.length,
@@ -182,6 +206,33 @@ export function TimelineView({ contracts, invoices, tasks, liquidations = [], on
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
+      </div>
+
+      {/* ── Filtros por tipo ── */}
+      <div className="flex flex-wrap gap-2">
+        {(Object.entries(TYPE_CONFIG) as [EventType, typeof TYPE_CONFIG[EventType]][]).map(([type, cfg]) => {
+          const Icon = cfg.icon;
+          const active = activeTypes.has(type);
+          const count  = countByType[type];
+          return (
+            <button
+              key={type}
+              onClick={() => toggleType(type)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all',
+                active
+                  ? `${cfg.bg} ${cfg.color} border-transparent shadow-sm`
+                  : 'bg-white text-muted-foreground border-border opacity-60 hover:opacity-90',
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {cfg.label}
+              <span className={cn('text-[10px] font-black px-1.5 py-0.5 rounded-full', active ? 'bg-white/60' : 'bg-muted')}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* KPI summary */}

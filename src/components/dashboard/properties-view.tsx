@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyManual } from '@/lib/types';
@@ -76,6 +76,39 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const [invitingOwner, setInvitingOwner] = useState<{name: string, email: string} | null>(null);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
+
+  // ── Referencias de mercado ──────────────────────────────────────────────────
+  type MarketResult = {
+    source?: string; zonapropUrl?: string; priceCount?: number;
+    min?: number; max?: number; avg?: number; median?: number;
+    listings?: string[]; fetchedAt?: string; error?: string;
+  };
+  const [marketProp,    setMarketProp]    = useState<Property | null>(null);
+  const [marketCity,    setMarketCity]    = useState('');
+  const [marketNeigh,   setMarketNeigh]   = useState('');
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketResult,  setMarketResult]  = useState<MarketResult | null>(null);
+
+  const handleFetchMarket = async () => {
+    if (!marketProp) return;
+    setMarketLoading(true);
+    setMarketResult(null);
+    try {
+      const params = new URLSearchParams({
+        type:  marketProp.type,
+        rooms: String(marketProp.rooms ?? 2),
+        city:  marketCity || 'Buenos Aires',
+        ...(marketNeigh ? { neighborhood: marketNeigh } : {}),
+      });
+      const res  = await fetch(`/api/market/references?${params}`);
+      const data = await res.json();
+      setMarketResult(data);
+    } catch {
+      setMarketResult({ error: 'No se pudo conectar con el servicio.' });
+    } finally {
+      setMarketLoading(false);
+    }
+  };
 
   const [formData, setFormData] = useState<Partial<Property>>({
     name: '',
@@ -706,6 +739,14 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Historial del inmueble" onClick={() => setTimelineProperty(p)}>
                       <History className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-indigo-600"
+                      title="Referencias de mercado"
+                      onClick={() => { setMarketProp(p); setMarketCity(''); setMarketNeigh(''); setMarketResult(null); }}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                    </Button>
                     {canWrite && (
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleOpenDialog(p)}>
                         <Edit2 className="h-4 w-4" />
@@ -756,6 +797,117 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
               <PropertyTimeline propertyId={timelineProperty.id} adminId={userId} />
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Referencias de mercado ── */}
+      <Dialog open={!!marketProp} onOpenChange={o => !o && setMarketProp(null)}>
+        <DialogContent className="max-w-lg">
+          {marketProp && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-indigo-600" />
+                  Referencias de Mercado — {marketProp.name}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-2">
+                {/* Datos pre-cargados */}
+                <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 rounded-lg p-3">
+                  <div><span className="text-muted-foreground">Tipo:</span> <strong>{marketProp.type}</strong></div>
+                  <div><span className="text-muted-foreground">Amb.:</span> <strong>{marketProp.rooms ?? '—'}</strong></div>
+                </div>
+
+                {/* Inputs de búsqueda */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted-foreground">Ciudad</label>
+                    <Input
+                      placeholder="Ej: Buenos Aires"
+                      value={marketCity}
+                      onChange={e => setMarketCity(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted-foreground">Barrio / Zona (opcional)</label>
+                    <Input
+                      placeholder="Ej: Palermo"
+                      value={marketNeigh}
+                      onChange={e => setMarketNeigh(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  disabled={marketLoading || !marketCity}
+                  onClick={handleFetchMarket}
+                >
+                  {marketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+                  {marketLoading ? 'Consultando Zonaprop...' : 'Buscar referencias'}
+                </Button>
+
+                {/* Resultado */}
+                {marketResult && (
+                  <div className="space-y-3">
+                    {marketResult.error ? (
+                      <div className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{marketResult.error}</div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: 'Mínimo',  val: marketResult.min  },
+                            { label: 'Máximo',  val: marketResult.max  },
+                            { label: 'Promedio',val: marketResult.avg  },
+                            { label: 'Mediana', val: marketResult.median},
+                          ].map(({ label, val }) => (
+                            <div key={label} className="bg-indigo-50 rounded-lg p-3 text-center">
+                              <p className="text-[10px] font-black text-indigo-400 uppercase">{label}</p>
+                              <p className="text-lg font-black text-indigo-700">
+                                $ {val?.toLocaleString('es-AR') ?? '—'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {marketResult.listings && marketResult.listings.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-black text-muted-foreground uppercase">
+                              Listados encontrados ({marketResult.priceCount})
+                            </p>
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                              {marketResult.listings.map((l, i) => (
+                                <p key={i} className="text-[10px] text-muted-foreground bg-muted/30 rounded px-2 py-1 truncate">{l}</p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-1">
+                          <p className="text-[9px] text-muted-foreground">
+                            Fuente: {marketResult.source} · {marketResult.fetchedAt ? new Date(marketResult.fetchedAt).toLocaleTimeString('es-AR') : ''}
+                          </p>
+                          {marketResult.zonapropUrl && (
+                            <a
+                              href={marketResult.zonapropUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-indigo-600 flex items-center gap-0.5 font-bold hover:underline"
+                            >
+                              Ver en Zonaprop <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
