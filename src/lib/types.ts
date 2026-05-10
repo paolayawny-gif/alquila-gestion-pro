@@ -5,7 +5,7 @@ export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mant
 export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed' | 'CER';
 export type Currency = 'ARS' | 'USD';
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
-export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Otros';
+export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Reparaciones' | 'Mantenimiento' | 'Impuestos' | 'Otros';
 export type ChargePayer = 'Inquilino' | 'Propietario';
 export type ApplicationStatus = 'Nueva' | 'En análisis' | 'Aprobada' | 'Rechazada' | 'Pendiente de documentación';
 

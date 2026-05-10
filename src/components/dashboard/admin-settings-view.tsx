@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { buildWaLink } from '@/lib/whatsapp';
+import { CreditCard, CheckCircle2, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { usePlan } from '@/hooks/use-plan';
+import { BILLING_TIERS } from '@/lib/billing/tiers';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -143,6 +146,220 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Billing / Plan */}
+      <BillingCard userId={userId} />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Billing Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BillingCard({ userId }: { userId?: string }) {
+  const { user } = useUser();
+  const { toast } = useToast();
+  const plan = usePlan(userId);
+  const [busy, setBusy] = useState<'checkout' | 'cancel' | 'sync' | null>(null);
+
+  const status = plan.state?.status ?? 'trial';
+
+  const formatARS = (n: number) =>
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+
+  const handleCheckout = async () => {
+    if (!userId || !user?.email) return;
+    setBusy('checkout');
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: userId, adminEmail: user.email }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error');
+      window.location.href = data.initUrl;
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message ?? 'No se pudo iniciar el cobro.', variant: 'destructive' });
+      setBusy(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!userId) return;
+    if (!confirm('¿Cancelar la suscripción? El servicio quedará disponible hasta el final del período pagado.')) return;
+    setBusy('cancel');
+    try {
+      const res = await fetch('/api/billing/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: userId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error');
+      toast({ title: 'Suscripción cancelada', description: 'Ya no se realizarán cobros futuros.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message ?? 'No se pudo cancelar.', variant: 'destructive' });
+    }
+    setBusy(null);
+  };
+
+  const handleSync = async () => {
+    if (!userId) return;
+    setBusy('sync');
+    try {
+      const res = await fetch('/api/billing/sync-tier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: userId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error');
+      toast({
+        title: data.changed ? 'Plan actualizado' : 'Plan al día',
+        description: data.changed
+          ? `Pasaste a ${data.newTierId}. El próximo cobro reflejará el nuevo monto.`
+          : `Tu plan corresponde a tus ${data.activeUnits} unidades activas.`,
+      });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message ?? 'No se pudo sincronizar.', variant: 'destructive' });
+    }
+    setBusy(null);
+  };
+
+  const StatusBadge = () => {
+    const map: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
+      trial:     { label: 'Período de prueba',  cls: 'bg-blue-100 text-blue-800',     icon: Clock },
+      pending:   { label: 'Esperando autorización', cls: 'bg-yellow-100 text-yellow-800', icon: Clock },
+      active:    { label: 'Activa',             cls: 'bg-green-100 text-green-800',   icon: CheckCircle2 },
+      past_due:  { label: 'Pago vencido',       cls: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+      paused:    { label: 'Pausada',            cls: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+      cancelled: { label: 'Cancelada',          cls: 'bg-gray-200 text-gray-700',     icon: AlertCircle },
+    };
+    const m = map[status] ?? map.trial;
+    const Icon = m.icon;
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${m.cls}`}>
+        <Icon className="h-3 w-3" />
+        {m.label}
+      </span>
+    );
+  };
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10">
+            <CreditCard className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-base font-black">Plan y suscripción</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Gestioná tu plan según las unidades activas. Cobro mensual via MercadoPago.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {plan.loading ? (
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando estado del plan...
+          </p>
+        ) : (
+          <>
+            {/* Estado actual */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div>
+                <p className="text-xs text-muted-foreground">Plan vigente</p>
+                <p className="text-base font-black">
+                  {plan.tier?.label ?? 'Sin plan'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {plan.state?.activeUnits ?? 0} unidades activas
+                  {plan.tier && plan.tier.maxUnits ? ` / ${plan.tier.maxUnits}` : ''}
+                </p>
+              </div>
+              <StatusBadge />
+            </div>
+
+            {/* Trial info */}
+            {plan.trialActive && plan.trialEndsAt && (
+              <div className="text-xs p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
+                Estás en período de prueba hasta el{' '}
+                <strong>{plan.trialEndsAt.toLocaleDateString('es-AR')}</strong>.
+                Después necesitás activar la suscripción para seguir usando todas las funciones.
+              </div>
+            )}
+
+            {/* Past due / overdue */}
+            {plan.inGracePeriod && plan.gracePeriodEndsAt && (
+              <div className="text-xs p-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-900">
+                El último cobro falló. Tenés tiempo hasta el{' '}
+                <strong>{plan.gracePeriodEndsAt.toLocaleDateString('es-AR')}</strong>{' '}
+                para regularizar antes que se suspenda el servicio.
+              </div>
+            )}
+
+            {/* Over limit */}
+            {plan.overLimit && (
+              <div className="text-xs p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-900">
+                Tenés más unidades activas que las que cubre tu plan. Hacé click en "Sincronizar plan" para
+                pasar al tramo correcto en el próximo cobro.
+              </div>
+            )}
+
+            {/* Lista de tiers */}
+            <div>
+              <p className="text-xs font-bold text-muted-foreground mb-2">Escala de precios</p>
+              <div className="space-y-1.5">
+                {BILLING_TIERS.map(t => {
+                  const isCurrent = plan.tier?.id === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      className={`flex items-center justify-between text-xs px-3 py-2 rounded-lg border ${
+                        isCurrent ? 'border-primary bg-primary/5 font-bold' : 'border-border bg-white'
+                      }`}
+                    >
+                      <span>{t.label}</span>
+                      <span className="font-mono">{formatARS(t.priceARS)} / mes</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Todas las funciones disponibles en todos los tramos.
+              </p>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              {(status === 'trial' || status === 'cancelled' || status === 'pending') && (
+                <Button onClick={handleCheckout} disabled={busy === 'checkout'} className="font-bold">
+                  {busy === 'checkout' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Activar suscripción'}
+                </Button>
+              )}
+              {status === 'past_due' && (
+                <Button onClick={handleCheckout} disabled={busy === 'checkout'} className="font-bold">
+                  {busy === 'checkout' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar tarjeta'}
+                </Button>
+              )}
+              {status === 'active' && (
+                <>
+                  <Button variant="outline" onClick={handleSync} disabled={busy === 'sync'} className="font-bold">
+                    {busy === 'sync' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sincronizar plan'}
+                  </Button>
+                  <Button variant="ghost" onClick={handleCancel} disabled={busy === 'cancel'} className="font-bold text-destructive">
+                    {busy === 'cancel' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cancelar suscripción'}
+                  </Button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

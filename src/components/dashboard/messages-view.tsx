@@ -24,7 +24,7 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { writePropertyEvent } from '@/lib/property-events';
 import { useToast } from '@/hooks/use-toast';
 import { richCommunication, fetchIndexTicker } from '@/ai/flows/rich-communication-flow';
-import type { RichCommunicationInput, IndexTicker } from '@/ai/flows/rich-communication-flow';
+import type { RichCommunicationInput, IndexTicker } from '@/ai/flows/rich-communication-types';
 
 const APP_ID = 'alquilagestion-pro';
 
