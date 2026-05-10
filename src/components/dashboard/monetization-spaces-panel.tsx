@@ -693,12 +693,12 @@ export function MonetizationSpacesPanel({ userId, properties }: Props) {
             {properties.length > 0 && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Propiedad relacionada (opcional)</Label>
-                <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+                <Select value={selectedPropertyId || '__none__'} onValueChange={v => setSelectedPropertyId(v === '__none__' ? '' : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccioná una propiedad…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin propiedad específica</SelectItem>
+                    <SelectItem value="__none__">Sin propiedad específica</SelectItem>
                     {properties.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}

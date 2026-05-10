@@ -637,10 +637,10 @@ function NormativaTab({ properties, contracts, tasks, userId }: Pick<AnalyticsPa
                   <div className="space-y-3 pt-2">
                     <div>
                       <Label className="text-xs text-muted-foreground">Propiedad</Label>
-                      <Select value={fondoForm.propertyId} onValueChange={v => setFondoForm({ ...fondoForm, propertyId: v })}>
+                      <Select value={fondoForm.propertyId || '__none__'} onValueChange={v => setFondoForm({ ...fondoForm, propertyId: v === '__none__' ? '' : v })}>
                         <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">General (todas)</SelectItem>
+                          <SelectItem value="__none__">General (todas)</SelectItem>
                           {properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
