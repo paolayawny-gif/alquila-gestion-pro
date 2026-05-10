@@ -88,7 +88,13 @@
       "Bash(sed -i 's|<Button size=\"icon\" variant=\"ghost\" onClick={copyPublicLink}><Copy className=\"h-4 w-4 text-primary\" /></Button>|<Button size=\"icon\" variant=\"ghost\" aria-label=\"Copiar enlace público\" onClick={copyPublicLink}><Copy className=\"h-4 w-4 text-primary\" aria-hidden=\"true\" /></Button>|g' components/dashboard/onboarding-view.tsx)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\asus\\\\Desktop\\\\AlquilaGestion Pro\\\\.claude\\\\worktrees\\\\vibrant-mahavira-f4da70\\\\src\" -Directory)",
       "Bash(confirm)",
-      "Bash(command\")"
+      "Bash(command\")",
+      "Read(//c/Users/asus/Downloads/**)",
+      "Bash(powershell -Command \"Expand-Archive -Path 'AlquilaGestión Pro Design System-handoff.zip' -DestinationPath 'handoff-extracted' -Force\")",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\asus\\\\Downloads\\\\handoff-extracted\" -Recurse)",
+      "Bash(Select-Object FullName, Length)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(ls \"C:\\\\Users\\\\asus\\\\.claude\\\\projects\\\\C--Users-asus-Desktop-AlquilaGestion-Pro\\\\memory\\\\\")"
     ]
   }
 }
