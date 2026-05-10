@@ -31,6 +31,7 @@ import {
   CreditCard, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2,
   Settings, Briefcase, Scale, Wrench, Shield, FileText, Landmark,
   ChevronsUpDown, Eye, EyeOff, ExternalLink, DollarSign, Pencil,
+  LogOut, Info,
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -84,6 +85,7 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
         <TabsContent value="general" className="max-w-2xl space-y-6">
           <WhatsAppCard userId={userId} />
           <BillingCard userId={userId} />
+          <BajaCard userId={userId} />
         </TabsContent>
 
         <TabsContent value="servicios" className="space-y-6">
@@ -193,6 +195,176 @@ function WhatsAppCard({ userId }: { userId?: string }) {
           )}
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Baja / Arrepentimiento Card (Ley 24.240 Art. 34)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BajaCard({ userId }: { userId?: string }) {
+  const db = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [alreadyRequested, setAlreadyRequested] = useState(false);
+
+  // Check if already requested
+  useEffect(() => {
+    if (!db || !userId) return;
+    import('firebase/firestore').then(({ collection, query, where, getDocs: gd }) => {
+      gd(query(
+        collection(db, 'artifacts', APP_ID, 'superadmin', 'data', 'cancelRequests'),
+        where('adminId', '==', userId),
+        where('status', '==', 'pendiente'),
+      )).then(snap => { if (!snap.empty) setAlreadyRequested(true); }).catch(() => {});
+    });
+  }, [db, userId]);
+
+  const handleSubmit = async () => {
+    if (!db || !userId || !reason) return;
+    setSaving(true);
+    const now = new Date().toISOString();
+    try {
+      const { collection: col, addDoc: add } = await import('firebase/firestore');
+      await add(
+        col(db, 'artifacts', APP_ID, 'superadmin', 'data', 'cancelRequests'),
+        {
+          adminId: userId,
+          adminEmail: user?.email ?? '',
+          reason,
+          notes: notes.trim(),
+          requestedAt: now,
+          status: 'pendiente',
+        },
+      );
+      setAlreadyRequested(true);
+      setOpen(false);
+      toast({
+        title: 'Solicitud de baja registrada',
+        description: 'Recibirás confirmación dentro de 10 días hábiles según Ley 24.240.',
+      });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo registrar la solicitud.', variant: 'destructive' });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <>
+      <Card className="border border-destructive/20 shadow-sm bg-white">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-destructive/8">
+              <LogOut className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-black text-destructive">Baja del servicio</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Derecho de arrepentimiento — Ley 24.240 Art. 34
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-muted/40 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <p>
+              Podés solicitar la baja en cualquier momento. La solicitud será procesada dentro de los{' '}
+              <strong>10 días hábiles</strong> siguientes. No se cobrarán períodos adicionales una vez
+              confirmada la baja. Tus datos quedan disponibles para exportar hasta la fecha de cierre.
+            </p>
+          </div>
+          {alreadyRequested ? (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              Solicitud de baja registrada — en proceso de revisión.
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="font-bold border-destructive/40 text-destructive hover:bg-destructive/5 gap-2"
+              onClick={() => setOpen(true)}
+            >
+              <LogOut className="h-4 w-4" />
+              Solicitar baja del servicio
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-black text-destructive flex items-center gap-2">
+              <LogOut className="h-5 w-5" />Solicitar baja
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Completá el formulario. Procesaremos tu solicitud dentro de los 10 días hábiles (Ley 24.240 Art. 34).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+              <p className="font-bold mb-1">Antes de continuar, considerá:</p>
+              <ul className="space-y-0.5 list-disc list-inside">
+                <li>Todos tus datos quedan disponibles para exportar hasta la fecha de cierre.</li>
+                <li>Las suscripciones activas se cancelan a partir del próximo período.</li>
+                <li>Esta acción no elimina tus datos de inmediato — podés reactivar dentro de los 30 días.</li>
+              </ul>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Email de la cuenta *</Label>
+              <Input
+                value={user?.email ?? ''}
+                readOnly
+                className="text-xs bg-muted/30 text-muted-foreground"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Motivo de la baja *</Label>
+              <Select value={reason} onValueChange={setReason}>
+                <SelectTrigger className="text-xs h-9"><SelectValue placeholder="Seleccioná un motivo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cambio_plataforma" className="text-xs">Me cambié a otra plataforma</SelectItem>
+                  <SelectItem value="sin_uso" className="text-xs">Ya no necesito el servicio</SelectItem>
+                  <SelectItem value="precio" className="text-xs">El precio no se ajusta a mi necesidad</SelectItem>
+                  <SelectItem value="problemas_tecnicos" className="text-xs">Problemas técnicos no resueltos</SelectItem>
+                  <SelectItem value="funcionalidades" className="text-xs">Faltan funcionalidades que necesito</SelectItem>
+                  <SelectItem value="otro" className="text-xs">Otro motivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Comentarios adicionales</Label>
+              <Textarea
+                placeholder="Contanos más sobre tu experiencia o qué podríamos mejorar..."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+                className="text-sm resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} className="font-bold">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={saving || !reason}
+              className="font-bold gap-2 bg-destructive hover:bg-destructive/90"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+              Confirmar solicitud de baja
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
