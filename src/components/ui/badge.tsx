@@ -16,6 +16,10 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
         ghost: "border-transparent bg-transparent",
+        paid:    "border-transparent bg-[hsl(var(--status-paid-bg))] text-[hsl(var(--status-paid-fg))]",
+        pending: "border-transparent bg-[hsl(var(--status-pending-bg))] text-[hsl(var(--status-pending-fg))]",
+        overdue: "border-transparent bg-[hsl(var(--status-overdue-bg))] text-[hsl(var(--status-overdue-fg))]",
+        info:    "border-transparent bg-[hsl(var(--status-info-bg))] text-[hsl(var(--status-info-fg))]",
       },
     },
     defaultVariants: {
