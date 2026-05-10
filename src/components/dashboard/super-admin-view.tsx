@@ -12,8 +12,10 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Crown, Building2, Users, Plus, CheckCircle2, Clock, XCircle,
-  Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight
+  Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight,
+  BarChart3, Home, DollarSign, TrendingUp, Activity, FileText, Wrench,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
@@ -54,6 +56,24 @@ interface OrgUser {
 interface SuperAdminViewProps {
   userId?: string;
   userEmail: string;
+}
+
+interface AdminStats {
+  adminEmail: string;
+  adminUid: string;
+  lastSyncAt: string;
+  propiedadesTotal: number;
+  contratosVigentes: number;
+  contratosProximos: number;
+  facturasMes: number;
+  liquidacionesMes: number;
+  tareasAbiertas: number;
+  tiposPropiedades: Record<string, number>;
+  usoPropiedades: Record<string, number>;
+  precioPromedioARS: number;
+  precioPromedioUSD: number;
+  superficiePromedio: number;
+  ambientesPromedio: number;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -118,6 +138,45 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   }, [db, user, selectedOrg]);
   const { data: allUsersData } = useCollection<OrgUser>(usersQuery);
   const orgUsers = (allUsersData || []).filter(u => u.orgId === selectedOrg?.id);
+
+  // — Load admin stats —
+  const statsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'superadmin', 'data', 'adminStats'));
+  }, [db, user]);
+  const { data: allStatsData } = useCollection<AdminStats>(statsQuery);
+  const allStats: AdminStats[] = allStatsData || [];
+
+  // Stats del org seleccionado
+  const selectedOrgStats = useMemo(() => {
+    if (!selectedOrg) return null;
+    return allStats.find(s => s.adminEmail === selectedOrg.ownerEmail) ?? null;
+  }, [allStats, selectedOrg]);
+
+  // Agregados globales de plataforma
+  const platformStats = useMemo(() => {
+    const totalProps   = allStats.reduce((s, a) => s + (a.propiedadesTotal  || 0), 0);
+    const totalContratos = allStats.reduce((s, a) => s + (a.contratosVigentes || 0), 0);
+    const totalTareas  = allStats.reduce((s, a) => s + (a.tareasAbiertas    || 0), 0);
+
+    // Tipos de propiedades globales
+    const tipos: Record<string, number> = {};
+    allStats.forEach(a => {
+      Object.entries(a.tiposPropiedades || {}).forEach(([k, v]) => {
+        tipos[k] = (tipos[k] || 0) + v;
+      });
+    });
+
+    // Precio promedio ponderado global
+    const arsAdmins = allStats.filter(a => a.precioPromedioARS > 0);
+    const usdAdmins = allStats.filter(a => a.precioPromedioUSD > 0);
+    const promedioARS = arsAdmins.length
+      ? Math.round(arsAdmins.reduce((s, a) => s + a.precioPromedioARS, 0) / arsAdmins.length) : 0;
+    const promedioUSD = usdAdmins.length
+      ? Math.round(usdAdmins.reduce((s, a) => s + a.precioPromedioUSD, 0) / usdAdmins.length) : 0;
+
+    return { totalProps, totalContratos, totalTareas, tipos, promedioARS, promedioUSD };
+  }, [allStats]);
 
   // Access guard
   if (userEmail !== SUPER_ADMIN_EMAIL) {
@@ -302,6 +361,61 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
         ))}
       </div>
 
+      {/* Métricas globales de plataforma */}
+      {allStats.length > 0 && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" /> Métricas globales de la plataforma
+              <span className="ml-auto text-[10px] font-normal text-muted-foreground">
+                {allStats.length} admin{allStats.length !== 1 ? 's' : ''} con datos
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+              {[
+                { label: 'Props. totales',    value: platformStats.totalProps,     icon: Home,       color: 'text-blue-600' },
+                { label: 'Contratos vigentes',value: platformStats.totalContratos, icon: FileText,   color: 'text-green-600' },
+                { label: 'Tareas abiertas',   value: platformStats.totalTareas,    icon: Wrench,     color: 'text-orange-500' },
+                { label: 'Promedio ARS',      value: formatCurrency(platformStats.promedioARS), icon: DollarSign, color: 'text-emerald-600', isText: true },
+                { label: 'Promedio USD',      value: platformStats.promedioUSD > 0 ? `US$ ${platformStats.promedioUSD.toLocaleString('es-AR')}` : '—', icon: TrendingUp, color: 'text-cyan-600', isText: true },
+                { label: 'Admins activos',    value: allStats.length,              icon: Activity,   color: 'text-purple-600' },
+              ].map(k => (
+                <div key={k.label} className="bg-muted/30 rounded-xl p-3 flex items-center gap-2.5">
+                  <div className="p-1.5 bg-white rounded-lg shrink-0">
+                    <k.icon className={cn('h-4 w-4', k.color)} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase text-muted-foreground leading-none">{k.label}</p>
+                    <p className="text-sm font-black mt-0.5 truncate">{k.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Distribución por tipo de propiedad */}
+            {Object.keys(platformStats.tipos).length > 0 && (
+              <div>
+                <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Distribución por tipo</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(platformStats.tipos)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([tipo, count]) => (
+                      <div key={tipo} className="flex items-center gap-1.5 bg-muted/40 rounded-full px-3 py-1">
+                        <span className="text-xs font-bold">{tipo}</span>
+                        <span className="text-[11px] font-black text-primary">{count}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          ({Math.round((count / platformStats.totalProps) * 100)}%)
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Main content: list + detail */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -374,6 +488,9 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
                 <Tabs defaultValue="info">
                   <TabsList className="bg-muted/40 mb-4">
                     <TabsTrigger value="info">Información</TabsTrigger>
+                    <TabsTrigger value="metricas" className="gap-1">
+                      <BarChart3 className="h-3 w-3" /> Métricas
+                    </TabsTrigger>
                     <TabsTrigger value="users">
                       Usuarios ({orgUsers.length}/{PLAN_CONFIG[selectedOrg.plan].maxUsers === 999 ? '∞' : PLAN_CONFIG[selectedOrg.plan].maxUsers})
                     </TabsTrigger>
@@ -418,6 +535,110 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
                       onClick={() => handleDeleteOrg(selectedOrg)}>
                       <Trash2 className="h-4 w-4" /> Eliminar organización permanentemente
                     </Button>
+                  </TabsContent>
+
+                  {/* Métricas tab */}
+                  <TabsContent value="metricas" className="space-y-4">
+                    {!selectedOrgStats ? (
+                      <div className="py-10 text-center space-y-2 text-muted-foreground">
+                        <Activity className="h-8 w-8 mx-auto opacity-30" />
+                        <p className="text-sm">Sin datos todavía.</p>
+                        <p className="text-[11px]">Las métricas se publican automáticamente la próxima vez que el administrador inicie sesión.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Última actividad */}
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                          <span className="font-bold">Última actividad</span>
+                          <span>{new Date(selectedOrgStats.lastSyncAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                        </div>
+
+                        {/* KPIs de uso */}
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Actividad operativa</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { label: 'Propiedades', value: selectedOrgStats.propiedadesTotal, icon: Home, color: 'text-blue-600' },
+                              { label: 'Contratos vigentes', value: selectedOrgStats.contratosVigentes, icon: FileText, color: 'text-green-600' },
+                              { label: 'Próx. a vencer', value: selectedOrgStats.contratosProximos, icon: Clock, color: 'text-orange-500' },
+                              { label: 'Facturas/mes', value: selectedOrgStats.facturasMes, icon: DollarSign, color: 'text-emerald-600' },
+                              { label: 'Liquidac./mes', value: selectedOrgStats.liquidacionesMes, icon: TrendingUp, color: 'text-cyan-600' },
+                              { label: 'Tareas abiertas', value: selectedOrgStats.tareasAbiertas, icon: Wrench, color: 'text-red-500' },
+                            ].map(k => (
+                              <div key={k.label} className="bg-muted/30 rounded-xl p-2.5 text-center">
+                                <k.icon className={cn('h-4 w-4 mx-auto mb-1', k.color)} />
+                                <p className="text-lg font-black leading-none">{k.value}</p>
+                                <p className="text-[9px] font-bold text-muted-foreground mt-0.5 leading-tight">{k.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Tipos de propiedad */}
+                        {Object.keys(selectedOrgStats.tiposPropiedades || {}).length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Composición de cartera</p>
+                            <div className="space-y-1.5">
+                              {Object.entries(selectedOrgStats.tiposPropiedades)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([tipo, count]) => {
+                                  const pct = selectedOrgStats.propiedadesTotal > 0
+                                    ? Math.round((count / selectedOrgStats.propiedadesTotal) * 100) : 0;
+                                  return (
+                                    <div key={tipo} className="flex items-center gap-2">
+                                      <span className="text-xs font-bold w-28 shrink-0">{tipo}</span>
+                                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                                      </div>
+                                      <span className="text-xs font-black w-6 text-right">{count}</span>
+                                      <span className="text-[10px] text-muted-foreground w-8 text-right">{pct}%</span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
+
+                        <Separator />
+
+                        {/* Precios promedio */}
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Precios promedio (contratos vigentes)</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+                              <p className="text-[10px] font-bold text-emerald-700 uppercase mb-1">Alquiler ARS</p>
+                              <p className="text-base font-black text-emerald-800">
+                                {selectedOrgStats.precioPromedioARS > 0 ? formatCurrency(selectedOrgStats.precioPromedioARS) : '—'}
+                              </p>
+                            </div>
+                            <div className="bg-cyan-50 border border-cyan-100 rounded-xl p-3 text-center">
+                              <p className="text-[10px] font-bold text-cyan-700 uppercase mb-1">Alquiler USD</p>
+                              <p className="text-base font-black text-cyan-800">
+                                {selectedOrgStats.precioPromedioUSD > 0 ? `US$ ${selectedOrgStats.precioPromedioUSD.toLocaleString('es-AR')}` : '—'}
+                              </p>
+                            </div>
+                          </div>
+                          {(selectedOrgStats.superficiePromedio > 0 || selectedOrgStats.ambientesPromedio > 0) && (
+                            <div className="grid grid-cols-2 gap-3 mt-2">
+                              <div className="bg-muted/40 rounded-xl p-3 text-center">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Superficie prom.</p>
+                                <p className="text-base font-black">
+                                  {selectedOrgStats.superficiePromedio > 0 ? `${selectedOrgStats.superficiePromedio} m²` : '—'}
+                                </p>
+                              </div>
+                              <div className="bg-muted/40 rounded-xl p-3 text-center">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Ambientes prom.</p>
+                                <p className="text-base font-black">
+                                  {selectedOrgStats.ambientesPromedio > 0 ? selectedOrgStats.ambientesPromedio : '—'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </TabsContent>
 
                   {/* Email tab */}

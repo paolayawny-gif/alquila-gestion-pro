@@ -435,6 +435,65 @@ export default function AppClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties.length, db, user?.uid]);
 
+  // ── Publicar métricas agregadas al superadmin (sin datos personales) ──────
+  useEffect(() => {
+    if (!db || !user?.uid || !user?.email) return;
+    if (isSuperAdmin || tenantEntry || ownerEntry) return;
+    // Solo admins registrados (que ya cargaron datos reales)
+    if (!properties.length && !contracts.length) return;
+
+    const now = new Date();
+    const currentPeriod = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+
+    const vigentes  = contracts.filter(c => c.status === 'Vigente');
+    const proximos  = contracts.filter(c => c.status === 'Próximo a Vencer');
+
+    // Conteos por tipo y uso de propiedad
+    const tiposPropiedades: Record<string, number> = {};
+    const usoPropiedades:   Record<string, number> = {};
+    properties.forEach(p => {
+      tiposPropiedades[p.type]  = (tiposPropiedades[p.type]  || 0) + 1;
+      usoPropiedades[p.usage]   = (usoPropiedades[p.usage]   || 0) + 1;
+    });
+
+    // Precio promedio por moneda (sólo contratos vigentes con monto > 0)
+    const arsV = vigentes.filter(c => c.currency === 'ARS' && c.currentRentAmount > 0);
+    const usdV = vigentes.filter(c => c.currency === 'USD' && c.currentRentAmount > 0);
+    const precioPromedioARS = arsV.length
+      ? Math.round(arsV.reduce((s, c) => s + c.currentRentAmount, 0) / arsV.length) : 0;
+    const precioPromedioUSD = usdV.length
+      ? Math.round(usdV.reduce((s, c) => s + c.currentRentAmount, 0) / usdV.length) : 0;
+
+    // Superficie y ambientes promedio
+    const conSuperficie = properties.filter(p => p.squareMeters && p.squareMeters > 0);
+    const conAmbientes  = properties.filter(p => p.rooms && p.rooms > 0);
+    const superficiePromedio = conSuperficie.length
+      ? Math.round(conSuperficie.reduce((s, p) => s + (p.squareMeters || 0), 0) / conSuperficie.length) : 0;
+    const ambientesPromedio = conAmbientes.length
+      ? Math.round(conAmbientes.reduce((s, p) => s + (p.rooms || 0), 0) / conAmbientes.length * 10) / 10 : 0;
+
+    const emailDocId = user.email.toLowerCase().replace(/[@.+]/g, '_');
+    const statsRef = doc(db, 'artifacts', APP_ID, 'superadmin', 'data', 'adminStats', emailDocId);
+    setDocumentNonBlocking(statsRef, {
+      adminEmail:         user.email,
+      adminUid:           user.uid,
+      lastSyncAt:         new Date().toISOString(),
+      propiedadesTotal:   properties.length,
+      contratosVigentes:  vigentes.length,
+      contratosProximos:  proximos.length,
+      facturasMes:        invoices.filter(i => i.period === currentPeriod).length,
+      liquidacionesMes:   liquidations.filter(l => l.period === currentPeriod).length,
+      tareasAbiertas:     tasks.filter(t => t.status !== 'Cerrado').length,
+      tiposPropiedades,
+      usoPropiedades,
+      precioPromedioARS,
+      precioPromedioUSD,
+      superficiePromedio,
+      ambientesPromedio,
+    }, { merge: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties.length, contracts.length, invoices.length, tasks.length, db, user?.uid]);
+
   if (!isMounted) return null;
 
   // ── Show tenant portal if user is a tenant ──────────────────────────────
