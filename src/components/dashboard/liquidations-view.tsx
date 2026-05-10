@@ -40,11 +40,13 @@ import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
-import { doc, collection, query } from 'firebase/firestore';
+import { doc, collection, query, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency, normalizePhoneForWhatsApp } from '@/lib/format';
 import { calculateLiquidationNet, recalculateNetWithInterest, computeLiquidationFromSources } from '@/lib/calculations/liquidation';
+import { createNotification } from '@/lib/notifications';
+import { OwnerRegistryEntry } from '@/components/owner/owner-portal';
 
 interface LiquidationsViewProps {
   liquidations: Liquidation[];
@@ -185,6 +187,24 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       setDocumentNonBlocking(docRef, liqData, { merge: true });
       totalDeductions += calc.serviceDeductions + calc.maintenanceDeductions;
       generated += 1;
+
+      // Notificar al propietario si tiene UID registrado
+      const ownerEmail = property.owners?.[0]?.email;
+      if (ownerEmail && db) {
+        const regDocId = ownerEmail.toLowerCase().replace(/[@.+]/g, '_');
+        getDoc(doc(db, 'artifacts', APP_ID, 'ownerRegistry', regDocId)).then(snap => {
+          const regEntry = snap.data() as OwnerRegistryEntry | undefined;
+          if (regEntry?.ownerUid) {
+            createNotification(db, regEntry.ownerUid, {
+              type: 'liquidation_ready',
+              title: 'Nueva liquidación disponible',
+              message: `La liquidación de ${property.name} para ${period} fue generada. Neto: ${formatCurrency(calc.netAmount)}.`,
+              refId: docId,
+              link: 'Liquidaciones',
+            });
+          }
+        });
+      }
     });
 
     setIsNewLiqOpen(false);

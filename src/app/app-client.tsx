@@ -229,8 +229,18 @@ export default function AppClient() {
           // Check owner registry
           return getDoc(doc(db, 'artifacts', APP_ID, 'ownerRegistry', docId))
             .then(ownerSnap => {
-              if (ownerSnap.exists()) setOwnerEntry(ownerSnap.data() as OwnerRegistryEntry);
-              else setOwnerEntry(null);
+              if (ownerSnap.exists()) {
+                const entry = ownerSnap.data() as OwnerRegistryEntry;
+                setOwnerEntry(entry);
+                // Persist UID so admin side can send targeted notifications
+                if (user?.uid && entry.ownerUid !== user.uid) {
+                  setDocumentNonBlocking(
+                    doc(db, 'artifacts', APP_ID, 'ownerRegistry', docId),
+                    { ownerUid: user.uid },
+                    { merge: true },
+                  );
+                }
+              } else setOwnerEntry(null);
             });
         }
       })
