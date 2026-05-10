@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
+import { NotificationBell } from '@/components/ui/notification-bell';
 import { OwnerHome } from './owner-home';
 import { OwnerProperties } from './owner-properties';
 import { OwnerLiquidations } from './owner-liquidations';
@@ -30,6 +31,7 @@ export interface OwnerRegistryEntry {
   propertyIds: string[];
   propertyNames: string[];
   status?: 'activo' | 'suspendido' | 'inactivo';
+  ownerUid?: string; // Firebase UID del propietario, auto-guardado al hacer login
 }
 
 type OwnerTab =
@@ -232,6 +234,10 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
             {OWNER_MENU.find(m => m.id === activeTab)?.label ?? 'Inicio'}
           </p>
           <div className="flex items-center gap-3">
+            <NotificationBell
+              userId={auth.currentUser?.uid}
+              onNavigate={(link) => setActiveTab(link as OwnerTab)}
+            />
             <div className="text-right hidden sm:block">
               <p className="text-xs font-bold text-foreground">{ownerEntry.ownerName}</p>
               <p className="text-[10px] text-muted-foreground">{ownerEntry.ownerEmail}</p>

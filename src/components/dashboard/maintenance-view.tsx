@@ -48,8 +48,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { createNotification } from '@/lib/notifications';
+import { OwnerRegistryEntry } from '@/components/owner/owner-portal';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { sendEmail } from '@/services/email-service';
@@ -151,11 +153,30 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
         ? (property?.owners?.[0]?.email ?? selectedTask.ownerEmail ?? '')
         : (selectedTask.ownerEmail ?? '');
 
+    const wasChargedToOwner = selectedTask.chargedTo === 'Propietario';
+
     setDocumentNonBlocking(docRef, {
       ...selectedTask,
       ownerEmail,
       updatedAt: new Date().toLocaleDateString('es-AR')
     }, { merge: true });
+
+    // Notificar al propietario si se le asignó la tarea para aprobación
+    if (wasChargedToOwner && ownerEmail && db) {
+      const regDocId = ownerEmail.toLowerCase().replace(/[@.+]/g, '_');
+      getDoc(doc(db, 'artifacts', APP_ID, 'ownerRegistry', regDocId)).then(snap => {
+        const regEntry = snap.data() as OwnerRegistryEntry | undefined;
+        if (regEntry?.ownerUid) {
+          createNotification(db, regEntry.ownerUid, {
+            type: 'maintenance_approved',
+            title: 'Tarea de mantenimiento pendiente',
+            message: `"${selectedTask.concept}" en ${property?.name ?? selectedTask.propertyName} requiere tu aprobación.`,
+            refId: selectedTask.id,
+            link: 'Aprobaciones',
+          });
+        }
+      });
+    }
 
     setIsManageDialogOpen(false);
     toast({ title: "Cambios Guardados", description: "La gestión del reclamo ha sido actualizada." });
