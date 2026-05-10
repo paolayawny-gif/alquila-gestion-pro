@@ -3,9 +3,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Loader2, Mail, Lock, UserPlus, LogIn, Info,
-  Building2, FileText, BrainCircuit, BarChart3, ShieldCheck, Play,
+  Building2, FileText, BrainCircuit, BarChart3, ShieldCheck, Play, ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -271,11 +272,20 @@ export default function LoginPage() {
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 hidden lg:flex items-center gap-2 mt-8">
-          <ShieldCheck className="h-4 w-4 text-[#9FE1CB]/60" />
-          <span className="text-[11px] text-white/30">
-            Datos encriptados · Acceso por roles · Ley 25.326
-          </span>
+        <div className="relative z-10 hidden lg:flex items-center justify-between gap-2 mt-8">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[#9FE1CB]/60" />
+            <span className="text-[11px] text-white/30">
+              Datos encriptados · Acceso por roles · Ley 25.326
+            </span>
+          </div>
+          <Link
+            href="/landing"
+            className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-white/40 hover:text-[#9FE1CB] transition-colors duration-150 group"
+          >
+            Conocé más
+            <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform duration-150" />
+          </Link>
         </div>
       </div>
 
