@@ -527,6 +527,110 @@ export interface SocialPost {
   updatedAt: string;
 }
 
+// ── Sistema de Servicios y Cobros ─────────────────────────────────────────────
+
+export type ServiceCategory =
+  | 'legal'
+  | 'administracion'
+  | 'documentacion'
+  | 'mantenimiento'
+  | 'seguros'
+  | 'impuestos'
+  | 'contratos'
+  | 'concierge'
+  | 'otro';
+
+export type ServiceClientTarget = 'propietario' | 'inquilino' | 'ambos';
+export type ServicePriceType = 'fijo' | 'porcentaje' | 'cotizacion';
+export type ServiceDeliverable = 'documento' | 'gestion' | 'informe' | 'ninguno';
+export type ServiceRequestStatus =
+  | 'solicitado'
+  | 'en_proceso'
+  | 'entregado'
+  | 'pago_pendiente'
+  | 'pagado'
+  | 'cancelado';
+
+export interface AdminService {
+  id: string;
+  adminId: string;
+  nombre: string;
+  descripcion: string;
+  categoria: ServiceCategory;
+  clienteObjetivo: ServiceClientTarget;
+  tipoPrecio: ServicePriceType;
+  precio: number;
+  porcentaje?: number;
+  moneda: 'ARS' | 'USD';
+  entregable: ServiceDeliverable;
+  requierePago: boolean;
+  activo: boolean;
+  visible: boolean; // el cliente puede solicitarlo directamente desde su portal
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminPaymentConfig {
+  mercadopago?: {
+    accessToken: string;
+    publicKey: string;
+    active: boolean;
+  };
+  transferencia?: {
+    cbu: string;
+    alias: string;
+    banco: string;
+    titular: string;
+    active: boolean;
+  };
+  linkExterno?: {
+    url: string;
+    label: string;
+    active: boolean;
+  };
+  estudioJuridico?: {
+    tipo: 'propio' | 'app';
+    nombre?: string;
+    email?: string;
+    telefono?: string;
+  };
+}
+
+export interface ServiceRequest {
+  id: string;
+  adminId: string;
+  clientId: string;
+  clientType: 'owner' | 'tenant';
+  clientName?: string;
+  clientEmail?: string;
+  serviceId: string;
+  serviceSnapshot: {
+    nombre: string;
+    precio: number;
+    moneda: string;
+    entregable: string;
+  };
+  estado: ServiceRequestStatus;
+  descripcion?: string;
+  archivos: {
+    informeUrl?: string;
+    informeName?: string;
+    comprobanteUrl?: string;
+    comprobanteName?: string;
+  };
+  pago?: {
+    metodo: 'mp' | 'transferencia' | 'externo';
+    mpPaymentId?: string;
+    comprobanteUrl?: string;
+    comprobanteName?: string;
+    aprobadoEn?: string;
+    aprobadoPor?: string;
+  };
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Pago Anticipado de Rentas ─────────────────────────────────────────────────
 
 export type AdvancePaymentStatus = 'Solicitado' | 'Aprobado' | 'Pagado' | 'Cancelado';

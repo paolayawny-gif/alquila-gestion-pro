@@ -13,7 +13,7 @@ import {
   Shield, ShieldCheck, ShieldX, CreditCard, Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { LegalCase, LegalStage, PaymentPlan, Property } from '@/lib/types';
+import { LegalCase, LegalStage, PaymentPlan, Property, ServiceRequest } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -33,7 +33,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { fetchDeudaBcra, type BcraDeudaReport } from '@/ai/flows/fetch-deudas-bcra-action';
 import { situacionLabel, situacionColor } from '@/lib/bcra-utils';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
-import { doc } from 'firebase/firestore';
+import { doc, collection, getDocs, updateDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Progress } from '@/components/ui/progress';
@@ -119,6 +119,30 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     note: '',
     status: 'pendiente',
   });
+
+  // ── Service requests ──────────────────────────────────────────────────────
+  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
+
+  React.useEffect(() => {
+    if (!db || !userId) return;
+    getDocs(collection(db, 'artifacts', APP_ID, 'users', userId, 'serviceRequests'))
+      .then(snap => {
+        setServiceRequests(snap.docs.map(d => ({ id: d.id, ...d.data() } as ServiceRequest)));
+      })
+      .catch(() => {});
+  }, [db, userId]);
+
+  const updateServiceRequest = async (id: string, updates: Partial<ServiceRequest>) => {
+    if (!db || !userId) return;
+    const now = new Date().toISOString();
+    await updateDoc(
+      doc(db, 'artifacts', APP_ID, 'users', userId, 'serviceRequests', id),
+      { ...updates, updatedAt: now },
+    );
+    setServiceRequests(prev =>
+      prev.map(r => r.id === id ? { ...r, ...updates, updatedAt: now } : r),
+    );
+  };
 
   // ── Stats computadas ──────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -782,6 +806,107 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
           )}
         </div>
       </div>
+
+      {/* ── Solicitudes de servicios entrantes ── */}
+      {serviceRequests.filter(r => r.estado !== 'cancelado').length > 0 && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-black">Solicitudes de servicios</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Pedidos de tus propietarios e inquilinos.</p>
+              </div>
+              <Badge className="bg-amber-100 text-amber-700 border border-amber-200">
+                {serviceRequests.filter(r => r.estado === 'solicitado').length} nuevas
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {serviceRequests
+              .filter(r => r.estado !== 'cancelado')
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .map(r => {
+                const STATUS_CFG_SVC: Record<ServiceRequest['estado'], { label: string; cls: string }> = {
+                  solicitado:     { label: 'Nuevo',           cls: 'bg-blue-100 text-blue-700' },
+                  en_proceso:     { label: 'En proceso',      cls: 'bg-yellow-100 text-yellow-700' },
+                  entregado:      { label: 'Entregado',       cls: 'bg-purple-100 text-purple-700' },
+                  pago_pendiente: { label: 'Pago pendiente',  cls: 'bg-amber-100 text-amber-700' },
+                  pagado:         { label: 'Pagado',          cls: 'bg-green-100 text-green-700' },
+                  cancelado:      { label: 'Cancelado',       cls: 'bg-gray-100 text-gray-500' },
+                };
+                const cfg = STATUS_CFG_SVC[r.estado];
+                return (
+                  <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-white">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold truncate">{r.serviceSnapshot.nombre}</p>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${cfg.cls}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        <span className="font-medium">{r.clientName ?? r.clientEmail}</span>
+                        {' · '}{r.clientType === 'owner' ? 'Propietario' : 'Inquilino'}
+                        {' · '}{new Date(r.createdAt).toLocaleDateString('es-AR')}
+                      </p>
+                      {r.descripcion && (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{r.descripcion}</p>
+                      )}
+                      {r.archivos?.comprobanteName && (
+                        <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
+                          Comprobante: {r.archivos.comprobanteName}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {r.estado === 'solicitado' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7 font-bold"
+                          onClick={() => updateServiceRequest(r.id, { estado: 'pago_pendiente' })}
+                        >
+                          Pedir pago
+                        </Button>
+                      )}
+                      {r.estado === 'solicitado' && (
+                        <Button
+                          size="sm"
+                          className="text-xs h-7 font-bold"
+                          onClick={() => updateServiceRequest(r.id, { estado: 'en_proceso' })}
+                        >
+                          Procesar
+                        </Button>
+                      )}
+                      {(r.estado === 'en_proceso' || r.estado === 'pago_pendiente') && r.archivos?.comprobanteName && (
+                        <Button
+                          size="sm"
+                          className="text-xs h-7 font-bold bg-green-600 hover:bg-green-700"
+                          onClick={() => updateServiceRequest(r.id, {
+                            estado: 'pagado',
+                            pago: { metodo: 'transferencia', aprobadoEn: new Date().toISOString(), aprobadoPor: userId },
+                          })}
+                        >
+                          Aprobar pago
+                        </Button>
+                      )}
+                      {r.estado === 'en_proceso' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7 font-bold"
+                          onClick={() => updateServiceRequest(r.id, { estado: 'entregado' })}
+                        >
+                          Marcar entregado
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Dialog Consultoría Legal ───────────────────────────────────── */}
       <Dialog open={isLegalDeskOpen} onOpenChange={setIsLegalDeskOpen}>
