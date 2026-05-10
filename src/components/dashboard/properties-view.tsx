@@ -109,6 +109,31 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     return `🏠 ¡Propiedad disponible!\n\n${p.name}\n📍 ${p.address}\n${p.type}${rooms ? ' · ' + rooms : ''}${sqm}\n\n${amenities ? '✨ ' + amenities + '\n\n' : ''}📲 Consultá y completá tu solicitud:\n${link}\n\n#Alquiler #InmobiliariaArgentina #PropiedadDisponible`;
   };
 
+  const getLinkedInText = (p: Property) => {
+    const link = getApplyLink(p);
+    const rooms = p.rooms ? ` · ${p.rooms} ambientes` : '';
+    const sqm = p.squareMeters ? ` · ${p.squareMeters}m²` : '';
+    const usage = p.usage === 'Comercial' ? 'local comercial u oficina' : 'propiedad';
+    const amenities = (p.amenities || []).slice(0, 4).join(', ');
+    return `Tenemos disponible un ${usage} para alquilar.\n\n📌 ${p.name} — ${p.address}\n${p.type}${rooms}${sqm}${amenities ? '\n\nCaracterísticas: ' + amenities : ''}\n\nSi estás buscando o conocés a alguien interesado, podés completar la solicitud de forma rápida y online:\n${link}`;
+  };
+
+  const getTwitterText = (p: Property) => {
+    const link = getApplyLink(p);
+    const rooms = p.rooms ? ` ${p.rooms} amb.` : '';
+    const sqm = p.squareMeters ? ` ${p.squareMeters}m²` : '';
+    const base = `🏠 ${p.type}${rooms}${sqm} disponible en ${p.address}. Consultá acá: ${link}`;
+    return base.length <= 280 ? base : base.substring(0, 277) + '...';
+  };
+
+  const getTelegramText = (p: Property) => {
+    const link = getApplyLink(p);
+    const rooms = p.rooms ? `${p.rooms} amb.` : '';
+    const sqm = p.squareMeters ? ` · ${p.squareMeters}m²` : '';
+    const amenities = (p.amenities || []).slice(0, 4).map(a => `• ${a}`).join('\n');
+    return `🏠 <b>${p.name}</b>\n📍 ${p.address}\n${p.type}${rooms ? ' · ' + rooms : ''}${sqm}\n\n${amenities ? amenities + '\n\n' : ''}✅ Disponible\n\n📲 <a href="${link}">Completar solicitud</a>`;
+  };
+
   // ── Referencias de mercado ──────────────────────────────────────────────────
   type MarketResult = {
     source?: string; zonapropUrl?: string; priceCount?: number;
@@ -963,39 +988,81 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
 
       {/* ── Dialog: Compartir propiedad ────────────────────────────────── */}
       <Dialog open={!!shareProperty} onOpenChange={o => !o && setShareProperty(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl max-h-[90vh] flex flex-col">
           {shareProperty && (() => {
-            const applyLink = getApplyLink(shareProperty);
-            const waText    = getWhatsAppText(shareProperty);
-            const socialTxt = getSocialText(shareProperty);
-            const waUrl     = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+            const applyLink  = getApplyLink(shareProperty);
+            const waText     = getWhatsAppText(shareProperty);
+            const socialTxt  = getSocialText(shareProperty);
+            const linkedinTxt = getLinkedInText(shareProperty);
+            const twitterTxt = getTwitterText(shareProperty);
+            const telegramTxt = getTelegramText(shareProperty);
+            const waUrl      = `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
             const CopyBtn = ({ text, k, label }: { text: string; k: string; label: string }) => (
-              <Button
-                variant="outline" size="sm"
-                className="gap-1.5 text-xs h-8"
-                onClick={() => copyToClipboard(text, k)}
-              >
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8"
+                onClick={() => copyToClipboard(text, k)}>
                 {copiedKey === k
                   ? <><CheckCheck className="h-3.5 w-3.5 text-green-600" /> Copiado</>
-                  : <><Copy className="h-3.5 w-3.5" /> {label}</>
-                }
+                  : <><Copy className="h-3.5 w-3.5" /> {label}</>}
               </Button>
             );
 
+            const NETWORKS = [
+              {
+                key: 'wa',
+                label: 'WhatsApp',
+                text: waText,
+                hint: 'Negritas con *asteriscos*. Funciona en grupos, contactos y estado.',
+                extra: (
+                  <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 text-green-700 border-green-200 hover:bg-green-50">
+                      <ExternalLink className="h-3.5 w-3.5" /> Abrir WhatsApp
+                    </Button>
+                  </a>
+                ),
+              },
+              {
+                key: 'ig',
+                label: 'Instagram · Facebook',
+                text: socialTxt,
+                hint: 'Caption con hashtags. Pegalo junto a las fotos de la propiedad.',
+              },
+              {
+                key: 'li',
+                label: 'LinkedIn',
+                text: linkedinTxt,
+                hint: 'Tono profesional sin emojis. Ideal para locales, oficinas o propietarios con red de contactos.',
+              },
+              {
+                key: 'tw',
+                label: 'X · Twitter',
+                text: twitterTxt,
+                hint: `${twitterTxt.length}/280 caracteres.`,
+                charCount: twitterTxt.length,
+              },
+              {
+                key: 'tg',
+                label: 'Telegram',
+                text: telegramTxt,
+                hint: 'Formato HTML (<b> y <a>). Pegalo en canales o grupos de Telegram.',
+              },
+            ];
+
             return (
               <>
-                <DialogHeader>
+                <DialogHeader className="flex-shrink-0">
                   <DialogTitle className="flex items-center gap-2">
                     <Share2 className="h-5 w-5 text-primary" />
                     Compartir — {shareProperty.name}
                   </DialogTitle>
                   <DialogDescription className="text-xs">
-                    {shareProperty.status === 'Disponible' ? 'Propiedad vacante · publicá y recibí consultas de candidatos.' : 'Propiedad reservada · compartí para confirmar interesados.'}
+                    {shareProperty.status === 'Disponible'
+                      ? 'Propiedad vacante · publicá y recibí consultas de candidatos.'
+                      : 'Propiedad reservada · compartí para confirmar interesados.'}
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 pt-1">
+                <div className="flex-1 overflow-y-auto space-y-4 pt-2 pr-1">
 
                   {/* Link de consulta */}
                   <div className="space-y-1.5">
@@ -1011,30 +1078,32 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                     </p>
                   </div>
 
-                  {/* WhatsApp */}
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-black tracking-[0.15em] uppercase text-muted-foreground">WhatsApp</p>
-                    <pre className="text-[11.5px] leading-[1.55] whitespace-pre-wrap bg-[hsl(142_60%_97%)] dark:bg-muted/40 border border-[hsl(142_25%_88%)] dark:border-border rounded-lg p-3 max-h-40 overflow-y-auto font-sans">
-                      {waText}
-                    </pre>
-                    <div className="flex gap-2">
-                      <CopyBtn text={waText} k="wa" label="Copiar texto" />
-                      <a href={waUrl} target="_blank" rel="noopener noreferrer">
-                        <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 text-green-700 border-green-200 hover:bg-green-50">
-                          <ExternalLink className="h-3.5 w-3.5" /> Abrir WhatsApp
-                        </Button>
-                      </a>
-                    </div>
-                  </div>
+                  <hr className="border-border" />
 
-                  {/* Instagram / Facebook */}
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-black tracking-[0.15em] uppercase text-muted-foreground">Instagram · Facebook</p>
-                    <pre className="text-[11.5px] leading-[1.55] whitespace-pre-wrap bg-muted/30 border border-border rounded-lg p-3 max-h-40 overflow-y-auto font-sans">
-                      {socialTxt}
-                    </pre>
-                    <CopyBtn text={socialTxt} k="social" label="Copiar para redes" />
-                  </div>
+                  {/* Redes sociales */}
+                  <Tabs defaultValue="wa">
+                    <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+                      {NETWORKS.map(n => (
+                        <TabsTrigger key={n.key} value={n.key} className="text-[11px] h-7 px-3">
+                          {n.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {NETWORKS.map(n => (
+                      <TabsContent key={n.key} value={n.key} className="space-y-2 mt-3">
+                        <pre className="text-[11.5px] leading-[1.55] whitespace-pre-wrap bg-muted/30 border border-border rounded-lg p-3 max-h-48 overflow-y-auto font-sans">
+                          {n.text}
+                        </pre>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-muted-foreground leading-snug flex-1">{n.hint}</p>
+                          <div className="flex gap-2 flex-shrink-0">
+                            {n.extra}
+                            <CopyBtn text={n.text} k={n.key} label="Copiar" />
+                          </div>
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
 
                 </div>
               </>
