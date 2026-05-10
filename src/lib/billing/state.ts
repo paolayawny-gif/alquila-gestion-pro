@@ -31,9 +31,9 @@ export async function getBillingState(adminId: string): Promise<BillingState | n
   return snap.data() as BillingState;
 }
 
-/** Crea estado inicial con trial de 14 días */
+/** Crea estado inicial con trial de 7 días */
 export async function initBillingState(adminId: string): Promise<BillingState> {
-  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   const state: BillingState = {
     provider: null,
     customerId: null,

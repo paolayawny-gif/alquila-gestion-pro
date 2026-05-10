@@ -7,7 +7,7 @@ import {
   CreditCard, Wrench, Scale, Calendar, FileSpreadsheet,
   Home, User, ArrowRight, Play, Check, Plus,
   ShieldCheck, LayoutDashboard, TrendingUp,
-  AlertTriangle, DollarSign,
+  AlertTriangle, DollarSign, Globe,
 } from 'lucide-react';
 import { BILLING_TIERS, TRIAL_TIER } from '@/lib/billing/tiers';
 import { cn } from '@/lib/utils';
@@ -211,7 +211,7 @@ function Hero() {
             <div className="flex flex-wrap gap-3 mb-7">
               <Link href="/login"
                 className="inline-flex items-center gap-2 h-[52px] px-6 rounded-xl bg-primary text-primary-foreground text-[15.5px] font-bold shadow-primary hover:bg-primary/90 transition-colors">
-                Empezar gratis 14 días
+                Empezar gratis 7 días
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a href="#producto"
@@ -340,7 +340,8 @@ function Features() {
             Un módulo por cada cosa molesta que hoy resolvés a mano.
           </h2>
           <p className="text-[16.5px] text-muted-foreground leading-[1.6] max-w-[56ch]">
-            Pensado para la Argentina, no por consultores. Cada función responde a una tarea concreta del día a día.
+            Pensado para la Argentina, no por consultores. Cada función responde a una tarea concreta del día a día.{' '}
+            <span className="text-foreground font-medium">También funciona en cualquier país de Latinoamérica</span> — configurás el país al crear tu cuenta y el sistema adapta índices, moneda e impuestos.
           </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -523,7 +524,7 @@ function Pricing() {
             <Check className="h-4 w-4" strokeWidth={2.5} />
           </span>
           <p className="text-[14px] font-semibold text-[hsl(var(--status-paid-fg))]">
-            <strong>Período de prueba gratuito:</strong> hasta {TRIAL_TIER.maxUnits} contratos durante 14 días, sin tarjeta requerida.
+            <strong>Período de prueba gratuito:</strong> hasta {TRIAL_TIER.maxUnits} contratos durante 7 días, sin tarjeta requerida.
           </p>
         </div>
 
@@ -570,7 +571,7 @@ function Pricing() {
                       ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary"
                       : "border border-border bg-card hover:bg-muted",
                   )}>
-                  {isF ? 'Probar 14 días gratis' : 'Empezar'}
+                  {isF ? 'Probar 7 días gratis' : 'Empezar'}
                 </Link>
               </div>
             );
@@ -687,7 +688,7 @@ function CTABanner() {
               className="text-[clamp(1.45rem,1.1rem+1.2vw,2rem)] font-extrabold tracking-[-0.02em] leading-[1.15] text-white mb-3"
               style={{ textWrap: 'balance' } as React.CSSProperties}
             >
-              Probá AlquilaGestión Pro 14 días, sin tarjeta.
+              Probá AlquilaGestión Pro 7 días, sin tarjeta.
             </h3>
             <p className="text-[15px] text-white/75 leading-[1.55] max-w-[52ch]">
               Te ayudamos a importar tu cartera el mismo día. Si al final del trial no te suma, no pagás nada.
@@ -727,6 +728,7 @@ const FOOTER_LINKS = [
       { label: 'Inmobiliarias', href: '#roles' },
       { label: 'Propietarios', href: '#roles' },
       { label: 'Inquilinos', href: '#roles' },
+      { label: 'Latinoamérica', href: '#producto' },
     ],
   },
   {
@@ -742,7 +744,30 @@ function Footer() {
   return (
     <footer className="border-t border-border bg-card pt-14 pb-6">
       <div className="max-w-6xl mx-auto px-7">
-        <div className="grid md:grid-cols-[1.4fr_repeat(3,1fr)] gap-8 mb-12">
+
+        {/* Botón de arrepentimiento — Ley 24.240 Art. 34 */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 mb-10 rounded-xl border border-[hsl(var(--status-pending-bg))] bg-[hsl(var(--status-pending-bg))]">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-[hsl(var(--status-pending-fg))] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[13.5px] font-bold text-[hsl(var(--status-pending-fg))] leading-snug">
+                Derecho de arrepentimiento — Ley 24.240 Art. 34
+              </p>
+              <p className="text-[12.5px] text-[hsl(var(--status-pending-fg))]/80 leading-snug mt-0.5">
+                Si contrataste por medios electrónicos, podés revocar sin costo dentro de los <strong>10 días corridos</strong> desde la suscripción.
+              </p>
+            </div>
+          </div>
+          <a
+            href="mailto:arrepentimiento@alquilagestion.pro?subject=Solicitud%20de%20arrepentimiento%20—%20Ley%2024.240&body=Nombre%3A%0AEmail%20de%20la%20cuenta%3A%0AFecha%20de%20contrataci%C3%B3n%3A%0AMotivo%20(opcional)%3A"
+            className="flex-shrink-0 inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-[hsl(var(--status-pending-fg))]/30 text-[13px] font-semibold text-[hsl(var(--status-pending-fg))] hover:bg-[hsl(var(--status-pending-fg))]/10 transition-colors whitespace-nowrap"
+          >
+            Ejercer arrepentimiento
+            <ArrowRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
+
+        <div className="grid md:grid-cols-[1.4fr_repeat(3,1fr)_1fr] gap-8 mb-12">
           <div>
             <Link href="/landing" className="flex items-center gap-2.5 mb-4">
               <AppLogo size={30} />
@@ -755,11 +780,15 @@ function Footer() {
               </div>
             </Link>
             <p className="text-[13.5px] text-muted-foreground leading-[1.55] max-w-[30ch]">
-              Plataforma argentina de gestión de alquileres. Hecha con inmobiliarias, para inmobiliarias.
+              Plataforma de gestión de alquileres para Argentina y Latinoamérica.
             </p>
-            <div className="flex items-center gap-1.5 mt-4">
+            <div className="flex items-center gap-1.5 mt-3">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
               <span className="text-[11.5px] text-muted-foreground">Ley 25.326 · Datos en Argentina</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <Globe className="h-3.5 w-3.5 text-primary" />
+              <span className="text-[11.5px] text-muted-foreground">Disponible en toda Latinoamérica</span>
             </div>
           </div>
           {FOOTER_LINKS.map(({ title, links }) => (
@@ -776,17 +805,43 @@ function Footer() {
               </ul>
             </div>
           ))}
+          <div>
+            <h5 className="eyebrow text-muted-foreground mb-4">Legal</h5>
+            <ul className="grid gap-2.5">
+              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Términos y condiciones</a></li>
+              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de privacidad</a></li>
+              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de cancelación</a></li>
+              <li>
+                <a
+                  href="mailto:arrepentimiento@alquilagestion.pro?subject=Solicitud%20de%20arrepentimiento%20—%20Ley%2024.240&body=Nombre%3A%0AEmail%20de%20la%20cuenta%3A%0AFecha%20de%20contrataci%C3%B3n%3A"
+                  className="text-[13.5px] text-[hsl(var(--status-pending-fg))] font-semibold hover:underline transition-colors"
+                >
+                  Botón de arrepentimiento
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
+
         <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-border">
           <span className="text-[12.5px] text-muted-foreground">
             © 2026 AlquilaGestión Pro · Buenos Aires, Argentina
           </span>
-          <div className="flex gap-4 text-[12px] text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
             <span>Ley 25.326</span>
+            <span>·</span>
+            <span>Ley 24.240</span>
             <span>·</span>
             <a href="#" className="hover:text-primary transition-colors">Términos</a>
             <span>·</span>
             <a href="#" className="hover:text-primary transition-colors">Privacidad</a>
+            <span>·</span>
+            <a
+              href="mailto:arrepentimiento@alquilagestion.pro?subject=Solicitud%20de%20arrepentimiento%20—%20Ley%2024.240&body=Nombre%3A%0AEmail%20de%20la%20cuenta%3A%0AFecha%20de%20contrataci%C3%B3n%3A"
+              className="hover:text-primary transition-colors font-medium"
+            >
+              Arrepentimiento
+            </a>
           </div>
         </div>
       </div>

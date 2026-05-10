@@ -88,6 +88,10 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [isLegalDeskOpen, setIsLegalDeskOpen] = useState(false);
+  const [legalDeskMsg, setLegalDeskMsg] = useState('');
+  const [legalDeskEmail, setLegalDeskEmail] = useState('');
+  const [legalDeskSending, setLegalDeskSending] = useState(false);
 
   // ── BCRA Central de Deudores ─────────────────────────────────────────────
   const [cuitInput, setCuitInput] = useState('');
@@ -745,13 +749,9 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
                 </Button>
                 <Button
                   variant="outline" className="flex-col h-16 gap-1 text-xs"
-                  onClick={() => {
-                    const subject = encodeURIComponent('Consulta Legal — Casos Activos');
-                    const body = encodeURIComponent(`Hola,\n\nTengo ${legalCases.filter(c=>c.status!=='Cerrado').length} caso(s) legales activos que requieren asesoramiento.\n\nPor favor contactarme.\n\nGracias.`);
-                    window.open(`mailto:legal@alquilagestion.com?subject=${subject}&body=${body}`);
-                  }}
+                  onClick={() => setIsLegalDeskOpen(true)}
                 >
-                  <Scale className="h-4 w-4" /> Legal Desk
+                  <Scale className="h-4 w-4" /> Consultoría Legal
                 </Button>
                 <Button
                   variant="outline" className="flex-col h-16 gap-1 text-xs"
@@ -782,6 +782,68 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
           )}
         </div>
       </div>
+
+      {/* ── Dialog Consultoría Legal ───────────────────────────────────── */}
+      <Dialog open={isLegalDeskOpen} onOpenChange={setIsLegalDeskOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" />
+              Consultoría legal
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-[hsl(var(--status-info-bg))] border border-[hsl(var(--status-info-fg))]/20">
+              <CreditCard className="h-4 w-4 text-[hsl(var(--status-info-fg))] flex-shrink-0 mt-0.5" />
+              <p className="text-[13px] text-[hsl(var(--status-info-fg))] leading-snug">
+                Este servicio tiene un costo adicional. Un abogado especialista en derecho inmobiliario se contactará con vos para presupuestar la consulta.
+              </p>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ld-email" className="text-[13px]">Tu email de contacto</Label>
+              <Input
+                id="ld-email"
+                type="email"
+                placeholder="nombre@ejemplo.com"
+                value={legalDeskEmail}
+                onChange={e => setLegalDeskEmail(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ld-msg" className="text-[13px]">Describí brevemente tu consulta</Label>
+              <Textarea
+                id="ld-msg"
+                rows={4}
+                placeholder={`Tengo ${legalCases.filter(c => c.status !== 'Cerrado').length} caso(s) legales activos. El tema principal es...`}
+                value={legalDeskMsg}
+                onChange={e => setLegalDeskMsg(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsLegalDeskOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={!legalDeskEmail || !legalDeskMsg || legalDeskSending}
+              onClick={() => {
+                setLegalDeskSending(true);
+                const subject = encodeURIComponent('Consultoría Legal — AlquilaGestión Pro');
+                const body = encodeURIComponent(`Email: ${legalDeskEmail}\n\n${legalDeskMsg}`);
+                window.open(`mailto:legal@alquilagestion.pro?subject=${subject}&body=${body}`);
+                setTimeout(() => {
+                  setLegalDeskSending(false);
+                  setIsLegalDeskOpen(false);
+                  setLegalDeskMsg('');
+                  setLegalDeskEmail('');
+                  toast({ title: 'Consulta enviada', description: 'Te contactaremos pronto con el presupuesto.' });
+                }, 800);
+              }}
+            >
+              {legalDeskSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Enviar consulta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
