@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Building2, Calculator,
   LogOut, ChevronLeft, ChevronRight, Home, Menu,
-  ShieldOff, ShieldAlert, Bell, ShoppingBag, Wrench, FileText, Users, Receipt, Lightbulb,
+  ShieldOff, ShieldAlert, Bell, ShoppingBag, Wrench, FileText, Users, Receipt, Lightbulb, HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -21,6 +21,7 @@ import { OwnerCommunity } from './owner-community';
 import { OwnerAfipPanel } from './owner-afip-panel';
 import { OwnerOpportunities } from './owner-opportunities';
 import { BottomNav } from '@/components/ui/bottom-nav';
+import { HelpView } from '@/components/dashboard/help-view';
 
 export interface OwnerRegistryEntry {
   ownerEmail: string;
@@ -42,7 +43,9 @@ type OwnerTab =
   | 'Reclamos'
   | 'Comunidad'
   | 'Marketplace'
-  | 'Mensajes';
+  | 'Mensajes'
+  | 'Ayuda';
+
 
 const OWNER_MENU: { id: OwnerTab; icon: React.ElementType; label: string }[] = [
   { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'          },
@@ -56,6 +59,7 @@ const OWNER_MENU: { id: OwnerTab; icon: React.ElementType; label: string }[] = [
   { id: 'Comunidad',     icon: Users,           label: 'Comunidad'       },
   { id: 'Marketplace',   icon: ShoppingBag,     label: 'Marketplace'     },
   { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'        },
+  { id: 'Ayuda',         icon: HelpCircle,      label: 'Centro de Ayuda' },
 ];
 
 interface OwnerPortalProps {
@@ -130,6 +134,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
       case 'Comunidad':     return <OwnerCommunity            ownerEntry={ownerEntry} />;
       case 'Marketplace':   return <OwnerMarketplace          ownerEntry={ownerEntry} />;
       case 'Mensajes':      return <OwnerMessages             ownerEntry={ownerEntry} />;
+      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as OwnerTab)} currentSection={activeTab} portalRole="propietario" />;
       default:              return <OwnerHome                 ownerEntry={ownerEntry} onNavigate={setActiveTab} />;
     }
   };

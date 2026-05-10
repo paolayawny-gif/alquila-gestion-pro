@@ -44,7 +44,9 @@
       "Bash(node -e \"require\\('node-forge'\\); console.log\\('ok'\\)\")",
       "Bash(npx vercel *)",
       "Bash(git checkout *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(GIT_EDITOR=true git rebase --continue)"
     ]
   }
 }

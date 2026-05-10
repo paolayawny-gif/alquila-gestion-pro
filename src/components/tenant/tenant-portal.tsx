@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Wrench, Users, ShoppingBag,
   Shield, LogOut, ChevronLeft, ChevronRight, Home, Menu,
-  ShieldOff, ShieldAlert, FileText, CreditCard, Lightbulb,
+  ShieldOff, ShieldAlert, FileText, CreditCard, Lightbulb, HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -19,6 +19,7 @@ import { TenantInvoices } from './tenant-invoices';
 import { TenantPaymentPlans } from './tenant-payment-plans';
 import { TenantSpaces } from './tenant-spaces';
 import { BottomNav } from '@/components/ui/bottom-nav';
+import { HelpView } from '@/components/dashboard/help-view';
 
 export interface TenantRegistryEntry {
   tenantEmail: string;
@@ -30,7 +31,8 @@ export interface TenantRegistryEntry {
   status?: 'activo' | 'suspendido' | 'inactivo';
 }
 
-type TenantTab = 'Inicio' | 'Recibos' | 'Pagos' | 'Mensajes' | 'Mantenimiento' | 'Espacios' | 'Comunidad' | 'Marketplace' | 'Seguros';
+type TenantTab = 'Inicio' | 'Recibos' | 'Pagos' | 'Mensajes' | 'Mantenimiento' | 'Espacios' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Ayuda';
+
 
 const TENANT_MENU: { id: TenantTab; icon: React.ElementType; label: string }[] = [
   { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'           },
@@ -42,6 +44,7 @@ const TENANT_MENU: { id: TenantTab; icon: React.ElementType; label: string }[] =
   { id: 'Comunidad',     icon: Users,           label: 'Mi Edificio'      },
   { id: 'Marketplace',   icon: ShoppingBag,     label: 'Marketplace'      },
   { id: 'Seguros',       icon: Shield,          label: 'Seguros'          },
+  { id: 'Ayuda',         icon: HelpCircle,      label: 'Centro de Ayuda'  },
 ];
 
 interface TenantPortalProps {
@@ -117,6 +120,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
       case 'Comunidad':     return <TenantCommunity    tenantEntry={tenantEntry} />;
       case 'Marketplace':   return <TenantMarketplace  tenantEntry={tenantEntry} />;
       case 'Seguros':       return <TenantInsurance    tenantEntry={tenantEntry} />;
+      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as TenantTab)} currentSection={activeTab} portalRole="inquilino" />;
       default:              return <TenantHome         tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
     }
   };

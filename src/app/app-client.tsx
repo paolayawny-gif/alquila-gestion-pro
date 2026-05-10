@@ -41,6 +41,7 @@ import {
   ClipboardList,
   Menu,
   Settings,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BottomNav } from '@/components/ui/bottom-nav';
@@ -75,6 +76,7 @@ import { CommunityWallView } from '@/components/dashboard/community-wall-view';
 import { MarketplaceView } from '@/components/dashboard/marketplace-view';
 import { CentroLiquidacionesView } from '@/components/dashboard/centro-liquidaciones-view';
 import { AdminSettingsView } from '@/components/dashboard/admin-settings-view';
+import { HelpView } from '@/components/dashboard/help-view';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -103,7 +105,7 @@ import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración';
+type Tab = 'Resumen' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -175,7 +177,8 @@ const ADMIN_MENU_GROUPS = [
   {
     section: 'Sistema',
     items: [
-      { id: 'Configuración', icon: Settings, label: 'Configuración' },
+      { id: 'Ayuda',         icon: HelpCircle, label: 'Centro de Ayuda' },
+      { id: 'Configuración', icon: Settings,   label: 'Configuración'   },
     ],
   },
 ];
@@ -459,6 +462,7 @@ export default function AppClient() {
       case 'Asistente IA': return <AIAssistantView />;
       case 'Super Admin': return <SuperAdminView userId={user?.uid} userEmail={user?.email ?? ''} />;
       case 'Configuración': return <AdminSettingsView userId={user?.uid} />;
+      case 'Ayuda': return <HelpView onNavigate={(tab) => setActiveTab(tab as Tab)} currentSection={activeTab} />;
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
     }
   };
