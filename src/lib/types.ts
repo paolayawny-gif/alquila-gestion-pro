@@ -275,11 +275,13 @@ export interface Liquidation {
   ownerId: string;
   ownerName: string;
   ownerEmail?: string;
-  period: string; 
+  ownerPhone?: string;
+  period: string;
   ingresoAlquiler: number;
   adminFeeDeduction: number;
   maintenanceDeductions: number;
   expenseDeductions: number;
+  interestAmount?: number;
   netAmount: number;
   status: 'Pendiente' | 'Pagada';
   dateCreated: string;
