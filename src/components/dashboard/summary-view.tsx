@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { AppAlert, Property, Contract, Invoice, RentalApplication, MaintenanceTask } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { formatCurrency } from '@/lib/format';
 import { 
   AreaChart, 
   Area, 
@@ -174,6 +175,49 @@ export function SummaryView({
   const totalOverdue = invoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
   const occupancyRate = properties.length > 0 ? (properties.filter(p => p.status === 'Alquilada').length / properties.length) * 100 : 0;
 
+  // ── KPIs avanzados ──────────────────────────────────────────────────────
+  const advancedKpis = useMemo(() => {
+    const now = new Date();
+
+    // Tasa de cobro en término (pagadas / emitidas)
+    const collectionRate = invoices.length > 0
+      ? Math.round((invoices.filter(i => i.status === 'Pagado').length / invoices.length) * 100)
+      : 100;
+
+    // Tiempo promedio de cierre de tickets (días)
+    const closedWithDates = tasks.filter(t => t.status === 'Cerrado' && t.closedAt && t.createdAt);
+    const avgCloseDays = closedWithDates.length > 0
+      ? Math.round(
+          closedWithDates.reduce((acc, t) => {
+            const d = (new Date(t.closedAt!).getTime() - new Date(t.createdAt).getTime()) / 86_400_000;
+            return acc + Math.max(0, d);
+          }, 0) / closedWithDates.length,
+        )
+      : null;
+
+    // Score de riesgo de cartera (100 = sin riesgo)
+    const overdueRatio   = totalProjected > 0 ? totalOverdue / totalProjected : 0;
+    const vacancyRatio   = properties.length > 0 ? properties.filter(p => p.status !== 'Alquilada').length / properties.length : 0;
+    const expiring30     = contracts.filter(c => {
+      const end = new Date(c.endDate);
+      return end > now && (end.getTime() - now.getTime()) < 30 * 86_400_000;
+    }).length;
+    const expiringRatio  = contracts.length > 0 ? expiring30 / contracts.length : 0;
+    const urgentOpen     = tasks.filter(t => t.priority === 'Urgente' && t.status !== 'Cerrado').length;
+    const urgentRatio    = tasks.length > 0 ? urgentOpen / tasks.length : 0;
+
+    const riskScore = Math.max(0, Math.min(100, Math.round(
+      100 - (overdueRatio * 35 + vacancyRatio * 25 + expiringRatio * 20 + urgentRatio * 20) * 100,
+    )));
+
+    const riskLevel = riskScore >= 80 ? 'Saludable' : riskScore >= 55 ? 'Moderado' : 'En riesgo';
+    const riskColor = riskScore >= 80 ? 'text-green-600' : riskScore >= 55 ? 'text-orange-500' : 'text-red-600';
+
+    const activeContracts = contracts.filter(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer').length;
+
+    return { collectionRate, avgCloseDays, riskScore, riskLevel, riskColor, activeContracts };
+  }, [invoices, tasks, contracts, properties, totalOverdue, totalProjected]);
+
   const CASHFLOW_DATA = [
     { name: 'Semana 1', cobrado: totalCollected * 0.4, proyectado: totalProjected * 0.3 },
     { name: 'Semana 2', cobrado: totalCollected * 0.7, proyectado: totalProjected * 0.6 },
@@ -233,6 +277,74 @@ export function SummaryView({
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Incidencias Abiertas</p>
             <h3 className="text-2xl font-black text-foreground">{tasks.filter(t => t.status !== 'Cerrado').length}</h3>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Fila de KPIs avanzados ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Cobro en término */}
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Cobro en término</p>
+            <div className="flex items-end gap-2">
+              <span className={cn('text-2xl font-black', advancedKpis.collectionRate >= 80 ? 'text-green-600' : advancedKpis.collectionRate >= 60 ? 'text-orange-500' : 'text-red-600')}>
+                {advancedKpis.collectionRate}%
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className={cn('h-full rounded-full transition-all', advancedKpis.collectionRate >= 80 ? 'bg-green-500' : advancedKpis.collectionRate >= 60 ? 'bg-orange-400' : 'bg-red-500')}
+                style={{ width: `${advancedKpis.collectionRate}%` }} />
+            </div>
+            <p className="text-[9px] text-muted-foreground mt-1.5">{invoices.filter(i => i.status === 'Pagado').length} de {invoices.length} facturas</p>
+          </CardContent>
+        </Card>
+
+        {/* Tiempo promedio cierre tickets */}
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Tiempo cierre tickets</p>
+            <div className="flex items-end gap-1">
+              <span className="text-2xl font-black">
+                {advancedKpis.avgCloseDays !== null ? advancedKpis.avgCloseDays : '—'}
+              </span>
+              {advancedKpis.avgCloseDays !== null && <span className="text-sm text-muted-foreground mb-0.5">días prom.</span>}
+            </div>
+            <p className="text-[9px] text-muted-foreground mt-1.5">
+              {tasks.filter(t => t.status === 'Cerrado').length} tickets cerrados
+              {advancedKpis.avgCloseDays === null && ' — sin datos suficientes'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Score de riesgo */}
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Score de cartera</p>
+            <div className="flex items-center gap-2">
+              <span className={cn('text-2xl font-black', advancedKpis.riskColor)}>{advancedKpis.riskScore}</span>
+              <span className="text-[10px] text-muted-foreground">/100</span>
+            </div>
+            <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className={cn('h-full rounded-full transition-all', advancedKpis.riskScore >= 80 ? 'bg-green-500' : advancedKpis.riskScore >= 55 ? 'bg-orange-400' : 'bg-red-500')}
+                style={{ width: `${advancedKpis.riskScore}%` }} />
+            </div>
+            <p className={cn('text-[9px] mt-1.5 font-bold', advancedKpis.riskColor)}>{advancedKpis.riskLevel}</p>
+          </CardContent>
+        </Card>
+
+        {/* Contratos activos */}
+        <Card className="border-none shadow-sm bg-white">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Contratos activos</p>
+            <span className="text-2xl font-black">{advancedKpis.activeContracts}</span>
+            <p className="text-[9px] text-muted-foreground mt-1.5">
+              de {contracts.length} totales ·{' '}
+              {contracts.filter(c => c.status === 'Próximo a Vencer').length > 0 && (
+                <span className="text-orange-500 font-bold">{contracts.filter(c => c.status === 'Próximo a Vencer').length} por vencer</span>
+              )}
+              {contracts.filter(c => c.status === 'Próximo a Vencer').length === 0 && 'todos al día'}
+            </p>
           </CardContent>
         </Card>
       </div>

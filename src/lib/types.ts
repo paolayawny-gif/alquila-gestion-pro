@@ -175,7 +175,9 @@ export interface Contract {
   depositAmount: number;
   depositCurrency: Currency;
   commissionAmount: number;
-  status: 'Vigente' | 'Próximo a Vencer' | 'Finalizado' | 'Rescindido';
+  status: 'Borrador' | 'Vigente' | 'Próximo a Vencer' | 'Finalizado' | 'Rescindido';
+  createdBy?: string;   // UID del admin que lo creó
+  updatedBy?: string;   // UID del admin que hizo el último cambio
   fullTranscription?: string;
   documents: {
     mainContractUrl: string;
@@ -307,6 +309,8 @@ export interface MaintenanceTask {
   updatedAt: string;
   closedAt?: string;
   hasFile?: boolean;
+  createdBy?: string;   // UID del admin que abrió el ticket
+  updatedBy?: string;   // UID del admin que hizo el último cambio
 }
 
 export interface AppAlert {

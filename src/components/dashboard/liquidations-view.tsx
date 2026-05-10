@@ -48,6 +48,41 @@ import { calculateLiquidationNet, recalculateNetWithInterest, computeLiquidation
 import { createNotification } from '@/lib/notifications';
 import { OwnerRegistryEntry } from '@/components/owner/owner-portal';
 
+// ── Pipeline visual de liquidación ────────────────────────────────────────────
+
+function LiquidationPipeline({ liq }: { liq: Liquidation }) {
+  const steps = [
+    { key: 'calc',   label: 'Calculado',  done: true },
+    { key: 'notify', label: 'Notificado', done: !!liq.ownerEmail },
+    { key: 'pdf',    label: 'PDF',        done: liq.status === 'Pagada' },
+    { key: 'ledger', label: 'Pagada',     done: liq.status === 'Pagada' },
+  ];
+  return (
+    <div className="flex items-center gap-1">
+      {steps.map((s, i) => (
+        <React.Fragment key={s.key}>
+          <div className={cn(
+            'flex flex-col items-center gap-0.5',
+          )}>
+            <div className={cn(
+              'h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-black',
+              s.done ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground',
+            )}>
+              {i + 1}
+            </div>
+            <span className={cn('text-[7px] font-bold', s.done ? 'text-green-700' : 'text-muted-foreground')}>
+              {s.label}
+            </span>
+          </div>
+          {i < steps.length - 1 && (
+            <div className={cn('h-px w-3 mb-3', s.done ? 'bg-green-400' : 'bg-muted')} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 interface LiquidationsViewProps {
   liquidations: Liquidation[];
   userId?: string;
@@ -235,6 +270,60 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
     deleteDocumentNonBlocking(docRef);
   };
 
+  const handleDownloadPdf = async (l: Liquidation) => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable  = (await import('jspdf-autotable')).default;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      // Header
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Informe Ejecutivo de Liquidación', 14, 20);
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(100);
+      pdf.text(`Propietario: ${l.ownerName}`, 14, 30);
+      pdf.text(`Propiedad:   ${l.propertyName}`, 14, 36);
+      pdf.text(`Período:     ${l.period}`, 14, 42);
+      pdf.text(`Emitido:     ${new Date().toLocaleDateString('es-AR')}`, 14, 48);
+
+      pdf.setDrawColor(200);
+      pdf.line(14, 52, 196, 52);
+
+      // Summary table
+      autoTable(pdf, {
+        startY: 56,
+        head: [['Concepto', 'Importe']],
+        body: [
+          ['Ingreso por alquiler',         `$ ${l.ingresoAlquiler.toLocaleString('es-AR')}`],
+          ['Comisión administración (−)',   `$ ${l.adminFeeDeduction.toLocaleString('es-AR')}`],
+          ['Gastos de mantenimiento (−)',   `$ ${l.maintenanceDeductions.toLocaleString('es-AR')}`],
+          ['Gastos varios (−)',              `$ ${l.expenseDeductions.toLocaleString('es-AR')}`],
+          ...(l.interestAmount ? [['Intereses (−)', `$ ${l.interestAmount.toLocaleString('es-AR')}`]] : []),
+          ['NETO A TRANSFERIR',            `$ ${l.netAmount.toLocaleString('es-AR')}`],
+        ],
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [249, 115, 22] },
+        footStyles: { fontStyle: 'bold' },
+        columnStyles: { 1: { halign: 'right' } },
+      });
+
+      // Footer note
+      const finalY = (pdf as any).lastAutoTable?.finalY ?? 130;
+      pdf.setFontSize(8);
+      pdf.setTextColor(150);
+      pdf.text('Este informe ha sido generado automáticamente por AlquilaGestión Pro.', 14, finalY + 10);
+      pdf.text('RG AFIP N° 1415/03 — El propietario debe emitir factura ARCA al percibir el pago.', 14, finalY + 15);
+
+      pdf.save(`liquidacion_${l.period.replace(/\s+/g, '_')}_${l.propertyName.replace(/\s+/g, '_')}.pdf`);
+      toast({ title: 'PDF generado', description: `Liquidación ${l.period} descargada.` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo generar el PDF.', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center gap-4">
@@ -384,9 +473,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                   </div>
                 </TableCell>
                 <TableCell>
-                   <Badge className={cn("border-none", l.status === 'Pagada' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>
-                    {l.status}
-                   </Badge>
+                  <LiquidationPipeline liq={l} />
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -407,7 +494,7 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                       title="Enviar por Email"
                       onClick={() => window.open(buildMailtoLink(l), '_blank')}
                     ><Mail className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Recibo"><Download className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Informe PDF" onClick={() => handleDownloadPdf(l)}><Download className="h-4 w-4" /></Button>
                     {canDelete && (
                       <ConfirmDeleteButton
                         trigger={<Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>}

@@ -108,6 +108,47 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     return <Badge variant="outline" className={cn("border font-bold", styles[status])}>{status}</Badge>;
   };
 
+  const PRIORITY_PHASE: Record<string, { sla: string; slaDays: number; color: string; bg: string; bar: string }> = {
+    'Urgente': { sla: '24-48 hs',   slaDays: 2,  color: 'text-red-700',    bg: 'bg-red-50',    bar: 'bg-red-500' },
+    'Alta':    { sla: '1 semana',   slaDays: 7,  color: 'text-orange-700', bg: 'bg-orange-50', bar: 'bg-orange-400' },
+    'Media':   { sla: '2 semanas',  slaDays: 14, color: 'text-yellow-700', bg: 'bg-yellow-50', bar: 'bg-yellow-400' },
+    'Baja':    { sla: 'Preventivo', slaDays: 90, color: 'text-slate-600',  bg: 'bg-slate-50',  bar: 'bg-slate-400' },
+  };
+
+  const getPriorityCell = (task: MaintenanceTask) => {
+    const phase = PRIORITY_PHASE[task.priority] ?? PRIORITY_PHASE['Baja'];
+    const isOpen = task.status !== 'Completado' && task.status !== 'Cerrado';
+    let ageLabel = '';
+    let overSla = false;
+    if (isOpen && task.createdAt) {
+      const parts = task.createdAt.split('/');
+      const created = parts.length === 3 ? new Date(+parts[2], +parts[1]-1, +parts[0]) : new Date(task.createdAt);
+      const ageDays = Math.floor((Date.now() - created.getTime()) / 86_400_000);
+      if (!isNaN(ageDays)) {
+        overSla = ageDays > phase.slaDays;
+        ageLabel = ageDays === 0 ? 'hoy' : `${ageDays}d`;
+      }
+    }
+    return (
+      <div className="flex flex-col gap-1 min-w-[90px]">
+        <div className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black', phase.bg, phase.color)}>
+          {task.priority === 'Urgente' && <Zap className="h-2.5 w-2.5" />}
+          {task.priority}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className={cn('text-[9px] font-bold', overSla ? 'text-red-600' : 'text-muted-foreground')}>
+            SLA: {phase.sla}
+          </span>
+          {ageLabel && (
+            <span className={cn('text-[9px] font-black px-1 rounded', overSla ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground')}>
+              {overSla ? '⚠ ' : ''}{ageLabel}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const handleCreateTicket = () => {
     if (!newTicket.propertyId || !newTicket.concept || !userId || !db) return;
 
@@ -428,14 +469,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                     <span className="text-[10px] text-muted-foreground font-black uppercase tracking-tight">{t.propertyName} • {t.createdAt}</span>
                   </div>
                 </TableCell>
-                <TableCell>
-                  <Badge variant="ghost" className={cn(
-                    "text-[10px] font-bold uppercase",
-                    t.priority === 'Urgente' ? "text-red-600 bg-red-50" : "text-muted-foreground"
-                  )}>
-                    {t.priority}
-                  </Badge>
-                </TableCell>
+                <TableCell>{getPriorityCell(t)}</TableCell>
                 <TableCell>{getStatusBadge(t.status)}</TableCell>
                 <TableCell>
                   {t.chargedTo === 'Propietario' ? (
