@@ -31,13 +31,8 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
@@ -60,8 +55,35 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
   const { canWrite, canDelete } = useOrgPermissions();
   
   const [isNewLiqOpen, setIsNewLiqOpen] = useState(false);
-  const [selectedPropId, setSelectedPropId] = useState('');
+  const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
   const [period, setPeriod] = useState(new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }));
+  const [propSearch, setPropSearch] = useState('');
+
+  const sortedProperties = React.useMemo(
+    () => [...properties].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+    [properties]
+  );
+
+  const filteredProperties = React.useMemo(() => {
+    const q = propSearch.trim().toLowerCase();
+    if (!q) return sortedProperties;
+    return sortedProperties.filter(p => p.name.toLowerCase().includes(q));
+  }, [sortedProperties, propSearch]);
+
+  const allFilteredSelected = filteredProperties.length > 0 && filteredProperties.every(p => selectedPropIds.includes(p.id));
+  const someFilteredSelected = filteredProperties.some(p => selectedPropIds.includes(p.id));
+
+  const toggleProp = (id: string) => {
+    setSelectedPropIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleAll = () => {
+    if (allFilteredSelected) {
+      setSelectedPropIds(prev => prev.filter(id => !filteredProperties.some(p => p.id === id)));
+    } else {
+      setSelectedPropIds(prev => Array.from(new Set([...prev, ...filteredProperties.map(p => p.id)])));
+    }
+  };
 
   const facturasQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
@@ -78,62 +100,72 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
   const tasks = maintenanceData || [];
 
   const handleCreateLiq = () => {
-    if (!selectedPropId || !userId || !db) return;
+    if (selectedPropIds.length === 0 || !userId || !db) return;
 
-    const property = properties.find(p => p.id === selectedPropId);
-    if (!property) return;
-    
-    const owner = people.find(p => p.id === property.owners?.[0]?.ownerId) || { id: 'dueño-ext', fullName: property.owners?.[0]?.name || 'Propietario' };
+    let totalDeductions = 0;
+    let generated = 0;
 
-    const propInvoices = invoices.filter(i => i.propertyName === property.name && i.period === period);
-    
-    let rentIncome = 0;
-    let serviceDeductions = 0;
+    selectedPropIds.forEach(propId => {
+      const property = properties.find(p => p.id === propId);
+      if (!property) return;
 
-    propInvoices.forEach(inv => {
-      inv.charges.forEach(charge => {
-        if (charge.type === 'Alquiler') rentIncome += charge.amount;
-        if (charge.imputedTo === 'Propietario') serviceDeductions += charge.amount;
+      const owner = people.find(p => p.id === property.owners?.[0]?.ownerId) || { id: 'dueño-ext', fullName: property.owners?.[0]?.name || 'Propietario' };
+
+      const propInvoices = invoices.filter(i => i.propertyName === property.name && i.period === period);
+
+      let rentIncome = 0;
+      let serviceDeductions = 0;
+
+      propInvoices.forEach(inv => {
+        inv.charges.forEach(charge => {
+          if (charge.type === 'Alquiler') rentIncome += charge.amount;
+          if (charge.imputedTo === 'Propietario') serviceDeductions += charge.amount;
+        });
       });
+
+      const approvedRepairs = tasks.filter(t =>
+        t.propertyId === propId &&
+        t.chargedTo === 'Propietario' &&
+        t.isApprovedByOwner === true &&
+        t.status === 'Cerrado'
+      );
+
+      const maintenanceDeductions = approvedRepairs.reduce((acc, t) => acc + (t.actualCost || 0), 0);
+
+      const adminFee = rentIncome * 0.1;
+      const net = rentIncome - adminFee - serviceDeductions - maintenanceDeductions;
+
+      const docId = Math.random().toString(36).substr(2, 9);
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', docId);
+
+      const liqData: Liquidation = {
+        id: docId,
+        propertyId: propId,
+        propertyName: property.name,
+        ownerId: owner.id,
+        ownerName: owner.fullName,
+        ownerEmail: property.owners?.[0]?.email,
+        period: period,
+        ingresoAlquiler: rentIncome,
+        adminFeeDeduction: adminFee,
+        maintenanceDeductions: maintenanceDeductions,
+        expenseDeductions: serviceDeductions,
+        netAmount: net,
+        status: 'Pendiente',
+        dateCreated: new Date().toLocaleDateString('es-AR')
+      };
+
+      setDocumentNonBlocking(docRef, liqData, { merge: true });
+      totalDeductions += serviceDeductions + maintenanceDeductions;
+      generated += 1;
     });
 
-    const approvedRepairs = tasks.filter(t => 
-      t.propertyId === selectedPropId && 
-      t.chargedTo === 'Propietario' && 
-      t.isApprovedByOwner === true &&
-      t.status === 'Cerrado'
-    );
-
-    const maintenanceDeductions = approvedRepairs.reduce((acc, t) => acc + (t.actualCost || 0), 0);
-
-    const adminFee = rentIncome * 0.1;
-    const net = rentIncome - adminFee - serviceDeductions - maintenanceDeductions;
-
-    const docId = Math.random().toString(36).substr(2, 9);
-    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', docId);
-
-    const liqData: Liquidation = {
-      id: docId,
-      propertyId: selectedPropId,
-      propertyName: property.name,
-      ownerId: owner.id,
-      ownerName: owner.fullName,
-      ownerEmail: property.owners?.[0]?.email,
-      period: period,
-      ingresoAlquiler: rentIncome,
-      adminFeeDeduction: adminFee,
-      maintenanceDeductions: maintenanceDeductions,
-      expenseDeductions: serviceDeductions,
-      netAmount: net,
-      status: 'Pendiente',
-      dateCreated: new Date().toLocaleDateString('es-AR')
-    };
-
-    setDocumentNonBlocking(docRef, liqData, { merge: true });
     setIsNewLiqOpen(false);
-    toast({ 
-      title: "Liquidación Generada", 
-      description: `Deducciones aplicadas: $${(serviceDeductions + maintenanceDeductions).toLocaleString('es-AR')}.` 
+    setSelectedPropIds([]);
+    setPropSearch('');
+    toast({
+      title: generated > 1 ? `${generated} Liquidaciones Generadas` : "Liquidación Generada",
+      description: `Deducciones totales aplicadas: $${totalDeductions.toLocaleString('es-AR')}.`
     });
   };
 
@@ -165,11 +197,60 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label>Propiedad / Unidad</Label>
-                <Select value={selectedPropId} onValueChange={setSelectedPropId}>
-                  <SelectTrigger><SelectValue placeholder="Seleccione unidad..." /></SelectTrigger>
-                  <SelectContent>{properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label>Propiedades / Unidades</Label>
+                  <span className="text-[11px] font-bold text-muted-foreground">
+                    {selectedPropIds.length} de {properties.length} seleccionadas
+                  </span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={propSearch}
+                    onChange={e => setPropSearch(e.target.value)}
+                    placeholder="Buscar unidad..."
+                    className="pl-8 h-9 text-xs"
+                  />
+                </div>
+                <div className="rounded-md border border-input">
+                  <label className="flex items-center gap-2 p-2.5 border-b border-input bg-muted/40 cursor-pointer hover:bg-muted/70 transition-colors">
+                    <Checkbox
+                      checked={allFilteredSelected ? true : (someFilteredSelected ? 'indeterminate' : false)}
+                      onCheckedChange={toggleAll}
+                      disabled={filteredProperties.length === 0}
+                    />
+                    <span className="text-xs font-bold uppercase tracking-tight">
+                      {allFilteredSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                    </span>
+                  </label>
+                  <ScrollArea className="h-48">
+                    {filteredProperties.length === 0 ? (
+                      <div className="text-center py-6 text-xs text-muted-foreground italic">
+                        Sin coincidencias.
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-input/50">
+                        {filteredProperties.map(p => {
+                          const checked = selectedPropIds.includes(p.id);
+                          return (
+                            <li key={p.id}>
+                              <label className={cn(
+                                "flex items-center gap-2 p-2.5 cursor-pointer hover:bg-muted/40 transition-colors",
+                                checked && "bg-primary/5"
+                              )}>
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => toggleProp(p.id)}
+                                />
+                                <span className="text-xs font-medium truncate">{p.name}</span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </ScrollArea>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Período de Liquidación</Label>
@@ -188,7 +269,17 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
                 </div>
               </div>
             </div>
-            <DialogFooter className="mt-4"><Button className="w-full h-11 font-black" onClick={handleCreateLiq}>Cerrar y Generar</Button></DialogFooter>
+            <DialogFooter className="mt-4">
+              <Button
+                className="w-full h-11 font-black"
+                onClick={handleCreateLiq}
+                disabled={selectedPropIds.length === 0}
+              >
+                {selectedPropIds.length > 1
+                  ? `Generar ${selectedPropIds.length} Liquidaciones`
+                  : 'Cerrar y Generar'}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
