@@ -106,6 +106,7 @@ import { SuperAdminView } from '@/components/dashboard/super-admin-view';
 import { TimelineView } from '@/components/dashboard/timeline-view';
 import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda';
@@ -591,7 +592,7 @@ export default function AppClient() {
         <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileMenuOpen(false)} />
       )}
       <aside className={cn(
-        "bg-white border-r flex flex-col transition-all duration-300 z-40 shrink-0",
+        "bg-card border-r flex flex-col transition-all duration-300 z-40 shrink-0",
         "fixed inset-y-0 left-0 md:static md:z-20",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         isSidebarCollapsed ? "md:w-20 w-64" : "w-64",
@@ -616,14 +617,14 @@ export default function AppClient() {
               </svg>
               {/* Wordmark */}
               <div className="leading-none overflow-hidden flex-1 min-w-0">
-                <span className="block text-[9px] font-medium tracking-[0.22em] text-[#888780] uppercase mb-0.5">ALQUILA</span>
+                <span className="block text-[9px] font-medium tracking-[0.22em] text-muted-foreground uppercase mb-0.5">ALQUILA</span>
                 <div className="flex items-baseline gap-0">
-                  <span className="text-[17px] font-semibold text-[#1D9E75] leading-none">Gestión</span>
-                  <span className="text-[17px] font-semibold text-[#444441] leading-none">Pro</span>
+                  <span className="text-[17px] font-semibold text-primary leading-none">Gestión</span>
+                  <span className="text-[17px] font-semibold text-foreground leading-none">Pro</span>
                 </div>
                 <div className="flex mt-1 gap-[2px]">
-                  <div className="h-[2.5px] w-[52px] rounded-full bg-[#1D9E75]"/>
-                  <div className="h-[2.5px] w-[20px] rounded-full bg-[#444441]"/>
+                  <div className="h-[2.5px] w-[52px] rounded-full bg-primary"/>
+                  <div className="h-[2.5px] w-[20px] rounded-full bg-foreground/40"/>
                 </div>
               </div>
             </div>
@@ -697,7 +698,7 @@ export default function AppClient() {
             </DropdownMenuContent>
           </DropdownMenu>
           {isSuperAdmin && (
-            <button onClick={() => setActiveTab('Super Admin')} className={cn("w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors", isSidebarCollapsed && "justify-center", activeTab === 'Super Admin' && "bg-amber-50")}>
+            <button onClick={() => setActiveTab('Super Admin')} className={cn("w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-amber-500 dark:text-amber-400 hover:bg-amber-500/10 transition-colors", isSidebarCollapsed && "justify-center", activeTab === 'Super Admin' && "bg-amber-500/10")}>
               <Crown className="h-4 w-4 shrink-0" />
               {!isSidebarCollapsed && <span>Super Admin</span>}
             </button>
@@ -707,12 +708,12 @@ export default function AppClient() {
             {!isSidebarCollapsed && <span>Cerrar Sesión</span>}
            </button>
         </div>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50">
+        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-card border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50">
           {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
       </aside>
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
-        <header className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 gap-3">
+        <header className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-card/80 backdrop-blur-md sticky top-0 z-10 gap-3">
           <button className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0" onClick={() => setMobileMenuOpen(true)}>
             <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
@@ -721,20 +722,21 @@ export default function AppClient() {
             <input
               type="text"
               placeholder="Buscar propiedades, inquilinos..."
-              className="w-full pl-9 pr-4 h-9 rounded-lg bg-muted/50 border border-transparent focus:border-primary/30 focus:bg-white text-sm outline-none transition-all"
+              className="w-full pl-9 pr-4 h-9 rounded-lg bg-muted/50 border border-transparent focus:border-primary/30 focus:bg-card text-sm outline-none transition-all"
             />
           </div>
           <h1 className="text-xl font-bold text-foreground md:hidden">{activeRole === 'Administrador' ? activeTab : `Portal de ${activeRole}`}</h1>
           <div className="flex items-center gap-3 ml-auto">
+            <ThemeToggle />
             {/* Org membership badge */}
             {orgCtx.isOrgUser && orgCtx.orgName && (
               <div className={cn(
                 "hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border",
                 orgCtx.role === 'Solo lectura'
-                  ? 'bg-slate-100 text-slate-600 border-slate-200'
+                  ? 'bg-muted text-muted-foreground border-border'
                   : orgCtx.role === 'Agente'
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'bg-green-50 text-green-700 border-green-200'
+                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-300 border-blue-500/25'
+                  : 'bg-primary/10 text-primary border-primary/25'
               )}>
                 <ShieldCheck className="h-3 w-3" />
                 <span>{orgCtx.orgName}</span>
@@ -760,7 +762,7 @@ export default function AppClient() {
         </header>
         {/* Banner de solo lectura */}
         {orgCtx.isOrgUser && orgCtx.role === 'Solo lectura' && (
-          <div className="bg-slate-100 border-b border-slate-200 px-6 py-2 flex items-center gap-2 text-xs text-slate-600 font-medium">
+          <div className="bg-muted border-b px-6 py-2 flex items-center gap-2 text-xs text-muted-foreground font-medium">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
             Modo <strong>solo lectura</strong> — podés consultar toda la información pero no realizar cambios.
           </div>
