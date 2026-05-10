@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SelectWithOther } from '@/components/ui/select-with-other';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -956,20 +957,20 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
             {/* Tipo de contrato */}
             <div className="space-y-1.5">
               <Label className="text-xs font-black uppercase text-muted-foreground">Tipo de contrato</Label>
-              <Select value={aiContractType} onValueChange={setAiContractType}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Locación de Vivienda">Locación de Vivienda</SelectItem>
-                  <SelectItem value="Locación de Vivienda con Cochera">Locación de Vivienda con Cochera</SelectItem>
-                  <SelectItem value="Locación Comercial">Locación Comercial</SelectItem>
-                  <SelectItem value="Locación de Oficina">Locación de Oficina</SelectItem>
-                  <SelectItem value="Comodato">Comodato</SelectItem>
-                  <SelectItem value="Acuerdo de Rescisión">Acuerdo de Rescisión</SelectItem>
-                  <SelectItem value="Addenda / Modificación de Contrato">Addenda / Modificación de Contrato</SelectItem>
-                </SelectContent>
-              </Select>
+              <SelectWithOther
+                value={aiContractType}
+                onValueChange={setAiContractType}
+                options={[
+                  'Locación de Vivienda',
+                  'Locación de Vivienda con Cochera',
+                  'Locación Comercial',
+                  'Locación de Oficina',
+                  'Comodato',
+                  'Acuerdo de Rescisión',
+                  'Addenda / Modificación de Contrato',
+                ]}
+                otherPlaceholder="Ej: Usufructo, Permuta..."
+              />
             </div>
 
             {/* Partes */}

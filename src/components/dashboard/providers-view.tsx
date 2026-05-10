@@ -27,7 +27,7 @@ import { useOrgPermissions } from '@/contexts/org-permissions-context';
 const APP_ID = 'alquilagestion-pro';
 
 type ProviderCategory = string;          // open string so custom categories work
-type ProviderStatus = 'Verificado' | 'En evaluación' | 'Suspendido';
+type ProviderStatus = 'Verificado' | 'En evaluación' | 'Suspendido' | 'Inactivo';
 type BudgetStatus = 'Pendiente' | 'Aprobado' | 'Rechazado';
 
 interface Provider {
@@ -86,6 +86,7 @@ const STATUS_STYLES: Record<ProviderStatus, string> = {
   'Verificado':    'bg-green-50 text-green-700 border-green-200',
   'En evaluación': 'bg-amber-50 text-amber-700 border-amber-200',
   'Suspendido':    'bg-red-50 text-red-700 border-red-200',
+  'Inactivo':      'bg-gray-100 text-gray-500 border-gray-200',
 };
 
 function StarRating({ rating }: { rating: number }) {
@@ -612,6 +613,7 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
                     <SelectItem value="Verificado">Verificado</SelectItem>
                     <SelectItem value="En evaluación">En evaluación</SelectItem>
                     <SelectItem value="Suspendido">Suspendido</SelectItem>
+                    <SelectItem value="Inactivo">Inactivo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

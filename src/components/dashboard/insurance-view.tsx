@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SelectWithOther } from '@/components/ui/select-with-other';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -1197,15 +1198,12 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
               {/* Use */}
               <div className="space-y-1.5">
                 <Label>Destino</Label>
-                <Select value={quoteForm.propertyUse} onValueChange={v => setQuoteForm(f => ({ ...f, propertyUse: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Vivienda">Vivienda</SelectItem>
-                    <SelectItem value="Comercio">Comercio</SelectItem>
-                    <SelectItem value="Profesional">Profesional</SelectItem>
-                    <SelectItem value="Mixto">Mixto</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SelectWithOther
+                  value={quoteForm.propertyUse}
+                  onValueChange={v => setQuoteForm(f => ({ ...f, propertyUse: v }))}
+                  options={['Vivienda','Comercio','Profesional','Mixto']}
+                  otherPlaceholder="Ej: Galpón, Industrial, Estudio..."
+                />
               </div>
 
               {/* Owner */}

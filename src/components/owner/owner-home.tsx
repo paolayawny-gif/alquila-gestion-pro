@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   Building2, DollarSign, MessageSquare, Calculator,
   ArrowRight, CheckCircle2, Clock,
-  TrendingUp, Wrench, FileText, Bell, Users, ShoppingBag, Receipt, Zap,
+  TrendingUp, Wrench, FileText, Bell, Users, ShoppingBag, Receipt, Zap, Briefcase,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -360,6 +360,7 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
               { icon: MessageSquare, label: 'Mensajes',          tab: 'Mensajes',      color: 'text-violet-600 bg-violet-50 hover:bg-violet-100' },
               { icon: Users,         label: 'Comunidad',         tab: 'Comunidad',     color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
               { icon: ShoppingBag,   label: 'Marketplace',       tab: 'Marketplace',   color: 'text-pink-600 bg-pink-50 hover:bg-pink-100' },
+              { icon: Briefcase,     label: 'Servicios',         tab: 'Servicios',     color: 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' },
               { icon: Building2,     label: 'Propiedades',       tab: 'Propiedades',   color: 'text-green-600 bg-green-50 hover:bg-green-100' },
             ].map(a => (
               <button

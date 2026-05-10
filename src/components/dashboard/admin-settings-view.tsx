@@ -1,18 +1,43 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc, deleteDoc,
+} from 'firebase/firestore';
 import { buildWaLink } from '@/lib/whatsapp';
 import { authedFetch } from '@/lib/authed-fetch';
-import { CreditCard, CheckCircle2, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import {
+  CreditCard, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2,
+  Settings, Briefcase, Scale, Wrench, Shield, FileText, Landmark,
+  ChevronsUpDown, Eye, EyeOff, ExternalLink, DollarSign, Pencil,
+} from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
+import type {
+  AdminService, AdminPaymentConfig, ServiceCategory, ServiceClientTarget,
+  ServicePriceType, ServiceDeliverable,
+} from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -39,17 +64,49 @@ export function useAdminWhatsApp(userId?: string): { whatsappNumber: string | nu
 }
 
 export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div>
+        <h2 className="text-2xl font-black text-foreground">Configuración</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Ajustes de tu cuenta, canales de comunicación y servicios.</p>
+      </div>
+
+      <Tabs defaultValue="general" className="space-y-4">
+        <TabsList className="h-9">
+          <TabsTrigger value="general" className="text-xs font-bold gap-1.5">
+            <Settings className="h-3.5 w-3.5" />General
+          </TabsTrigger>
+          <TabsTrigger value="servicios" className="text-xs font-bold gap-1.5">
+            <Briefcase className="h-3.5 w-3.5" />Servicios y Cobros
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="max-w-2xl space-y-6">
+          <WhatsAppCard userId={userId} />
+          <BillingCard userId={userId} />
+        </TabsContent>
+
+        <TabsContent value="servicios" className="space-y-6">
+          <ServicesAndBillingTab userId={userId} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WhatsApp Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function WhatsAppCard({ userId }: { userId?: string }) {
   const db = useFirestore();
   const { toast } = useToast();
   const [whatsappInput, setWhatsappInput] = useState('');
   const [saving, setSaving] = useState(false);
   const { whatsappNumber, loading } = useAdminWhatsApp(userId);
 
-  // Pre-fill input once loaded
   useEffect(() => {
-    if (!loading && whatsappNumber) {
-      setWhatsappInput(whatsappNumber);
-    }
+    if (!loading && whatsappNumber) setWhatsappInput(whatsappNumber);
   }, [loading, whatsappNumber]);
 
   const handleSave = async () => {
@@ -74,13 +131,7 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
     : null;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-2xl">
-      <div>
-        <h2 className="text-2xl font-black text-foreground">Configuración</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Ajustes de tu cuenta y canales de comunicación.</p>
-      </div>
-
-      {/* WhatsApp Configuration */}
+    <>
       <Card className="border-none shadow-sm bg-white">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
@@ -111,17 +162,12 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
               Ingresá el número con código de país. Ej: +54 9 11 4567 8901 (Buenos Aires)
             </p>
           </div>
-          <Button
-            onClick={handleSave}
-            disabled={saving || !whatsappInput.trim()}
-            className="gap-2 font-bold"
-          >
+          <Button onClick={handleSave} disabled={saving || !whatsappInput.trim()} className="gap-2 font-bold">
             {saving ? 'Guardando...' : 'Guardar'}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Preview */}
       <Card className="border-none shadow-sm bg-white">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-black">Vista previa</CardTitle>
@@ -147,9 +193,818 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
           )}
         </CardContent>
       </Card>
+    </>
+  );
+}
 
-      {/* Billing / Plan */}
-      <BillingCard userId={userId} />
+// ─────────────────────────────────────────────────────────────────────────────
+// Servicios y Cobros Tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<ServiceCategory, string> = {
+  legal: 'Legal',
+  administracion: 'Administración',
+  documentacion: 'Documentación',
+  mantenimiento: 'Mantenimiento',
+  seguros: 'Seguros',
+  impuestos: 'Impuestos / AFIP',
+  contratos: 'Contratos',
+  concierge: 'Concierge',
+  otro: 'Otro',
+};
+
+const CATEGORY_ICONS: Record<ServiceCategory, React.ElementType> = {
+  legal: Scale,
+  administracion: Briefcase,
+  documentacion: FileText,
+  mantenimiento: Wrench,
+  seguros: Shield,
+  impuestos: Landmark,
+  contratos: FileText,
+  concierge: ChevronsUpDown,
+  otro: Settings,
+};
+
+const DEFAULT_SERVICES: Omit<AdminService, 'id' | 'adminId' | 'createdAt' | 'updatedAt'>[] = [
+  {
+    nombre: 'Consulta Legal',
+    descripcion: 'Asesoramiento jurídico especializado en materia inmobiliaria.',
+    categoria: 'legal', clienteObjetivo: 'ambos', tipoPrecio: 'fijo',
+    precio: 0, moneda: 'ARS', entregable: 'informe', requierePago: true, activo: true, visible: true,
+  },
+  {
+    nombre: 'Preparación de Contrato',
+    descripcion: 'Redacción y revisión de contratos de locación.',
+    categoria: 'contratos', clienteObjetivo: 'propietario', tipoPrecio: 'fijo',
+    precio: 0, moneda: 'ARS', entregable: 'documento', requierePago: true, activo: true, visible: true,
+  },
+  {
+    nombre: 'Informe Veraz / BCRA',
+    descripcion: 'Consulta de antecedentes crediticios del postulante.',
+    categoria: 'documentacion', clienteObjetivo: 'propietario', tipoPrecio: 'fijo',
+    precio: 0, moneda: 'ARS', entregable: 'informe', requierePago: true, activo: true, visible: true,
+  },
+  {
+    nombre: 'Certificado Libre Deuda',
+    descripcion: 'Tramitación de certificado de libre deuda del inmueble.',
+    categoria: 'documentacion', clienteObjetivo: 'inquilino', tipoPrecio: 'fijo',
+    precio: 0, moneda: 'ARS', entregable: 'documento', requierePago: true, activo: true, visible: false,
+  },
+  {
+    nombre: 'Coordinación de Mantenimiento',
+    descripcion: 'Gestión de proveedores y supervisión de reparaciones.',
+    categoria: 'mantenimiento', clienteObjetivo: 'propietario', tipoPrecio: 'porcentaje',
+    precio: 0, porcentaje: 15, moneda: 'ARS', entregable: 'gestion', requierePago: true, activo: true, visible: true,
+  },
+  {
+    nombre: 'Gestión de Seguros',
+    descripcion: 'Gestión y renovación de pólizas de seguro del inmueble.',
+    categoria: 'seguros', clienteObjetivo: 'propietario', tipoPrecio: 'fijo',
+    precio: 0, moneda: 'ARS', entregable: 'gestion', requierePago: true, activo: false, visible: false,
+  },
+  {
+    nombre: 'Declaración AFIP / ARCA',
+    descripcion: 'Asistencia en la declaración de ingresos por alquileres ante AFIP.',
+    categoria: 'impuestos', clienteObjetivo: 'propietario', tipoPrecio: 'fijo',
+    precio: 0, moneda: 'ARS', entregable: 'gestion', requierePago: true, activo: false, visible: false,
+  },
+  {
+    nombre: 'Rescisión Anticipada',
+    descripcion: 'Tramitación del proceso de rescisión anticipada del contrato.',
+    categoria: 'contratos', clienteObjetivo: 'ambos', tipoPrecio: 'fijo',
+    precio: 0, moneda: 'ARS', entregable: 'documento', requierePago: true, activo: true, visible: true,
+  },
+  {
+    nombre: 'Concierge',
+    descripcion: 'Servicio personalizado de gestión integral — precio a convenir con el cliente.',
+    categoria: 'concierge', clienteObjetivo: 'ambos', tipoPrecio: 'cotizacion',
+    precio: 0, moneda: 'ARS', entregable: 'gestion', requierePago: false, activo: false, visible: false,
+  },
+];
+
+const BLANK_SERVICE: Omit<AdminService, 'id' | 'adminId' | 'createdAt' | 'updatedAt'> = {
+  nombre: '', descripcion: '', categoria: 'administracion', clienteObjetivo: 'ambos',
+  tipoPrecio: 'fijo', precio: 0, moneda: 'ARS', entregable: 'gestion',
+  requierePago: true, activo: true, visible: true,
+};
+
+function ServicesAndBillingTab({ userId }: { userId?: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+
+  // ── Service catalog state ───────────────────────────────────────────────────
+  const [services, setServices] = useState<AdminService[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [editingService, setEditingService] = useState<AdminService | null>(null);
+  const [serviceForm, setServiceForm] = useState<Omit<AdminService, 'id' | 'adminId' | 'createdAt' | 'updatedAt'>>(BLANK_SERVICE);
+  const [savingService, setSavingService] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // ── Payment config state ────────────────────────────────────────────────────
+  const [paymentConfig, setPaymentConfig] = useState<AdminPaymentConfig>({});
+  const [loadingPayment, setLoadingPayment] = useState(true);
+  const [savingPayment, setSavingPayment] = useState(false);
+
+  const servicesPath = (id?: string) =>
+    id
+      ? doc(db!, 'artifacts', APP_ID, 'users', userId!, 'adminServiceCatalog', id)
+      : collection(db!, 'artifacts', APP_ID, 'users', userId!, 'adminServiceCatalog');
+
+  const paymentConfigRef = () =>
+    doc(db!, 'artifacts', APP_ID, 'users', userId!, 'config', 'paymentConfig');
+
+  // ── Load ────────────────────────────────────────────────────────────────────
+  const loadServices = useCallback(async () => {
+    if (!db || !userId) { setLoadingServices(false); return; }
+    setLoadingServices(true);
+    try {
+      const snap = await getDocs(collection(db, 'artifacts', APP_ID, 'users', userId, 'adminServiceCatalog'));
+      if (snap.empty) {
+        // First time: seed defaults
+        const now = new Date().toISOString();
+        const batch: AdminService[] = [];
+        for (const svc of DEFAULT_SERVICES) {
+          const ref = await addDoc(
+            collection(db, 'artifacts', APP_ID, 'users', userId, 'adminServiceCatalog'),
+            { ...svc, adminId: userId, createdAt: now, updatedAt: now },
+          );
+          batch.push({ ...svc, id: ref.id, adminId: userId, createdAt: now, updatedAt: now });
+        }
+        setServices(batch);
+      } else {
+        setServices(snap.docs.map(d => ({ id: d.id, ...d.data() } as AdminService)));
+      }
+    } catch {
+      toast({ title: 'Error', description: 'No se pudieron cargar los servicios.', variant: 'destructive' });
+    }
+    setLoadingServices(false);
+  }, [db, userId, toast]);
+
+  const loadPaymentConfig = useCallback(async () => {
+    if (!db || !userId) { setLoadingPayment(false); return; }
+    setLoadingPayment(true);
+    try {
+      const snap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'paymentConfig'));
+      if (snap.exists()) setPaymentConfig(snap.data() as AdminPaymentConfig);
+    } catch { /* silent */ }
+    setLoadingPayment(false);
+  }, [db, userId]);
+
+  useEffect(() => {
+    loadServices();
+    loadPaymentConfig();
+  }, [loadServices, loadPaymentConfig]);
+
+  // ── Service CRUD ────────────────────────────────────────────────────────────
+  const openAdd = () => {
+    setEditingService(null);
+    setServiceForm(BLANK_SERVICE);
+    setShowServiceForm(true);
+  };
+
+  const openEdit = (s: AdminService) => {
+    setEditingService(s);
+    const { id, adminId, createdAt, updatedAt, ...rest } = s;
+    setServiceForm(rest);
+    setShowServiceForm(true);
+  };
+
+  const saveService = async () => {
+    if (!db || !userId || !serviceForm.nombre.trim()) return;
+    setSavingService(true);
+    const now = new Date().toISOString();
+    try {
+      if (editingService) {
+        await updateDoc(
+          doc(db, 'artifacts', APP_ID, 'users', userId, 'adminServiceCatalog', editingService.id),
+          { ...serviceForm, updatedAt: now },
+        );
+        setServices(prev => prev.map(s => s.id === editingService.id ? { ...s, ...serviceForm, updatedAt: now } : s));
+        toast({ title: 'Servicio actualizado' });
+      } else {
+        const ref = await addDoc(
+          collection(db, 'artifacts', APP_ID, 'users', userId, 'adminServiceCatalog'),
+          { ...serviceForm, adminId: userId, createdAt: now, updatedAt: now },
+        );
+        setServices(prev => [...prev, { ...serviceForm, id: ref.id, adminId: userId, createdAt: now, updatedAt: now }]);
+        toast({ title: 'Servicio agregado' });
+      }
+      setShowServiceForm(false);
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar el servicio.', variant: 'destructive' });
+    }
+    setSavingService(false);
+  };
+
+  const deleteService = async (id: string) => {
+    if (!db || !userId) return;
+    try {
+      await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', userId, 'adminServiceCatalog', id));
+      setServices(prev => prev.filter(s => s.id !== id));
+      toast({ title: 'Servicio eliminado' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo eliminar.', variant: 'destructive' });
+    }
+    setDeletingId(null);
+  };
+
+  const toggleField = async (s: AdminService, field: 'activo' | 'visible') => {
+    if (!db || !userId) return;
+    const updated = { ...s, [field]: !s[field], updatedAt: new Date().toISOString() };
+    setServices(prev => prev.map(x => x.id === s.id ? updated : x));
+    await updateDoc(
+      doc(db, 'artifacts', APP_ID, 'users', userId, 'adminServiceCatalog', s.id),
+      { [field]: !s[field], updatedAt: updated.updatedAt },
+    ).catch(() => {});
+  };
+
+  // ── Payment config save ─────────────────────────────────────────────────────
+  const savePaymentConfig = async () => {
+    if (!db || !userId) return;
+    setSavingPayment(true);
+    try {
+      await setDoc(
+        doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'paymentConfig'),
+        { ...paymentConfig, updatedAt: new Date().toISOString() },
+        { merge: true },
+      );
+      toast({ title: 'Configuración de cobros guardada' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar la configuración.', variant: 'destructive' });
+    }
+    setSavingPayment(false);
+  };
+
+  const patchPayment = (path: keyof AdminPaymentConfig, value: Record<string, unknown>) => {
+    setPaymentConfig(prev => ({
+      ...prev,
+      [path]: { ...(prev[path] as Record<string, unknown> ?? {}), ...value },
+    }));
+  };
+
+  const formatPrice = (s: AdminService) => {
+    if (s.tipoPrecio === 'cotizacion') return 'A convenir';
+    if (s.tipoPrecio === 'porcentaje') return `${s.porcentaje ?? 0}%`;
+    if (s.precio === 0) return <span className="text-amber-600 font-semibold">Sin precio</span>;
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency', currency: s.moneda === 'USD' ? 'USD' : 'ARS', maximumFractionDigits: 0,
+    }).format(s.precio);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* ── Service Catalog ─────────────────────────────────────────────────── */}
+      <Card className="border-none shadow-sm bg-white">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <Briefcase className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-black">Catálogo de servicios</CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Configurá los servicios que ofrecés y su precio. Los propietarios e inquilinos los ven desde su portal.
+                </CardDescription>
+              </div>
+            </div>
+            <Button size="sm" onClick={openAdd} className="gap-1.5 font-bold text-xs h-8">
+              <Plus className="h-3.5 w-3.5" />Agregar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingServices ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />Cargando servicios...
+            </div>
+          ) : services.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">No hay servicios. Agregá el primero.</p>
+          ) : (
+            <div className="space-y-2">
+              {services.map(s => {
+                const Icon = CATEGORY_ICONS[s.categoria] ?? Briefcase;
+                return (
+                  <div
+                    key={s.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                      s.activo ? 'border-border bg-white' : 'border-border/40 bg-muted/30 opacity-60'
+                    }`}
+                  >
+                    <div className="p-1.5 rounded-lg bg-primary/8 shrink-0">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold truncate">{s.nombre}</p>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                          {CATEGORY_LABELS[s.categoria]}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 capitalize">
+                          {s.clienteObjetivo}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{s.descripcion}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-bold tabular-nums">{formatPrice(s)}</p>
+                      <p className="text-[10px] text-muted-foreground">{s.moneda}</p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1">
+                      <button
+                        title={s.activo ? 'Activo — clic para desactivar' : 'Inactivo — clic para activar'}
+                        onClick={() => toggleField(s, 'activo')}
+                        className={`p-1.5 rounded-lg text-xs transition-colors ${
+                          s.activo ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {s.activo ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        title={s.visible ? 'Visible en portal — clic para ocultar' : 'Oculto — clic para mostrar'}
+                        onClick={() => toggleField(s, 'visible')}
+                        className={`p-1.5 rounded-lg text-xs transition-colors ${
+                          s.visible ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {s.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        title="Editar"
+                        onClick={() => openEdit(s)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        title="Eliminar"
+                        onClick={() => setDeletingId(s.id)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="text-[11px] text-muted-foreground pt-1 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3 w-3 text-green-600" /> Activo
+                <span className="mx-1 text-border">·</span>
+                <Eye className="h-3 w-3 text-blue-500" /> Visible en portal del cliente
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Payment Methods ──────────────────────────────────────────────────── */}
+      <Card className="border-none shadow-sm bg-white">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-primary/10">
+              <DollarSign className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-black">Métodos de cobro</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Configurá cómo tus clientes pueden pagar los servicios. Podés activar más de uno.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadingPayment ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />Cargando configuración...
+            </div>
+          ) : (
+            <>
+              {/* MercadoPago */}
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-[#00BCFF] flex items-center justify-center">
+                      <span className="text-white text-[9px] font-black">MP</span>
+                    </div>
+                    <span className="text-sm font-bold">MercadoPago Checkout Pro</span>
+                    <Badge variant="outline" className="text-[10px]">Cobro automático</Badge>
+                  </div>
+                  <Switch
+                    checked={paymentConfig.mercadopago?.active ?? false}
+                    onCheckedChange={v => patchPayment('mercadopago', { active: v })}
+                  />
+                </div>
+                {paymentConfig.mercadopago?.active && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Access Token (privado)</Label>
+                      <Input
+                        type="password"
+                        placeholder="APP_USR-..."
+                        value={paymentConfig.mercadopago?.accessToken ?? ''}
+                        onChange={e => patchPayment('mercadopago', { accessToken: e.target.value })}
+                        className="text-xs font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Public Key</Label>
+                      <Input
+                        placeholder="APP_USR-..."
+                        value={paymentConfig.mercadopago?.publicKey ?? ''}
+                        onChange={e => patchPayment('mercadopago', { publicKey: e.target.value })}
+                        className="text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  El pago se confirma automáticamente vía webhook. Generá las credenciales en tu cuenta de MercadoPago.
+                </p>
+              </div>
+
+              {/* Transferencia bancaria */}
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Landmark className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-bold">Transferencia bancaria</span>
+                    <Badge variant="outline" className="text-[10px]">Comprobante manual</Badge>
+                  </div>
+                  <Switch
+                    checked={paymentConfig.transferencia?.active ?? false}
+                    onCheckedChange={v => patchPayment('transferencia', { active: v })}
+                  />
+                </div>
+                {paymentConfig.transferencia?.active && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">CBU</Label>
+                      <Input
+                        placeholder="0000000000000000000000"
+                        value={paymentConfig.transferencia?.cbu ?? ''}
+                        onChange={e => patchPayment('transferencia', { cbu: e.target.value })}
+                        className="text-xs font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Alias</Label>
+                      <Input
+                        placeholder="MI.ALIAS.CBU"
+                        value={paymentConfig.transferencia?.alias ?? ''}
+                        onChange={e => patchPayment('transferencia', { alias: e.target.value })}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Banco</Label>
+                      <Input
+                        placeholder="Ej: Santander, Galicia..."
+                        value={paymentConfig.transferencia?.banco ?? ''}
+                        onChange={e => patchPayment('transferencia', { banco: e.target.value })}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Titular de la cuenta</Label>
+                      <Input
+                        placeholder="Nombre completo o razón social"
+                        value={paymentConfig.transferencia?.titular ?? ''}
+                        onChange={e => patchPayment('transferencia', { titular: e.target.value })}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  El cliente sube el comprobante desde su portal y vos lo aprobás antes de entregar el servicio.
+                </p>
+              </div>
+
+              {/* Link externo */}
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-bold">Link externo de pago</span>
+                    <Badge variant="outline" className="text-[10px]">Getnet / Modo / Otro</Badge>
+                  </div>
+                  <Switch
+                    checked={paymentConfig.linkExterno?.active ?? false}
+                    onCheckedChange={v => patchPayment('linkExterno', { active: v })}
+                  />
+                </div>
+                {paymentConfig.linkExterno?.active && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1 md:col-span-2">
+                      <Label className="text-xs font-bold">URL de pago</Label>
+                      <Input
+                        placeholder="https://..."
+                        value={paymentConfig.linkExterno?.url ?? ''}
+                        onChange={e => patchPayment('linkExterno', { url: e.target.value })}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Texto del botón</Label>
+                      <Input
+                        placeholder="Ej: Pagar con Getnet"
+                        value={paymentConfig.linkExterno?.label ?? ''}
+                        onChange={e => patchPayment('linkExterno', { label: e.target.value })}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Se muestra un botón que redirige al cliente a tu plataforma de cobros preferida.
+                </p>
+              </div>
+
+              <Button onClick={savePaymentConfig} disabled={savingPayment} className="font-bold gap-2">
+                {savingPayment ? <><Loader2 className="h-4 w-4 animate-spin" />Guardando...</> : 'Guardar configuración de cobros'}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Estudio Jurídico ─────────────────────────────────────────────────── */}
+      <Card className="border-none shadow-sm bg-white">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-primary/10">
+              <Scale className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-black">Estudio jurídico</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Indicá qué estudio gestiona las consultas legales de tus clientes.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadingPayment ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {(['app', 'propio'] as const).map(tipo => (
+                  <button
+                    key={tipo}
+                    onClick={() => patchPayment('estudioJuridico', { tipo })}
+                    className={`p-3 rounded-xl border text-left transition-colors ${
+                      (paymentConfig.estudioJuridico?.tipo ?? 'app') === tipo
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:bg-muted/30'
+                    }`}
+                  >
+                    <p className="text-sm font-bold">
+                      {tipo === 'app' ? 'Estudio AlquilaGestión Pro' : 'Mi propio estudio'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {tipo === 'app'
+                        ? 'Derivamos la consulta al estudio de la plataforma.'
+                        : 'Las consultas llegan a vos y las derivás a tu estudio.'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              {(paymentConfig.estudioJuridico?.tipo === 'propio') && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold">Nombre del estudio</Label>
+                    <Input
+                      placeholder="Estudio Jurídico..."
+                      value={paymentConfig.estudioJuridico?.nombre ?? ''}
+                      onChange={e => patchPayment('estudioJuridico', { nombre: e.target.value })}
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold">Email de contacto</Label>
+                    <Input
+                      type="email"
+                      placeholder="estudio@..."
+                      value={paymentConfig.estudioJuridico?.email ?? ''}
+                      onChange={e => patchPayment('estudioJuridico', { email: e.target.value })}
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold">Teléfono / WhatsApp</Label>
+                    <Input
+                      placeholder="+54 9 11..."
+                      value={paymentConfig.estudioJuridico?.telefono ?? ''}
+                      onChange={e => patchPayment('estudioJuridico', { telefono: e.target.value })}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+              <Button onClick={savePaymentConfig} disabled={savingPayment} variant="outline" className="font-bold gap-2">
+                {savingPayment ? <><Loader2 className="h-4 w-4 animate-spin" />Guardando...</> : 'Guardar estudio jurídico'}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Service Form Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={showServiceForm} onOpenChange={setShowServiceForm}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-black">
+              {editingService ? 'Editar servicio' : 'Agregar servicio'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Completá los datos del servicio que ofrecés a tus clientes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Nombre del servicio *</Label>
+              <Input
+                placeholder="Ej: Consulta Legal"
+                value={serviceForm.nombre}
+                onChange={e => setServiceForm(p => ({ ...p, nombre: e.target.value }))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Descripción</Label>
+              <Textarea
+                placeholder="Breve descripción del servicio..."
+                value={serviceForm.descripcion}
+                onChange={e => setServiceForm(p => ({ ...p, descripcion: e.target.value }))}
+                rows={2}
+                className="text-sm resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Categoría</Label>
+                <Select
+                  value={serviceForm.categoria}
+                  onValueChange={v => setServiceForm(p => ({ ...p, categoria: v as ServiceCategory }))}
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(CATEGORY_LABELS) as [ServiceCategory, string][]).map(([k, v]) => (
+                      <SelectItem key={k} value={k} className="text-xs">{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Cliente objetivo</Label>
+                <Select
+                  value={serviceForm.clienteObjetivo}
+                  onValueChange={v => setServiceForm(p => ({ ...p, clienteObjetivo: v as ServiceClientTarget }))}
+                >
+                  <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="propietario" className="text-xs">Propietario</SelectItem>
+                    <SelectItem value="inquilino" className="text-xs">Inquilino</SelectItem>
+                    <SelectItem value="ambos" className="text-xs">Ambos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Tipo de precio</Label>
+                <Select
+                  value={serviceForm.tipoPrecio}
+                  onValueChange={v => setServiceForm(p => ({ ...p, tipoPrecio: v as ServicePriceType }))}
+                >
+                  <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fijo" className="text-xs">Precio fijo</SelectItem>
+                    <SelectItem value="porcentaje" className="text-xs">Porcentaje</SelectItem>
+                    <SelectItem value="cotizacion" className="text-xs">A convenir</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {serviceForm.tipoPrecio === 'fijo' && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Precio</Label>
+                  <div className="flex gap-1.5">
+                    <Select
+                      value={serviceForm.moneda}
+                      onValueChange={v => setServiceForm(p => ({ ...p, moneda: v as 'ARS' | 'USD' }))}
+                    >
+                      <SelectTrigger className="text-xs h-9 w-20 shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ARS" className="text-xs">ARS</SelectItem>
+                        <SelectItem value="USD" className="text-xs">USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={serviceForm.precio || ''}
+                      onChange={e => setServiceForm(p => ({ ...p, precio: Number(e.target.value) }))}
+                      className="text-xs h-9"
+                    />
+                  </div>
+                </div>
+              )}
+              {serviceForm.tipoPrecio === 'porcentaje' && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Porcentaje (%)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    placeholder="15"
+                    value={serviceForm.porcentaje ?? ''}
+                    onChange={e => setServiceForm(p => ({ ...p, porcentaje: Number(e.target.value) }))}
+                    className="text-xs h-9"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Entregable</Label>
+                <Select
+                  value={serviceForm.entregable}
+                  onValueChange={v => setServiceForm(p => ({ ...p, entregable: v as ServiceDeliverable }))}
+                >
+                  <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="documento" className="text-xs">Documento</SelectItem>
+                    <SelectItem value="informe" className="text-xs">Informe</SelectItem>
+                    <SelectItem value="gestion" className="text-xs">Gestión</SelectItem>
+                    <SelectItem value="ninguno" className="text-xs">Sin entregable</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold">Requiere pago previo</p>
+                <p className="text-[11px] text-muted-foreground">El cliente debe acreditar el pago para recibir el entregable.</p>
+              </div>
+              <Switch
+                checked={serviceForm.requierePago}
+                onCheckedChange={v => setServiceForm(p => ({ ...p, requierePago: v }))}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold">Visible en portal</p>
+                <p className="text-[11px] text-muted-foreground">Los clientes pueden solicitarlo directamente.</p>
+              </div>
+              <Switch
+                checked={serviceForm.visible}
+                onCheckedChange={v => setServiceForm(p => ({ ...p, visible: v }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowServiceForm(false)} className="font-bold">
+              Cancelar
+            </Button>
+            <Button
+              onClick={saveService}
+              disabled={savingService || !serviceForm.nombre.trim()}
+              className="font-bold"
+            >
+              {savingService ? <Loader2 className="h-4 w-4 animate-spin" /> : (editingService ? 'Guardar cambios' : 'Agregar servicio')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirm ───────────────────────────────────────────────────── */}
+      <AlertDialog open={!!deletingId} onOpenChange={open => !open && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El servicio dejará de estar disponible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="font-bold bg-destructive hover:bg-destructive/90"
+              onClick={() => deletingId && deleteService(deletingId)}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -228,19 +1083,18 @@ function BillingCard({ userId }: { userId?: string }) {
 
   const StatusBadge = () => {
     const map: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
-      trial:     { label: 'Período de prueba',  cls: 'bg-blue-100 text-blue-800',     icon: Clock },
+      trial:     { label: 'Período de prueba',      cls: 'bg-blue-100 text-blue-800',     icon: Clock },
       pending:   { label: 'Esperando autorización', cls: 'bg-yellow-100 text-yellow-800', icon: Clock },
-      active:    { label: 'Activa',             cls: 'bg-green-100 text-green-800',   icon: CheckCircle2 },
-      past_due:  { label: 'Pago vencido',       cls: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-      paused:    { label: 'Pausada',            cls: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-      cancelled: { label: 'Cancelada',          cls: 'bg-gray-200 text-gray-700',     icon: AlertCircle },
+      active:    { label: 'Activa',                 cls: 'bg-green-100 text-green-800',   icon: CheckCircle2 },
+      past_due:  { label: 'Pago vencido',           cls: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+      paused:    { label: 'Pausada',                cls: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+      cancelled: { label: 'Cancelada',              cls: 'bg-gray-200 text-gray-700',     icon: AlertCircle },
     };
     const m = map[status] ?? map.trial;
     const Icon = m.icon;
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${m.cls}`}>
-        <Icon className="h-3 w-3" />
-        {m.label}
+        <Icon className="h-3 w-3" />{m.label}
       </span>
     );
   };
@@ -267,13 +1121,10 @@ function BillingCard({ userId }: { userId?: string }) {
           </p>
         ) : (
           <>
-            {/* Estado actual */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
               <div>
                 <p className="text-xs text-muted-foreground">Plan vigente</p>
-                <p className="text-base font-black">
-                  {plan.tier?.label ?? 'Sin plan'}
-                </p>
+                <p className="text-base font-black">{plan.tier?.label ?? 'Sin plan'}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {plan.state?.activeUnits ?? 0} unidades activas
                   {plan.tier && plan.tier.maxUnits ? ` / ${plan.tier.maxUnits}` : ''}
@@ -282,7 +1133,6 @@ function BillingCard({ userId }: { userId?: string }) {
               <StatusBadge />
             </div>
 
-            {/* Trial info */}
             {plan.trialActive && plan.trialEndsAt && (
               <div className="text-xs p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
                 Estás en período de prueba hasta el{' '}
@@ -291,7 +1141,6 @@ function BillingCard({ userId }: { userId?: string }) {
               </div>
             )}
 
-            {/* Past due / overdue */}
             {plan.inGracePeriod && plan.gracePeriodEndsAt && (
               <div className="text-xs p-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-900">
                 El último cobro falló. Tenés tiempo hasta el{' '}
@@ -300,7 +1149,6 @@ function BillingCard({ userId }: { userId?: string }) {
               </div>
             )}
 
-            {/* Over limit */}
             {plan.overLimit && (
               <div className="text-xs p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-900">
                 Tenés más unidades activas que las que cubre tu plan. Hacé click en "Sincronizar plan" para
@@ -308,7 +1156,6 @@ function BillingCard({ userId }: { userId?: string }) {
               </div>
             )}
 
-            {/* Lista de tiers */}
             <div>
               <p className="text-xs font-bold text-muted-foreground mb-2">Escala de precios</p>
               <div className="space-y-1.5">
@@ -332,7 +1179,6 @@ function BillingCard({ userId }: { userId?: string }) {
               </p>
             </div>
 
-            {/* Acciones */}
             <div className="flex flex-wrap gap-2 pt-2">
               {(status === 'trial' || status === 'cancelled' || status === 'pending') && (
                 <Button onClick={handleCheckout} disabled={busy === 'checkout'} className="font-bold">

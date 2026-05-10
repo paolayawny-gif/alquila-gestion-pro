@@ -54,6 +54,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelectWithOther } from '@/components/ui/select-with-other';
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -808,18 +809,12 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               </div>
               <div className="space-y-2">
                 <Label>Rol</Label>
-                <Select 
-                  value={personFormData.type} 
+                <SelectWithOther
+                  value={personFormData.type ?? ''}
                   onValueChange={(v: any) => setPersonFormData({...personFormData, type: v})}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Inquilino">Inquilino</SelectItem>
-                    <SelectItem value="Propietario">Propietario</SelectItem>
-                    <SelectItem value="Garante">Garante</SelectItem>
-                    <SelectItem value="Proveedor">Proveedor</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={['Inquilino','Propietario','Garante','Proveedor']}
+                  otherPlaceholder="Ej: Avalista, Empresa, Representante..."
+                />
               </div>
             </div>
             <div className="space-y-1.5">
