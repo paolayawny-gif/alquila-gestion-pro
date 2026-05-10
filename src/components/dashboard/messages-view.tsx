@@ -890,6 +890,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                           <SelectItem value="carta_documento">Carta Documento</SelectItem>
                           <SelectItem value="sms">SMS</SelectItem>
                           <SelectItem value="portal">Portal</SelectItem>
+                          <SelectItem value="telegram">Telegram</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

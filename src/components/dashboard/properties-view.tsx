@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
+import { SelectWithOther } from '@/components/ui/select-with-other';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -453,25 +454,21 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Tipo</Label>
-                  <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v as any })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {['Departamento','Casa','Local','Cochera','Oficina','Depósito','Terreno'].map(t => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithOther
+                    value={formData.type ?? ''}
+                    onValueChange={v => setFormData({ ...formData, type: v as any })}
+                    options={['Departamento','Casa','Local','Cochera','Oficina','Depósito','Terreno']}
+                    otherPlaceholder="Ej: Galpón, Penthouse..."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Uso</Label>
-                  <Select value={formData.usage} onValueChange={v => setFormData({ ...formData, usage: v as any })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {['Vivienda','Comercial','Profesional','Industrial'].map(u => (
-                        <SelectItem key={u} value={u}>{u}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithOther
+                    value={formData.usage ?? ''}
+                    onValueChange={v => setFormData({ ...formData, usage: v as any })}
+                    options={['Vivienda','Comercial','Profesional','Industrial']}
+                    otherPlaceholder="Ej: Mixto, Uso especial..."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Estado</Label>
