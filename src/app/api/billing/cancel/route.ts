@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBillingProvider } from '@/lib/billing';
 import { getOrInitBillingState, updateBillingState } from '@/lib/billing/state';
+import { requireSessionForAdmin } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const { adminId } = (await req.json()) as { adminId: string };
-    if (!adminId) return NextResponse.json({ error: 'Falta adminId' }, { status: 400 });
+
+    const auth = await requireSessionForAdmin(req, adminId);
+    if (auth instanceof NextResponse) return auth;
 
     const state = await getOrInitBillingState(adminId);
     if (!state.subscriptionId) {

@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { buildWaLink } from '@/lib/whatsapp';
+import { authedFetch } from '@/lib/authed-fetch';
 import { CreditCard, CheckCircle2, AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -172,9 +173,8 @@ function BillingCard({ userId }: { userId?: string }) {
     if (!userId || !user?.email) return;
     setBusy('checkout');
     try {
-      const res = await fetch('/api/billing/checkout', {
+      const res = await authedFetch('/api/billing/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId: userId, adminEmail: user.email }),
       });
       const data = await res.json();
@@ -191,9 +191,8 @@ function BillingCard({ userId }: { userId?: string }) {
     if (!confirm('¿Cancelar la suscripción? El servicio quedará disponible hasta el final del período pagado.')) return;
     setBusy('cancel');
     try {
-      const res = await fetch('/api/billing/cancel', {
+      const res = await authedFetch('/api/billing/cancel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId: userId }),
       });
       const data = await res.json();
@@ -209,9 +208,8 @@ function BillingCard({ userId }: { userId?: string }) {
     if (!userId) return;
     setBusy('sync');
     try {
-      const res = await fetch('/api/billing/sync-tier', {
+      const res = await authedFetch('/api/billing/sync-tier', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId: userId }),
       });
       const data = await res.json();

@@ -1,8 +1,34 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminAuth } from "@/lib/firebase-admin";
 
-const secretKey = process.env.JWT_SECRET || "default_super_secret_key_change_me_in_prod";
+const isProd = process.env.NODE_ENV === "production";
+const rawSecret = process.env.JWT_SECRET;
+
+if (isProd && !rawSecret) {
+  throw new Error(
+    "JWT_SECRET is required in production. Set it in your environment (Vercel → Settings → Environment Variables).",
+  );
+}
+
+const secretKey = rawSecret || "dev_only_secret_change_for_production";
 const encodedKey = new TextEncoder().encode(secretKey);
+
+export type SessionPayload = {
+  userId: string;
+  role: string;
+  agencyId?: string;
+  expiresAt: Date | string;
+};
+
+export type FirebaseSessionPayload = {
+  userId: string;       // Firebase UID
+  email?: string;       // Email del token verificado
+  emailVerified?: boolean;
+};
+
+const SUPERADMIN_UID = process.env.SUPERADMIN_UID || "wYkBqQjJuSdQu7F20eFAHZ0qX9N2";
 
 export async function encrypt(payload: any) {
   return new SignJWT(payload)
@@ -17,7 +43,7 @@ export async function decrypt(session: string | undefined = "") {
     const { payload } = await jwtVerify(session, encodedKey, {
       algorithms: ["HS256"],
     });
-    return payload;
+    return payload as unknown as SessionPayload;
   } catch (error) {
     return null;
   }
@@ -37,7 +63,7 @@ export async function createSession(userId: string, role: string, agencyId?: str
   });
 }
 
-export async function getSession() {
+export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const session = cookieStore.get("session")?.value;
   if (!session) return null;
@@ -47,4 +73,56 @@ export async function getSession() {
 export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete("session");
+}
+
+/**
+ * Verifica el ID token de Firebase enviado en el header `Authorization: Bearer <token>`.
+ * Devuelve el payload con uid/email o un NextResponse con 401.
+ *
+ * Uso desde un Route Handler:
+ *   const auth = await requireFirebaseAuth(req);
+ *   if (auth instanceof NextResponse) return auth;
+ *   const { userId, email } = auth;
+ */
+export async function requireFirebaseAuth(
+  req: NextRequest,
+): Promise<FirebaseSessionPayload | NextResponse> {
+  const header = req.headers.get("authorization") ?? "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 });
+  }
+  try {
+    const decoded = await getAdminAuth().verifyIdToken(match[1]);
+    return {
+      userId: decoded.uid,
+      email: decoded.email,
+      emailVerified: decoded.email_verified,
+    };
+  } catch (err) {
+    return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+  }
+}
+
+/**
+ * Combina verificación de Firebase con check de adminId: el caller debe ser
+ * el propio admin (o superadmin). Bloquea ataques tipo "POST /api/X { adminId: <otro> }".
+ */
+export async function requireSessionForAdmin(
+  req: NextRequest,
+  adminId: string | undefined | null,
+): Promise<FirebaseSessionPayload | NextResponse> {
+  const auth = await requireFirebaseAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  if (!adminId) {
+    return NextResponse.json({ error: "Falta adminId" }, { status: 400 });
+  }
+  if (auth.userId !== adminId && auth.userId !== SUPERADMIN_UID) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return auth;
+}
+
+export function isSuperAdminUid(uid: string | undefined): boolean {
+  return !!uid && uid === SUPERADMIN_UID;
 }

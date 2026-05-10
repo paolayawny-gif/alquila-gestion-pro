@@ -13,6 +13,7 @@ import {
   ShieldCheck, HelpCircle, ChevronDown, ChevronUp, ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { authedFetch } from '@/lib/authed-fetch';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -116,9 +117,8 @@ export function OwnerAfipPanel({ ownerEntry }: OwnerAfipPanelProps) {
         pfxBase64   = btoa(String.fromCharCode(...new Uint8Array(buf)));
       }
 
-      const res = await fetch('/api/afip/save-config', {
+      const res = await authedFetch('/api/afip/save-config', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           adminId:         ownerEntry.adminId,
           ownerEmail:      ownerEntry.ownerEmail,
@@ -155,9 +155,8 @@ export function OwnerAfipPanel({ ownerEntry }: OwnerAfipPanelProps) {
   const handleTest = async () => {
     setTesting(true);
     try {
-      const res  = await fetch('/api/afip/test', {
+      const res  = await authedFetch('/api/afip/test', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ adminId: ownerEntry.adminId, ownerEmail: ownerEntry.ownerEmail }),
       });
       const data = await res.json();
@@ -179,9 +178,8 @@ export function OwnerAfipPanel({ ownerEntry }: OwnerAfipPanelProps) {
     }
     setEmittingId(inv.id);
     try {
-      const res  = await fetch('/api/afip/emit', {
+      const res  = await authedFetch('/api/afip/emit', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           adminId:   ownerEntry.adminId,
           ownerEmail: ownerEntry.ownerEmail,
