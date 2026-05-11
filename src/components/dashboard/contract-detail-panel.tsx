@@ -33,7 +33,6 @@ import { useFirestore, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/format';
 import {
   Contract,
   Person,
