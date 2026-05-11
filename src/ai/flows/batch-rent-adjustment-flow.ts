@@ -24,7 +24,7 @@ export interface BatchContractInput {
   tenantName: string;
   tenantEmail?: string;
   currentRentAmount: number;
-  currency: 'ARS' | 'USD';
+  currency: 'ARS' | 'USD' | 'UVA';
   adjustmentMechanism?: string;
   adjustmentFrequencyMonths: number;
   startDate?: string;             // YYYY-MM-DD — necesario para calcular períodos reales

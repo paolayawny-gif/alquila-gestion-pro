@@ -35,6 +35,7 @@ import {
   X,
 } from 'lucide-react';
 import { exportToPDF, exportToExcel } from '@/lib/export-utils';
+import { formatCurrency } from '@/lib/format';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -70,9 +71,9 @@ import { uploadReceiptToStorage } from '@/lib/upload-receipt';
 function buildTenantLiquidacionHtml({ tenantName, propertyName, period, rentAmount, prevInterest, dueDate, currency, cbuLine }: {
   tenantName: string; propertyName: string; period: string;
   rentAmount: number; prevInterest: number; dueDate: string;
-  currency: 'ARS' | 'USD'; cbuLine: string | null;
+  currency: 'ARS' | 'USD' | 'UVA'; cbuLine: string | null;
 }): string {
-  const sym = currency === 'USD' ? 'U$D' : '$';
+  const sym = currency === 'USD' ? 'U$D' : currency === 'UVA' ? 'UVA' : '$';
   const fmt = (n: number) => `${sym} ${n.toLocaleString('es-AR')}`;
   const total = rentAmount + prevInterest;
   const overdueBlock = prevInterest > 0
@@ -102,9 +103,9 @@ function buildTenantLiquidacionHtml({ tenantName, propertyName, period, rentAmou
 
 function buildOwnerLiquidacionHtml({ ownerName, propertyName, tenantName, period, rentAmount, prevInterest, dueDate, currency }: {
   ownerName: string; propertyName: string; tenantName: string; period: string;
-  rentAmount: number; prevInterest: number; dueDate: string; currency: 'ARS' | 'USD';
+  rentAmount: number; prevInterest: number; dueDate: string; currency: 'ARS' | 'USD' | 'UVA';
 }): string {
-  const sym = currency === 'USD' ? 'U$D' : '$';
+  const sym = currency === 'USD' ? 'U$D' : currency === 'UVA' ? 'UVA' : '$';
   const fmt = (n: number) => `${sym} ${n.toLocaleString('es-AR')}`;
   const total = rentAmount + prevInterest;
   const overdueBlock = prevInterest > 0
@@ -201,7 +202,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#222;">
           <h2 style="color:#1D9E75;">Recordatorio de pago</h2>
           <p>Estimado/a <strong>${inv.tenantName}</strong>,</p>
-          <p>Le recordamos que tiene un pago pendiente correspondiente al período <strong>${inv.period ?? ''}</strong> de la propiedad <strong>${inv.propertyName}</strong> por un monto de <strong>$ ${inv.totalAmount.toLocaleString('es-AR')}</strong> con vencimiento el <strong>${inv.dueDate}</strong>.</p>
+          <p>Le recordamos que tiene un pago pendiente correspondiente al período <strong>${inv.period ?? ''}</strong> de la propiedad <strong>${inv.propertyName}</strong> por un monto de <strong>${formatCurrency(inv.totalAmount, { currency: inv.currency ?? 'ARS' })}</strong> con vencimiento el <strong>${inv.dueDate}</strong>.</p>
           <p>Por favor regularice su situación a la brevedad posible.</p>
           <p>Atentamente,<br/><strong>Administración</strong></p>
         </div>`,
@@ -711,7 +712,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
         communicationType: 'generalMessage',
         tenantName: inv.tenantName,
         propertyName: inv.propertyName,
-        additionalContext: `Se remite el comprobante fiscal formal por ${inv.period} ($ ${inv.totalAmount.toLocaleString('es-AR')}). El mismo ya se encuentra disponible en su portal.`
+        additionalContext: `Se remite el comprobante fiscal formal por ${inv.period} (${formatCurrency(inv.totalAmount, { currency: inv.currency ?? 'ARS' })}). El mismo ya se encuentra disponible en su portal.`
       });
 
       const tenant = people?.find(p => p.fullName === inv.tenantName);
@@ -1161,14 +1162,14 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
                           c.imputedTo === 'Propietario' ? "text-orange-600 bg-orange-50/50" : "text-foreground"
                         )}>
                           <span>{c.type}</span>
-                          <span className="font-bold">$ {c.amount.toLocaleString('es-AR')}</span>
+                          <span className="font-bold">{formatCurrency(c.amount, { currency: i.currency ?? 'ARS' })}</span>
                         </div>
                       ))}
                       {interest > 0 && (
                         <div className="flex justify-between text-[10px] py-0.5 text-red-600 font-bold px-1 bg-red-50 group/fee relative">
                           <span>Intereses (Mora)</span>
                           <div className="flex items-center gap-1">
-                            <span>$ {interest.toLocaleString('es-AR')}</span>
+                            <span>{formatCurrency(interest, { currency: i.currency ?? 'ARS' })}</span>
                             <button 
                               onClick={() => { setSelectedInvForFee(i); setManualFeeInput(interest); setIsLateFeeDialogOpen(true); }}
                               className="text-primary hover:underline"
@@ -1190,7 +1191,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-black text-primary text-base">
-                    $ {(i.totalAmount + interest).toLocaleString('es-AR')}
+                    {formatCurrency(i.totalAmount + interest, { currency: i.currency ?? 'ARS' })}
                   </TableCell>
                   <TableCell>{getStatusBadge(i.status)}</TableCell>
                   <TableCell className="text-right">

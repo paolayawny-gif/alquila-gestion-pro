@@ -9,7 +9,7 @@
  */
 export function formatCurrency(
   value: number | string | null | undefined,
-  options: { currency?: 'ARS' | 'USD'; withSymbol?: boolean; decimals?: 0 | 2 } = {},
+  options: { currency?: 'ARS' | 'USD' | 'UVA'; withSymbol?: boolean; decimals?: 0 | 2 } = {},
 ): string {
   const { currency = 'ARS', withSymbol = true, decimals = 0 } = options;
   const num = typeof value === 'string' ? parseFloat(value.replace(/\./g, '').replace(',', '.')) : (value ?? 0);
@@ -19,14 +19,16 @@ export function formatCurrency(
     maximumFractionDigits: decimals,
   });
   if (!withSymbol) return formatted;
-  return currency === 'USD' ? `US$ ${formatted}` : `$ ${formatted}`;
+  if (currency === 'USD') return `US$ ${formatted}`;
+  if (currency === 'UVA') return `UVA ${formatted}`;
+  return `$ ${formatted}`;
 }
 
 /**
  * Formato moneda corto: 1500000 → "$1,5M", 12500 → "$12,5K"
  */
-export function formatCurrencyShort(value: number, currency: 'ARS' | 'USD' = 'ARS'): string {
-  const symbol = currency === 'USD' ? 'US$' : '$';
+export function formatCurrencyShort(value: number, currency: 'ARS' | 'USD' | 'UVA' = 'ARS'): string {
+  const symbol = currency === 'USD' ? 'US$' : currency === 'UVA' ? 'UVA' : '$';
   if (Math.abs(value) >= 1_000_000) return `${symbol}${(value / 1_000_000).toFixed(1).replace('.0', '')}M`;
   if (Math.abs(value) >= 1_000) return `${symbol}${(value / 1_000).toFixed(1).replace('.0', '')}K`;
   return formatCurrency(value, { currency });

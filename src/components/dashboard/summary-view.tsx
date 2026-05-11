@@ -49,15 +49,23 @@ interface SummaryViewProps {
   tasks: MaintenanceTask[];
 }
 
-export function SummaryView({ 
-  onNavigate, 
-  properties = [], 
-  contracts = [], 
-  invoices = [], 
+export function SummaryView({
+  onNavigate,
+  properties = [],
+  contracts = [],
+  invoices = [],
   applications = [],
   tasks = []
 }: SummaryViewProps) {
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
+  const [bcraRate, setBcraRate] = useState<{ compra: number; venta: number; fecha: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/bcra/cotizacion')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && !d.error && setBcraRate(d))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const newAlerts: AppAlert[] = [];
@@ -173,9 +181,15 @@ export function SummaryView({
     return events.slice(0, 5);
   }, [invoices, tasks, contracts]);
 
-  const totalProjected = invoices.reduce((acc, i) => acc + i.totalAmount, 0);
-  const totalCollected = invoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
-  const totalOverdue = invoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
+  const arsInvoices = invoices.filter(i => !i.currency || i.currency === 'ARS');
+  const usdInvoices = invoices.filter(i => i.currency === 'USD');
+
+  const totalProjected = arsInvoices.reduce((acc, i) => acc + i.totalAmount, 0);
+  const totalProjectedUSD = usdInvoices.reduce((acc, i) => acc + i.totalAmount, 0);
+  const totalCollected = arsInvoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
+  const totalCollectedUSD = usdInvoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
+  const totalOverdue = arsInvoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
+  const totalOverdueUSD = usdInvoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
   const occupancyRate = properties.length > 0 ? (properties.filter(p => p.status === 'Alquilada').length / properties.length) * 100 : 0;
 
   // ── KPIs avanzados ──────────────────────────────────────────────────────
@@ -257,7 +271,10 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-primary/20">BRUTO MES</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Recaudación Total</p>
-            <h3 className="text-2xl font-black text-foreground">$ {totalProjected.toLocaleString('es-AR')}</h3>
+            <h3 className="text-2xl font-black text-foreground">{formatCurrency(totalProjected)}</h3>
+            {totalProjectedUSD > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-0.5 font-bold">{formatCurrency(totalProjectedUSD, { currency: 'USD' })}</p>
+            )}
           </CardContent>
         </Card>
 
@@ -270,7 +287,10 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-red-100 text-red-600">MOROSIDAD</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Total en Riesgo</p>
-            <h3 className="text-2xl font-black text-red-600">$ {totalOverdue.toLocaleString('es-AR')}</h3>
+            <h3 className="text-2xl font-black text-red-600">{formatCurrency(totalOverdue)}</h3>
+            {totalOverdueUSD > 0 && (
+              <p className="text-[10px] text-red-400 mt-0.5 font-bold">{formatCurrency(totalOverdueUSD, { currency: 'USD' })}</p>
+            )}
           </CardContent>
         </Card>
 
@@ -393,7 +413,7 @@ export function SummaryView({
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                  <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                  <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                     formatter={(v: any) => [`$ ${v.toLocaleString()}`, "Monto"]}
@@ -403,17 +423,29 @@ export function SummaryView({
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-6 p-4 bg-primary/5 rounded-2xl flex items-center justify-between">
-              <div className="flex gap-4">
+            <div className="mt-6 p-4 bg-primary/5 rounded-2xl flex items-center justify-between flex-wrap gap-3">
+              <div className="flex gap-4 flex-wrap">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-muted-foreground uppercase">Ya Cobrado</span>
-                  <span className="text-lg font-black text-primary">$ {totalCollected.toLocaleString('es-AR')}</span>
+                  <span className="text-lg font-black text-primary">{formatCurrency(totalCollected)}</span>
+                  {totalCollectedUSD > 0 && <span className="text-[10px] font-bold text-primary/70">{formatCurrency(totalCollectedUSD, { currency: 'USD' })}</span>}
                 </div>
                 <Separator orientation="vertical" className="h-10 mx-2" />
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-muted-foreground uppercase">Restante Mes</span>
-                  <span className="text-lg font-black text-foreground">$ {(totalProjected - totalCollected).toLocaleString('es-AR')}</span>
+                  <span className="text-lg font-black text-foreground">{formatCurrency(totalProjected - totalCollected)}</span>
+                  {totalProjectedUSD > 0 && <span className="text-[10px] font-bold text-muted-foreground">{formatCurrency(totalProjectedUSD - totalCollectedUSD, { currency: 'USD' })}</span>}
                 </div>
+                {bcraRate && (
+                  <>
+                    <Separator orientation="vertical" className="h-10 mx-2" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-muted-foreground uppercase">USD Oficial BCRA</span>
+                      <span className="text-lg font-black text-foreground">{formatCurrency(bcraRate.venta)}</span>
+                      <span className="text-[9px] text-muted-foreground">compra {formatCurrency(bcraRate.compra)} · {bcraRate.fecha}</span>
+                    </div>
+                  </>
+                )}
               </div>
               <Button size="sm" variant="ghost" className="text-primary font-bold text-xs" onClick={() => onNavigate('Facturas')}>
                 Ver detalle de facturación <ArrowRight className="h-3 w-3 ml-1" />
