@@ -81,6 +81,12 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null);
   
+  // Rating de proveedor
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [ratingTaskId, setRatingTaskId] = useState<string | null>(null);
+  const [ratingValue, setRatingValue] = useState<1|2|3|4|5>(5);
+  const [ratingComment, setRatingComment] = useState('');
+
   // Estado para notificación al propietario
   const [isDrafting, setIsDrafting] = useState(false);
   const [draft, setDraft] = useState<AiCommunicationAssistantOutput | null>(null);
@@ -222,6 +228,25 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
 
     setIsManageDialogOpen(false);
     toast({ title: "Cambios Guardados", description: "La gestión del reclamo ha sido actualizada." });
+
+    // Si se cerró el ticket y hay proveedor asignado, pedir calificación
+    if (selectedTask.status === 'Cerrado' && selectedTask.contractorName && !selectedTask.contractorRating) {
+      setRatingTaskId(selectedTask.id);
+      setRatingValue(5);
+      setRatingComment('');
+      setIsRatingOpen(true);
+    }
+  };
+
+  const handleSaveRating = () => {
+    if (!ratingTaskId || !userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento', ratingTaskId);
+    setDocumentNonBlocking(docRef, {
+      contractorRating: ratingValue,
+      contractorRatingComment: ratingComment || undefined,
+    }, { merge: true });
+    setIsRatingOpen(false);
+    toast({ title: 'Calificación guardada', description: `Proveedor calificado con ${ratingValue} estrella${ratingValue !== 1 ? 's' : ''}.` });
   };
 
   const handleDraftNotification = async () => {
@@ -473,16 +498,25 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                 <TableCell>{getPriorityCell(t)}</TableCell>
                 <TableCell>{getStatusBadge(t.status)}</TableCell>
                 <TableCell>
-                  {t.chargedTo === 'Propietario' ? (
-                    <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-orange-600 border-orange-200">Propietario</Badge>
-                      {t.isApprovedByOwner ? <ThumbsUp className="h-3 w-3 text-green-600" /> : <AlertTriangle className="h-3 w-3 text-orange-400" />}
-                    </div>
-                  ) : t.chargedTo === 'Inquilino' ? (
-                    <Badge variant="outline" className="text-blue-600 border-blue-200">Inquilino</Badge>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground italic">No definido</span>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    {t.chargedTo === 'Propietario' ? (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-orange-600 border-orange-200">Propietario</Badge>
+                        {t.isApprovedByOwner ? <ThumbsUp className="h-3 w-3 text-green-600" /> : <AlertTriangle className="h-3 w-3 text-orange-400" />}
+                      </div>
+                    ) : t.chargedTo === 'Inquilino' ? (
+                      <Badge variant="outline" className="text-blue-600 border-blue-200">Inquilino</Badge>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground italic">No definido</span>
+                    )}
+                    {t.contractorRating && (
+                      <div className="flex items-center gap-0.5" title={t.contractorRatingComment || `${t.contractorRating} estrellas`}>
+                        {([1,2,3,4,5] as const).map(s => (
+                          <span key={s} className={cn('text-xs', s <= t.contractorRating! ? 'text-amber-400' : 'text-muted-foreground/20')}>★</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
@@ -711,6 +745,52 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
 
       {/* Close tasks tab fragment */}
       </>}
+
+      {/* ── Dialog calificación proveedor ── */}
+      <Dialog open={isRatingOpen} onOpenChange={setIsRatingOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HardHat className="h-5 w-5 text-primary" />
+              Calificar al proveedor
+            </DialogTitle>
+            <DialogDescription>
+              ¿Cómo fue el trabajo de <strong>{tasks.find(t => t.id === ratingTaskId)?.contractorName}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex justify-center gap-2">
+              {([1,2,3,4,5] as const).map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRatingValue(star)}
+                  className={cn(
+                    'text-3xl transition-transform hover:scale-110',
+                    star <= ratingValue ? 'text-amber-400' : 'text-muted-foreground/30'
+                  )}
+                  aria-label={`${star} estrella${star !== 1 ? 's' : ''}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-sm font-bold text-muted-foreground">
+              {ratingValue === 5 ? 'Excelente' : ratingValue === 4 ? 'Muy bueno' : ratingValue === 3 ? 'Regular' : ratingValue === 2 ? 'Malo' : 'Muy malo'}
+            </p>
+            <Textarea
+              placeholder="Comentario opcional (puntualidad, calidad del trabajo…)"
+              value={ratingComment}
+              onChange={e => setRatingComment(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsRatingOpen(false)}>Omitir</Button>
+            <Button className="bg-primary font-black" onClick={handleSaveRating}>Guardar calificación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

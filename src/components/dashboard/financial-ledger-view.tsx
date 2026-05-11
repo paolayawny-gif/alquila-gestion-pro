@@ -27,6 +27,9 @@ import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { calculateRentAdjustment, type RentAdjustmentResult } from '@/ai/flows/calculate-rent-adjustment-action';
+import { sendEmail } from '@/services/email-service';
+import { formatCurrency } from '@/lib/format';
+import { FiscalPanel } from '@/components/ui/fiscal-panel';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -51,6 +54,7 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [adjData, setAdjData] = useState<RentAdjustmentResult | null>(null);
   const [isLoadingAdj, setIsLoadingAdj] = useState(false);
+  const [isApplyingAdj, setIsApplyingAdj] = useState(false);
 
   const handleSelectProperty = (id: string) => {
     setSelectedPropertyId(id);
@@ -72,6 +76,71 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
       setAdjData(result.data);
     } else {
       toast({ title: 'Error al calcular ajuste', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  const handleApplyAdjustment = async () => {
+    if (!adjData || !propertyContract || !userId || !db) return;
+    setIsApplyingAdj(true);
+    try {
+      // 1. Actualiza el contrato en Firestore
+      const contractRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'contratos', propertyContract.id);
+      setDocumentNonBlocking(contractRef, {
+        currentRentAmount: adjData.newAmount,
+        lastAdjustmentDate: new Date().toISOString().slice(0, 10),
+      }, { merge: true });
+
+      const sym = formatCurrency(0, { currency: propertyContract.currency }).replace('0', '').trim();
+      const newFmt = formatCurrency(adjData.newAmount, { currency: propertyContract.currency });
+      const oldFmt = formatCurrency(adjData.currentAmount, { currency: propertyContract.currency });
+      const pct = `+${adjData.variationPct.toFixed(1)}%`;
+      const mechanism = propertyContract.adjustmentMechanism ?? 'índice';
+
+      // 2. Email al propietario
+      const property = selectedProperty;
+      const ownerEmail = property?.owners?.[0]?.email;
+      const ownerName = property?.owners?.[0]?.name ?? 'Propietario';
+      if (ownerEmail) {
+        sendEmail({
+          to: ownerEmail,
+          subject: `Ajuste de alquiler aplicado — ${property?.name ?? propertyContract.propertyName}`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#222;">
+            <h2 style="color:#1D9E75;">Ajuste de alquiler aplicado</h2>
+            <p>Estimado/a <strong>${ownerName}</strong>,</p>
+            <p>Le informamos que se ha aplicado el ajuste por <strong>${mechanism}</strong> al contrato de <strong>${propertyContract.propertyName}</strong>.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+              <tr style="background:#f8f9fa;"><td style="padding:8px 12px;font-size:13px;">Canon anterior</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;">${oldFmt}</td></tr>
+              <tr><td style="padding:8px 12px;font-size:13px;">Variación (${mechanism})</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;color:#1D9E75;">${pct}</td></tr>
+              <tr style="background:#f8f9fa;"><td style="padding:8px 12px;font-size:13px;font-weight:bold;">Nuevo canon</td><td style="padding:8px 12px;font-size:16px;font-weight:900;color:#1D9E75;">${newFmt}</td></tr>
+            </table>
+            <p style="font-size:12px;color:#666;">El nuevo valor se aplica a partir del próximo período de cobro.</p>
+          </div>`,
+        }).catch(() => {});
+      }
+
+      // 3. Email al inquilino
+      if (propertyContract.tenantEmail) {
+        sendEmail({
+          to: propertyContract.tenantEmail,
+          subject: `Actualización de tu alquiler — ${propertyContract.propertyName}`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#222;">
+            <h2 style="color:#1D9E75;">Actualización de tu alquiler</h2>
+            <p>Estimado/a <strong>${propertyContract.tenantName ?? 'inquilino/a'}</strong>,</p>
+            <p>Le informamos que a partir del próximo período, el canon de alquiler de <strong>${propertyContract.propertyName}</strong> se actualizará según el índice <strong>${mechanism}</strong>.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+              <tr style="background:#f8f9fa;"><td style="padding:8px 12px;font-size:13px;">Canon anterior</td><td style="padding:8px 12px;font-size:13px;">${oldFmt}</td></tr>
+              <tr><td style="padding:8px 12px;font-size:13px;">Variación aplicada</td><td style="padding:8px 12px;font-size:13px;color:#1D9E75;">${pct}</td></tr>
+              <tr style="background:#f8f9fa;"><td style="padding:8px 12px;font-size:13px;font-weight:bold;">Nuevo canon</td><td style="padding:8px 12px;font-size:16px;font-weight:900;color:#1D9E75;">${newFmt}</td></tr>
+            </table>
+            <p style="font-size:12px;color:#666;">Ante cualquier consulta, no dude en contactarnos.</p>
+          </div>`,
+        }).catch(() => {});
+      }
+
+      setAdjData(null);
+      toast({ title: 'Ajuste aplicado', description: `Nuevo canon: ${newFmt}. Emails enviados al propietario e inquilino.` });
+    } finally {
+      setIsApplyingAdj(false);
     }
   };
 
@@ -446,6 +515,17 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
                         </p>
                       )}
                     </div>
+                    {canWrite && (
+                      <Button
+                        size="sm"
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-black text-[11px] h-7 mt-1"
+                        onClick={handleApplyAdjustment}
+                        disabled={isApplyingAdj}
+                      >
+                        {isApplyingAdj ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
+                        Aplicar y notificar
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -453,6 +533,24 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
           )}
         </div>
       </div>
+
+      {/* Panel fiscal — Admin */}
+      {totals.rentCobrado > 0 && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-2 border-b mb-4">
+            <CardTitle className="text-base font-black flex items-center gap-2">
+              <PieChartIcon className="h-4 w-4 text-primary" /> Estimación Fiscal — Propietario
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FiscalPanel
+              annualIncome={totals.rentCobrado * (12 / Math.max(1, new Date().getMonth() + 1))}
+              currency={propertyContract?.currency ?? 'ARS'}
+              provinceName={selectedProperty?.address?.split(',').pop()?.trim()}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Performance + Vacancy */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

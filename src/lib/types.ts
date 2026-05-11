@@ -303,17 +303,19 @@ export interface MaintenanceTask {
   estimatedCost: number;
   actualCost: number;
   contractorName?: string;
+  contractorRating?: 1 | 2 | 3 | 4 | 5;
+  contractorRatingComment?: string;
   chargedTo?: 'Inquilino' | 'Propietario' | 'N/A';
   isApprovedByOwner?: boolean;
-  ownerEmail?: string;        // propietario al que se carga; permite que el portal propietario la vea
-  ownerComment?: string;      // comentario del propietario al aprobar/rechazar
+  ownerEmail?: string;
+  ownerComment?: string;
   photos?: string[];
   createdAt: string;
   updatedAt: string;
   closedAt?: string;
   hasFile?: boolean;
-  createdBy?: string;   // UID del admin que abrió el ticket
-  updatedBy?: string;   // UID del admin que hizo el último cambio
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface AppAlert {
