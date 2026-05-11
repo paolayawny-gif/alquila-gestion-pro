@@ -319,9 +319,9 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
                   <AlertTriangle className="h-3 w-3" /> Búsqueda no configurada
                 </p>
                 <p className="text-[10px] text-amber-800 leading-tight">{setupHint}</p>
-                <a href="https://serper.dev" target="_blank" rel="noopener noreferrer"
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer"
                   className="text-[10px] text-blue-600 underline">
-                  Ir a serper.dev →
+                  Ir a Google Cloud Console →
                 </a>
               </div>
             )}
