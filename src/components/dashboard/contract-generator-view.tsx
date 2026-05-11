@@ -135,6 +135,9 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const [selectedFiadorId, setSelectedFiadorId] = useState('');
   const [selectedPropiedadId, setSelectedPropiedadId] = useState('');
 
+  // ── Main tab ──
+  const [mainTab, setMainTab] = useState('plantillas');
+
   // ── Tab: Editor ──
   const [editorContent, setEditorContent] = useState('');
   const [editorContractId, setEditorContractId] = useState('');
@@ -301,7 +304,8 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
         aiContractType.toLowerCase().includes('comercial') ? 'comercial' : 'vivienda'
       );
       setShowAiDialog(false);
-      toast({ title: '¡Contrato generado! ✓', description: 'El texto se cargó en el editor. Podés revisarlo y editarlo.' });
+      setMainTab('editor');
+      toast({ title: '¡Contrato generado! ✓', description: 'Revisalo y editalo en el editor.' });
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message ?? 'No se pudo generar el contrato.', variant: 'destructive' });
     } finally {
@@ -314,10 +318,10 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
     const t = CONTRACT_TEMPLATES.find(x => x.id === templateId);
     if (!t) return;
     setEditorTitle(t.label);
-    // Build a starter HTML with the template title and variable placeholders highlighted
     const html = `<h2>${t.label.toUpperCase()}</h2><p><em>Completá este modelo con los datos del contrato. Los campos entre [CORCHETES] son variables a reemplazar.</em></p><p>Usá el botón "Auto-completar desde contrato" para rellenar los datos automáticamente.</p>`;
     setEditorContent(html);
-    toast({ title: 'Modelo cargado en el editor', description: 'Ahora podés editarlo y personalizar el texto.' });
+    setMainTab('editor');
+    toast({ title: 'Modelo cargado en el editor', description: 'Seleccioná un contrato y usá "Auto-completar" para rellenar los datos.' });
   };
 
   // ── Editor: auto-fill variables in HTML editor content ──
@@ -481,7 +485,8 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
     setEditorContent(model.cleanedText
       ? `<p>${model.cleanedText.replace(/\n/g, '</p><p>')}</p>`
       : model.htmlContent || '');
-    toast({ title: 'Modelo cargado en el Editor', description: 'Cambiá a la pestaña Editor para editarlo.' });
+    setMainTab('editor');
+    toast({ title: `"${model.name}" cargado`, description: 'Ya podés editarlo, auto-completarlo o exportarlo a PDF.' });
   };
 
   const filledCount = template?.variables.filter(v => fieldValues[v.key]?.trim()).length ?? 0;
@@ -495,7 +500,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
         <p className="text-sm text-muted-foreground mt-0.5">Completá modelos oficiales, redactá con el editor o subí tus propios modelos.</p>
       </div>
 
-      <Tabs defaultValue="plantillas">
+      <Tabs value={mainTab} onValueChange={setMainTab}>
         <TabsList className="bg-white border shadow-sm p-1 h-auto gap-1">
           <TabsTrigger value="plantillas" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-white font-bold">
             <FolderOpen className="h-4 w-4" /> Plantillas Oficiales
