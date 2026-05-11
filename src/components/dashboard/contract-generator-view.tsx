@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1045,8 +1046,12 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Input className="h-8 text-xs" placeholder="Dirección del inmueble…"
-                      value={aiPropiedadId} onChange={e => setAiPropiedadId(e.target.value)} />
+                    <AddressAutocomplete
+                      value={aiPropiedadId}
+                      onChange={setAiPropiedadId}
+                      placeholder="Dirección del inmueble…"
+                      className="h-8 text-xs"
+                    />
                   )}
                 </div>
               </div>
