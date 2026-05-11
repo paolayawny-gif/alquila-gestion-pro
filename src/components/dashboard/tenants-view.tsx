@@ -158,7 +158,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [isAdjNotifOpen, setIsAdjNotifOpen] = useState(false);
   const [isRenewalNotifOpen, setIsRenewalNotifOpen] = useState(false);
   const [isQAOpen, setIsQAOpen] = useState(false);
-  
+  const [viewDocContract, setViewDocContract] = useState<Contract | null>(null);
+
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   
@@ -1166,10 +1167,22 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                   <TableCell className="text-right font-black text-primary text-base">{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-primary hover:bg-primary/10" 
+                      {c.generatedDocumentHtml && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-blue-600 hover:bg-blue-50"
+                          title="Ver documento redactado"
+                          onClick={() => setViewDocContract(c)}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-primary hover:bg-primary/10"
                         title="Asistente Legal (Preguntar al Contrato)"
                         onClick={() => { setSelectedQAContract(c); setQAAnswer(null); setQAQuestion(''); setIsQAOpen(true); }}
                       >
@@ -1391,6 +1404,36 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           </div>
         )}
       </Card>
+
+      {/* ── Modal: Ver Documento Redactado ── */}
+      {viewDocContract && (
+        <Dialog open={!!viewDocContract} onOpenChange={() => setViewDocContract(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 font-black">
+                <FileText className="h-4 w-4 text-blue-600" />
+                Documento — {viewDocContract.tenantName} / {viewDocContract.propertyName}
+              </DialogTitle>
+            </DialogHeader>
+            <div
+              className="prose prose-sm max-w-none border rounded-lg p-6 bg-white text-foreground font-serif text-justify leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: viewDocContract.generatedDocumentHtml! }}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => {
+                const win = window.open('', '_blank');
+                if (!win) return;
+                win.document.write(`<html><head><title>${viewDocContract.tenantName}</title><style>body{font-family:'Times New Roman',serif;font-size:11pt;line-height:1.8;margin:2.5cm;text-align:justify}h2{font-size:12pt;font-weight:bold;text-align:center;text-transform:uppercase;margin:1.5em 0 0.5em}p{margin:0.4em 0}mark{background:none;font-weight:bold}</style></head><body>${viewDocContract.generatedDocumentHtml}</body></html>`);
+                win.document.close();
+                win.print();
+              }}>
+                <Download className="h-3.5 w-3.5 mr-1.5" /> Imprimir / PDF
+              </Button>
+              <Button onClick={() => setViewDocContract(null)}>Cerrar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

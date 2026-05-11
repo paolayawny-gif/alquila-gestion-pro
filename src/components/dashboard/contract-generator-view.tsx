@@ -355,7 +355,21 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
     toast({ title: 'Datos aplicados', description: 'Los campos entre [CORCHETES] fueron reemplazados con los datos del contrato.' });
   };
 
-  // ── Editor: save draft ──
+  // ── Editor: save to contract dialog ──
+  const [isSaveToContractOpen, setIsSaveToContractOpen] = useState(false);
+  const [saveToContractId, setSaveToContractId] = useState('');
+
+  const handleSaveToContract = () => {
+    if (!db || !user || !saveToContractId) return;
+    const contractRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos', saveToContractId);
+    setDocumentNonBlocking(contractRef, { generatedDocumentHtml: editorContent }, { merge: true });
+    setIsSaveToContractOpen(false);
+    setSaveToContractId('');
+    const c = contracts.find(x => x.id === saveToContractId);
+    toast({ title: 'Documento vinculado ✓', description: `Guardado en el contrato de ${c?.tenantName ?? 'contrato seleccionado'}. Visible en Personas y Contratos.` });
+  };
+
+  // ── Editor: save draft (Mis Modelos) ──
   const handleSaveDraft = () => {
     if (!db || !user) return;
     if (!editorContent.trim()) {
@@ -831,9 +845,14 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                   <Download className="h-3.5 w-3.5" /> PDF
                 </Button>
                 {canWrite && (
-                  <Button size="sm" className="gap-1.5 font-bold h-9 bg-primary shrink-0" onClick={handleSaveDraft}>
-                    <Save className="h-3.5 w-3.5" /> Guardar
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9 shrink-0" onClick={handleSaveDraft}>
+                      <Save className="h-3.5 w-3.5" /> Borrador
+                    </Button>
+                    <Button size="sm" className="gap-1.5 font-bold h-9 bg-primary shrink-0" onClick={() => { if (!editorContent.trim()) { toast({ title: 'Editor vacío', description: 'Escribí algo antes de guardar.', variant: 'destructive' }); return; } setIsSaveToContractOpen(true); }}>
+                      <Save className="h-3.5 w-3.5" /> Guardar en Contrato
+                    </Button>
+                  </>
                 )}
               </div>
               <RichTextEditor
@@ -1154,6 +1173,41 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
                 : <><Wand2 className="h-4 w-4" /> Generar contrato</>
               }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Diálogo: Guardar en Contrato ── */}
+      <Dialog open={isSaveToContractOpen} onOpenChange={setIsSaveToContractOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black">
+              <Save className="h-4 w-4 text-primary" /> Guardar en Contrato
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              El documento quedará vinculado al contrato elegido y visible en "Personas y Contratos".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label className="text-xs font-black uppercase text-muted-foreground">Contrato</Label>
+            <select
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+              value={saveToContractId}
+              onChange={e => setSaveToContractId(e.target.value)}
+            >
+              <option value="">Seleccioná un contrato…</option>
+              {contracts.filter(c => c.status !== 'Rescindido').map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.tenantName} — {c.propertyName} ({c.status})
+                </option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsSaveToContractOpen(false)}>Cancelar</Button>
+            <Button className="gap-2 font-black" disabled={!saveToContractId} onClick={handleSaveToContract}>
+              <Save className="h-3.5 w-3.5" /> Guardar
             </Button>
           </DialogFooter>
         </DialogContent>
