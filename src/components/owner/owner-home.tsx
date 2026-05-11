@@ -157,7 +157,7 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
           <Building2 className="h-3.5 w-3.5" />
-          Portal Propietario · {ownerEntry.propertyNames.length} propiedad{ownerEntry.propertyNames.length !== 1 ? 'es' : ''}
+          Portal Propietario · {(ownerEntry.propertyNames ?? []).length} propiedad{(ownerEntry.propertyNames ?? []).length !== 1 ? 'es' : ''}
         </p>
       </div>
 
