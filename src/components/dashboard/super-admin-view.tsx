@@ -14,8 +14,9 @@ import {
   Crown, Building2, Users, Plus, CheckCircle2, Clock, XCircle,
   Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight,
   BarChart3, Home, DollarSign, TrendingUp, Activity, FileText, Wrench,
-  LogOut, AlertTriangle,
+  LogOut, AlertTriangle, Target,
 } from 'lucide-react';
+import { CaptacionView } from '@/components/dashboard/captacion-view';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -123,6 +124,9 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { user } = useUser();
+
+  // — Vista principal —
+  const [mainView, setMainView] = useState<'orgs' | 'captacion'>('orgs');
 
   // — Org state —
   const [showNewOrgDialog, setShowNewOrgDialog] = useState(false);
@@ -358,7 +362,7 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-amber-100 rounded-xl"><Crown className="h-6 w-6 text-amber-600" /></div>
           <div>
@@ -366,9 +370,29 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
             <p className="text-sm text-muted-foreground">Gestión de organizaciones — AlquilaGestión Pro</p>
           </div>
         </div>
-        <Button onClick={() => setShowNewOrgDialog(true)} className="bg-primary text-white gap-2 font-bold">
-          <Plus className="h-4 w-4" /> Nueva Organización
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border bg-muted/40 p-0.5 gap-0.5">
+            <button
+              onClick={() => setMainView('orgs')}
+              className={cn('px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5',
+                mainView === 'orgs' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground')}
+            >
+              <Building2 className="h-3.5 w-3.5" /> Organizaciones
+            </button>
+            <button
+              onClick={() => setMainView('captacion')}
+              className={cn('px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5',
+                mainView === 'captacion' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground')}
+            >
+              <Target className="h-3.5 w-3.5" /> Captación de Clientes
+            </button>
+          </div>
+          {mainView === 'orgs' && (
+            <Button onClick={() => setShowNewOrgDialog(true)} className="bg-primary text-white gap-2 font-bold">
+              <Plus className="h-4 w-4" /> Nueva Organización
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* KPIs */}
@@ -391,6 +415,14 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
           </Card>
         ))}
       </div>
+
+      {/* Vista Captación de Clientes */}
+      {mainView === 'captacion' && (
+        <CaptacionView userId={userId} />
+      )}
+
+      {/* ── Vista Organizaciones ── */}
+      {mainView === 'orgs' && <>
 
       {/* Métricas globales de plataforma */}
       {allStats.length > 0 && (
@@ -983,6 +1015,9 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cierre del bloque mainView === 'orgs' */}
+      </>}
 
     </div>
   );
