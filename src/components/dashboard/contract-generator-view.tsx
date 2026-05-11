@@ -54,8 +54,14 @@ function buildAutoFillValues(contract: Contract | undefined, people: Person[], p
 
   const tenant = people.find(p => p.id === contract.tenantId);
   const property = properties.find(p => p.id === contract.propertyId);
-  const guarantor = people.find(p => p.type === 'Garante');
-  const owner = people.find(p => p.type === 'Propietario');
+  const guarantor = contract.guarantorIds?.length
+    ? people.find(p => contract.guarantorIds.includes(p.id))
+    : undefined;
+  const owner = contract.ownerIds?.length
+    ? people.find(p => contract.ownerIds.includes(p.id))
+    : property?.owners?.find(o => o.ownerId)
+      ? people.find(p => p.id === property.owners.find(o => o.ownerId)?.ownerId)
+      : undefined;
 
   if (tenant) filled.tenant_name = tenant.fullName;
   if (guarantor) filled.guarantor_name = guarantor.fullName;
@@ -210,6 +216,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
 
   // ── Plantillas: auto-fill from contract ──
   const handleAutoFill = () => {
+    if (!selectedContract) return;
     const autoValues = buildAutoFillValues(selectedContract, people, properties);
     const newValues: Record<string, string> = { ...fieldValues };
     for (const variable of template.variables) {
@@ -218,6 +225,13 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
       }
     }
     setFieldValues(newValues);
+
+    // Pre-seleccionar los selectores de partes con los datos del contrato
+    if (selectedContract.tenantId) setSelectedLocatarioId(selectedContract.tenantId);
+    if (selectedContract.ownerIds?.length) setSelectedLocadorId(selectedContract.ownerIds[0]);
+    if (selectedContract.guarantorIds?.length) setSelectedFiadorId(selectedContract.guarantorIds[0]);
+    if (selectedContract.propertyId) setSelectedPropiedadId(selectedContract.propertyId);
+
     toast({ title: 'Campos completados', description: 'Revisá los datos antes de descargar.' });
   };
 
@@ -314,8 +328,6 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
     }
     const contract = contracts.find(c => c.id === editorContractId);
     const autoValues = buildAutoFillValues(contract, people, properties);
-    // Replace [VARIABLE] patterns in the editor HTML
-    let html = editorContent;
     const varMap: Record<string, string> = {
       'LOCADOR': autoValues.owner_name,
       'LOCATARIO': autoValues.tenant_name,
@@ -325,11 +337,18 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
       'FECHA FIN': autoValues.end_date,
       'MONTO': autoValues.rent_number,
       'MONTO EN NÚMEROS': autoValues.rent_number,
+      'MONTO EN LETRAS': autoValues.rent_words,
+      'DEPÓSITO': autoValues.deposit_number,
+      'PLAZO': autoValues.duration_label,
+      'ÍNDICE': autoValues.adjustment_label,
     };
-    for (const [key, value] of Object.entries(autoValues)) {
+    let html = editorContent;
+    for (const [key, value] of Object.entries(varMap)) {
       if (!value) continue;
+      html = html.replace(new RegExp(`\\[${key}\\]`, 'gi'), `<mark class="bg-green-100 text-green-900 px-0.5 rounded">${value}</mark>`);
     }
-    toast({ title: 'Datos disponibles', description: 'Usá el selector de contrato para ver los datos precargados en el panel lateral.' });
+    setEditorContent(html);
+    toast({ title: 'Datos aplicados', description: 'Los campos entre [CORCHETES] fueron reemplazados con los datos del contrato.' });
   };
 
   // ── Editor: save draft ──
