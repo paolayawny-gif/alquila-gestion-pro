@@ -339,7 +339,7 @@ export function TimelineView({
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         {(Object.entries(TYPE_CONFIG) as [EventType, typeof TYPE_CONFIG[EventType]][]).map(([type, cfg]) => {
           const Icon = cfg.icon;
           const active = activeTypes.has(type);
@@ -348,21 +348,40 @@ export function TimelineView({
             <button
               key={type}
               onClick={() => toggleType(type)}
+              title={active ? `Ocultar ${cfg.label.toLowerCase()}` : `Mostrar ${cfg.label.toLowerCase()}`}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors',
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none',
                 active
-                  ? `${cfg.bg} ${cfg.color} border-transparent shadow-sm`
-                  : 'bg-white text-muted-foreground border-border opacity-60 hover:opacity-90',
+                  ? `${cfg.bg} ${cfg.color} border-transparent shadow-sm ring-1 ring-inset ring-black/5`
+                  : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted hover:text-foreground',
               )}
             >
               <Icon className="h-3.5 w-3.5" />
               {cfg.label}
-              <span className={cn('text-[10px] font-black px-1.5 py-0.5 rounded-full', active ? 'bg-white/60' : 'bg-muted')}>
+              <span className={cn(
+                'text-[10px] font-black min-w-[1.1rem] px-1 py-0.5 rounded-full text-center',
+                active ? 'bg-white/70 text-current' : 'bg-muted text-muted-foreground',
+              )}>
                 {count}
               </span>
             </button>
           );
         })}
+        {activeTypes.size < 5 && (
+          <button
+            onClick={() => setActiveTypes(new Set(['contract_end', 'invoice_due', 'maintenance', 'liquidation', 'adjustment']))}
+            className="text-[11px] font-bold text-primary hover:underline px-1"
+          >
+            Mostrar todos
+          </button>
+        )}
+        {activeTypes.size < 5 && (
+          <span className="text-[10px] text-muted-foreground">
+            {events.filter(e => e.date >= viewStart && e.date <= viewEnd && !activeTypes.has(e.type)).length > 0 &&
+              `· ${events.filter(e => e.date >= viewStart && e.date <= viewEnd && !activeTypes.has(e.type)).length} oculto${events.filter(e => e.date >= viewStart && e.date <= viewEnd && !activeTypes.has(e.type)).length !== 1 ? 's' : ''} por filtro`
+            }
+          </span>
+        )}
       </div>
 
       {/* KPI */}
