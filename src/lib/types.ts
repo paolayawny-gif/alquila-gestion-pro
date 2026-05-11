@@ -710,3 +710,33 @@ export interface PendingRentAdjustment {
   ownerId: string;               // admin que gestiona
   createdAt: string;
 }
+
+// ── Captación de Clientes (Super Admin) ─────────────────────────────────────
+
+export type LeadStatus = 'Nuevo' | 'Contactado' | 'Interesado' | 'Demo' | 'Suscripto' | 'Descartado';
+
+export interface Lead {
+  id: string;
+  agencia: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  ciudad: string;
+  provincia: string;
+  status: LeadStatus;
+  notes?: string;
+  createdAt: string;
+  lastContactAt?: string;
+  source: 'google' | 'manual';
+  snippet?: string; // fragmento del resultado de búsqueda
+}
+
+export interface GoogleLeadResult {
+  agencia: string;
+  email?: string;
+  emails: string[];
+  website: string;
+  snippet: string;
+  ciudad: string;
+  provincia: string;
+}
