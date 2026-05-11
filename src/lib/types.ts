@@ -179,6 +179,7 @@ export interface Contract {
   createdBy?: string;   // UID del admin que lo creó
   updatedBy?: string;   // UID del admin que hizo el último cambio
   fullTranscription?: string;
+  generatedDocumentHtml?: string;  // HTML del contrato redactado en el editor
   documents: {
     mainContractUrl: string;
     mainContractName?: string;
