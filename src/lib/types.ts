@@ -198,6 +198,22 @@ export interface Contract {
   // ── Ajuste automático ────────────────────────────────────────────────────────
   adjustmentRate?: number;        // % para tipo Percentage (ej: 10 = 10%)
   lastAdjustmentDate?: string;    // ISO date del último ajuste aprobado
+  // ── Archivos adjuntos al contrato (comprobantes, facturas, etc.) ─────────────
+  contractFiles?: ContractFile[];
+}
+
+export type ContractFileCategory =
+  | 'comprobante_inquilino'
+  | 'factura_propietario'
+  | 'otro';
+
+export interface ContractFile {
+  id: string;
+  category: ContractFileCategory;
+  name: string;
+  dataUri: string;           // base64 — mantener bajo 400 KB por archivo
+  uploadedAt: string;
+  notes?: string;
 }
 
 export interface ChargeItem {
@@ -276,6 +292,7 @@ export interface Cobro {
 
 export interface Liquidation {
   id: string;
+  contractId?: string;
   propertyId: string;
   propertyName: string;
   ownerId: string;
@@ -308,6 +325,7 @@ export interface Provider {
 
 export interface MaintenanceTask {
   id: string;
+  contractId?: string;
   propertyId: string;
   propertyName: string;
   concept: string;
@@ -388,6 +406,7 @@ export interface AppNotification {
 
 export interface LegalCase {
   id: string;
+  contractId?: string;
   type: string;
   propertyId: string;
   propertyName: string;

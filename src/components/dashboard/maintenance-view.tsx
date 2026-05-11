@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MaintenanceTask, Property, Person, Provider } from '@/lib/types';
+import { MaintenanceTask, Property, Person, Provider, Contract } from '@/lib/types';
 import { SelectWithOther } from '@/components/ui/select-with-other';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -71,11 +71,12 @@ interface MaintenanceViewProps {
   userId?: string;
   properties: Property[];
   people: Person[];
+  contracts?: Contract[];
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function MaintenanceView({ tasks, userId, properties, people }: MaintenanceViewProps) {
+export function MaintenanceView({ tasks, userId, properties, people, contracts = [] }: MaintenanceViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
@@ -220,8 +221,13 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     // If charged to owner, populate ownerEmail from property.owners[0]
     const ownerEmail = property?.owners?.[0]?.email ?? '';
 
+    const activeContract = contracts.find(
+      c => c.propertyId === newTicket.propertyId && (c.status === 'Vigente' || c.status === 'Próximo a Vencer')
+    );
+
     const task: MaintenanceTask = {
       id: docId,
+      contractId: activeContract?.id,
       propertyId: newTicket.propertyId!,
       propertyName: property?.name || 'Propiedad desconocida',
       concept: newTicket.concept!,
