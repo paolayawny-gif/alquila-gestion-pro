@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { GoogleLeadResult } from '@/lib/types';
 
 const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+const GOOGLE_CX = 'e622f629b8fcb4cd6';
 
 const cache = new Map<string, { results: GoogleLeadResult[]; cachedAt: number }>();
 const CACHE_TTL = 1000 * 60 * 30;
@@ -11,24 +12,16 @@ function extractEmails(text: string): string[] {
   return [...new Set(matches)].filter(
     e => !e.endsWith('.png') && !e.endsWith('.jpg') &&
          !e.includes('google') && !e.includes('gstatic') &&
-         !e.includes('w3.org') && !e.includes('schema') &&
-         !e.includes('example') && !e.includes('serper'),
+         !e.includes('w3.org') && !e.includes('schema') && !e.includes('example'),
   );
 }
 
-async function serperSearch(query: string, apiKey: string): Promise<any[]> {
-  const res = await fetch('https://google.serper.dev/search', {
-    method: 'POST',
-    headers: {
-      'X-API-KEY': apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ q: query, gl: 'ar', hl: 'es', num: 10 }),
-    next: { revalidate: 0 },
-  });
-  if (!res.ok) throw new Error(`Serper error ${res.status}: ${await res.text()}`);
+async function googleSearch(query: string, apiKey: string): Promise<any[]> {
+  const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${GOOGLE_CX}&q=${encodeURIComponent(query)}&num=10&gl=ar&lr=lang_es`;
+  const res = await fetch(url, { next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`Google CSE error ${res.status}: ${await res.text()}`);
   const json = await res.json();
-  return json.organic ?? [];
+  return json.items ?? [];
 }
 
 export async function GET(req: NextRequest) {
@@ -40,12 +33,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Parámetros ciudad y provincia son obligatorios.' }, { status: 400 });
   }
 
-  const apiKey = process.env.SERPER_API_KEY;
+  const apiKey = process.env.GOOGLE_CSE_KEY;
 
   if (!apiKey) {
     return NextResponse.json({
       error: 'API key no configurada.',
-      setup: 'Registrate gratis en serper.dev (2500 búsquedas sin tarjeta) y agregá SERPER_API_KEY en Vercel.',
+      setup: 'Creá una API key en console.cloud.google.com → APIs y servicios → Credenciales → Crear clave de API. Habilitá "Custom Search API". Agregá GOOGLE_CSE_KEY en Vercel.',
       demo: true,
       results: buildDemoResults(ciudad, provincia),
     });
@@ -58,10 +51,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Dos queries: una para emails visibles, otra para encontrar más agencias
     const [r1, r2] = await Promise.allSettled([
-      serperSearch(`inmobiliaria "${ciudad}" correo electrónico email contacto`, apiKey),
-      serperSearch(`inmobiliaria "${ciudad}" "@gmail.com" OR "@hotmail.com" OR "@yahoo.com.ar"`, apiKey),
+      googleSearch(`inmobiliaria "${ciudad}" correo electrónico email contacto`, apiKey),
+      googleSearch(`inmobiliaria "${ciudad}" "@gmail.com" OR "@hotmail.com" OR "@yahoo.com.ar"`, apiKey),
     ]);
 
     const allItems = [
@@ -77,11 +69,11 @@ export async function GET(req: NextRequest) {
       if (seenUrls.has(url)) continue;
       seenUrls.add(url);
 
-      const fullText = `${item.title ?? ''} ${item.snippet ?? ''}`;
+      const fullText = `${item.title ?? ''} ${item.snippet ?? ''} ${item.pagemap?.metatags?.[0]?.['og:description'] ?? ''}`;
       const emails = extractEmails(fullText);
 
       results.push({
-        agencia: item.title?.replace(/\s*[-|–·|].*$/, '').trim() ?? 'Inmobiliaria',
+        agencia: item.title?.replace(/\s*[-|–·].*$/, '').trim() ?? 'Inmobiliaria',
         email:   emails[0],
         emails,
         website: url,
@@ -100,15 +92,13 @@ export async function GET(req: NextRequest) {
 }
 
 function buildDemoResults(ciudad: string, provincia: string): GoogleLeadResult[] {
-  return [
-    {
-      agencia: `Inmobiliaria Demo — ${ciudad}`,
-      email: `contacto@inmobiliaria-demo.com.ar`,
-      emails: [`contacto@inmobiliaria-demo.com.ar`],
-      website: `https://www.inmobiliaria-demo.com.ar`,
-      snippet: `Resultado de demostración. Registrate en serper.dev (gratis, sin tarjeta) y agregá SERPER_API_KEY en Vercel para ver inmobiliarias reales de ${ciudad}, ${provincia}.`,
-      ciudad,
-      provincia,
-    },
-  ];
+  return [{
+    agencia: `Inmobiliaria Demo — ${ciudad}`,
+    email: 'contacto@inmobiliaria-demo.com.ar',
+    emails: ['contacto@inmobiliaria-demo.com.ar'],
+    website: 'https://www.inmobiliaria-demo.com.ar',
+    snippet: `Demo. Agregá GOOGLE_CSE_KEY en Vercel para ver inmobiliarias reales de ${ciudad}, ${provincia}.`,
+    ciudad,
+    provincia,
+  }];
 }
