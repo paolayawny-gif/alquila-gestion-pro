@@ -44,6 +44,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Contract, Person, Property, IndexRecord, Invoice, Liquidation, MaintenanceTask, LegalCase } from '@/lib/types';
 import { ContractDetailPanel } from '@/components/dashboard/contract-detail-panel';
+import { OwnerDetailPanel } from '@/components/dashboard/owner-detail-panel';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -132,6 +133,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const db = useFirestore();
   const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal' | 'owners'>('contracts');
   const [selectedDetailContract, setSelectedDetailContract] = useState<Contract | null>(null);
+  const [selectedOwner, setSelectedOwner] = useState<Person | null>(null);
 
   // ── Tenant Registry (portal access management) ──────────────────────────
   const registryQ = useMemoFirebase(() => {
@@ -731,6 +733,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               <UserPlus className="h-4 w-4" /> Nueva Persona
             </Button>
           )}
+          {canWrite && activeTab === 'owners' && (
+            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => {
+              setEditingPerson(null);
+              setPersonFormData({ fullName: '', taxId: '', email: '', phone: '', type: 'Propietario', documents: [] });
+              setPersonErrors({});
+              setIsPersonDialogOpen(true);
+            }}>
+              <UserPlus className="h-4 w-4" /> Nuevo Propietario
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1279,10 +1291,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             people={people}
             properties={properties}
             invoices={invoices}
-            liquidations={liquidations}
-            tasks={tasks}
-            legalCases={legalCases}
-            onSelectContract={(c) => setSelectedDetailContract(c)}
+            onSelectOwner={(p) => setSelectedOwner(p)}
           />
         ) : activeTab === 'people' ? (
           <div className="overflow-x-auto">
@@ -1458,6 +1467,23 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         </SheetContent>
       </Sheet>
 
+      {/* ── Panel: Detalle de Propietario ── */}
+      {selectedOwner && userId && (
+        <OwnerDetailPanel
+          person={selectedOwner}
+          people={people}
+          properties={properties}
+          contracts={contracts}
+          invoices={invoices}
+          liquidations={liquidations}
+          tasks={tasks}
+          legalCases={legalCases}
+          userId={userId}
+          open={!!selectedOwner}
+          onClose={() => setSelectedOwner(null)}
+        />
+      )}
+
       {/* ── Modal: Ver Documento Redactado ── */}
       {viewDocContract && (
         <Dialog open={!!viewDocContract} onOpenChange={() => setViewDocContract(null)}>
@@ -1498,147 +1524,71 @@ interface OwnersViewProps {
   people: Person[];
   properties: Property[];
   invoices: Invoice[];
-  liquidations: Liquidation[];
-  tasks: MaintenanceTask[];
-  legalCases: LegalCase[];
-  onSelectContract: (c: Contract) => void;
+  onSelectOwner: (p: Person) => void;
 }
 
-function OwnersView({ contracts, people, properties, invoices, liquidations, tasks, legalCases, onSelectContract }: OwnersViewProps) {
-  const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null);
+function OwnersView({ contracts, people, properties, invoices, onSelectOwner }: OwnersViewProps) {
+  const propietarios = people
+    .filter(p => p.type === 'Propietario')
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
 
-  // Agrupar contratos por propietario usando ownerIds[]
-  const ownerMap = new Map<string, { person: Person; contracts: Contract[] }>();
-
-  contracts.forEach(c => {
-    const ids = c.ownerIds ?? [];
-    if (ids.length === 0) {
-      // Sin propietario asignado → bucket especial
-      const key = '__sin_propietario__';
-      if (!ownerMap.has(key)) {
-        ownerMap.set(key, {
-          person: { id: key, fullName: 'Sin Propietario', type: 'Propietario', taxId: '', email: '', phone: '', documents: [], ownerId: '' },
-          contracts: [],
-        });
-      }
-      ownerMap.get(key)!.contracts.push(c);
-    } else {
-      ids.forEach(oid => {
-        const person = people.find(p => p.id === oid);
-        if (!person) return;
-        if (!ownerMap.has(oid)) ownerMap.set(oid, { person, contracts: [] });
-        ownerMap.get(oid)!.contracts.push(c);
-      });
-    }
-  });
-
-  const ownerGroups = Array.from(ownerMap.values()).sort((a, b) =>
-    a.person.fullName.localeCompare(b.person.fullName)
-  );
-
-  if (ownerGroups.length === 0) {
+  if (propietarios.length === 0) {
     return (
       <div className="py-20 text-center text-muted-foreground p-6">
         <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-20" />
-        <p className="font-semibold">Sin contratos con propietarios asignados</p>
-        <p className="text-xs mt-1">Asigná propietarios a los contratos en "Datos Generales" del contrato.</p>
+        <p className="font-semibold">Sin propietarios registrados</p>
+        <p className="text-xs mt-1">Usá el botón "Nuevo Propietario" para agregar uno.</p>
       </div>
     );
   }
 
   return (
     <div className="p-4 space-y-3">
-      {ownerGroups.map(({ person, contracts: ownerContracts }) => {
-        const isExpanded = expandedOwnerId === person.id;
+      {propietarios.map(person => {
+        const ownerContracts = contracts.filter(c => c.ownerIds?.includes(person.id));
+        const ownerProperties = properties.filter(p => p.owners?.some(o => o.ownerId === person.id));
         const vigentes = ownerContracts.filter(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer');
         const totalRent = vigentes.reduce((s, c) => s + c.currentRentAmount, 0);
         const ownerInvoices = invoices.filter(i => ownerContracts.some(c => c.id === i.contractId));
         const pendingInvoices = ownerInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
 
         return (
-          <div key={person.id} className="border rounded-xl overflow-hidden">
-            {/* Header de propietario */}
-            <button
-              className="w-full flex items-center gap-3 p-4 hover:bg-muted/10 transition-colors text-left"
-              onClick={() => setExpandedOwnerId(isExpanded ? null : person.id)}
-            >
+          <button
+            key={person.id}
+            className="w-full border rounded-xl overflow-hidden hover:bg-muted/10 transition-colors text-left"
+            onClick={() => onSelectOwner(person)}
+          >
+            <div className="flex items-center gap-3 p-4">
               <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 font-black text-primary">
                 {person.fullName.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-black text-sm">{person.fullName}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{person.email || 'Sin email'}</p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {person.email || 'Sin email'}
+                  {person.taxId ? ` · CUIT: ${person.taxId}` : ''}
+                </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black text-primary">
                     {vigentes.length > 0 ? `ARS ${totalRent.toLocaleString('es-AR')}` : '—'}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{ownerContracts.length} contrato{ownerContracts.length !== 1 ? 's' : ''}</p>
+                  <div className="flex items-center gap-2 justify-end mt-0.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      {ownerProperties.length} inm. · {ownerContracts.length} contr.
+                    </span>
+                  </div>
                 </div>
                 {pendingInvoices.length > 0 && (
                   <span className="h-5 px-1.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center">
                     {pendingInvoices.length} pend.
                   </span>
                 )}
-                <ChevronRight className={cn('h-4 w-4 text-muted-foreground transition-transform', isExpanded && 'rotate-90')} />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
-            </button>
-
-            {/* Contratos del propietario */}
-            {isExpanded && (
-              <div className="border-t bg-muted/5 divide-y">
-                {ownerContracts.map(c => {
-                  const contInvoices = invoices.filter(i => i.contractId === c.id);
-                  const contPending = contInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
-                  const daysLeft = Math.round((new Date(c.endDate).getTime() - Date.now()) / 86_400_000);
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/10 cursor-pointer"
-                      onClick={() => onSelectContract(c)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm">{c.tenantName ?? '—'}</span>
-                          <span className="text-[10px] text-muted-foreground font-black uppercase">{c.propertyName}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                          <span>{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}/mes</span>
-                          <span>·</span>
-                          <span>Vence: {new Date(c.endDate).toLocaleDateString('es-AR')}</span>
-                          {daysLeft >= 0 && daysLeft <= 60 && (
-                            <span className={cn('font-black', daysLeft <= 30 ? 'text-red-600' : 'text-amber-600')}>
-                              ({daysLeft}d)
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {contPending.length > 0 && (
-                          <span className="h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black flex items-center border border-amber-200">
-                            {contPending.length} pend.
-                          </span>
-                        )}
-                        <Badge
-                          className={cn(
-                            'border text-[9px] font-bold',
-                            c.status === 'Vigente' ? 'bg-green-50 text-green-700 border-green-200' :
-                            c.status === 'Próximo a Vencer' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                            c.status === 'Finalizado' ? 'bg-slate-50 text-slate-500 border-slate-200' :
-                            'bg-muted text-muted-foreground border-border'
-                          )}
-                        >
-                          {c.status}
-                        </Badge>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            </div>
+          </button>
         );
       })}
     </div>
