@@ -314,29 +314,27 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
             </Button>
 
             {setupHint && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-1">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-1.5">
                 <p className="text-[10px] font-black text-amber-700 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" /> Búsqueda no configurada
                 </p>
                 <p className="text-[10px] text-amber-800 leading-tight">{setupHint}</p>
-                <a
-                  href="https://brave.com/search/api/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-blue-600 underline"
-                >
-                  Registrate gratis en brave.com/search/api →
+                <a href="https://serper.dev" target="_blank" rel="noopener noreferrer"
+                  className="text-[10px] text-blue-600 underline">
+                  Ir a serper.dev →
                 </a>
               </div>
             )}
 
             {searchError && !setupHint && (
-              <p className="text-xs text-destructive">{searchError}</p>
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 shrink-0" /> {searchError}
+              </p>
             )}
 
             {isDemo && (
               <p className="text-[10px] text-muted-foreground italic">
-                Mostrando resultado de demostración. Configurá las variables de entorno para resultados reales.
+                Modo demo activo. Configurá SERPER_API_KEY en Vercel para búsquedas reales.
               </p>
             )}
 

@@ -4,53 +4,31 @@ import type { GoogleLeadResult } from '@/lib/types';
 const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
 
 const cache = new Map<string, { results: GoogleLeadResult[]; cachedAt: number }>();
-const CACHE_TTL = 1000 * 60 * 30; // 30 min
+const CACHE_TTL = 1000 * 60 * 30;
 
 function extractEmails(text: string): string[] {
   const matches = text.match(EMAIL_REGEX) ?? [];
   return [...new Set(matches)].filter(
     e => !e.endsWith('.png') && !e.endsWith('.jpg') &&
          !e.includes('google') && !e.includes('gstatic') &&
-         !e.includes('w3.org') && !e.includes('brave.com') &&
-         !e.includes('example'),
+         !e.includes('w3.org') && !e.includes('schema') &&
+         !e.includes('example') && !e.includes('serper'),
   );
 }
 
-async function searchBrave(query: string, apiKey: string): Promise<any[]> {
-  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10&country=ar&search_lang=es&freshness=none`;
-  const res = await fetch(url, {
+async function serperSearch(query: string, apiKey: string): Promise<any[]> {
+  const res = await fetch('https://google.serper.dev/search', {
+    method: 'POST',
     headers: {
-      'Accept': 'application/json',
-      'Accept-Encoding': 'gzip',
-      'X-Subscription-Token': apiKey,
+      'X-API-KEY': apiKey,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ q: query, gl: 'ar', hl: 'es', num: 10 }),
     next: { revalidate: 0 },
   });
-  if (!res.ok) throw new Error(`Brave Search error ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Serper error ${res.status}: ${await res.text()}`);
   const json = await res.json();
-  return json.web?.results ?? [];
-}
-
-function mapBraveResults(items: any[], ciudad: string, provincia: string): GoogleLeadResult[] {
-  const seenUrls = new Set<string>();
-  const results: GoogleLeadResult[] = [];
-  for (const item of items) {
-    const url: string = item.url ?? '';
-    if (seenUrls.has(url)) continue;
-    seenUrls.add(url);
-    const fullText = `${item.title ?? ''} ${item.description ?? ''}`;
-    const emails = extractEmails(fullText);
-    results.push({
-      agencia: item.title?.replace(/\s*[-|–|·].*$/, '').trim() ?? 'Inmobiliaria',
-      email: emails[0],
-      emails,
-      website: url,
-      snippet: item.description ?? '',
-      ciudad,
-      provincia,
-    });
-  }
-  return results;
+  return json.organic ?? [];
 }
 
 export async function GET(req: NextRequest) {
@@ -62,12 +40,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Parámetros ciudad y provincia son obligatorios.' }, { status: 400 });
   }
 
-  const braveKey = process.env.BRAVE_SEARCH_KEY;
+  const apiKey = process.env.SERPER_API_KEY;
 
-  if (!braveKey) {
+  if (!apiKey) {
     return NextResponse.json({
-      error: 'API de búsqueda no configurada.',
-      setup: 'Registrate gratis en brave.com/search/api y agregá BRAVE_SEARCH_KEY en las variables de entorno de Vercel.',
+      error: 'API key no configurada.',
+      setup: 'Registrate gratis en serper.dev (2500 búsquedas sin tarjeta) y agregá SERPER_API_KEY en Vercel.',
       demo: true,
       results: buildDemoResults(ciudad, provincia),
     });
@@ -80,10 +58,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Dos queries para maximizar cobertura de emails visibles en snippets
+    // Dos queries: una para emails visibles, otra para encontrar más agencias
     const [r1, r2] = await Promise.allSettled([
-      searchBrave(`inmobiliaria "${ciudad}" correo electrónico email contacto`, braveKey),
-      searchBrave(`inmobiliaria "${ciudad}" "${provincia}" "@gmail.com" OR "@hotmail.com" OR "@yahoo.com.ar"`, braveKey),
+      serperSearch(`inmobiliaria "${ciudad}" correo electrónico email contacto`, apiKey),
+      serperSearch(`inmobiliaria "${ciudad}" "@gmail.com" OR "@hotmail.com" OR "@yahoo.com.ar"`, apiKey),
     ]);
 
     const allItems = [
@@ -91,7 +69,28 @@ export async function GET(req: NextRequest) {
       ...(r2.status === 'fulfilled' ? r2.value : []),
     ];
 
-    const results = mapBraveResults(allItems, ciudad, provincia);
+    const seenUrls = new Set<string>();
+    const results: GoogleLeadResult[] = [];
+
+    for (const item of allItems) {
+      const url: string = item.link ?? '';
+      if (seenUrls.has(url)) continue;
+      seenUrls.add(url);
+
+      const fullText = `${item.title ?? ''} ${item.snippet ?? ''}`;
+      const emails = extractEmails(fullText);
+
+      results.push({
+        agencia: item.title?.replace(/\s*[-|–·|].*$/, '').trim() ?? 'Inmobiliaria',
+        email:   emails[0],
+        emails,
+        website: url,
+        snippet: item.snippet ?? '',
+        ciudad,
+        provincia,
+      });
+    }
+
     cache.set(cacheKey, { results, cachedAt: Date.now() });
     return NextResponse.json({ results });
 
@@ -103,11 +102,11 @@ export async function GET(req: NextRequest) {
 function buildDemoResults(ciudad: string, provincia: string): GoogleLeadResult[] {
   return [
     {
-      agencia: `Inmobiliaria Ejemplo ${ciudad}`,
-      email: `contacto@inmobiliaria-${ciudad.toLowerCase().replace(/\s+/g, '-')}.com.ar`,
-      emails: [`contacto@inmobiliaria-${ciudad.toLowerCase().replace(/\s+/g, '-')}.com.ar`],
-      website: `https://www.inmobiliaria-ejemplo.com.ar`,
-      snippet: `Demo. Registrate en brave.com/search/api (gratis) y agregá BRAVE_SEARCH_KEY en Vercel para ver inmobiliarias reales en ${ciudad}, ${provincia}.`,
+      agencia: `Inmobiliaria Demo — ${ciudad}`,
+      email: `contacto@inmobiliaria-demo.com.ar`,
+      emails: [`contacto@inmobiliaria-demo.com.ar`],
+      website: `https://www.inmobiliaria-demo.com.ar`,
+      snippet: `Resultado de demostración. Registrate en serper.dev (gratis, sin tarjeta) y agregá SERPER_API_KEY en Vercel para ver inmobiliarias reales de ${ciudad}, ${provincia}.`,
       ciudad,
       provincia,
     },
