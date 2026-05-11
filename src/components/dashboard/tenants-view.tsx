@@ -5,11 +5,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  UserPlus, 
-  Edit2, 
-  Trash2, 
-  Search, 
-  Mail, 
+  UserPlus,
+  Edit2,
+  Trash2,
+  Search,
+  Mail,
   Upload,
   Plus,
   Sparkles,
@@ -35,11 +35,16 @@ import {
   User,
   History,
   Clock,
-  CalendarClock
+  CalendarClock,
+  FolderOpen,
+  Layers,
+  ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Contract, Person, Property, IndexRecord } from '@/lib/types';
+import { Contract, Person, Property, IndexRecord, Invoice, Liquidation, MaintenanceTask, LegalCase } from '@/lib/types';
+import { ContractDetailPanel } from '@/components/dashboard/contract-detail-panel';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -80,6 +85,10 @@ interface TenantsViewProps {
   contracts: Contract[];
   properties: Property[];
   indexRecords: IndexRecord[];
+  invoices?: Invoice[];
+  liquidations?: Liquidation[];
+  tasks?: MaintenanceTask[];
+  legalCases?: LegalCase[];
 }
 
 const APP_ID = "alquilagestion-pro";
@@ -117,11 +126,12 @@ function addMonthsToDate(dateStr: string, months: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function TenantsView({ people, userId, contracts, properties, indexRecords }: TenantsViewProps) {
+export function TenantsView({ people, userId, contracts, properties, indexRecords, invoices = [], liquidations = [], tasks = [], legalCases = [] }: TenantsViewProps) {
   const { canWrite, canDelete } = useOrgPermissions();
   const { toast } = useToast();
   const db = useFirestore();
-  const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal'>('contracts');
+  const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal' | 'owners'>('contracts');
+  const [selectedDetailContract, setSelectedDetailContract] = useState<Contract | null>(null);
 
   // ── Tenant Registry (portal access management) ──────────────────────────
   const registryQ = useMemoFirebase(() => {
@@ -697,6 +707,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           <TabsList className="bg-transparent">
             <TabsTrigger value="contracts" className="data-[state=active]:bg-primary data-[state=active]:text-white">Contratos</TabsTrigger>
             <TabsTrigger value="people" className="data-[state=active]:bg-primary data-[state=active]:text-white">Personas</TabsTrigger>
+            <TabsTrigger value="owners" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-1.5">
+              <FolderOpen className="h-3.5 w-3.5" /> Por Propietario
+            </TabsTrigger>
             <TabsTrigger value="portal" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-1.5">
               <Globe className="h-3.5 w-3.5" /> Accesos Portal
               {registryEntries.filter((e: any) => e.status === 'suspendido').length > 0 && (
@@ -1241,6 +1254,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
+                      {/* Ver Detalle del Contrato */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-indigo-600 hover:bg-indigo-50"
+                        title="Ver detalle completo del contrato"
+                        onClick={() => setSelectedDetailContract(c)}
+                      >
+                        <Layers className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1249,6 +1272,18 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             </TableBody>
           </Table>
           </div>
+        ) : activeTab === 'owners' ? (
+          /* ── Vista Por Propietario ── */
+          <OwnersView
+            contracts={contracts}
+            people={people}
+            properties={properties}
+            invoices={invoices}
+            liquidations={liquidations}
+            tasks={tasks}
+            legalCases={legalCases}
+            onSelectContract={(c) => setSelectedDetailContract(c)}
+          />
         ) : activeTab === 'people' ? (
           <div className="overflow-x-auto">
           <Table>
@@ -1405,6 +1440,24 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         )}
       </Card>
 
+      {/* ── Sheet: Detalle del Contrato ── */}
+      <Sheet open={!!selectedDetailContract} onOpenChange={(open) => { if (!open) setSelectedDetailContract(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
+          {selectedDetailContract && (
+            <ContractDetailPanel
+              contract={selectedDetailContract}
+              people={people}
+              properties={properties}
+              invoices={invoices}
+              liquidations={liquidations}
+              tasks={tasks}
+              legalCases={legalCases}
+              onClose={() => setSelectedDetailContract(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* ── Modal: Ver Documento Redactado ── */}
       {viewDocContract && (
         <Dialog open={!!viewDocContract} onOpenChange={() => setViewDocContract(null)}>
@@ -1434,6 +1487,160 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+// ── Vista "Por Propietario" ────────────────────────────────────────────────────
+
+interface OwnersViewProps {
+  contracts: Contract[];
+  people: Person[];
+  properties: Property[];
+  invoices: Invoice[];
+  liquidations: Liquidation[];
+  tasks: MaintenanceTask[];
+  legalCases: LegalCase[];
+  onSelectContract: (c: Contract) => void;
+}
+
+function OwnersView({ contracts, people, properties, invoices, liquidations, tasks, legalCases, onSelectContract }: OwnersViewProps) {
+  const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null);
+
+  // Agrupar contratos por propietario usando ownerIds[]
+  const ownerMap = new Map<string, { person: Person; contracts: Contract[] }>();
+
+  contracts.forEach(c => {
+    const ids = c.ownerIds ?? [];
+    if (ids.length === 0) {
+      // Sin propietario asignado → bucket especial
+      const key = '__sin_propietario__';
+      if (!ownerMap.has(key)) {
+        ownerMap.set(key, {
+          person: { id: key, fullName: 'Sin Propietario', type: 'Propietario', taxId: '', email: '', phone: '', documents: [], ownerId: '' },
+          contracts: [],
+        });
+      }
+      ownerMap.get(key)!.contracts.push(c);
+    } else {
+      ids.forEach(oid => {
+        const person = people.find(p => p.id === oid);
+        if (!person) return;
+        if (!ownerMap.has(oid)) ownerMap.set(oid, { person, contracts: [] });
+        ownerMap.get(oid)!.contracts.push(c);
+      });
+    }
+  });
+
+  const ownerGroups = Array.from(ownerMap.values()).sort((a, b) =>
+    a.person.fullName.localeCompare(b.person.fullName)
+  );
+
+  if (ownerGroups.length === 0) {
+    return (
+      <div className="py-20 text-center text-muted-foreground p-6">
+        <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-20" />
+        <p className="font-semibold">Sin contratos con propietarios asignados</p>
+        <p className="text-xs mt-1">Asigná propietarios a los contratos en "Datos Generales" del contrato.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-3">
+      {ownerGroups.map(({ person, contracts: ownerContracts }) => {
+        const isExpanded = expandedOwnerId === person.id;
+        const vigentes = ownerContracts.filter(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer');
+        const totalRent = vigentes.reduce((s, c) => s + c.currentRentAmount, 0);
+        const ownerInvoices = invoices.filter(i => ownerContracts.some(c => c.id === i.contractId));
+        const pendingInvoices = ownerInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
+
+        return (
+          <div key={person.id} className="border rounded-xl overflow-hidden">
+            {/* Header de propietario */}
+            <button
+              className="w-full flex items-center gap-3 p-4 hover:bg-muted/10 transition-colors text-left"
+              onClick={() => setExpandedOwnerId(isExpanded ? null : person.id)}
+            >
+              <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 font-black text-primary">
+                {person.fullName.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-sm">{person.fullName}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{person.email || 'Sin email'}</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-black text-primary">
+                    {vigentes.length > 0 ? `ARS ${totalRent.toLocaleString('es-AR')}` : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{ownerContracts.length} contrato{ownerContracts.length !== 1 ? 's' : ''}</p>
+                </div>
+                {pendingInvoices.length > 0 && (
+                  <span className="h-5 px-1.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center">
+                    {pendingInvoices.length} pend.
+                  </span>
+                )}
+                <ChevronRight className={cn('h-4 w-4 text-muted-foreground transition-transform', isExpanded && 'rotate-90')} />
+              </div>
+            </button>
+
+            {/* Contratos del propietario */}
+            {isExpanded && (
+              <div className="border-t bg-muted/5 divide-y">
+                {ownerContracts.map(c => {
+                  const contInvoices = invoices.filter(i => i.contractId === c.id);
+                  const contPending = contInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
+                  const daysLeft = Math.round((new Date(c.endDate).getTime() - Date.now()) / 86_400_000);
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/10 cursor-pointer"
+                      onClick={() => onSelectContract(c)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm">{c.tenantName ?? '—'}</span>
+                          <span className="text-[10px] text-muted-foreground font-black uppercase">{c.propertyName}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                          <span>{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}/mes</span>
+                          <span>·</span>
+                          <span>Vence: {new Date(c.endDate).toLocaleDateString('es-AR')}</span>
+                          {daysLeft >= 0 && daysLeft <= 60 && (
+                            <span className={cn('font-black', daysLeft <= 30 ? 'text-red-600' : 'text-amber-600')}>
+                              ({daysLeft}d)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {contPending.length > 0 && (
+                          <span className="h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black flex items-center border border-amber-200">
+                            {contPending.length} pend.
+                          </span>
+                        )}
+                        <Badge
+                          className={cn(
+                            'border text-[9px] font-bold',
+                            c.status === 'Vigente' ? 'bg-green-50 text-green-700 border-green-200' :
+                            c.status === 'Próximo a Vencer' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            c.status === 'Finalizado' ? 'bg-slate-50 text-slate-500 border-slate-200' :
+                            'bg-muted text-muted-foreground border-border'
+                          )}
+                        >
+                          {c.status}
+                        </Badge>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
