@@ -27,14 +27,17 @@ import { AppAlert, Property, Contract, Invoice, RentalApplication, MaintenanceTa
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/format';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  ReferenceLine,
 } from 'recharts';
 
 interface SummaryViewProps {
@@ -224,6 +227,23 @@ export function SummaryView({
     { name: 'Semana 3', cobrado: totalCollected * 0.9, proyectado: totalProjected * 0.8 },
     { name: 'Semana 4', cobrado: totalCollected, proyectado: totalProjected },
   ];
+
+  const projectionData = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, i) => {
+      const month = new Date(now.getFullYear(), now.getMonth() + i + 1, 1);
+      const total = contracts
+        .filter(c =>
+          (c.status === 'Vigente' || c.status === 'Próximo a Vencer') &&
+          new Date(c.endDate) >= month,
+        )
+        .reduce((sum, c) => sum + (c.currentRentAmount || 0), 0);
+      return {
+        name: month.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }),
+        ingreso: total,
+      };
+    });
+  }, [contracts]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -479,6 +499,56 @@ export function SummaryView({
           </Card>
         </div>
       </div>
+
+      {/* ── Proyección de ingresos 12 meses ── */}
+      <Card className="shadow-sm border-none bg-white">
+        <CardHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Proyección de Ingresos
+            </CardTitle>
+            <CardDescription>Estimación de ingresos mensuales para los próximos 12 meses según contratos vigentes.</CardDescription>
+          </div>
+          <Badge className="bg-blue-100 text-blue-700 font-bold px-3">
+            {contracts.filter(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer').length} contratos activos
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[260px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={projectionData}>
+                <defs>
+                  <linearGradient id="projGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1D9E75" />
+                    <stop offset="100%" stopColor="#3b82f6" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  formatter={(v: any) => [`$ ${Number(v).toLocaleString('es-AR')}`, 'Ingreso proyectado']}
+                />
+                <ReferenceLine y={projectionData[0]?.ingreso ?? 0} stroke="#e2e8f0" strokeDasharray="4 4" />
+                <Line
+                  type="monotone"
+                  dataKey="ingreso"
+                  stroke="url(#projGrad)"
+                  strokeWidth={3}
+                  dot={{ r: 3, fill: '#1D9E75', strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                  name="Ingreso proyectado"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+            La proyección se reduce cuando contratos vencen. Renovalos antes para mantener la curva estable.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

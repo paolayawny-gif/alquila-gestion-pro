@@ -111,6 +111,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
 import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
+import { NpsSurvey } from '@/components/ui/nps-survey';
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler';
@@ -949,6 +950,10 @@ export default function AppClient() {
           if (goTo) setActiveTab(goTo);
         }}
       />
+
+      {!isSuperAdmin && !tenantEntry && !ownerEntry && (
+        <NpsSurvey userId={user?.uid} contractCount={contracts.length} />
+      )}
     </div>
   );
 }

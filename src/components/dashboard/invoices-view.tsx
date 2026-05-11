@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -30,6 +30,9 @@ import {
   Gavel,
   Download,
   Sheet,
+  CheckSquare,
+  Square,
+  X,
 } from 'lucide-react';
 import { exportToPDF, exportToExcel } from '@/lib/export-utils';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -159,6 +162,77 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   const [isReceiptConfirmDialogOpen, setIsReceiptConfirmDialogOpen] = useState(false);
   const [receiptNote, setReceiptNote] = useState('');
   const [tempReceiptFile, setTempReceiptFile] = useState<{ url: string, name: string } | null>(null);
+
+  // ── Bulk selection ─────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkMarkPaid = async () => {
+    if (!userId || !db || selectedIds.size === 0) return;
+    setBulkProcessing(true);
+    const now = new Date().toLocaleDateString('es-AR');
+    for (const id of selectedIds) {
+      const inv = invoices.find(i => i.id === id);
+      if (!inv || inv.status === 'Pagado') continue;
+      const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', id);
+      setDocumentNonBlocking(docRef, { status: 'Pagado', paymentDate: now }, { merge: true });
+    }
+    setBulkProcessing(false);
+    setSelectedIds(new Set());
+    toast({ title: 'Pagos registrados', description: `${selectedIds.size} facturas marcadas como pagadas.` });
+  };
+
+  const handleBulkSendReminder = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkProcessing(true);
+    const selected = invoices.filter(i => selectedIds.has(i.id) && i.tenantEmail && i.status !== 'Pagado');
+    const emailPromises = selected.map(inv =>
+      sendEmail({
+        to: inv.tenantEmail!,
+        subject: `Recordatorio de pago pendiente — ${inv.period ?? ''}`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#222;">
+          <h2 style="color:#1D9E75;">Recordatorio de pago</h2>
+          <p>Estimado/a <strong>${inv.tenantName}</strong>,</p>
+          <p>Le recordamos que tiene un pago pendiente correspondiente al período <strong>${inv.period ?? ''}</strong> de la propiedad <strong>${inv.propertyName}</strong> por un monto de <strong>$ ${inv.totalAmount.toLocaleString('es-AR')}</strong> con vencimiento el <strong>${inv.dueDate}</strong>.</p>
+          <p>Por favor regularice su situación a la brevedad posible.</p>
+          <p>Atentamente,<br/><strong>Administración</strong></p>
+        </div>`,
+      }).catch(() => {})
+    );
+    await Promise.allSettled(emailPromises);
+    setBulkProcessing(false);
+    setSelectedIds(new Set());
+    toast({ title: 'Recordatorios enviados', description: `${selected.length} email${selected.length !== 1 ? 's' : ''} enviado${selected.length !== 1 ? 's' : ''}.` });
+  };
+
+  const handleBulkExport = () => {
+    const selected = filteredInvoices.filter(i => selectedIds.has(i.id));
+    const cols = [
+      { header: 'Inquilino',   key: 'tenantName', width: 24 },
+      { header: 'Propiedad',   key: 'propertyName', width: 28 },
+      { header: 'Período',     key: 'period', width: 18 },
+      { header: 'Vencimiento', key: 'dueDate', width: 16 },
+      { header: 'Moneda',      key: 'currency', width: 10 },
+      { header: 'Total',       key: 'total', width: 14 },
+      { header: 'Estado',      key: 'status', width: 18 },
+    ];
+    const rows = selected.map(i => ({
+      tenantName: i.tenantName ?? '—', propertyName: i.propertyName ?? '—',
+      period: i.period ?? '—', dueDate: i.dueDate ?? '—',
+      currency: i.currency ?? 'ARS', total: i.totalAmount?.toLocaleString('es-AR') ?? '0',
+      status: i.status ?? '—',
+    }));
+    exportToExcel('Facturas seleccionadas', cols, rows, `facturas_sel_${new Date().toLocaleDateString('es-AR').replace(/\//g, '-')}`);
+    setSelectedIds(new Set());
+  };
 
   // ── Filtros avanzados ──────────────────────────────────────────────────────
   const [filterSearch,   setFilterSearch]   = useState('');
@@ -972,11 +1046,66 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
       </div>
       </div>
 
+      {/* ── Floating bulk-action bar ─────────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-2xl shadow-xl border border-border/10">
+          <span className="text-xs font-bold shrink-0">{selectedIds.size} seleccionada{selectedIds.size !== 1 ? 's' : ''}</span>
+          <div className="w-px h-4 bg-background/20 mx-1" />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-background hover:bg-background/20 gap-1.5 text-xs font-bold h-7"
+            onClick={handleBulkMarkPaid}
+            disabled={bulkProcessing}
+          >
+            {bulkProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+            Marcar pagadas
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-background hover:bg-background/20 gap-1.5 text-xs font-bold h-7"
+            onClick={handleBulkSendReminder}
+            disabled={bulkProcessing}
+          >
+            <Send className="h-3 w-3" /> Enviar recordatorio
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-background hover:bg-background/20 gap-1.5 text-xs font-bold h-7"
+            onClick={handleBulkExport}
+          >
+            <Download className="h-3 w-3" /> Exportar
+          </Button>
+          <button onClick={() => setSelectedIds(new Set())} className="ml-1 text-background/60 hover:text-background transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
+              <TableHead className="w-8">
+                <button
+                  onClick={() => {
+                    if (selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0) {
+                      setSelectedIds(new Set());
+                    } else {
+                      setSelectedIds(new Set(filteredInvoices.map(i => i.id)));
+                    }
+                  }}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Seleccionar todas"
+                >
+                  {selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0
+                    ? <CheckSquare className="h-4 w-4 text-primary" />
+                    : <Square className="h-4 w-4" />}
+                </button>
+              </TableHead>
               <TableHead className="w-[250px]">Inquilino / Unidad</TableHead>
               <TableHead>Detalle de Cargos</TableHead>
               <TableHead className="text-right">Total (con Mora)</TableHead>
@@ -987,9 +1116,19 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
           <TableBody>
             {filteredInvoices.map((i) => {
               const interest = calculateInterest(i);
-              
+              const isSelected = selectedIds.has(i.id);
+
               return (
-                <TableRow key={i.id} className="group hover:bg-muted/30">
+                <TableRow key={i.id} className={cn("group hover:bg-muted/30", isSelected && "bg-primary/5")}>
+                  <TableCell>
+                    <button
+                      onClick={() => toggleSelect(i.id)}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Seleccionar fila"
+                    >
+                      {isSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-black text-foreground">{i.tenantName}</span>
@@ -1107,7 +1246,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
             })}
             {filteredInvoices.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <EmptyState
                     icon={FileText}
                     title={filterSearch || filterProperty || filterStatus ? 'Sin resultados para ese filtro' : 'Sin facturas cargadas'}
