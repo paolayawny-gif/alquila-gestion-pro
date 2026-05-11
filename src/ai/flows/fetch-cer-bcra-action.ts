@@ -141,7 +141,8 @@ async function fetchCerData(
 
   const { status, body } = await httpsGetWithRetry(url);
 
-  if (status === 404) return { status: 404, data: null };
+  // 404 = variable no existe; 400 = IdVariable invalida — ambos significan "probar siguiente"
+  if (status === 404 || status === 400) return { status: 404, data: null };
   if (status < 200 || status >= 300) {
     let detail = '';
     try {

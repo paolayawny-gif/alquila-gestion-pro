@@ -63,6 +63,8 @@ import { doc, collection, query, where } from 'firebase/firestore';
 import { ShieldOff, ShieldCheck, UserX, ShieldAlert, Globe } from 'lucide-react';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
+import { fetchIpc } from '@/ai/flows/fetch-ipc-indec-action';
+import { fetchIcl } from '@/ai/flows/fetch-icl-bcra-action';
 import { queryContract } from '@/ai/flows/query-contract-flow';
 import { extractContractData } from '@/ai/flows/extract-contract-data-flow';
 import { extractTextFromPdfDataUri, isPdfDataUri } from '@/lib/pdf-extract';
@@ -358,7 +360,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdjNotifOpen, selectedAdjContract]);
 
-  const handleAutoCalculate = () => {
+  const handleAutoCalculate = async () => {
     if (!selectedAdjContract || !selectedAdjContract.adjustmentMechanism) return;
     setIsCalculatingIndex(true);
     const mechanism = selectedAdjContract.adjustmentMechanism;
@@ -371,7 +373,6 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         .sort((a, b) => b.month.localeCompare(a.month));
 
       const cerLatest = cerRecords[0];
-      // Find CER closest to start date
       const cerStart = indexRecords
         .filter(r => r.type === 'CER' && r.month >= startDate)
         .sort((a, b) => a.month.localeCompare(b.month))[0]
@@ -383,14 +384,61 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         setNewRentValueInput(calculated);
         toast({ title: "Cálculo CER", description: `CER inicio: ${cerStart.value.toFixed(4)} (${cerStart.month}) → CER actual: ${cerLatest.value.toFixed(4)} (${cerLatest.month}) · Coef: ${coef.toFixed(4)}` });
       } else {
-        toast({ title: "Datos Faltantes", description: "No hay suficientes registros CER. Cargalos en la sección Índices Oficiales.", variant: "destructive" });
+        toast({ title: "Datos CER faltantes", description: "No hay suficientes registros CER. Importalos desde BCRA en la sección Índices Oficiales.", variant: "destructive" });
       }
     } else {
-      // ICL / IPC / CasaPropia: monthly percentage records
+      // ICL / IPC / CasaPropia: monthly absolute index records
       const currentMonth = new Date().toISOString().slice(0, 7);
       const startMonth = selectedAdjContract.startDate.slice(0, 7);
-      const indexActual = indexRecords.find(r => r.month === currentMonth && r.type === mechanism);
-      const indexInicial = indexRecords.find(r => r.month === startMonth && r.type === mechanism);
+
+      let indexActual = indexRecords.find(r => r.month === currentMonth && r.type === mechanism);
+      let indexInicial = indexRecords.find(r => r.month === startMonth && r.type === mechanism);
+
+      // Si falta algún dato, intentar traerlo de la API antes de rendirse
+      if (!indexActual || !indexInicial) {
+        try {
+          let fetchedPoints: { month: string; value: number }[] = [];
+
+          if (mechanism === 'IPC') {
+            const res = await fetchIpc();
+            if (res.ok && res.data.source === 'indec_api' && res.data.latestValue > 0) {
+              fetchedPoints = [
+                { month: res.data.latestDate.slice(0, 7), value: res.data.latestValue },
+                { month: res.data.previousDate.slice(0, 7), value: res.data.previousValue },
+              ];
+            }
+          } else if (mechanism === 'ICL') {
+            const res = await fetchIcl();
+            if (res.ok && res.data.source === 'bcra_api' && res.data.latestValue > 0) {
+              fetchedPoints = [
+                { month: res.data.latestDate.slice(0, 7), value: res.data.latestValue },
+                { month: res.data.previousDate.slice(0, 7), value: res.data.previousValue },
+              ];
+            }
+          }
+
+          // Guardar en Firestore los nuevos registros obtenidos
+          if (fetchedPoints.length > 0 && db && userId) {
+            for (const point of fetchedPoints) {
+              if (point.value > 0) {
+                const docId = `${mechanism}_${point.month}`;
+                const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'indices', docId);
+                setDocumentNonBlocking(docRef, { id: docId, month: point.month, type: mechanism, value: point.value }, { merge: true });
+              }
+            }
+          }
+
+          // Combinar registros locales con los recién traídos
+          const combined = [
+            ...indexRecords,
+            ...fetchedPoints.map(p => ({ id: `${mechanism}_${p.month}`, month: p.month, type: mechanism as typeof mechanism, value: p.value })),
+          ];
+          if (!indexActual) indexActual = combined.find(r => r.month === currentMonth && r.type === mechanism);
+          if (!indexInicial) indexInicial = combined.find(r => r.month === startMonth && r.type === mechanism);
+        } catch {
+          // La API falló; se maneja abajo con el mensaje de error
+        }
+      }
 
       if (indexActual && indexInicial && indexInicial.value > 0) {
         const coef = indexActual.value / indexInicial.value;
@@ -398,7 +446,14 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         setNewRentValueInput(calculated);
         toast({ title: "Cálculo Realizado", description: `Coeficiente ${mechanism} aplicado: ${coef.toFixed(4)}.` });
       } else {
-        toast({ title: "Datos Faltantes", description: "No hay registros suficientes en el historial para calcular el ajuste.", variant: "destructive" });
+        const missing: string[] = [];
+        if (!indexActual) missing.push(`mes actual (${currentMonth})`);
+        if (!indexInicial) missing.push(`inicio del contrato (${startMonth})`);
+        toast({
+          title: `Índice ${mechanism} no disponible`,
+          description: `No se encontró el dato para: ${missing.join(' y ')}. La API tampoco devolvió ese período. Actualizalo manualmente en "Índices Oficiales".`,
+          variant: "destructive",
+        });
       }
     }
     setIsCalculatingIndex(false);

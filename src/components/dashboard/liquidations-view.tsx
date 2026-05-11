@@ -26,7 +26,7 @@ import { exportToPDF, exportToExcel } from '@/lib/export-utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Liquidation, Property, Person, Invoice, MaintenanceTask } from '@/lib/types';
+import { Liquidation, Property, Person, Invoice, MaintenanceTask, Contract } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -93,11 +93,12 @@ interface LiquidationsViewProps {
   userId?: string;
   properties: Property[];
   people: Person[];
+  contracts?: Contract[];
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function LiquidationsView({ liquidations, userId, properties, people }: LiquidationsViewProps) {
+export function LiquidationsView({ liquidations, userId, properties, people, contracts = [] }: LiquidationsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
@@ -191,14 +192,33 @@ export function LiquidationsView({ liquidations, userId, properties, people }: L
       const ownerPerson = people.find(p => p.id === property.owners?.[0]?.ownerId);
       const owner = ownerPerson || { id: 'dueño-ext', fullName: property.owners?.[0]?.name || 'Propietario', phone: '' };
 
-      const calc = computeLiquidationFromSources({
+      let calc = computeLiquidationFromSources({
         property: { id: property.id, name: property.name },
         period,
         invoices,
         tasks,
       });
 
-      // Saltar propiedades sin datos del período: nada que liquidar
+      // Si no hay facturas ni mantenimiento, intentar usar el contrato vigente
+      if (!calc.hasData) {
+        const activeContract = contracts.find(
+          c => c.propertyId === property.id && c.status === 'Vigente'
+        );
+        if (activeContract && activeContract.currentRentAmount > 0) {
+          const rentIncome = activeContract.currentRentAmount;
+          const adminFee = rentIncome * 0.1;
+          calc = {
+            rentIncome,
+            serviceDeductions: 0,
+            maintenanceDeductions: 0,
+            adminFee,
+            netAmount: rentIncome - adminFee,
+            hasData: true,
+          };
+        }
+      }
+
+      // Saltar propiedades sin datos del período ni contrato vigente
       if (!calc.hasData) {
         skipped.push(property.name);
         return;
