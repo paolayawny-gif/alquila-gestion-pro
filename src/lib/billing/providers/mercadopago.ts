@@ -47,11 +47,16 @@ export const mercadopagoProvider: BillingProvider = {
 
   async createSubscription({ adminId, adminEmail, tier, returnUrl }): Promise<CheckoutResult> {
     const amount = getTierPriceARS(tier);
+    const webhookUrl = process.env.APP_BASE_URL
+      ? `${process.env.APP_BASE_URL}/api/billing/webhook`
+      : undefined;
+
     const body = {
       reason: `AlquilaGestion Pro — ${tier.label}`,
       external_reference: adminId,
       payer_email: adminEmail,
       back_url: returnUrl,
+      ...(webhookUrl ? { notification_url: webhookUrl } : {}),
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
@@ -135,9 +140,35 @@ export const mercadopagoProvider: BillingProvider = {
     };
   },
 
-  async parseWebhook({ body }): Promise<ProviderEvent | null> {
+  async parseWebhook({ headers, body }): Promise<ProviderEvent | null> {
+    // Validación HMAC-SHA256 cuando MP_WEBHOOK_SECRET está configurado.
+    // Formato: x-signature: ts=<ts>,v1=<hex>
+    // Manifest: "id:{data.id};request-id:{x-request-id};ts:{ts};"
+    const secret = process.env.MP_WEBHOOK_SECRET;
+    if (secret) {
+      const sig = headers?.['x-signature'] ?? '';
+      const requestId = headers?.['x-request-id'] ?? '';
+      const tsMatch = sig.match(/ts=([^,]+)/);
+      const v1Match = sig.match(/v1=([^,]+)/);
+      if (tsMatch && v1Match) {
+        const ts = tsMatch[1];
+        const received = v1Match[1];
+        const dataId = body?.data?.id ?? body?.id ?? '';
+        const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+        const { createHmac, timingSafeEqual } = await import('crypto');
+        const expected = createHmac('sha256', secret).update(manifest).digest('hex');
+        const expectedBuf = Buffer.from(expected, 'hex');
+        const receivedBuf = Buffer.from(received, 'hex');
+        const valid = expectedBuf.length === receivedBuf.length &&
+          timingSafeEqual(expectedBuf, receivedBuf);
+        if (!valid) {
+          console.warn('[mercadopago] Firma de webhook inválida');
+          return null;
+        }
+      }
+    }
+
     // MP envía dos formatos: IPN clásico (?topic=...&id=...) y webhooks v2 (JSON body con type/data.id).
-    // Esta función espera el body ya parseado; el endpoint resolverá ambos.
     const type: string = body?.type ?? body?.topic ?? '';
     const resourceId: string | undefined = body?.data?.id ?? body?.id;
     if (!resourceId) return null;
@@ -155,7 +186,7 @@ export const mercadopagoProvider: BillingProvider = {
       : data.status === 'cancelled'  ? 'subscription.cancelled'
       :                                 'subscription.updated';
       return {
-        id: `${eventType}:${resourceId}:${data.last_modified ?? Date.now()}`,
+        id: `${eventType}:${resourceId}`,
         type: eventType,
         subscriptionId: resourceId,
         customerId: data.payer_id ? String(data.payer_id) : null,
