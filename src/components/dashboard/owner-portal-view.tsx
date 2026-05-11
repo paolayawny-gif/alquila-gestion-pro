@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Property, Liquidation, RentalApplication, DocumentInfo, Invoice, ChargeType, Cobro } from '@/lib/types';
+import { FiscalPanel } from '@/components/ui/fiscal-panel';
 import { uploadReceiptToStorage } from '@/lib/upload-receipt';
 import { useUser, useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { query, collection, doc } from 'firebase/firestore';
@@ -427,6 +428,20 @@ export function OwnerPortalView({ properties, liquidations }: OwnerPortalViewPro
         </div>
 
         <div className="space-y-6">
+          {totalNetRecieved > 0 && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2 border-b">
+                <CardTitle className="text-sm font-black">Estimación Fiscal Anual</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <FiscalPanel
+                  annualIncome={totalNetRecieved * (12 / Math.max(1, new Date().getMonth() + 1))}
+                  provinceName={myProperties[0]?.address?.split(',').pop()?.trim()}
+                  compact
+                />
+              </CardContent>
+            </Card>
+          )}
           <Card className="border-none shadow-sm bg-white overflow-hidden">
             <CardHeader className="bg-muted/30">
               <CardTitle className="text-lg flex items-center gap-2"><Building className="h-5 w-5 text-primary" /> Mis Unidades</CardTitle>

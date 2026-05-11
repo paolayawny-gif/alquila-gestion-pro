@@ -3,7 +3,7 @@ export type PropertyType = 'Departamento' | 'Casa' | 'Local' | 'Cochera' | 'Ofic
 export type PropertyUsage = 'Vivienda' | 'Comercial' | 'Profesional' | 'Industrial';
 export type PropertyStatus = 'Disponible' | 'Reservada' | 'Alquilada' | 'En Mantenimiento';
 export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CasaPropia' | 'Fixed' | 'CER';
-export type Currency = 'ARS' | 'USD';
+export type Currency = 'ARS' | 'USD' | 'UVA';
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Mercado Pago' | 'Depósito' | 'Cheque';
 export type ChargeType = 'Alquiler' | 'Expensa Ordinaria' | 'Expensa Extraordinaria' | 'TGI/ABL' | 'Aguas' | 'Luz/Gas' | 'Reparaciones' | 'Mantenimiento' | 'Impuestos' | 'Otros';
 export type ChargePayer = 'Inquilino' | 'Propietario';
@@ -292,6 +292,19 @@ export interface Liquidation {
   dateCreated: string;
 }
 
+export interface Provider {
+  id: string;
+  name: string;
+  specialty: string;          // extensible: Plomería, Electricidad, Pintura, etc.
+  phone?: string;
+  email?: string;
+  notes?: string;
+  averageRating?: number;     // promedio calculado de tickets cerrados
+  totalRatings?: number;
+  ownerId: string;
+  createdAt: string;
+}
+
 export interface MaintenanceTask {
   id: string;
   propertyId: string;
@@ -303,17 +316,20 @@ export interface MaintenanceTask {
   estimatedCost: number;
   actualCost: number;
   contractorName?: string;
+  providerId?: string;        // referencia al Provider del directorio
+  contractorRating?: 1 | 2 | 3 | 4 | 5;
+  contractorRatingComment?: string;
   chargedTo?: 'Inquilino' | 'Propietario' | 'N/A';
   isApprovedByOwner?: boolean;
-  ownerEmail?: string;        // propietario al que se carga; permite que el portal propietario la vea
-  ownerComment?: string;      // comentario del propietario al aprobar/rechazar
+  ownerEmail?: string;
+  ownerComment?: string;
   photos?: string[];
   createdAt: string;
   updatedAt: string;
   closedAt?: string;
   hasFile?: boolean;
-  createdBy?: string;   // UID del admin que abrió el ticket
-  updatedBy?: string;   // UID del admin que hizo el último cambio
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface AppAlert {

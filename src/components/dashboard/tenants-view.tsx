@@ -70,6 +70,7 @@ import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { EmptyState } from '@/components/ui/empty-state';
+import { getRulesForProvince, type ProvinceRule } from '@/lib/province-rules';
 
 interface TenantsViewProps {
   people: Person[];
@@ -212,6 +213,25 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     status: 'Vigente',
     documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
   });
+  const [provinceRules, setProvinceRules] = useState<ProvinceRule | null>(null);
+
+  // Detectar provincia del inmueble y pre-llenar reglas cuando cambia la propiedad
+  useEffect(() => {
+    if (!contractFormData.propertyId) { setProvinceRules(null); return; }
+    const prop = properties.find(p => p.id === contractFormData.propertyId);
+    if (!prop?.address) { setProvinceRules(null); return; }
+    // La dirección de Georef tiene formato "Calle 123, Ciudad, Provincia"
+    const parts = prop.address.split(',').map(s => s.trim());
+    const provincia = parts[parts.length - 1];
+    const rules = getRulesForProvince(provincia);
+    setProvinceRules(rules);
+    // Auto-completar mecanismo y frecuencia si el campo todavía tiene el valor por defecto
+    setContractFormData(prev => ({
+      ...prev,
+      adjustmentMechanism: prev.adjustmentMechanism ?? rules.defaultAdjustmentMechanism,
+      adjustmentFrequencyMonths: prev.adjustmentFrequencyMonths ?? rules.adjustmentFrequencyMonths,
+    }));
+  }, [contractFormData.propertyId, properties]);
 
   const [personFormData, setPersonFormData] = useState<Partial<Person>>({
     fullName: '',
@@ -579,6 +599,41 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     toast({ title: "Contrato Guardado ✓", description: `${tenant?.fullName} — ${property?.name}` });
   };
 
+  const handleCreateRenewalDraft = (contract: Contract) => {
+    if (!userId || !db) return;
+    // Calcula la nueva fecha de inicio = día siguiente al vencimiento actual
+    const prevEnd = new Date(contract.endDate);
+    const newStart = new Date(prevEnd.getTime() + 86_400_000);
+    const newStartStr = newStart.toISOString().slice(0, 10);
+    // Duración por defecto: misma que el contrato original
+    const prevDuration = Math.round(
+      (prevEnd.getTime() - new Date(contract.startDate).getTime()) / (30.44 * 86_400_000)
+    );
+    const duration = prevDuration > 0 ? prevDuration : 24;
+    const newEnd = new Date(newStart);
+    newEnd.setMonth(newEnd.getMonth() + duration);
+    const newEndStr = newEnd.toISOString().slice(0, 10);
+
+    const docId = Math.random().toString(36).substr(2, 9);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'contratos', docId);
+    const draft: Contract = {
+      ...contract,
+      id: docId,
+      startDate: newStartStr,
+      endDate: newEndStr,
+      status: 'Borrador',
+      baseRentAmount: contract.currentRentAmount,
+      currentRentAmount: contract.currentRentAmount,
+      createdBy: userId,
+      documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] },
+    };
+    setDocumentNonBlocking(docRef, draft, { merge: true });
+    toast({
+      title: 'Borrador de renovación creado',
+      description: `${contract.tenantName} — ${contract.propertyName} · ${newStartStr} → ${newEndStr}. Revisalo en Contratos.`,
+    });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -646,6 +701,15 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                     <SelectTrigger><SelectValue placeholder="Propiedad..." /></SelectTrigger>
                     <SelectContent>{properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
+                  {provinceRules && (
+                    <div className="mt-1 p-2 rounded-lg bg-blue-50 border border-blue-100 text-[10px] text-blue-700 space-y-0.5">
+                      <p className="font-black flex items-center gap-1">
+                        <Globe className="h-3 w-3" /> {provinceRules.provincia || 'Régimen general'} — Ley 27.551
+                      </p>
+                      <p>Preaviso: <strong>{provinceRules.noticePeriodDays} días</strong> · Depósito máx: <strong>{provinceRules.maxDepositMonths} mes</strong> · IIBB vivienda: <strong>{provinceRules.iibb.Vivienda}%</strong></p>
+                      <p className="text-blue-600 italic">{provinceRules.note}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Inquilino (Locatario)</Label>
@@ -708,7 +772,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <TabsContent value="economic" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Monto Base Alquiler</Label><CurrencyInput value={contractFormData.baseRentAmount || 0} onChange={v => setContractFormData({...contractFormData, baseRentAmount: v, currentRentAmount: v})} placeholder="Ej: 150.000" /></div>
-                <div className="space-y-2"><Label>Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS — Pesos</SelectItem><SelectItem value="USD">USD — Dólares</SelectItem><SelectItem value="UVA">UVA — Unidad de Valor Adquisitivo</SelectItem></SelectContent></Select></div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2"><Label>Mecanismo de Ajuste</Label><Select value={contractFormData.adjustmentMechanism} onValueChange={(v: any) => setContractFormData({...contractFormData, adjustmentMechanism: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CER">CER (BCRA - Diario)</SelectItem><SelectItem value="ICL">ICL (Alquileres)</SelectItem><SelectItem value="IPC">IPC (Inflación)</SelectItem><SelectItem value="Fixed">Monto Fijo</SelectItem></SelectContent></Select></div>
@@ -1067,15 +1131,27 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                         <TrendingUp className="h-4 w-4" />
                       </Button>
 
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-accent hover:bg-accent/5" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-accent hover:bg-accent/5"
                         title="Notificar Vencimiento / Renovación"
                         onClick={() => { setSelectedRenewalContract(c); setRenewalDraft(null); setIsRenewalNotifOpen(true); }}
                       >
                         <CalendarClock className="h-4 w-4" />
                       </Button>
+
+                      {canWrite && (c.status === 'Próximo a Vencer' || c.status === 'Finalizado') && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-green-600 hover:bg-green-50"
+                          title="Preparar borrador de renovación"
+                          onClick={() => handleCreateRenewalDraft(c)}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      )}
 
                       {canWrite && (
                         <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => { setEditingContract(c); setContractFormData(c); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>

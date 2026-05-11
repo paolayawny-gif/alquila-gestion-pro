@@ -26,11 +26,17 @@ import {
   ClipboardList,
   Zap,
   Clock,
-  CheckSquare
+  CheckSquare,
+  BookUser,
+  Phone,
+  Mail,
+  Star,
+  Edit2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MaintenanceTask, Property, Person } from '@/lib/types';
+import { MaintenanceTask, Property, Person, Provider } from '@/lib/types';
+import { SelectWithOther } from '@/components/ui/select-with-other';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -46,9 +52,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query as fsQuery, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { createNotification } from '@/lib/notifications';
 import { OwnerRegistryEntry } from '@/components/owner/owner-portal';
@@ -74,13 +80,25 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
 
-  const [mainTab, setMainTab] = useState<'tasks' | 'tickets'>('tasks');
+  const [mainTab, setMainTab] = useState<'tasks' | 'tickets' | 'providers'>('tasks');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'inprogress' | 'resolved'>('all');
   const [isNewClaimOpen, setIsNewClaimOpen] = useState(false);
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null);
   
+  // Rating de proveedor
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [ratingTaskId, setRatingTaskId] = useState<string | null>(null);
+  const [ratingValue, setRatingValue] = useState<1|2|3|4|5>(5);
+  const [ratingComment, setRatingComment] = useState('');
+
+  // Directorio de proveedores
+  const [isProviderDialogOpen, setIsProviderDialogOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
+  const [providerForm, setProviderForm] = useState<Partial<Provider>>({});
+  const [providerSearch, setProviderSearch] = useState('');
+
   // Estado para notificación al propietario
   const [isDrafting, setIsDrafting] = useState(false);
   const [draft, setDraft] = useState<AiCommunicationAssistantOutput | null>(null);
@@ -97,6 +115,48 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     chargedTo: 'N/A',
     isApprovedByOwner: false
   });
+
+  const providersQuery = useMemo(() => {
+    if (!db || !userId) return null;
+    return fsQuery(collection(db, 'artifacts', APP_ID, 'users', userId, 'proveedores'), orderBy('name'));
+  }, [db, userId]);
+  const { data: providersRaw } = useCollection<Provider>(providersQuery);
+  const providers = providersRaw ?? [];
+
+  const filteredProviders = useMemo(() => {
+    if (!providerSearch) return providers;
+    const s = providerSearch.toLowerCase();
+    return providers.filter(p => p.name.toLowerCase().includes(s) || p.specialty.toLowerCase().includes(s));
+  }, [providers, providerSearch]);
+
+  const handleSaveProvider = () => {
+    if (!providerForm.name || !providerForm.specialty || !userId || !db) return;
+    const docId = editingProvider?.id ?? Math.random().toString(36).slice(2, 11);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'proveedores', docId);
+    const provider: Provider = {
+      id: docId,
+      name: providerForm.name,
+      specialty: providerForm.specialty,
+      phone: providerForm.phone,
+      email: providerForm.email,
+      notes: providerForm.notes,
+      averageRating: editingProvider?.averageRating ?? 0,
+      totalRatings: editingProvider?.totalRatings ?? 0,
+      ownerId: userId,
+      createdAt: editingProvider?.createdAt ?? new Date().toLocaleDateString('es-AR'),
+    };
+    setDocumentNonBlocking(docRef, provider, { merge: true });
+    setIsProviderDialogOpen(false);
+    setEditingProvider(null);
+    setProviderForm({});
+    toast({ title: editingProvider ? 'Proveedor actualizado' : 'Proveedor agregado' });
+  };
+
+  const handleDeleteProvider = (id: string) => {
+    if (!userId || !db) return;
+    deleteDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'proveedores', id));
+    toast({ title: 'Proveedor eliminado' });
+  };
 
   const getStatusBadge = (status: MaintenanceTask['status']) => {
     const styles = {
@@ -222,6 +282,40 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
 
     setIsManageDialogOpen(false);
     toast({ title: "Cambios Guardados", description: "La gestión del reclamo ha sido actualizada." });
+
+    // Si se cerró el ticket y hay proveedor asignado, pedir calificación
+    if (selectedTask.status === 'Cerrado' && selectedTask.contractorName && !selectedTask.contractorRating) {
+      setRatingTaskId(selectedTask.id);
+      setRatingValue(5);
+      setRatingComment('');
+      setIsRatingOpen(true);
+    }
+  };
+
+  const handleSaveRating = () => {
+    if (!ratingTaskId || !userId || !db) return;
+    const task = tasks.find(t => t.id === ratingTaskId);
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento', ratingTaskId);
+    setDocumentNonBlocking(docRef, {
+      contractorRating: ratingValue,
+      contractorRatingComment: ratingComment || undefined,
+    }, { merge: true });
+
+    // Update provider average rating if task references a provider
+    if (task?.providerId) {
+      const providerDoc = providers.find(p => p.id === task.providerId);
+      if (providerDoc) {
+        const prevTotal = providerDoc.totalRatings ?? 0;
+        const prevAvg = providerDoc.averageRating ?? 0;
+        const newTotal = prevTotal + 1;
+        const newAvg = (prevAvg * prevTotal + ratingValue) / newTotal;
+        const pRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'proveedores', task.providerId);
+        setDocumentNonBlocking(pRef, { averageRating: Math.round(newAvg * 10) / 10, totalRatings: newTotal }, { merge: true });
+      }
+    }
+
+    setIsRatingOpen(false);
+    toast({ title: 'Calificación guardada', description: `Proveedor calificado con ${ratingValue} estrella${ratingValue !== 1 ? 's' : ''}.` });
   };
 
   const handleDraftNotification = async () => {
@@ -326,12 +420,202 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
         >
           <ClipboardList className="h-4 w-4" /> Reclamos de Inquilinos
         </button>
+        <button
+          onClick={() => setMainTab('providers')}
+          className={cn(
+            'px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2',
+            mainTab === 'providers'
+              ? 'bg-green-50 text-green-700'
+              : 'text-muted-foreground hover:bg-muted',
+          )}
+        >
+          <BookUser className="h-4 w-4" /> Directorio de Proveedores
+          {providers.length > 0 && (
+            <span className="ml-0.5 text-[10px] bg-green-100 text-green-700 rounded-full px-1.5 py-0.5 font-black">{providers.length}</span>
+          )}
+        </button>
       </div>
 
       {/* ── Tenant tickets tab ── */}
       {mainTab === 'tickets' && (
         <TenantTicketsAdminView userId={userId} properties={properties} />
       )}
+
+      {/* ── Providers tab ── */}
+      {mainTab === 'providers' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="flex justify-between items-center gap-4">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar proveedor o especialidad..."
+                className="pl-9 bg-white"
+                value={providerSearch}
+                onChange={e => setProviderSearch(e.target.value)}
+              />
+            </div>
+            {canWrite && (
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white gap-2 font-bold shadow-md"
+                onClick={() => { setEditingProvider(null); setProviderForm({}); setIsProviderDialogOpen(true); }}
+              >
+                <Plus className="h-4 w-4" /> Agregar Proveedor
+              </Button>
+            )}
+          </div>
+
+          {filteredProviders.length === 0 ? (
+            <EmptyState
+              icon={BookUser}
+              title="Sin proveedores registrados"
+              description="Agregá plomeros, electricistas y otros prestadores para asignarlos a las tareas y gestionar sus calificaciones."
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProviders.map(p => (
+                <Card key={p.id} className="border-none shadow-sm bg-white hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-black text-foreground truncate">{p.name}</p>
+                        <Badge variant="outline" className="text-[10px] mt-0.5 text-green-700 border-green-200 bg-green-50">
+                          {p.specialty}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        {canWrite && (
+                          <Button
+                            variant="ghost" size="icon" className="h-7 w-7 text-primary"
+                            onClick={() => { setEditingProvider(p); setProviderForm(p); setIsProviderDialogOpen(true); }}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <ConfirmDeleteButton
+                            trigger={<Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>}
+                            title="Eliminar proveedor"
+                            itemName={p.name}
+                            onConfirm={() => handleDeleteProvider(p.id)}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      {p.phone && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          <span>{p.phone}</span>
+                        </div>
+                      )}
+                      {p.email && (
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{p.email}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {(p.totalRatings ?? 0) > 0 ? (
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-dashed border-muted">
+                        <div className="flex">
+                          {([1,2,3,4,5] as const).map(s => (
+                            <Star
+                              key={s}
+                              className={cn('h-3 w-3', s <= Math.round(p.averageRating ?? 0) ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/20')}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-600">{p.averageRating?.toFixed(1)}</span>
+                        <span className="text-[10px] text-muted-foreground">({p.totalRatings} {(p.totalRatings ?? 0) === 1 ? 'calificación' : 'calificaciones'})</span>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground/60 italic pt-1 border-t border-dashed border-muted">Sin calificaciones aún</p>
+                    )}
+
+                    {p.notes && (
+                      <p className="text-[10px] text-muted-foreground bg-muted/40 rounded p-2 leading-tight">{p.notes}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Provider add/edit dialog ── */}
+      <Dialog open={isProviderDialogOpen} onOpenChange={setIsProviderDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookUser className="h-5 w-5 text-green-600" />
+              {editingProvider ? 'Editar proveedor' : 'Nuevo proveedor'}
+            </DialogTitle>
+            <DialogDescription>
+              Registrá al prestador para asignarlo a tareas y llevar un historial de calificaciones.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input
+                placeholder="Ej: Juan Pérez Plomería"
+                value={providerForm.name ?? ''}
+                onChange={e => setProviderForm(f => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Especialidad *</Label>
+              <SelectWithOther
+                options={['Plomería', 'Electricidad', 'Gas', 'Albañilería', 'Pintura', 'Carpintería', 'Cerrajería', 'Climatización / HVAC', 'Jardinería', 'Limpieza', 'Fumigación']}
+                value={providerForm.specialty ?? ''}
+                onValueChange={v => setProviderForm(f => ({ ...f, specialty: v }))}
+                placeholder="Seleccioná o escribí especialidad..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Teléfono</Label>
+                <Input
+                  placeholder="11 1234-5678"
+                  value={providerForm.phone ?? ''}
+                  onChange={e => setProviderForm(f => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  placeholder="proveedor@mail.com"
+                  value={providerForm.email ?? ''}
+                  onChange={e => setProviderForm(f => ({ ...f, email: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notas internas</Label>
+              <Textarea
+                placeholder="Disponibilidad, zona de cobertura, condiciones de pago..."
+                rows={2}
+                value={providerForm.notes ?? ''}
+                onChange={e => setProviderForm(f => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-2">
+            <Button variant="ghost" onClick={() => setIsProviderDialogOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white font-black px-8"
+              onClick={handleSaveProvider}
+              disabled={!providerForm.name || !providerForm.specialty}
+            >
+              {editingProvider ? 'Guardar cambios' : 'Agregar proveedor'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Internal tasks tab ── */}
       {mainTab === 'tasks' && <>
@@ -473,16 +757,25 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                 <TableCell>{getPriorityCell(t)}</TableCell>
                 <TableCell>{getStatusBadge(t.status)}</TableCell>
                 <TableCell>
-                  {t.chargedTo === 'Propietario' ? (
-                    <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-orange-600 border-orange-200">Propietario</Badge>
-                      {t.isApprovedByOwner ? <ThumbsUp className="h-3 w-3 text-green-600" /> : <AlertTriangle className="h-3 w-3 text-orange-400" />}
-                    </div>
-                  ) : t.chargedTo === 'Inquilino' ? (
-                    <Badge variant="outline" className="text-blue-600 border-blue-200">Inquilino</Badge>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground italic">No definido</span>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    {t.chargedTo === 'Propietario' ? (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-orange-600 border-orange-200">Propietario</Badge>
+                        {t.isApprovedByOwner ? <ThumbsUp className="h-3 w-3 text-green-600" /> : <AlertTriangle className="h-3 w-3 text-orange-400" />}
+                      </div>
+                    ) : t.chargedTo === 'Inquilino' ? (
+                      <Badge variant="outline" className="text-blue-600 border-blue-200">Inquilino</Badge>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground italic">No definido</span>
+                    )}
+                    {t.contractorRating && (
+                      <div className="flex items-center gap-0.5" title={t.contractorRatingComment || `${t.contractorRating} estrellas`}>
+                        {([1,2,3,4,5] as const).map(s => (
+                          <span key={s} className={cn('text-xs', s <= t.contractorRating! ? 'text-amber-400' : 'text-muted-foreground/20')}>★</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
@@ -569,11 +862,42 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
                         </div>
                         <div className="space-y-2">
                           <Label>Proveedor / Contratista</Label>
-                          <Input 
-                            placeholder="Nombre del técnico..."
-                            value={selectedTask.contractorName || ''}
-                            onChange={e => setSelectedTask({...selectedTask, contractorName: e.target.value})}
-                          />
+                          {providers.length > 0 ? (
+                            <Select
+                              value={selectedTask.providerId ?? '__manual__'}
+                              onValueChange={v => {
+                                if (v === '__manual__') {
+                                  setSelectedTask({ ...selectedTask, providerId: undefined, contractorName: '' });
+                                } else {
+                                  const prov = providers.find(p => p.id === v);
+                                  setSelectedTask({ ...selectedTask, providerId: v, contractorName: prov?.name ?? '' });
+                                }
+                              }}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Seleccionar proveedor..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__manual__">— Ingresar manualmente —</SelectItem>
+                                {providers.map(p => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} · {p.specialty}
+                                    {(p.totalRatings ?? 0) > 0 && ` ★${p.averageRating?.toFixed(1)}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : null}
+                          {(!selectedTask.providerId || providers.length === 0) && (
+                            <Input
+                              placeholder="Nombre del técnico..."
+                              value={selectedTask.contractorName || ''}
+                              onChange={e => setSelectedTask({ ...selectedTask, contractorName: e.target.value, providerId: undefined })}
+                            />
+                          )}
+                          {providers.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground italic">
+                              Agregá proveedores en el tab "Directorio" para seleccionarlos aquí y llevar calificaciones.
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -711,6 +1035,52 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
 
       {/* Close tasks tab fragment */}
       </>}
+
+      {/* ── Dialog calificación proveedor ── */}
+      <Dialog open={isRatingOpen} onOpenChange={setIsRatingOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HardHat className="h-5 w-5 text-primary" />
+              Calificar al proveedor
+            </DialogTitle>
+            <DialogDescription>
+              ¿Cómo fue el trabajo de <strong>{tasks.find(t => t.id === ratingTaskId)?.contractorName}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex justify-center gap-2">
+              {([1,2,3,4,5] as const).map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRatingValue(star)}
+                  className={cn(
+                    'text-3xl transition-transform hover:scale-110',
+                    star <= ratingValue ? 'text-amber-400' : 'text-muted-foreground/30'
+                  )}
+                  aria-label={`${star} estrella${star !== 1 ? 's' : ''}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-sm font-bold text-muted-foreground">
+              {ratingValue === 5 ? 'Excelente' : ratingValue === 4 ? 'Muy bueno' : ratingValue === 3 ? 'Regular' : ratingValue === 2 ? 'Malo' : 'Muy malo'}
+            </p>
+            <Textarea
+              placeholder="Comentario opcional (puntualidad, calidad del trabajo…)"
+              value={ratingComment}
+              onChange={e => setRatingComment(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsRatingOpen(false)}>Omitir</Button>
+            <Button className="bg-primary font-black" onClick={handleSaveRating}>Guardar calificación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

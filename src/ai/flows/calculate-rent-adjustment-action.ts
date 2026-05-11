@@ -20,7 +20,7 @@ export type AdjustmentMechanism = 'ICL' | 'IPC' | 'CER' | 'CasaPropia' | 'Fixed'
 export interface RentAdjustmentInput {
   mechanism: AdjustmentMechanism;
   currentRentAmount: number;
-  currency: 'ARS' | 'USD';
+  currency: 'ARS' | 'USD' | 'UVA';
   lastAdjustmentDate?: string;   // YYYY-MM-DD
   adjustmentFrequencyMonths: number;
 }
@@ -31,7 +31,7 @@ export interface RentAdjustmentResult {
   newAmount: number;
   coefficient: number;             // Factor multiplicador (ej: 1.037 = 3.7%)
   variationPct: number;            // Porcentaje de variación
-  currency: 'ARS' | 'USD';
+  currency: 'ARS' | 'USD' | 'UVA';
   referencePeriod: string;         // Ej: "Abril 2025"
   referenceDate: string;           // Fecha del índice usado
   source: 'api' | 'fallback';

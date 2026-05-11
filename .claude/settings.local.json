@@ -94,7 +94,24 @@
       "Bash(Get-ChildItem \"C:\\\\Users\\\\asus\\\\Downloads\\\\handoff-extracted\" -Recurse)",
       "Bash(Select-Object FullName, Length)",
       "Bash(Format-Table -AutoSize)",
-      "Bash(ls \"C:\\\\Users\\\\asus\\\\.claude\\\\projects\\\\C--Users-asus-Desktop-AlquilaGestion-Pro\\\\memory\\\\\")"
+      "Bash(ls \"C:\\\\Users\\\\asus\\\\.claude\\\\projects\\\\C--Users-asus-Desktop-AlquilaGestion-Pro\\\\memory\\\\\")",
+      "WebFetch(domain:019e1372-fb16-7596-9e07-6090f9dc5e77.claudeusercontent.com)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\asus\\\\Desktop\\\\AlquilaGestion Pro\\\\.claude\\\\worktrees\\\\upbeat-taussig-50cd68\\\\src\" -Recurse -Filter \"*.tsx\" -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(ls \"C:\\\\Users\\\\asus\\\\Desktop\\\\AlquilaGestion Pro\\\\node_modules\" | grep -E \"next-themes|jspdf\" 2>&1 | head -10)",
+      "Bash(ls \"C:\\\\Users\\\\asus\\\\Desktop\\\\AlquilaGestion Pro\\\\\" 2>&1 | head -20)",
+      "Bash(npx --version)",
+      "Bash(git -C \"/c/Users/asus/Desktop/AlquilaGestion Pro\" diff --name-only HEAD)",
+      "Bash(xargs grep -l \"firestore\\\\|collection\")",
+      "Bash(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\asus\\\\Desktop\\\\AlquilaGestion Pro\\\\.claude\\\\worktrees\\\\upbeat-taussig-50cd68\\\\src\\\\app\\\\p\\\\[adminId]\")",
+      "Bash(Out-Null)",
+      "Bash(git commit -m 'fix: cronograma — filtros más claros, sin opacity-60 en inactivos, reset '\\\\''Mostrar todos'\\\\'' *)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(git commit *)",
+      "Bash(findstr /R \"rent-adjustment\\\\|batch.*rent\\\\|appl.*adjustment\" src\\\\lib\\\\*.ts src\\\\ai\\\\flows\\\\*.ts)",
+      "Bash(findstr /s \"Cerrado\\\\|closedAt\\\\|close.*task\" src\\\\components\\\\dashboard\\\\*.tsx)",
+      "Bash(findstr maintenance *)"
     ]
   }
 }
