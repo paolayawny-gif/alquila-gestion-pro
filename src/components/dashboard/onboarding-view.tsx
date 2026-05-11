@@ -79,6 +79,8 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [batchAnalyzing, setBatchAnalyzing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
 
   // BCRA Central de Deudores
   const [bcraReport, setBcraReport] = useState<BcraDeudaReport | null>(null);
@@ -150,6 +152,33 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleBatchAnalyze = async () => {
+    const unscored = applications.filter(a => !a.aiAnalysis);
+    if (!unscored.length || !userId || !db) return;
+    setBatchAnalyzing(true);
+    setBatchProgress(0);
+    for (let i = 0; i < unscored.length; i++) {
+      const app = unscored[i];
+      try {
+        const result = await analyzeApplication({
+          applicantName: app.applicantName,
+          applicantIncome: app.ingreso,
+          rentAmount: app.rentAmount ?? 350000,
+          currency: app.currency ?? 'ARS',
+          references: [
+            app.references,
+            app.guarantorName ? `Garante: ${app.guarantorName} (${app.guarantorType ?? ''})` : '',
+          ].filter(Boolean).join(' | '),
+        });
+        const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
+        setDocumentNonBlocking(docRef, { status: 'En análisis', aiAnalysis: result }, { merge: true });
+      } catch { /* continue */ }
+      setBatchProgress(i + 1);
+    }
+    setBatchAnalyzing(false);
+    toast({ title: `${unscored.length} postulante${unscored.length > 1 ? 's' : ''} evaluado${unscored.length > 1 ? 's' : ''}`, description: 'Los scores se actualizaron automáticamente.' });
   };
 
   const handleConsultarBcra = async () => {
@@ -283,11 +312,14 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
         <TabsList className="bg-white border shadow-sm">
           <TabsTrigger value="pending" className="data-[state=active]:bg-primary data-[state=active]:text-white">Pendientes ({pendingApps.length})</TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-white">Historial ({historyApps.length})</TabsTrigger>
+          <TabsTrigger value="ranking" className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />Ranking IA
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="mt-4">
-          <ApplicationsTable 
-            apps={pendingApps} 
+          <ApplicationsTable
+            apps={pendingApps}
             onEval={(app) => { setSelectedApp(app); setBcraReport(null); setCuitInput(app.applicantTaxId ?? ''); setIsDetailOpen(true); }}
             onDelete={handleDelete}
             getStatusBadge={getStatusBadge}
@@ -301,6 +333,105 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
             onDelete={handleDelete}
             getStatusBadge={getStatusBadge}
           />
+        </TabsContent>
+
+        <TabsContent value="ranking" className="mt-4 space-y-4">
+          {/* Batch analyze bar */}
+          {(() => {
+            const unscored = applications.filter(a => !a.aiAnalysis);
+            const scored   = applications.filter(a => a.aiAnalysis).sort((a, b) => (b.aiAnalysis?.score ?? 0) - (a.aiAnalysis?.score ?? 0));
+            const medals   = ['🥇', '🥈', '🥉'];
+            return (
+              <>
+                {unscored.length > 0 && (
+                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-primary/5 border border-primary/20">
+                    <Sparkles className="h-5 w-5 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold">
+                        {batchAnalyzing
+                          ? `Analizando ${batchProgress}/${unscored.length}...`
+                          : `${unscored.length} postulante${unscored.length > 1 ? 's' : ''} sin evaluar`}
+                      </p>
+                      {batchAnalyzing && (
+                        <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all duration-300"
+                            style={{ width: `${(batchProgress / unscored.length) * 100}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 font-bold shrink-0"
+                      disabled={batchAnalyzing}
+                      onClick={handleBatchAnalyze}
+                    >
+                      {batchAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {batchAnalyzing ? 'Analizando…' : 'Analizar todos con IA'}
+                    </Button>
+                  </div>
+                )}
+
+                {scored.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <Sparkles className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                    <p className="font-bold text-muted-foreground">Sin scores todavía</p>
+                    <p className="text-xs text-muted-foreground mt-1">Usá el botón "Analizar todos con IA" para evaluar a todos los postulantes de una vez.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {scored.map((app, idx) => {
+                      const score = app.aiAnalysis!.score;
+                      const isApproved = app.aiAnalysis!.recommendation.includes('APROBADO');
+                      const scoreColor = score >= 75 ? 'bg-green-500' : score >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                      const cardColor  = score >= 75 ? 'border-green-200 bg-green-50/40' : score >= 50 ? 'border-amber-200 bg-amber-50/40' : 'border-red-200 bg-red-50/20';
+                      return (
+                        <div
+                          key={app.id}
+                          className={cn('flex items-center gap-4 p-4 rounded-2xl border cursor-pointer hover:shadow-sm transition-shadow', cardColor)}
+                          onClick={() => { setSelectedApp(app); setBcraReport(null); setCuitInput(app.applicantTaxId ?? ''); setIsDetailOpen(true); }}
+                        >
+                          {/* Position */}
+                          <div className="w-8 text-center shrink-0">
+                            {idx < 3 ? (
+                              <span className="text-2xl">{medals[idx]}</span>
+                            ) : (
+                              <span className="text-sm font-black text-muted-foreground">#{idx + 1}</span>
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm truncate">{app.applicantName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{app.propertyName ?? 'Sin propiedad'}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 italic line-clamp-1">"{app.aiAnalysis!.reasoning}"</p>
+                          </div>
+
+                          {/* Score + bar */}
+                          <div className="shrink-0 flex flex-col items-end gap-1.5 w-24">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-black tabular-nums">{score}</span>
+                              <span className="text-xs text-muted-foreground">/100</span>
+                            </div>
+                            <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                              <div className={cn('h-full rounded-full transition-all', scoreColor)} style={{ width: `${score}%` }} />
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={cn('text-[9px] font-black border-none px-2', isApproved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}
+                            >
+                              {isApproved ? 'APROBADO' : 'RECHAZADO'}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </TabsContent>
       </Tabs>
 
