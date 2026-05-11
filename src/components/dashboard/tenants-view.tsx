@@ -706,7 +706,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                       <p className="font-black flex items-center gap-1">
                         <Globe className="h-3 w-3" /> {provinceRules.provincia || 'Régimen general'} — Ley 27.551
                       </p>
-                      <p>Preaviso: <strong>{provinceRules.noticePeriodDays} días</strong> · Depósito máx: <strong>{provinceRules.maxDepositMonths} mes</strong> · IIBB: <strong>{provinceRules.ingresosBrutosPct}%</strong></p>
+                      <p>Preaviso: <strong>{provinceRules.noticePeriodDays} días</strong> · Depósito máx: <strong>{provinceRules.maxDepositMonths} mes</strong> · IIBB vivienda: <strong>{provinceRules.iibb.Vivienda}%</strong></p>
                       <p className="text-blue-600 italic">{provinceRules.note}</p>
                     </div>
                   )}

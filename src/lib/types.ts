@@ -292,6 +292,19 @@ export interface Liquidation {
   dateCreated: string;
 }
 
+export interface Provider {
+  id: string;
+  name: string;
+  specialty: string;          // extensible: Plomería, Electricidad, Pintura, etc.
+  phone?: string;
+  email?: string;
+  notes?: string;
+  averageRating?: number;     // promedio calculado de tickets cerrados
+  totalRatings?: number;
+  ownerId: string;
+  createdAt: string;
+}
+
 export interface MaintenanceTask {
   id: string;
   propertyId: string;
@@ -303,6 +316,7 @@ export interface MaintenanceTask {
   estimatedCost: number;
   actualCost: number;
   contractorName?: string;
+  providerId?: string;        // referencia al Provider del directorio
   contractorRating?: 1 | 2 | 3 | 4 | 5;
   contractorRatingComment?: string;
   chargedTo?: 'Inquilino' | 'Propietario' | 'N/A';
