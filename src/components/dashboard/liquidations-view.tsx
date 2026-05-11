@@ -224,11 +224,16 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
         return;
       }
 
+      const activeContractForLiq = contracts.find(
+        c => c.propertyId === property.id && (c.status === 'Vigente' || c.status === 'Próximo a Vencer')
+      );
+
       const docId = Math.random().toString(36).substr(2, 9);
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', docId);
 
       const liqData: Liquidation = {
         id: docId,
+        contractId: activeContractForLiq?.id,
         propertyId: propId,
         propertyName: property.name,
         ownerId: owner.id,
