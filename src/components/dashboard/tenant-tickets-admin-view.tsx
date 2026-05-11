@@ -67,7 +67,7 @@ export function TenantTicketsAdminView({ userId, properties }: TenantTicketsAdmi
   }, [db, userId]);
   const { data: ticketsRaw } = useCollection<MaintenanceTicket>(ticketsQ);
   const allTickets = useMemo(() =>
-    [...(ticketsRaw ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [...(ticketsRaw ?? [])].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
   [ticketsRaw]);
 
   const filtered = useMemo(() => {

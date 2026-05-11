@@ -390,7 +390,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     if (filterStatus === 'inprogress') base = tasks.filter(t => t.status === 'En curso' || t.status === 'Presupuestado');
     if (filterStatus === 'resolved') base = tasks.filter(t => t.status === 'Completado' || t.status === 'Cerrado');
     if (searchTerm) base = base.filter(t => t.concept.toLowerCase().includes(searchTerm.toLowerCase()) || t.propertyName.toLowerCase().includes(searchTerm.toLowerCase()));
-    return base.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return base.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
   }, [tasks, filterStatus, searchTerm]);
 
   return (
