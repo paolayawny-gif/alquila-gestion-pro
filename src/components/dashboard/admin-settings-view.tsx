@@ -31,7 +31,7 @@ import {
   CreditCard, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2,
   Settings, Briefcase, Scale, Wrench, Shield, FileText, Landmark,
   ChevronsUpDown, Eye, EyeOff, ExternalLink, DollarSign, Pencil,
-  LogOut, Info, Globe, Copy, Lock,
+  LogOut, Info, Globe, Copy, Lock, Gift,
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -83,6 +83,7 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
         </TabsList>
 
         <TabsContent value="general" className="max-w-2xl space-y-6">
+          <ReferralCard userId={userId} />
           <PublicPageCard userId={userId} />
           <WhatsAppCard userId={userId} />
           <WhatsAppApiCard userId={userId} />
@@ -1180,6 +1181,84 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Referral Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ReferralCard({ userId }: { userId?: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const [referrals, setReferrals] = useState<number>(0);
+
+  const code = userId ? userId.slice(0, 8).toUpperCase() : '';
+  const referralUrl = userId && typeof window !== 'undefined'
+    ? `${window.location.origin}/signup?ref=${code}`
+    : '';
+
+  useEffect(() => {
+    if (!db || !userId) return;
+    import('firebase/firestore').then(({ collection: col, query: q, where, getDocs: gd }) => {
+      gd(q(
+        col(db, 'artifacts', APP_ID, 'superadmin', 'data', 'referrals'),
+        where('referredBy', '==', userId),
+        where('status', '==', 'activo'),
+      )).then(snap => setReferrals(snap.size)).catch(() => {});
+    });
+  }, [db, userId]);
+
+  const handleCopy = () => {
+    if (!referralUrl) return;
+    navigator.clipboard.writeText(referralUrl).then(() => {
+      toast({ title: 'Link copiado', description: 'Compartilo con otros administradores.' });
+    });
+  };
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-amber-50">
+            <Gift className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base font-black">Programa de referidos</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Recomendá AlquilaGestión Pro a otros administradores y obtenés beneficios cuando se suscriben.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
+            <p className="text-2xl font-black text-amber-700">{referrals}</p>
+            <p className="text-[11px] text-amber-600 font-bold">Referidos activos</p>
+          </div>
+          <div className="rounded-xl bg-green-50 border border-green-100 p-3 text-center">
+            <p className="text-2xl font-black text-green-700">{code || '—'}</p>
+            <p className="text-[11px] text-green-600 font-bold">Tu código</p>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold text-muted-foreground">Link de referido</p>
+          <div className="flex items-center gap-2">
+            <Input readOnly value={referralUrl} className="text-xs font-mono bg-muted/50" />
+            <Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={handleCopy} disabled={!referralUrl}>
+              <Copy className="h-3.5 w-3.5" />Copiar
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-muted/40 text-xs text-muted-foreground">
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <p>
+            Cada administrador que se suscribe usando tu código queda registrado como referido. Contactate con nosotros para conocer los beneficios disponibles para tu plan.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
