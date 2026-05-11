@@ -4,10 +4,10 @@
  *
  * Docs: https://www.mercadopago.com.ar/developers/es/docs/subscriptions
  *
- * ENV requeridas:
- *   MP_ACCESS_TOKEN — Access token de producción (o test)
- *   MP_WEBHOOK_SECRET — opcional, para validar firma de webhooks
- *   APP_BASE_URL — base URL pública de la app (ej. https://alquilagestion.pro)
+ * Credenciales (en orden de prioridad):
+ *   1. Firestore: artifacts/alquilagestion-pro/superadmin/platformConfig
+ *      → configurable desde el Panel Super Admin → Configuración
+ *   2. Variables de entorno: MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET (fallback)
  */
 
 import type {
@@ -21,26 +21,68 @@ import { getTierPriceARS } from '../tiers';
 
 const MP_API = 'https://api.mercadopago.com';
 
-function authHeaders() {
-  const token = process.env.MP_ACCESS_TOKEN;
-  if (!token) throw new Error('MP_ACCESS_TOKEN no configurado en variables de entorno');
+// ─── Platform config con caché (TTL 5 min) ────────────────────────────────────
+
+let _cfgCache: { accessToken: string; webhookSecret?: string; cachedAt: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000;
+
+async function getPlatformConfig(): Promise<{ accessToken: string; webhookSecret?: string }> {
+  const now = Date.now();
+  if (_cfgCache && now - _cfgCache.cachedAt < CACHE_TTL) return _cfgCache;
+
+  let accessToken = '';
+  let webhookSecret: string | undefined;
+
+  // 1. Firestore (configurado desde el panel superadmin)
+  try {
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    const snap = await getAdminDb()
+      .collection('artifacts').doc('alquilagestion-pro')
+      .collection('superadmin').doc('platformConfig')
+      .get();
+    const d = snap.data();
+    if (d?.mpAccessToken) {
+      accessToken = d.mpAccessToken;
+      webhookSecret = d.mpWebhookSecret || undefined;
+    }
+  } catch { /* Firestore no disponible — caer a env vars */ }
+
+  // 2. Variables de entorno (fallback)
+  if (!accessToken) {
+    accessToken = process.env.MP_ACCESS_TOKEN ?? '';
+    if (!webhookSecret) webhookSecret = process.env.MP_WEBHOOK_SECRET;
+  }
+
+  if (!accessToken) {
+    throw new Error('MP_ACCESS_TOKEN no configurado. Configuralo en el Panel Super Admin → Configuración.');
+  }
+
+  _cfgCache = { accessToken, webhookSecret, cachedAt: now };
+  return _cfgCache;
+}
+
+async function authHeaders() {
+  const { accessToken } = await getPlatformConfig();
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
   };
 }
 
-/** Mapea el status de MP a nuestro BillingStatus */
+// ─── Status mapping ───────────────────────────────────────────────────────────
+
 function mapStatus(mpStatus: string): BillingStatus {
   switch (mpStatus) {
-    case 'authorized':       return 'active';
-    case 'pending':          return 'pending';
-    case 'paused':           return 'paused';
-    case 'cancelled':        return 'cancelled';
-    case 'finished':         return 'cancelled';
-    default:                 return 'pending';
+    case 'authorized':  return 'active';
+    case 'pending':     return 'pending';
+    case 'paused':      return 'paused';
+    case 'cancelled':   return 'cancelled';
+    case 'finished':    return 'cancelled';
+    default:            return 'pending';
   }
 }
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const mercadopagoProvider: BillingProvider = {
   name: 'mercadopago',
@@ -68,7 +110,7 @@ export const mercadopagoProvider: BillingProvider = {
 
     const res = await fetch(`${MP_API}/preapproval`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: await authHeaders(),
       body: JSON.stringify(body),
     });
 
@@ -98,7 +140,7 @@ export const mercadopagoProvider: BillingProvider = {
 
     const res = await fetch(`${MP_API}/preapproval/${subscriptionId}`, {
       method: 'PUT',
-      headers: authHeaders(),
+      headers: await authHeaders(),
       body: JSON.stringify(body),
     });
 
@@ -111,7 +153,7 @@ export const mercadopagoProvider: BillingProvider = {
   async cancelSubscription(subscriptionId) {
     const res = await fetch(`${MP_API}/preapproval/${subscriptionId}`, {
       method: 'PUT',
-      headers: authHeaders(),
+      headers: await authHeaders(),
       body: JSON.stringify({ status: 'cancelled' }),
     });
 
@@ -124,7 +166,7 @@ export const mercadopagoProvider: BillingProvider = {
   async getSubscriptionStatus(subscriptionId) {
     const res = await fetch(`${MP_API}/preapproval/${subscriptionId}`, {
       method: 'GET',
-      headers: authHeaders(),
+      headers: await authHeaders(),
     });
 
     if (!res.ok) {
@@ -141,10 +183,11 @@ export const mercadopagoProvider: BillingProvider = {
   },
 
   async parseWebhook({ headers, body }): Promise<ProviderEvent | null> {
-    // Validación HMAC-SHA256 cuando MP_WEBHOOK_SECRET está configurado.
-    // Formato: x-signature: ts=<ts>,v1=<hex>
+    // Validación HMAC-SHA256 cuando hay webhook secret configurado.
+    // Formato MP: x-signature: ts=<ts>,v1=<hex>
     // Manifest: "id:{data.id};request-id:{x-request-id};ts:{ts};"
-    const secret = process.env.MP_WEBHOOK_SECRET;
+    const cfg = await getPlatformConfig().catch(() => null);
+    const secret = cfg?.webhookSecret;
     if (secret) {
       const sig = headers?.['x-signature'] ?? '';
       const requestId = headers?.['x-request-id'] ?? '';
@@ -177,7 +220,7 @@ export const mercadopagoProvider: BillingProvider = {
     if (type === 'preapproval' || type === 'subscription_preapproval') {
       const res = await fetch(`${MP_API}/preapproval/${resourceId}`, {
         method: 'GET',
-        headers: authHeaders(),
+        headers: await authHeaders(),
       });
       if (!res.ok) return null;
       const data = await res.json();
@@ -198,7 +241,7 @@ export const mercadopagoProvider: BillingProvider = {
     if (type === 'payment') {
       const res = await fetch(`${MP_API}/v1/payments/${resourceId}`, {
         method: 'GET',
-        headers: authHeaders(),
+        headers: await authHeaders(),
       });
       if (!res.ok) return null;
       const data = await res.json();

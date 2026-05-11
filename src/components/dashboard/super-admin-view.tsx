@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,14 +14,14 @@ import {
   Crown, Building2, Users, Plus, CheckCircle2, Clock, XCircle,
   Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight,
   BarChart3, Home, DollarSign, TrendingUp, Activity, FileText, Wrench,
-  LogOut, AlertTriangle, Target,
+  LogOut, AlertTriangle, Target, Settings, CreditCard, EyeOff,
 } from 'lucide-react';
 import { CaptacionView } from '@/components/dashboard/captacion-view';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const APP_ID = 'alquilagestion-pro';
@@ -126,7 +126,7 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const { user } = useUser();
 
   // — Vista principal —
-  const [mainView, setMainView] = useState<'orgs' | 'captacion'>('orgs');
+  const [mainView, setMainView] = useState<'orgs' | 'captacion' | 'config'>('orgs');
 
   // — Org state —
   const [showNewOrgDialog, setShowNewOrgDialog] = useState(false);
@@ -147,6 +147,12 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   // — Email config state —
   const [emailForm, setEmailForm] = useState({ emailUser: '', emailPass: '' });
   const [isSavingEmail, setIsSavingEmail] = useState(false);
+
+  // — MP platform config state —
+  const [mpConfigForm, setMpConfigForm] = useState({ mpAccessToken: '', mpWebhookSecret: '' });
+  const [isSavingMpConfig, setIsSavingMpConfig] = useState(false);
+  const [showMpToken, setShowMpToken] = useState(false);
+  const [showMpSecret, setShowMpSecret] = useState(false);
 
   // — Load organizations —
   const orgsQuery = useMemoFirebase(() => {
@@ -180,6 +186,22 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const { data: cancelData } = useCollection<CancelRequest>(cancelQuery);
   const cancelRequests: CancelRequest[] = cancelData || [];
   const pendingCancelCount = cancelRequests.filter(r => r.status === 'pendiente').length;
+
+  // Cargar credenciales MP existentes desde Firestore
+  useEffect(() => {
+    if (!db) return;
+    getDoc(doc(db, 'artifacts', APP_ID, 'superadmin', 'platformConfig'))
+      .then(snap => {
+        if (snap.exists()) {
+          const d = snap.data();
+          setMpConfigForm({
+            mpAccessToken: d.mpAccessToken || '',
+            mpWebhookSecret: d.mpWebhookSecret || '',
+          });
+        }
+      })
+      .catch(() => {});
+  }, [db]);
 
   // Stats del org seleccionado
   const selectedOrgStats = useMemo(() => {
@@ -337,6 +359,22 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     toast({ title: `Usuario ${newStatus}`, description: orgUser.email });
   };
 
+  const handleSaveMpConfig = () => {
+    if (!db) return;
+    setIsSavingMpConfig(true);
+    const ref = doc(db, 'artifacts', APP_ID, 'superadmin', 'platformConfig');
+    setDocumentNonBlocking(ref, {
+      mpAccessToken: mpConfigForm.mpAccessToken.trim(),
+      mpWebhookSecret: mpConfigForm.mpWebhookSecret.trim() || null,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    toast({
+      title: '✅ Credenciales guardadas',
+      description: 'Las claves de MercadoPago se actualizaron. El servidor las recarga en hasta 5 minutos.',
+    });
+    setIsSavingMpConfig(false);
+  };
+
   const handleSaveEmailConfig = () => {
     if (!db || !selectedOrg) return;
     setIsSavingEmail(true);
@@ -386,6 +424,13 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
             >
               <Target className="h-3.5 w-3.5" /> Captación de Clientes
             </button>
+            <button
+              onClick={() => setMainView('config')}
+              className={cn('px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5',
+                mainView === 'config' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground')}
+            >
+              <Settings className="h-3.5 w-3.5" /> Configuración
+            </button>
           </div>
           {mainView === 'orgs' && (
             <Button onClick={() => setShowNewOrgDialog(true)} className="bg-primary text-white gap-2 font-bold">
@@ -419,6 +464,90 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
       {/* Vista Captación de Clientes */}
       {mainView === 'captacion' && (
         <CaptacionView userId={userId} />
+      )}
+
+      {/* ── Vista Configuración ── */}
+      {mainView === 'config' && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" /> Cobro por suscripción — MercadoPago
+            </CardTitle>
+            <CardDescription className="text-xs leading-relaxed">
+              Credenciales de tu cuenta de MercadoPago para cobrar la suscripción mensual a los admins.
+              Si configurás credenciales acá tienen prioridad sobre las variables de entorno de Vercel.
+              El servidor las recarga automáticamente en hasta 5 minutos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5 max-w-lg">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase">Access Token</Label>
+              <div className="relative">
+                <input
+                  type={showMpToken ? 'text' : 'password'}
+                  placeholder="APP_USR-... o TEST-..."
+                  value={mpConfigForm.mpAccessToken}
+                  onChange={e => setMpConfigForm({ ...mpConfigForm, mpAccessToken: e.target.value })}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-9 text-xs font-mono shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMpToken(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showMpToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Obtené tu Access Token en <strong>mercadopago.com.ar/developers → Tus integraciones → [tu app]</strong>
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase">Webhook Secret <span className="font-normal normal-case text-muted-foreground">(opcional)</span></Label>
+              <div className="relative">
+                <input
+                  type={showMpSecret ? 'text' : 'password'}
+                  placeholder="Clave secreta para validar firma de webhooks"
+                  value={mpConfigForm.mpWebhookSecret}
+                  onChange={e => setMpConfigForm({ ...mpConfigForm, mpWebhookSecret: e.target.value })}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-9 text-xs font-mono shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMpSecret(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showMpSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Generalo en Dashboard MP → Webhooks → Clave secreta
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-800 space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5">
+                <Settings className="h-3.5 w-3.5" /> URL del webhook para configurar en MercadoPago
+              </p>
+              <p className="font-mono break-all text-[11px]">https://alquilagestion.pro/api/billing/webhook</p>
+              <p className="text-[11px] opacity-75">
+                Dashboard MP → Tus integraciones → [tu app] → Webhooks → Agregar URL
+              </p>
+            </div>
+
+            <Button
+              onClick={handleSaveMpConfig}
+              disabled={isSavingMpConfig || !mpConfigForm.mpAccessToken.trim()}
+              className="bg-primary text-white gap-2 font-bold"
+            >
+              {isSavingMpConfig
+                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                : <CheckCircle2 className="h-4 w-4" />}
+              Guardar credenciales
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* ── Vista Organizaciones ── */}
