@@ -374,6 +374,7 @@ export default function AppClient() {
   const rentAdjustments = adjustmentsData || [];
   const pendingAdjustmentsCount = rentAdjustments.filter(a => a.status === 'pendiente').length;
   const newApplicationsCount = applications.filter(a => a.status === 'Nueva').length;
+  const [deepLinkPropertyId, setDeepLinkPropertyId] = useState<string | null>(null);
 
   // Show onboarding wizard on first load when no data yet
   useEffect(() => {
@@ -659,8 +660,8 @@ export default function AppClient() {
 
     switch (activeTab) {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
-      case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} />;
-      case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} invoices={invoices} liquidations={liquidations} tasks={tasks} legalCases={legalCases} />;
+      case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} />;
+      case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} invoices={invoices} liquidations={liquidations} tasks={tasks} legalCases={legalCases} applications={applications} onOpenProperty={(id) => { setDeepLinkPropertyId(id); setActiveTab('Propiedades' as Tab); }} />;
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;
       case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} />;
       case 'Centro Liquidaciones': return <CentroLiquidacionesView invoices={invoices} contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
