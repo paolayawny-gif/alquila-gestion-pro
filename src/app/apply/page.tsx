@@ -106,11 +106,11 @@ function ApplyPageContent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 800000) {
-      toast({ 
-        title: "Archivo demasiado grande", 
-        description: "Por favor suba archivos menores a 800KB para el prototipo.",
-        variant: "destructive" 
+    if (file.size > 4194304) {
+      toast({
+        title: "Archivo demasiado grande",
+        description: "Por favor suba archivos menores a 4 MB.",
+        variant: "destructive"
       });
       return;
     }
@@ -144,15 +144,6 @@ function ApplyPageContent() {
       toast({
         title: "CUIT/CUIL inválido",
         description: "Ingresá un CUIT o CUIL de 11 dígitos.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (documents.length === 0) {
-      toast({ 
-        title: "Documentación Faltante", 
-        description: "Debe adjuntar al menos su comprobante de ingresos.",
         variant: "destructive"
       });
       return;
@@ -272,12 +263,13 @@ function ApplyPageContent() {
             </Card>
 
             <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-              <p className="text-xs font-bold text-primary mb-2 uppercase">Documentación Obligatoria</p>
+              <p className="text-xs font-bold text-primary mb-2 uppercase">Documentación (opcional)</p>
               <ul className="text-[10px] text-primary/70 space-y-1 list-disc pl-4">
                 <li>Recibo de sueldo o Certificación Contable</li>
                 <li>DNI (Frente y Dorso)</li>
                 <li>Garantía (Recibo, Propiedad o Seguro de Caución)</li>
               </ul>
+              <p className="text-[10px] text-primary/50 mt-2 italic">Podés adjuntar los docs ahora o enviarlos después por email a la administración.</p>
             </div>
           </div>
 
@@ -349,7 +341,7 @@ function ApplyPageContent() {
 
               <div className="space-y-4 border-t pt-4">
                 <h3 className="font-bold text-sm flex items-center gap-2">
-                  <Upload className="h-4 w-4 text-primary" /> Documentación Respaldatoria
+                  <Upload className="h-4 w-4 text-primary" /> Documentación Respaldatoria <span className="text-xs font-normal text-muted-foreground">(opcional, máx. 4 MB por archivo)</span>
                 </h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -215,7 +215,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     setIsPersonDialogOpen(true);
   };
 
-  const [contractFormData, setContractFormData] = useState<Partial<Contract>>({
+  const INITIAL_CONTRACT_FORM: Partial<Contract> = {
     tenantId: '',
     propertyId: '',
     startDate: '',
@@ -230,7 +230,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     depositAmount: 0,
     status: 'Vigente',
     documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
-  });
+  };
+  const [contractFormData, setContractFormData] = useState<Partial<Contract>>(INITIAL_CONTRACT_FORM);
   const [provinceRules, setProvinceRules] = useState<ProvinceRule | null>(null);
 
   // Detectar provincia del inmueble y pre-llenar reglas cuando cambia la propiedad
@@ -727,7 +728,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         </Tabs>
         <div className="flex gap-2 w-full sm:w-auto">
           {canWrite && activeTab === 'contracts' && (
-            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
+            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setContractFormData(INITIAL_CONTRACT_FORM); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
           )}
