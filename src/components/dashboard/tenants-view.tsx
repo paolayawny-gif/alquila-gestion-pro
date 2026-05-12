@@ -1327,9 +1327,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                   .filter(p => peopleTypeFilter === 'Todos' || p.type === peopleTypeFilter)
                   .filter(p => {
                     const q = peopleSearch.toLowerCase();
-                    return !q || p.fullName.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.taxId?.includes(q);
+                    return !q || p.fullName?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.taxId?.includes(q);
                   })
-                  .sort((a, b) => a.fullName.localeCompare(b.fullName, 'es'))
+                  .sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? '', 'es'))
                   .map(p => (
                     <TableRow key={p.id}>
                       <TableCell className="font-bold">{p.fullName}</TableCell>
@@ -1589,7 +1589,7 @@ function OwnersView({ contracts, people, properties, invoices, liquidations, tas
 
   const filteredGroups = ownerGroups.filter(({ person }) => {
     const q = ownerSearch.toLowerCase();
-    return !q || person.fullName.toLowerCase().includes(q) || person.email?.toLowerCase().includes(q);
+    return !q || person.fullName?.toLowerCase().includes(q) || person.email?.toLowerCase().includes(q);
   });
 
   if (ownerGroups.length === 0) {
