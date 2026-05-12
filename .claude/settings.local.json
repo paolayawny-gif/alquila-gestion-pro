@@ -111,7 +111,13 @@
       "Bash(git commit *)",
       "Bash(findstr /R \"rent-adjustment\\\\|batch.*rent\\\\|appl.*adjustment\" src\\\\lib\\\\*.ts src\\\\ai\\\\flows\\\\*.ts)",
       "Bash(findstr /s \"Cerrado\\\\|closedAt\\\\|close.*task\" src\\\\components\\\\dashboard\\\\*.tsx)",
-      "Bash(findstr maintenance *)"
+      "Bash(findstr maintenance *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\asus\\\\Desktop\\\\AlquilaGestion Pro\\\\.claude\\\\worktrees\\\\hungry-jang-253d7b\" -Recurse -Force)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-Table FullName)",
+      "Bash(firebase deploy *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\asus\\\\Desktop\\\\AlquilaGestion Pro\\\\.claude\\\\worktrees\\\\hungry-jang-253d7b\" -Recurse -Filter \"*.tsx\")",
+      "Bash(Select-Object -First 20 FullName)"
     ]
   }
 }

@@ -373,6 +373,7 @@ export default function AppClient() {
   const socialLinks = socialLinksData || [];
   const rentAdjustments = adjustmentsData || [];
   const pendingAdjustmentsCount = rentAdjustments.filter(a => a.status === 'pendiente').length;
+  const newApplicationsCount = applications.filter(a => a.status === 'Nueva').length;
 
   // Show onboarding wizard on first load when no data yet
   useEffect(() => {
@@ -809,6 +810,11 @@ export default function AppClient() {
                       {!isSidebarCollapsed && item.id === 'Ajustes Alquiler' && pendingAdjustmentsCount > 0 && (
                         <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold px-1">
                           {pendingAdjustmentsCount}
+                        </span>
+                      )}
+                      {!isSidebarCollapsed && item.id === 'Solicitudes' && newApplicationsCount > 0 && (
+                        <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-bold px-1">
+                          {newApplicationsCount}
                         </span>
                       )}
                     </button>
