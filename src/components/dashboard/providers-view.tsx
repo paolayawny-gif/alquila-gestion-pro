@@ -181,8 +181,8 @@ export function ProvidersView({ tasks, properties, userId }: ProvidersViewProps)
   const filteredProviders = useMemo(() => providers.filter(p => {
     const matchCat    = activeCategory === 'Todos' || p.category === activeCategory;
     const matchSearch = !searchTerm
-      || p.name.toLowerCase().includes(searchTerm.toLowerCase())
-      || p.category.toLowerCase().includes(searchTerm.toLowerCase())
+      || (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+      || (p.category ?? '').toLowerCase().includes(searchTerm.toLowerCase())
       || (p.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchCat && matchSearch && p.status !== 'Suspendido';
   }), [providers, activeCategory, searchTerm]);

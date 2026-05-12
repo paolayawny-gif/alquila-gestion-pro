@@ -118,7 +118,7 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
   const filteredProperties = React.useMemo(() => {
     const q = propSearch.trim().toLowerCase();
     if (!q) return sortedProperties;
-    return sortedProperties.filter(p => p.name.toLowerCase().includes(q));
+    return sortedProperties.filter(p => (p.name ?? '').toLowerCase().includes(q));
   }, [sortedProperties, propSearch]);
 
   const allFilteredSelected = filteredProperties.length > 0 && filteredProperties.every(p => selectedPropIds.includes(p.id));

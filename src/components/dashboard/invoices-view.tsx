@@ -335,7 +335,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     return invoices.filter(i => {
       if (filterSearch) {
         const q = filterSearch.toLowerCase();
-        if (!i.tenantName.toLowerCase().includes(q) && !i.propertyName.toLowerCase().includes(q) && !(i.period ?? '').toLowerCase().includes(q)) return false;
+        if (!(i.tenantName ?? '').toLowerCase().includes(q) && !(i.propertyName ?? '').toLowerCase().includes(q) && !(i.period ?? '').toLowerCase().includes(q)) return false;
       }
       if (filterProperty && i.propertyId !== filterProperty) return false;
       if (filterStatus && i.status !== filterStatus) return false;

@@ -195,8 +195,8 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
     if (activeTab === 'available') base = properties.filter(p => p.status === 'Disponible' || p.status === 'Reservada');
     if (activeTab === 'maintenance') base = properties.filter(p => p.status === 'En Mantenimiento');
     return base.filter(p =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.address.toLowerCase().includes(searchTerm.toLowerCase())
+      (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.address ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [properties, activeTab, searchTerm]);
 

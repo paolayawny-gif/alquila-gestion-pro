@@ -98,8 +98,8 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
     if (leadSearch) {
       const s = leadSearch.toLowerCase();
       base = base.filter(l =>
-        l.agencia.toLowerCase().includes(s) ||
-        l.ciudad.toLowerCase().includes(s) ||
+        (l.agencia ?? '').toLowerCase().includes(s) ||
+        (l.ciudad ?? '').toLowerCase().includes(s) ||
         l.email?.toLowerCase().includes(s),
       );
     }

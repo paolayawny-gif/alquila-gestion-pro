@@ -1655,7 +1655,7 @@ function OwnersView({ contracts, people, properties, invoices, liquidations, tas
               onClick={() => setExpandedOwnerId(isExpanded ? null : person.id)}
             >
               <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 font-black text-primary">
-                {person.fullName.charAt(0).toUpperCase()}
+                {(person.fullName ?? person.email ?? '?').charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-black text-sm">{person.fullName}</p>

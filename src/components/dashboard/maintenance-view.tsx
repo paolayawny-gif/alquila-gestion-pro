@@ -127,7 +127,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
   const filteredProviders = useMemo(() => {
     if (!providerSearch) return providers;
     const s = providerSearch.toLowerCase();
-    return providers.filter(p => p.name.toLowerCase().includes(s) || p.specialty.toLowerCase().includes(s));
+    return providers.filter(p => (p.name ?? '').toLowerCase().includes(s) || ((p as any).specialty ?? (p as any).category ?? '').toLowerCase().includes(s));
   }, [providers, providerSearch]);
 
   const handleSaveProvider = () => {
@@ -395,7 +395,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
     if (filterStatus === 'open') base = tasks.filter(t => t.status === 'Pendiente');
     if (filterStatus === 'inprogress') base = tasks.filter(t => t.status === 'En curso' || t.status === 'Presupuestado');
     if (filterStatus === 'resolved') base = tasks.filter(t => t.status === 'Completado' || t.status === 'Cerrado');
-    if (searchTerm) base = base.filter(t => t.concept.toLowerCase().includes(searchTerm.toLowerCase()) || t.propertyName.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (searchTerm) base = base.filter(t => (t.concept ?? '').toLowerCase().includes(searchTerm.toLowerCase()) || (t.propertyName ?? '').toLowerCase().includes(searchTerm.toLowerCase()));
     return base.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
   }, [tasks, filterStatus, searchTerm]);
 

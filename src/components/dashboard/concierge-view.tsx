@@ -333,9 +333,9 @@ export function ConciergeView({ people, properties, contracts, userId }: Concier
   const filtered = useMemo(() => services.filter(s => {
     const matchCat    = activeCategory === 'Todos' || s.category === activeCategory;
     const matchSearch = !searchTerm
-      || s.name.toLowerCase().includes(searchTerm.toLowerCase())
-      || s.description.toLowerCase().includes(searchTerm.toLowerCase())
-      || s.category.toLowerCase().includes(searchTerm.toLowerCase());
+      || (s.name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+      || (s.description ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+      || (s.category ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchCat && matchSearch;
   }), [services, activeCategory, searchTerm]);
 

@@ -167,10 +167,10 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     if (searchQ) {
       const q = searchQ.toLowerCase();
       list = list.filter(c =>
-        c.propertyName.toLowerCase().includes(q) ||
+        (c.propertyName ?? '').toLowerCase().includes(q) ||
         (c.tenantName ?? '').toLowerCase().includes(q) ||
         (c.tenantDni ?? '').includes(q) ||
-        c.type.toLowerCase().includes(q)
+        (c.type ?? '').toLowerCase().includes(q)
       );
     }
     if (filterStage !== 'all') list = list.filter(c => c.stage === filterStage);

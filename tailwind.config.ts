@@ -14,6 +14,19 @@ export default {
         headline: ['Inter', 'sans-serif'],
         code: ['monospace'],
       },
+      // Escala de fuentes ampliada en ~2 escalones respecto al default de Tailwind,
+      // para mejorar legibilidad sin romper íconos/espaciados (que siguen en su tamaño).
+      fontSize: {
+        'xs':   ['0.875rem', { lineHeight: '1.2rem' }],   // 14px (era 12)
+        'sm':   ['1rem',     { lineHeight: '1.4rem' }],   // 16px (era 14)
+        'base': ['1.125rem', { lineHeight: '1.6rem' }],   // 18px (era 16)
+        'lg':   ['1.25rem',  { lineHeight: '1.7rem' }],   // 20px (era 18)
+        'xl':   ['1.5rem',   { lineHeight: '1.9rem' }],   // 24px (era 20)
+        '2xl':  ['1.75rem',  { lineHeight: '2.1rem' }],   // 28px (era 24)
+        '3xl':  ['2.125rem', { lineHeight: '2.4rem' }],   // 34px (era 30)
+        '4xl':  ['2.5rem',   { lineHeight: '2.7rem' }],   // 40px (era 36)
+        '5xl':  ['3.25rem',  { lineHeight: '1' }],        // 52px (era 48)
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
