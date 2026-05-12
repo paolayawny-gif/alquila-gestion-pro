@@ -52,7 +52,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, getDoc, collection, query as fsQuery, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -117,7 +117,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
     isApprovedByOwner: false
   });
 
-  const providersQuery = useMemo(() => {
+  const providersQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return fsQuery(collection(db, 'artifacts', APP_ID, 'users', userId, 'proveedores'), orderBy('name'));
   }, [db, userId]);
