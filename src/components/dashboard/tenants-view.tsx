@@ -1656,7 +1656,7 @@ function OwnersView({ contracts, people, properties, invoices, liquidations, tas
             {/* Propiedades del propietario */}
             {isExpanded && (() => {
               const ownerProperties = properties.filter(prop =>
-                prop.owners?.some(o => o.email.toLowerCase() === person.email.toLowerCase())
+                prop.owners?.some(o => o.email?.toLowerCase() === person.email?.toLowerCase())
               );
               const orphanContracts = ownerContracts.filter(c =>
                 !ownerProperties.some(p => p.id === c.propertyId)
