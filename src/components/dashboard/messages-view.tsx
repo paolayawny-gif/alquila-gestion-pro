@@ -209,8 +209,8 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
   const selectedChat    = chats.find(c => c.id === selectedChatId) ?? null;
   const filteredChats   = useMemo(() =>
     chats.filter(c =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.propertyName.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.propertyName ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     ),
   [chats, searchTerm]);
 
@@ -517,7 +517,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                       )}>
                         {chat.type === 'group'
                           ? <Hash className="h-4 w-4" />
-                          : chat.name.charAt(0).toUpperCase()
+                          : (chat.name ?? '?').charAt(0).toUpperCase()
                         }
                       </div>
                       {chat.type === 'direct' && (
@@ -575,7 +575,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                     )}>
                       {selectedChat.type === 'group'
                         ? <Hash className="h-4 w-4" />
-                        : selectedChat.name.charAt(0).toUpperCase()
+                        : (selectedChat.name ?? '?').charAt(0).toUpperCase()
                       }
                     </div>
                     {selectedChat.type === 'direct' && (
@@ -722,7 +722,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                 {isTyping && (
                   <div className="flex justify-start">
                     <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-black text-primary shrink-0 mr-2 mt-1">
-                      {selectedChat.name.charAt(0).toUpperCase()}
+                      {(selectedChat.name ?? '?').charAt(0).toUpperCase()}
                     </div>
                     <div className="bg-white border border-muted rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:0ms]" />

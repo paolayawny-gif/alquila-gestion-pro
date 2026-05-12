@@ -75,9 +75,9 @@ export function TenantTicketsAdminView({ userId, properties }: TenantTicketsAdmi
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       base = base.filter(t =>
-        t.title.toLowerCase().includes(s) ||
-        t.tenantName.toLowerCase().includes(s) ||
-        t.propertyName.toLowerCase().includes(s),
+        (t.title ?? '').toLowerCase().includes(s) ||
+        (t.tenantName ?? '').toLowerCase().includes(s) ||
+        (t.propertyName ?? '').toLowerCase().includes(s),
       );
     }
     return base;

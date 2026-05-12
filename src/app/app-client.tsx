@@ -706,6 +706,12 @@ export default function AppClient() {
       category: 'nav' as const,
       onSelect: () => setActiveTab(item.id as Tab),
     })),
+    ...(isSuperAdmin ? [{
+      id: 'nav-superadmin',
+      label: 'Super Admin',
+      category: 'nav' as const,
+      onSelect: () => setActiveTab('Super Admin' as Tab),
+    }] : []),
     ...properties.map(p => ({
       id: `prop-${p.id}`,
       label: p.name ?? p.address ?? '—',
@@ -715,7 +721,7 @@ export default function AppClient() {
     })),
     ...people.map((p: any) => ({
       id: `tenant-${p.id}`,
-      label: p.fullName ?? p.name ?? '—',
+      label: p.fullName ?? '—',
       sublabel: p.email ?? '',
       category: 'tenant' as const,
       onSelect: () => setActiveTab('Personas'),
