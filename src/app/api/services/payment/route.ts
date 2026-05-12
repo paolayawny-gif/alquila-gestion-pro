@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
           serviceId: serviceReq.serviceId,
           clientEmail: serviceReq.clientEmail,
         },
-        notification_url: `${baseUrl}/api/services/webhook`,
+        notification_url: `${baseUrl}/api/services/webhook?adminId=${adminId}`,
       }),
     });
 
@@ -109,9 +109,8 @@ export async function POST(req: NextRequest) {
     }
 
     const mpData = await mpRes.json();
-    const initUrl: string = process.env.NODE_ENV === 'production'
-      ? mpData.init_point
-      : mpData.sandbox_init_point;
+    // init_point siempre — las credenciales (TEST-* vs APP_USR-*) determinan el entorno
+    const initUrl: string = mpData.init_point;
 
     // Update service request with pending payment reference
     await db
