@@ -85,6 +85,21 @@ export interface Property {
   purchaseYear?: number;         // año de compra
   marketPricePerSqm?: number;    // precio de mercado referencia $/m²
   annualGrowthRate?: number;     // tasa de crecimiento anual esperada (%, ej: 8)
+  // ── Seguros ──────────────────────────────────────────────────────────────
+  insurance?: {
+    company?: string;            // ej: "Sancor", "Federación Patronal"
+    policyNumber?: string;       // número de póliza
+    type?: string;               // "Integral de hogar", "Caución", etc.
+    coverageAmount?: number;     // suma asegurada
+    currency?: Currency;         // ARS | USD
+    monthlyPremium?: number;     // costo mensual
+    paidBy?: 'Propietario' | 'Inquilino';
+    startDate?: string;          // YYYY-MM-DD
+    endDate?: string;            // YYYY-MM-DD (vencimiento)
+    fileUrl?: string;            // PDF de la póliza
+    fileName?: string;
+    notes?: string;
+  };
 }
 
 // ── Fondos de Reserva ─────────────────────────────────────────────────────────

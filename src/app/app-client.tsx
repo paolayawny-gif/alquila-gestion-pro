@@ -660,7 +660,7 @@ export default function AppClient() {
 
     switch (activeTab) {
       case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
-      case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} />;
+      case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} liquidations={liquidations} legalCases={legalCases} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} onOpenContract={() => setActiveTab('Personas' as Tab)} />;
       case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} invoices={invoices} liquidations={liquidations} tasks={tasks} legalCases={legalCases} applications={applications} onOpenProperty={(id) => { setDeepLinkPropertyId(id); setActiveTab('Propiedades' as Tab); }} />;
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;
       case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} />;

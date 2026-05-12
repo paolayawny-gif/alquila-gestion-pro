@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink, Share2, Copy, Link2, CheckCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Property, PropertyStatus, PropertyOwner, PropertyManual, Contract, Invoice, MaintenanceTask, RentalApplication } from '@/lib/types';
+import { Property, PropertyStatus, PropertyOwner, PropertyManual, Contract, Invoice, MaintenanceTask, RentalApplication, Liquidation, LegalCase, ReserveFund } from '@/lib/types';
+import { PropertyDetailView } from '@/components/dashboard/property-detail-view';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -43,13 +44,17 @@ interface PropertiesViewProps {
   invoices?: Invoice[];
   tasks?: MaintenanceTask[];
   applications?: RentalApplication[];
+  liquidations?: Liquidation[];
+  legalCases?: LegalCase[];
+  reserveFunds?: ReserveFund[];
   deepLinkPropertyId?: string | null;
   onDeepLinkConsumed?: () => void;
+  onOpenContract?: (c: Contract) => void;
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function PropertiesView({ properties, userId, contracts = [], invoices = [], tasks = [], applications = [], deepLinkPropertyId, onDeepLinkConsumed }: PropertiesViewProps) {
+export function PropertiesView({ properties, userId, contracts = [], invoices = [], tasks = [], applications = [], liquidations = [], legalCases = [], reserveFunds = [], deepLinkPropertyId, onDeepLinkConsumed, onOpenContract }: PropertiesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
@@ -79,6 +84,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [detailProperty, setDetailProperty] = useState<Property | null>(null);
   const [formErrors, setFormErrors] = useState<{ name?: string; address?: string }>({});
   const [timelineProperty, setTimelineProperty] = useState<Property | null>(null);
   
@@ -246,11 +252,18 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
     if (!deepLinkPropertyId) return;
     const prop = properties.find(p => p.id === deepLinkPropertyId);
     if (prop) {
-      handleOpenDialog(prop);
+      setDetailProperty(prop);
       onDeepLinkConsumed?.();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkPropertyId, properties]);
+
+  // Mantener detailProperty sincronizado cuando cambia la lista (ej: edición)
+  useEffect(() => {
+    if (!detailProperty) return;
+    const updated = properties.find(p => p.id === detailProperty.id);
+    if (updated && updated !== detailProperty) setDetailProperty(updated);
+  }, [properties, detailProperty]);
 
   const handleOpenInviteDialog = async (owner: PropertyOwner) => {
     setInvitingOwner({ name: owner.name, email: owner.email });
@@ -333,8 +346,28 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
     toast({ title: "Propiedad eliminada", description: "La unidad ha sido removida." });
   };
 
+  // Si hay propiedad seleccionada, mostramos pantalla de detalle. Los Dialogs (que
+  // viven en el div hidden de abajo) siguen montados y se renderizan vía Portal.
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <>
+    {detailProperty && (
+      <PropertyDetailView
+        property={detailProperty}
+        userId={userId}
+        contracts={contracts}
+        invoices={invoices}
+        liquidations={liquidations}
+        tasks={tasks}
+        applications={applications}
+        legalCases={legalCases}
+        reserveFunds={reserveFunds}
+        onBack={() => setDetailProperty(null)}
+        onEditTechnical={(p) => handleOpenDialog(p)}
+        onShare={(p) => setShareProperty(p)}
+        onOpenContract={onOpenContract}
+      />
+    )}
+    <div className={cn("space-y-6 animate-in fade-in duration-500", detailProperty && 'hidden')}>
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-white">
@@ -873,7 +906,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
           </TableHeader>
           <TableBody>
             {filteredProperties.map((p) => (
-              <TableRow key={p.id}>
+              <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setDetailProperty(p)}>
                 <TableCell>
                   <p className="font-bold">{p.name}</p>
                   {p.address && (
@@ -926,7 +959,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-end gap-2">
                     {(p.status === 'Disponible' || p.status === 'Reservada') && (
                       <Button
@@ -1246,5 +1279,6 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
