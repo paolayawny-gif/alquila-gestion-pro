@@ -1558,13 +1558,37 @@ function OwnersView({ contracts, people, properties, invoices, liquidations, tas
     return prop.unit ? `${streetOnly} · ${prop.unit}` : streetOnly;
   };
 
-  // Agrupar contratos por propietario usando ownerIds[]
+  // Agrupar contratos por propietario. Empezamos sembrando TODAS las personas de
+  // tipo Propietario (o vinculadas a alguna propiedad por email) para que también
+  // aparezcan los propietarios sin contratos.
   const ownerMap = new Map<string, { person: Person; contracts: Contract[] }>();
 
+  // 1) Sembrar con todas las personas tipo Propietario
+  people
+    .filter(p => p.type === 'Propietario')
+    .forEach(p => {
+      ownerMap.set(p.id, { person: p, contracts: [] });
+    });
+
+  // 2) Sembrar también personas que figuran como dueños de alguna propiedad
+  //    por coincidencia de email, aunque el type no sea "Propietario"
+  const ownerEmails = new Set<string>();
+  properties.forEach(prop => {
+    prop.owners?.forEach(o => {
+      if (o.email) ownerEmails.add(o.email.toLowerCase());
+    });
+  });
+  people.forEach(p => {
+    if (ownerMap.has(p.id)) return;
+    if (p.email && ownerEmails.has(p.email.toLowerCase())) {
+      ownerMap.set(p.id, { person: p, contracts: [] });
+    }
+  });
+
+  // 3) Asignar contratos a sus propietarios
   contracts.forEach(c => {
     const ids = c.ownerIds ?? [];
     if (ids.length === 0) {
-      // Sin propietario asignado → bucket especial
       const key = '__sin_propietario__';
       if (!ownerMap.has(key)) {
         ownerMap.set(key, {
@@ -1584,7 +1608,7 @@ function OwnersView({ contracts, people, properties, invoices, liquidations, tas
   });
 
   const ownerGroups = Array.from(ownerMap.values()).sort((a, b) =>
-    a.person.fullName.localeCompare(b.person.fullName)
+    (a.person.fullName ?? '').localeCompare(b.person.fullName ?? '')
   );
 
   const filteredGroups = ownerGroups.filter(({ person }) => {
