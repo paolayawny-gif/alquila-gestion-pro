@@ -31,9 +31,10 @@ import {
   CreditCard, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2,
   Settings, Briefcase, Scale, Wrench, Shield, FileText, Landmark,
   ChevronsUpDown, Eye, EyeOff, ExternalLink, DollarSign, Pencil,
-  LogOut, Info, Globe, Copy, Lock, Gift,
+  LogOut, Info, Globe, Copy, Lock, Gift, Brain, KeyRound, Sparkles,
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
+import { useAIConfig } from '@/hooks/use-ai-config';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
 import type {
   AdminService, AdminPaymentConfig, ServiceCategory, ServiceClientTarget,
@@ -87,6 +88,7 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
           <PublicPageCard userId={userId} />
           <WhatsAppCard userId={userId} />
           <WhatsAppApiCard userId={userId} />
+          <AIConfigCard />
           <BillingCard userId={userId} />
           <BajaCard userId={userId} />
         </TabsContent>
@@ -1611,6 +1613,141 @@ function BillingCard({ userId }: { userId?: string }) {
               )}
             </div>
           </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Config Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AIConfigCard() {
+  const { toast } = useToast();
+  const { config, loading, saving, save, remove } = useAIConfig();
+
+  const [keyInput, setKeyInput] = useState('');
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    if (!loading && config?.geminiApiKey) setKeyInput(config.geminiApiKey);
+  }, [loading, config]);
+
+  const handleSave = async () => {
+    if (!keyInput.trim()) return;
+    const ok = await save(keyInput.trim());
+    if (ok) toast({ title: 'API key guardada', description: 'El análisis Pro estará disponible en los contratos.' });
+    else toast({ title: 'Error', description: 'No se pudo guardar la clave.', variant: 'destructive' });
+  };
+
+  const handleRemove = async () => {
+    const ok = await remove();
+    if (ok) { setKeyInput(''); toast({ title: 'API key eliminada', description: 'Se usará el modelo estándar.' }); }
+    else toast({ title: 'Error', description: 'No se pudo eliminar la clave.', variant: 'destructive' });
+  };
+
+  const hasSavedKey = !!config?.geminiApiKey;
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-violet-50">
+            <Brain className="h-5 w-5 text-violet-600" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-black">Análisis IA Pro</CardTitle>
+              {hasSavedKey && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-700 border border-violet-200">
+                  <Sparkles className="h-3 w-3" /> Activo
+                </span>
+              )}
+            </div>
+            <CardDescription className="text-xs mt-0.5">
+              Usá tu propia API key de Gemini para activar <strong>gemini-2.5-pro</strong> en análisis legales complejos. Sin clave propia se usa el modelo estándar.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-lg bg-violet-50 border border-violet-100 p-3 space-y-1.5">
+          <p className="text-xs font-semibold text-violet-700 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" /> Features que usan Pro con tu clave:
+          </p>
+          <ul className="text-xs text-violet-700 space-y-0.5 pl-1">
+            <li>• Análisis de riesgo legal del contrato</li>
+            <li>• Verificación de coherencia interna</li>
+            <li>• Comparación contra estándar de mercado</li>
+            <li>• Consultas legales al contrato</li>
+            <li>• Análisis de solicitudes de alquiler</li>
+          </ul>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando configuración...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold flex items-center gap-1.5">
+                <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                API Key de Google Gemini
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showKey ? 'text' : 'password'}
+                    placeholder="AIza..."
+                    value={keyInput}
+                    onChange={e => setKeyInput(e.target.value)}
+                    className="pr-10 font-mono text-xs h-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(v => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={saving || !keyInput.trim() || keyInput.trim() === config?.geminiApiKey}
+                  className="h-9 bg-violet-600 hover:bg-violet-700 text-white"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar'}
+                </Button>
+                {hasSavedKey && (
+                  <Button size="sm" variant="outline" onClick={handleRemove} disabled={saving} className="h-9">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Obtenela en{' '}
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-violet-600 hover:text-violet-700"
+                >
+                  Google AI Studio
+                </a>
+                . La clave se guarda en tu cuenta y no se comparte.
+              </p>
+            </div>
+
+            {hasSavedKey && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700">
+                <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                API key configurada. Los análisis legales usarán <strong className="ml-1">gemini-2.5-pro</strong>.
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

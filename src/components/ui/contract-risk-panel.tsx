@@ -23,6 +23,20 @@ import { analyzeContractRisks, type AnalyzeContractRisksOutput, type RiskFinding
 import { verifyContractConsistency, type VerifyContractConsistencyOutput } from '@/ai/flows/verify-contract-consistency-flow';
 import { compareMarketStandard, type CompareMarketStandardOutput } from '@/ai/flows/compare-market-standard-flow';
 import { useToast } from '@/hooks/use-toast';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { Sparkles } from 'lucide-react';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION CACHE — evita re-llamar a Gemini si el mismo contrato ya fue analizado
+// ─────────────────────────────────────────────────────────────────────────────
+
+function contractKey(text: string, suffix = '') {
+  return `${text.length}:${text.slice(0, 120)}${suffix}`;
+}
+
+const riskCache = new Map<string, AnalyzeContractRisksOutput>();
+const consistencyCache = new Map<string, VerifyContractConsistencyOutput>();
+const marketCache = new Map<string, CompareMarketStandardOutput>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -152,9 +166,13 @@ export function ContractRiskPanel({
   className,
 }: ContractRiskPanelProps) {
   const { toast } = useToast();
+  const { hasProKey, proKey } = useAIConfig();
 
   const [perspective, setPerspective] = useState<Perspective>('neutral');
   const [activeTab, setActiveTab] = useState('riesgo');
+  const [proModeOn, setProModeOn] = useState(false);
+
+  const effectiveApiKey = proModeOn && proKey ? proKey : undefined;
 
   const [riskLoading, setRiskLoading] = useState(false);
   const [consistencyLoading, setConsistencyLoading] = useState(false);
@@ -164,33 +182,45 @@ export function ContractRiskPanel({
   const [consistencyData, setConsistencyData] = useState<VerifyContractConsistencyOutput | null>(null);
   const [marketData, setMarketData] = useState<CompareMarketStandardOutput | null>(null);
 
-  async function runRiskAnalysis() {
+  async function runRiskAnalysis(force = false) {
+    const key = contractKey(contractText, `:${perspective}:${proModeOn}`);
+    if (!force && riskCache.has(key)) { setRiskData(riskCache.get(key)!); return; }
     setRiskLoading(true);
-    const result = await analyzeContractRisks({ contractText, contractType, perspective });
+    const result = await analyzeContractRisks({ contractText, contractType, perspective }, effectiveApiKey);
     setRiskLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
+    riskCache.set(key, result.data);
     setRiskData(result.data);
   }
 
-  async function runConsistencyCheck() {
+  async function runConsistencyCheck(force = false) {
+    const key = contractKey(contractText, `:${proModeOn}`);
+    if (!force && consistencyCache.has(key)) { setConsistencyData(consistencyCache.get(key)!); return; }
     setConsistencyLoading(true);
-    const result = await verifyContractConsistency({ contractText, contractType, extractedData });
+    const result = await verifyContractConsistency({ contractText, contractType, extractedData }, effectiveApiKey);
     setConsistencyLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
+    consistencyCache.set(key, result.data);
     setConsistencyData(result.data);
   }
 
-  async function runMarketComparison() {
+  async function runMarketComparison(force = false) {
+    const key = contractKey(contractText, `:${perspective}:${proModeOn}`);
+    if (!force && marketCache.has(key)) { setMarketData(marketCache.get(key)!); return; }
     setMarketLoading(true);
-    const result = await compareMarketStandard({
-      contractText,
-      contractType,
-      perspective: perspective === 'neutral' ? 'locatario' : (perspective as 'locador' | 'locatario' | 'garante'),
-      currency: extractedData?.currency as 'ARS' | 'USD' | undefined,
-      extractedRentAmount: extractedData?.baseRentAmount,
-    });
+    const result = await compareMarketStandard(
+      {
+        contractText,
+        contractType,
+        perspective: perspective === 'neutral' ? 'locatario' : (perspective as 'locador' | 'locatario' | 'garante'),
+        currency: extractedData?.currency as 'ARS' | 'USD' | undefined,
+        extractedRentAmount: extractedData?.baseRentAmount,
+      },
+      effectiveApiKey,
+    );
     setMarketLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
+    marketCache.set(key, result.data);
     setMarketData(result.data);
   }
 
@@ -211,6 +241,24 @@ export function ContractRiskPanel({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {hasProKey && (
+              <button
+                onClick={() => {
+                  setProModeOn(v => !v);
+                  setRiskData(null); setConsistencyData(null); setMarketData(null);
+                }}
+                title={proModeOn ? 'Usando gemini-2.5-pro (tu API key)' : 'Activar análisis Pro con gemini-2.5-pro'}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold border transition-colors',
+                  proModeOn
+                    ? 'bg-violet-600 text-white border-violet-600 hover:bg-violet-700'
+                    : 'bg-white text-violet-600 border-violet-300 hover:bg-violet-50'
+                )}
+              >
+                <Sparkles className="h-3 w-3" />
+                Pro
+              </button>
+            )}
             <Select value={perspective} onValueChange={v => setPerspective(v as Perspective)}>
               <SelectTrigger className="h-8 text-xs w-36">
                 <SelectValue placeholder="Perspectiva" />
@@ -248,7 +296,7 @@ export function ContractRiskPanel({
                 <p className="text-sm text-muted-foreground">
                   Analizá el contrato para detectar cláusulas que violen la Ley 27.551, el DNU 70/2023 o el CCyCN.
                 </p>
-                <Button onClick={runRiskAnalysis} disabled={riskLoading} size="sm">
+                <Button onClick={() => runRiskAnalysis()} disabled={riskLoading} size="sm">
                   {riskLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSearch className="h-4 w-4 mr-2" />}
                   Analizar riesgo legal
                 </Button>
@@ -273,7 +321,7 @@ export function ContractRiskPanel({
                       )}
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" aria-label="Analizar riesgo" className="h-8 w-8 flex-shrink-0" onClick={runRiskAnalysis} disabled={riskLoading}>
+                  <Button variant="ghost" size="icon" aria-label="Analizar riesgo" className="h-8 w-8 flex-shrink-0" onClick={() => runRiskAnalysis(true)} disabled={riskLoading}>
                     <RefreshCw className={cn('h-3.5 w-3.5', riskLoading && 'animate-spin')} />
                   </Button>
                 </div>
@@ -345,7 +393,7 @@ export function ContractRiskPanel({
                 <p className="text-sm text-muted-foreground">
                   Verificá que los montos, fechas, nombres y cláusulas sean coherentes en todo el documento.
                 </p>
-                <Button onClick={runConsistencyCheck} disabled={consistencyLoading} size="sm">
+                <Button onClick={() => runConsistencyCheck()} disabled={consistencyLoading} size="sm">
                   {consistencyLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ClipboardCheck className="h-4 w-4 mr-2" />}
                   Verificar coherencia
                 </Button>
@@ -367,7 +415,7 @@ export function ContractRiskPanel({
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">{consistencyData.resumen}</p>
                   </div>
-                  <Button variant="ghost" size="icon" aria-label="Verificar consistencia" className="h-8 w-8 flex-shrink-0" onClick={runConsistencyCheck} disabled={consistencyLoading}>
+                  <Button variant="ghost" size="icon" aria-label="Verificar consistencia" className="h-8 w-8 flex-shrink-0" onClick={() => runConsistencyCheck(true)} disabled={consistencyLoading}>
                     <RefreshCw className={cn('h-3.5 w-3.5', consistencyLoading && 'animate-spin')} />
                   </Button>
                 </div>
@@ -454,7 +502,7 @@ export function ContractRiskPanel({
                 <p className="text-sm text-muted-foreground">
                   Comparar las condiciones del contrato contra el estándar de mercado argentino 2024-2025.
                 </p>
-                <Button onClick={runMarketComparison} disabled={marketLoading} size="sm">
+                <Button onClick={() => runMarketComparison()} disabled={marketLoading} size="sm">
                   {marketLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <GitCompareArrows className="h-4 w-4 mr-2" />}
                   Comparar con mercado
                 </Button>
@@ -467,7 +515,7 @@ export function ContractRiskPanel({
                   <div className="flex-1">
                     <p className="text-sm text-gray-700 leading-relaxed">{marketData.dictamenGeneral}</p>
                   </div>
-                  <Button variant="ghost" size="icon" aria-label="Comparar mercado" className="h-8 w-8 flex-shrink-0" onClick={runMarketComparison} disabled={marketLoading}>
+                  <Button variant="ghost" size="icon" aria-label="Comparar mercado" className="h-8 w-8 flex-shrink-0" onClick={() => runMarketComparison(true)} disabled={marketLoading}>
                     <RefreshCw className={cn('h-3.5 w-3.5', marketLoading && 'animate-spin')} />
                   </Button>
                 </div>

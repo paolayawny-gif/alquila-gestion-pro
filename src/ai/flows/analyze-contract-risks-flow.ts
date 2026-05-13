@@ -12,7 +12,7 @@
  * y perspectiva adaptable: locador | locatario | garante.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, createProAI } from '@/ai/genkit';
 import { z } from 'genkit';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
@@ -132,15 +132,65 @@ const analyzeContractRisksFlow = ai.defineFlow(
 );
 
 export async function analyzeContractRisks(
-  input: AnalyzeContractRisksInput
+  input: AnalyzeContractRisksInput,
+  userApiKey?: string,
 ): Promise<AnalyzeContractRisksResult> {
   try {
+    if (userApiKey) {
+      const proAI = createProAI(userApiKey);
+      const prompt = `Sos un abogado especialista en derecho inmobiliario argentino. Analizá el contrato de locación provisto y evaluá su conformidad con el marco legal argentino vigente.
+
+TIPO DE CONTRATO: ${input.contractType}
+PERSPECTIVA DEL ANÁLISIS: ${input.perspective}
+${input.province ? `PROVINCIA: ${input.province}` : ''}
+
+${MARCO_LEGAL_ALQUILER}
+
+---
+
+INSTRUCCIONES DE ANÁLISIS:
+
+1. VERIFICÁ OBLIGATORIAMENTE estas cláusulas críticas de la Ley 27.551 y el DNU 70/2023:
+   a) DURACIÓN: ¿Cumple el mínimo legal? (vivienda ≥ 24 meses – DNU 70/2023; comercial ≥ 36 meses – CCyCN art. 1198)
+   b) GARANTÍAS: ¿El locador pide más de UNA garantía? (ilegal – Ley 27.551 art. 13)
+   c) DEPÓSITO: ¿Supera 1 mes de alquiler inicial? (ilegal – Ley 27.551 art. 14)
+   d) AJUSTE: ¿El mecanismo es claro? ¿Tiene índice y frecuencia definidos?
+   e) RESCISIÓN: ¿Respeta art. 1221 CCyCN? ¿Se penaliza incorrectamente la rescisión anticipada?
+   f) EXPENSAS: ¿Se especifica qué paga cada parte? (ordinarias = locatario; extraordinarias = locador)
+   g) REPARACIONES: ¿Se especifica quién responde por conservación y reparaciones urgentes?
+   h) DOMICILIOS: ¿Están fijados domicilios especiales para notificaciones?
+   i) JURISDICCIÓN: ¿Se especifica el fuero y tribunal competente?
+   j) INSCRIPCIÓN AFIP: ¿Se menciona la obligación de registrar ante AFIP (Ley 26.307)?
+
+2. SEVERIDADES:
+   - 🔴 CRÍTICO: viola norma imperativa → la cláusula es NULA de pleno derecho o expone a sanción.
+   - 🟡 IMPORTANTE: cláusula desfavorable, ambigua o ausente que puede generar conflicto.
+   - 🟢 ACEPTABLE: cláusula conforme a derecho y equilibrada.
+
+3. PERSPECTIVA: Si es "locatario", priorizá riesgos para el inquilino. Si es "locador", para el propietario. Si es "garante", la extensión de la garantía. Si es "neutral", analizá equilibradamente.
+
+4. PUNTAJE LEGAL:
+   - Restá 20 puntos por cada hallazgo CRÍTICO
+   - Restá 5 puntos por cada hallazgo IMPORTANTE
+   - Sumá 5 puntos por cada cláusula favorable detectada
+   - Máximo 100, mínimo 0
+
+5. TONO: formal, jurídico, español rioplatense. Usá "voseo". Sé específico (citá artículos exactos).
+
+CONTRATO A ANALIZAR:
+"""
+${input.contractText}
+"""`;
+      const { output } = await proAI.generate({ prompt, output: { schema: AnalyzeContractRisksOutputSchema } });
+      if (!output) throw new Error('La IA Pro no pudo analizar el contrato.');
+      return { ok: true, data: output };
+    }
     const data = await analyzeContractRisksFlow(input);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';
     if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
-      return { ok: false, error: 'La clave API de IA no está configurada. Contactá al administrador.' };
+      return { ok: false, error: 'La clave API de IA no está configurada. Verificá tu API key en Configuración.' };
     }
     return { ok: false, error: msg || 'No se pudo analizar el contrato.' };
   }

@@ -11,7 +11,7 @@
  * respecto de lo que se pacta habitualmente en el mercado.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, createProAI } from '@/ai/genkit';
 import { z } from 'genkit';
 import { MARCO_LEGAL_ALQUILER, AJUSTE } from '@/lib/argentine-law';
 
@@ -138,15 +138,62 @@ const compareMarketStandardFlow = ai.defineFlow(
 );
 
 export async function compareMarketStandard(
-  input: CompareMarketStandardInput
+  input: CompareMarketStandardInput,
+  userApiKey?: string,
 ): Promise<CompareMarketStandardResult> {
   try {
+    if (userApiKey) {
+      const proAI = createProAI(userApiKey);
+      const prompt = `Sos un asesor inmobiliario y abogado argentino con amplia experiencia en el mercado de alquileres. Analizá el contrato y comparalo contra los estándares habituales del mercado inmobiliario argentino en 2024-2025.
+
+TIPO: ${input.contractType}
+PERSPECTIVA: ${input.perspective} (evaluá desde el punto de vista de esta parte)
+${input.propertyZone ? `ZONA: ${input.propertyZone}` : ''}
+${input.currency ? `MONEDA: ${input.currency}` : ''}
+
+${MARCO_LEGAL_ALQUILER}
+
+ESTÁNDARES DE MERCADO ACTUALES (Argentina, 2024-2025):
+- Índices de ajuste habituales: ${indicesRef}
+- Frecuencia de ajuste post-DNU 70/2023: libre, pero lo más común es mensual o trimestral para ARS; semestral o anual para USD
+- Depósito estándar: 1 mes (máximo legal); algunos propietarios aceptan menos en USD
+- Plazo estándar vivienda: 24-36 meses
+- Plazo estándar comercial: 36-48 meses
+- Penalidad por mora: entre 1% y 3% mensual sobre el saldo adeudado
+- Expensas ordinarias: siempre a cargo del locatario por costumbre y ley
+- Expensas extraordinarias: siempre a cargo del locador por ley y práctica
+- ABL/TGI: habitualmente a cargo del locador en CABA y PBA
+- Subalquiler: casi universalmente prohibido en vivienda
+- Seguro de incendio: siempre obligatorio a cargo del locatario por ley
+- Preaviso de renovación: 60-90 días antes del vencimiento es estándar
+- Rescisión anticipada: art. 1221 CCyCN – penalidad 1 mes y medio (primer año) o 1 mes (años siguientes)
+
+COMPARAR OBLIGATORIAMENTE:
+1. Canon mensual y frecuencia de ajuste vs. práctica de mercado
+2. Duración vs. estándar del tipo de contrato
+3. Sistema de garantías vs. práctica habitual
+4. Depósito vs. máximo legal y práctica
+5. Distribución de gastos (expensas, servicios, impuestos) vs. práctica
+6. Penalidades por mora vs. rangos habituales
+7. Condiciones de rescisión vs. art. 1221 CCyCN y práctica
+8. Cláusulas especiales inusuales que no se ven habitualmente
+
+TONO: profesional, directo, en español rioplatense.
+
+CONTRATO:
+"""
+${input.contractText}
+"""`;
+      const { output } = await proAI.generate({ prompt, output: { schema: CompareMarketStandardOutputSchema } });
+      if (!output) throw new Error('La IA Pro no pudo comparar el contrato con el estándar de mercado.');
+      return { ok: true, data: output };
+    }
     const data = await compareMarketStandardFlow(input);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';
     if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
-      return { ok: false, error: 'La clave API de IA no está configurada. Contactá al administrador.' };
+      return { ok: false, error: 'La clave API de IA no está configurada. Verificá tu API key en Configuración.' };
     }
     return { ok: false, error: msg || 'No se pudo realizar la comparación de mercado.' };
   }

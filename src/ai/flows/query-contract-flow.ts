@@ -5,7 +5,7 @@
  * y referencias al marco legal argentino vigente.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, createProAI } from '@/ai/genkit';
 import { z } from 'genkit';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
@@ -70,9 +70,6 @@ TRANSCRIPCIÓN DEL CONTRATO:
 PREGUNTA DEL USUARIO:
 {{{question}}}
 `,
-  config: {
-    version: 'gemini-2.5-flash',
-  },
 });
 
 const queryContractFlow = ai.defineFlow(
@@ -89,14 +86,49 @@ const queryContractFlow = ai.defineFlow(
   }
 );
 
-export async function queryContract(input: QueryContractInput): Promise<QueryContractResult> {
+export async function queryContract(
+  input: QueryContractInput,
+  userApiKey?: string,
+): Promise<QueryContractResult> {
   try {
+    if (userApiKey) {
+      const proAI = createProAI(userApiKey);
+      const perspectivaTxt = PERSPECTIVA_TEXTO[input.perspective] ?? PERSPECTIVA_TEXTO.neutral;
+      const prompt = `Sos un abogado especialista en derecho inmobiliario argentino. Respondé la pregunta del usuario sobre el contrato de locación.
+
+PERSPECTIVA: ${input.perspective}
+INSTRUCCIÓN DE PERSPECTIVA: ${perspectivaTxt}
+TIPO DE CONTRATO: ${input.contractType}
+
+MARCO LEGAL ARGENTINO DE REFERENCIA:
+${MARCO_LEGAL_ALQUILER}
+
+INSTRUCCIONES:
+1. Respondé SIEMPRE en español rioplatense (voseo).
+2. Basate PRINCIPALMENTE en el texto del contrato proporcionado.
+3. Si el contrato no contiene la información, decilo claramente: "Esta información no está especificada en el contrato."
+4. Si la cláusula relevante contradice la normativa argentina vigente, indicalo en "alertaLegal" con la norma exacta.
+5. Si podés agregar contexto legal relevante, incluilo en "fundamentoLegal".
+6. Siempre que sea posible, citá la cláusula exacta en "sourceQuote".
+7. Sé preciso y directo. No des respuestas genéricas.
+
+TRANSCRIPCIÓN DEL CONTRATO:
+"""
+${input.contractTranscription}
+"""
+
+PREGUNTA DEL USUARIO:
+${input.question}`;
+      const { output } = await proAI.generate({ prompt, output: { schema: QueryContractOutputSchema } });
+      if (!output) throw new Error('La IA Pro no devolvió respuesta.');
+      return { ok: true, data: output };
+    }
     const data = await queryContractFlow(input);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';
     if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
-      return { ok: false, error: 'La clave API de IA no está configurada. Contactá al administrador.' };
+      return { ok: false, error: 'La clave API de IA no está configurada. Verificá tu API key en Configuración.' };
     }
     return { ok: false, error: msg || 'No se pudo obtener respuesta de la IA.' };
   }

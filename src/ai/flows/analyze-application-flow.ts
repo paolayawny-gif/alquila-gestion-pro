@@ -9,7 +9,7 @@
  * - Situación BCRA del postulante (si está disponible)
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, createProAI } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const AnalyzeApplicationInputSchema = z.object({
@@ -139,7 +139,60 @@ const analyzeApplicationFlow = ai.defineFlow(
 );
 
 export async function analyzeApplication(
-  input: AnalyzeApplicationInput
+  input: AnalyzeApplicationInput,
+  userApiKey?: string,
 ): Promise<AnalyzeApplicationOutput> {
+  if (userApiKey) {
+    const proAI = createProAI(userApiKey);
+    const prompt = `Sos un analista de riesgo crediticio especializado en el mercado inmobiliario argentino. Analizá la siguiente solicitud de alquiler.
+
+POSTULANTE: ${input.applicantName}
+TIPO DE INMUEBLE: ${input.propertyType ?? 'vivienda'}
+ALQUILER PRETENDIDO: ${input.currency} ${input.rentAmount}
+INGRESO NETO DECLARADO: ${input.currency} ${input.applicantIncome}
+${input.employmentType ? `SITUACIÓN LABORAL: ${input.employmentType}` : ''}
+${input.monotributoCategory ? `CATEGORÍA MONOTRIBUTO: ${input.monotributoCategory}` : ''}
+${input.guarantorName ? `GARANTE: ${input.guarantorName} (Tipo: ${input.guarantorType}${input.guarantorIncome ? `, Ingreso: ${input.currency} ${input.guarantorIncome}` : ''})` : ''}
+${input.bcraSituation ? `SITUACIÓN BCRA: ${input.bcraSituation} (1=Normal ... 6=Irrecuperable)` : ''}
+${input.hasRejectedChecks ? 'CHEQUES RECHAZADOS EN BCRA: Sí' : ''}
+${input.references ? `REFERENCIAS/NOTAS: ${input.references}` : ''}
+
+CRITERIOS DE EVALUACIÓN PARA ARGENTINA:
+
+1. RATIO INGRESO/ALQUILER:
+   - Ideal: alquiler ≤ 30% del ingreso neto
+   - Aceptable: 30-40%
+   - Riesgoso: 40-50% → REQUIERE_CODEUDOR
+   - Inaceptable: > 50% → RECHAZADO salvo garantías excepcionales
+
+2. TIPO DE EMPLEO:
+   - relacion_dependencia: Alta confiabilidad
+   - monotributo: Media confiabilidad. Verificar facturación AFIP
+   - autonomo: Media confiabilidad. Verificar DDJJ AFIP
+   - jubilado_pensionado: Alta confiabilidad
+   - informal: Baja confiabilidad
+   - sin_informar: Requiere documentación
+
+3. GARANTÍAS (Ley 27.551 art. 13 – el locador solo puede exigir UNA):
+   - fiador_solidario: Fuerte si tiene ingreso en relación de dependencia
+   - seguro_caucion: Muy fuerte
+   - aval_bancario: Muy fuerte
+   - garantia_real: Fuerte si el bien vale >3x el monto total
+   - sin_garantia: Riesgo alto
+
+4. SITUACIÓN BCRA:
+   - 1=Normal: Sin impacto
+   - 2: Leve alerta
+   - 3: Riesgo significativo → REQUIERE_CODEUDOR mínimo
+   - 4-5: RECHAZADO salvo garantía excepcional
+   - 6 o cheques rechazados: RECHAZADO
+
+5. SCORE 0-100: Comenzar en 70. +10 si ratio<30%; -10 si 40-50%; -25 si >50%. +10 si seguro_caucion/aval_bancario. +5 si fiador_solidario. -15 si sin_garantia. +10 si relacion_dependencia; -5 si informal; -10 si sin_informar. -20 si BCRA≥4; -10 si BCRA=3; -5 si BCRA=2. -20 si cheques rechazados.
+
+TONO: profesional, español rioplatense. Sé específico con los números.`;
+    const { output } = await proAI.generate({ prompt, output: { schema: AnalyzeApplicationOutputSchema } });
+    if (!output) throw new Error('El análisis Pro falló.');
+    return output;
+  }
   return analyzeApplicationFlow(input);
 }

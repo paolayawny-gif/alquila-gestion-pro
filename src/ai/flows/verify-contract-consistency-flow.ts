@@ -7,7 +7,7 @@
  * cláusulas específicas o el contrato en su totalidad.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, createProAI } from '@/ai/genkit';
 import { z } from 'genkit';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,15 +130,57 @@ const verifyContractConsistencyFlow = ai.defineFlow(
 );
 
 export async function verifyContractConsistency(
-  input: VerifyContractConsistencyInput
+  input: VerifyContractConsistencyInput,
+  userApiKey?: string,
 ): Promise<VerifyContractConsistencyResult> {
   try {
+    if (userApiKey) {
+      const proAI = createProAI(userApiKey);
+      const ed = input.extractedData;
+      const prompt = `Sos un escribano público argentino especialista en revisión de contratos de locación. Tu tarea es verificar la coherencia interna del siguiente contrato, detectando contradicciones, datos faltantes, ambigüedades y errores formales.
+
+TIPO: ${input.contractType}
+
+${ed ? `DATOS PREVIAMENTE EXTRAÍDOS (verificar coherencia contra el texto):
+${ed.baseRentAmount ? `- Monto base: ${ed.currency} ${ed.baseRentAmount}` : ''}
+${ed.tenantName ? `- Locatario: ${ed.tenantName}` : ''}
+${ed.propertyAddress ? `- Inmueble: ${ed.propertyAddress}` : ''}
+${ed.startDate ? `- Inicio: ${ed.startDate}` : ''}
+${ed.endDate ? `- Fin: ${ed.endDate}` : ''}
+${ed.adjustmentMechanism ? `- Índice: ${ed.adjustmentMechanism} cada ${ed.adjustmentFrequencyMonths} meses` : ''}` : ''}
+
+ASPECTOS A VERIFICAR OBLIGATORIAMENTE:
+1. ¿El monto en letras coincide con el monto en números?
+2. ¿La fecha de inicio + duración = fecha de fin?
+3. ¿El nombre del locatario en el encabezado coincide con el mencionado en el resto del contrato?
+4. ¿El nombre del locador es consistente en todas las menciones?
+5. ¿El domicilio del inmueble es idéntico en todas las cláusulas que lo mencionan?
+6. ¿El mecanismo de ajuste (ICL/IPC/CER) mencionado en una cláusula coincide con el mencionado en otras?
+7. ¿La frecuencia de ajuste es consistente?
+8. ¿Los CUITs/DNIs mencionados tienen formato válido (CUIT: 11 dígitos; DNI: 7-8 dígitos)?
+9. ¿El monto del depósito en cláusula de garantía coincide con el mencionado en el acta de recibo?
+10. ¿Las penalidades por mora son consistentes en todo el documento?
+11. ¿Si hay anexos, sus datos son coherentes con el cuerpo principal?
+12. ¿Hay contradicciones entre cláusulas sobre quién paga expensas ordinarias/extraordinarias?
+13. ¿Hay cláusulas que se contradigan en materia de subalquiler o cesión?
+14. ¿La jurisdicción mencionada corresponde a la ubicación del inmueble?
+
+TONO: técnico-jurídico, español rioplatense. Sé específico y citá las cláusulas exactas donde encontrés inconsistencias.
+
+CONTRATO:
+"""
+${input.contractText}
+"""`;
+      const { output } = await proAI.generate({ prompt, output: { schema: VerifyContractConsistencyOutputSchema } });
+      if (!output) throw new Error('La IA Pro no pudo verificar la coherencia del contrato.');
+      return { ok: true, data: output };
+    }
     const data = await verifyContractConsistencyFlow(input);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';
     if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
-      return { ok: false, error: 'La clave API de IA no está configurada. Contactá al administrador.' };
+      return { ok: false, error: 'La clave API de IA no está configurada. Verificá tu API key en Configuración.' };
     }
     return { ok: false, error: msg || 'No se pudo verificar el contrato.' };
   }
