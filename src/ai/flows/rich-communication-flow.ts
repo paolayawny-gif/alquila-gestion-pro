@@ -14,6 +14,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { fetchIndexResult } from '@/services/index-service';
 import type { IndexType } from '@/services/index-service';
+import { logAIUsage } from '@/lib/ai-usage-logger';
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
@@ -323,7 +324,8 @@ function applyChannelFormatting(message: string, channel: string): string {
 // ── Export principal ──────────────────────────────────────────────────────────
 
 export async function richCommunication(
-  input: RichCommunicationInput
+  input: RichCommunicationInput,
+  userId?: string,
 ): Promise<RichCommunicationOutput> {
   try {
     // 1. Resolver secuencia de mora si aplica
@@ -407,6 +409,7 @@ export async function richCommunication(
     const drafted = result.draftedMessage ?? '';
     const channelFormatted = applyChannelFormatting(drafted, input.channel);
 
+    if (userId) void logAIUsage(userId, 'rich-communication', 'gemini-2.0-flash', false, true);
     return {
       ok: true,
       data: {
@@ -420,6 +423,7 @@ export async function richCommunication(
       },
     };
   } catch (err: any) {
+    if (userId) void logAIUsage(userId, 'rich-communication', 'gemini-2.0-flash', false, false);
     return { ok: false, error: err?.message ?? 'Error generando comunicación.' };
   }
 }

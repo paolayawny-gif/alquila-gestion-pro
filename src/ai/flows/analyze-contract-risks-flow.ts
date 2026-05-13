@@ -12,9 +12,10 @@
  * y perspectiva adaptable: locador | locatario | garante.
  */
 
-import { ai, createProAI } from '@/ai/genkit';
+import { ai, createProAI, PRO_MODEL } from '@/ai/genkit';
 import { z } from 'genkit';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
+import { logAIUsage } from '@/lib/ai-usage-logger';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCHEMAS
@@ -134,7 +135,9 @@ const analyzeContractRisksFlow = ai.defineFlow(
 export async function analyzeContractRisks(
   input: AnalyzeContractRisksInput,
   userApiKey?: string,
+  userId?: string,
 ): Promise<AnalyzeContractRisksResult> {
+  const model = userApiKey ? PRO_MODEL : 'gemini-2.0-flash';
   try {
     if (userApiKey) {
       const proAI = createProAI(userApiKey);
@@ -183,11 +186,14 @@ ${input.contractText}
 """`;
       const { output } = await proAI.generate({ prompt, output: { schema: AnalyzeContractRisksOutputSchema } });
       if (!output) throw new Error('La IA Pro no pudo analizar el contrato.');
+      if (userId) void logAIUsage(userId, 'analyze-contract-risks', model, true, true);
       return { ok: true, data: output };
     }
     const data = await analyzeContractRisksFlow(input);
+    if (userId) void logAIUsage(userId, 'analyze-contract-risks', model, false, true);
     return { ok: true, data };
   } catch (err: any) {
+    if (userId) void logAIUsage(userId, 'analyze-contract-risks', model, !!userApiKey, false);
     const msg: string = err?.message ?? '';
     if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
       return { ok: false, error: 'La clave API de IA no está configurada. Verificá tu API key en Configuración.' };

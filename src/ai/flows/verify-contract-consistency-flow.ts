@@ -7,8 +7,9 @@
  * cláusulas específicas o el contrato en su totalidad.
  */
 
-import { ai, createProAI } from '@/ai/genkit';
+import { ai, createProAI, PRO_MODEL } from '@/ai/genkit';
 import { z } from 'genkit';
+import { logAIUsage } from '@/lib/ai-usage-logger';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCHEMAS
@@ -132,7 +133,9 @@ const verifyContractConsistencyFlow = ai.defineFlow(
 export async function verifyContractConsistency(
   input: VerifyContractConsistencyInput,
   userApiKey?: string,
+  userId?: string,
 ): Promise<VerifyContractConsistencyResult> {
+  const model = userApiKey ? PRO_MODEL : 'gemini-2.0-flash';
   try {
     if (userApiKey) {
       const proAI = createProAI(userApiKey);
@@ -173,11 +176,14 @@ ${input.contractText}
 """`;
       const { output } = await proAI.generate({ prompt, output: { schema: VerifyContractConsistencyOutputSchema } });
       if (!output) throw new Error('La IA Pro no pudo verificar la coherencia del contrato.');
+      if (userId) void logAIUsage(userId, 'verify-consistency', model, true, true);
       return { ok: true, data: output };
     }
     const data = await verifyContractConsistencyFlow(input);
+    if (userId) void logAIUsage(userId, 'verify-consistency', model, false, true);
     return { ok: true, data };
   } catch (err: any) {
+    if (userId) void logAIUsage(userId, 'verify-consistency', model, !!userApiKey, false);
     const msg: string = err?.message ?? '';
     if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
       return { ok: false, error: 'La clave API de IA no está configurada. Verificá tu API key en Configuración.' };

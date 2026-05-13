@@ -5,7 +5,8 @@
  * y referencias al marco legal argentino vigente.
  */
 
-import { ai, createProAI } from '@/ai/genkit';
+import { ai, createProAI, PRO_MODEL } from '@/ai/genkit';
+import { logAIUsage } from '@/lib/ai-usage-logger';
 import { z } from 'genkit';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
@@ -89,7 +90,9 @@ const queryContractFlow = ai.defineFlow(
 export async function queryContract(
   input: QueryContractInput,
   userApiKey?: string,
+  userId?: string,
 ): Promise<QueryContractResult> {
+  const model = userApiKey ? PRO_MODEL : 'gemini-2.0-flash';
   try {
     if (userApiKey) {
       const proAI = createProAI(userApiKey);
@@ -121,11 +124,14 @@ PREGUNTA DEL USUARIO:
 ${input.question}`;
       const { output } = await proAI.generate({ prompt, output: { schema: QueryContractOutputSchema } });
       if (!output) throw new Error('La IA Pro no devolvió respuesta.');
+      if (userId) void logAIUsage(userId, 'query-contract', model, true, true);
       return { ok: true, data: output };
     }
     const data = await queryContractFlow(input);
+    if (userId) void logAIUsage(userId, 'query-contract', model, false, true);
     return { ok: true, data };
   } catch (err: any) {
+    if (userId) void logAIUsage(userId, 'query-contract', model, !!userApiKey, false);
     const msg: string = err?.message ?? '';
     if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
       return { ok: false, error: 'La clave API de IA no está configurada. Verificá tu API key en Configuración.' };

@@ -317,7 +317,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       question: qaQuestion,
       perspective: 'neutral',
       contractType: 'vivienda',
-    });
+    }, undefined, userId);
     setIsAsking(false);
     if (!result.ok) {
       toast({ title: "Error del asistente", description: result.error, variant: "destructive" });

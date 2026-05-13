@@ -24,6 +24,7 @@ import { verifyContractConsistency, type VerifyContractConsistencyOutput } from 
 import { compareMarketStandard, type CompareMarketStandardOutput } from '@/ai/flows/compare-market-standard-flow';
 import { useToast } from '@/hooks/use-toast';
 import { useAIConfig } from '@/hooks/use-ai-config';
+import { useUser } from '@/firebase';
 import { Sparkles } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -166,6 +167,7 @@ export function ContractRiskPanel({
   className,
 }: ContractRiskPanelProps) {
   const { toast } = useToast();
+  const { user } = useUser();
   const { hasProKey, proKey } = useAIConfig();
 
   const [perspective, setPerspective] = useState<Perspective>('neutral');
@@ -186,7 +188,7 @@ export function ContractRiskPanel({
     const key = contractKey(contractText, `:${perspective}:${proModeOn}`);
     if (!force && riskCache.has(key)) { setRiskData(riskCache.get(key)!); return; }
     setRiskLoading(true);
-    const result = await analyzeContractRisks({ contractText, contractType, perspective }, effectiveApiKey);
+    const result = await analyzeContractRisks({ contractText, contractType, perspective }, effectiveApiKey, user?.uid);
     setRiskLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
     riskCache.set(key, result.data);
@@ -197,7 +199,7 @@ export function ContractRiskPanel({
     const key = contractKey(contractText, `:${proModeOn}`);
     if (!force && consistencyCache.has(key)) { setConsistencyData(consistencyCache.get(key)!); return; }
     setConsistencyLoading(true);
-    const result = await verifyContractConsistency({ contractText, contractType, extractedData }, effectiveApiKey);
+    const result = await verifyContractConsistency({ contractText, contractType, extractedData }, effectiveApiKey, user?.uid);
     setConsistencyLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
     consistencyCache.set(key, result.data);
@@ -217,6 +219,7 @@ export function ContractRiskPanel({
         extractedRentAmount: extractedData?.baseRentAmount,
       },
       effectiveApiKey,
+      user?.uid,
     );
     setMarketLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }

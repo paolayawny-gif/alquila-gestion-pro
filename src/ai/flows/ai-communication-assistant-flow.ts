@@ -14,6 +14,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { logAIUsage } from '@/lib/ai-usage-logger';
 
 const AiCommunicationAssistantInputSchema = z.object({
   communicationType: z
@@ -94,9 +95,12 @@ const AiCommunicationAssistantOutputSchema = z.object({
 export type AiCommunicationAssistantOutput = z.infer<typeof AiCommunicationAssistantOutputSchema>;
 
 export async function aiCommunicationAssistant(
-  input: AiCommunicationAssistantInput
+  input: AiCommunicationAssistantInput,
+  userId?: string,
 ): Promise<AiCommunicationAssistantOutput> {
-  return aiCommunicationAssistantFlow(input);
+  const result = await aiCommunicationAssistantFlow(input);
+  if (userId) void logAIUsage(userId, 'ai-communication', 'gemini-2.0-flash', false, true);
+  return result;
 }
 
 const TIPO_INSTRUCCIONES: Record<string, string> = {

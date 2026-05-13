@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIUsagePanel } from '@/components/dashboard/ai-usage-panel';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
 import type {
   AdminService, AdminPaymentConfig, ServiceCategory, ServiceClientTarget,
@@ -81,6 +82,9 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
           <TabsTrigger value="servicios" className="text-xs font-bold gap-1.5">
             <Briefcase className="h-3.5 w-3.5" />Servicios y Cobros
           </TabsTrigger>
+          <TabsTrigger value="ia" className="text-xs font-bold gap-1.5">
+            <Brain className="h-3.5 w-3.5" />Uso de IA
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="max-w-2xl space-y-6">
@@ -95,6 +99,16 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
 
         <TabsContent value="servicios" className="space-y-6">
           <ServicesAndBillingTab userId={userId} />
+        </TabsContent>
+
+        <TabsContent value="ia" className="max-w-2xl space-y-4">
+          <div>
+            <h3 className="text-sm font-black text-foreground">Uso de IA</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Registro de todas las llamadas a Gemini desde tu cuenta. Flash = modelo estándar · Pro = tu API key propia.
+            </p>
+          </div>
+          <AIUsagePanel />
         </TabsContent>
       </Tabs>
     </div>

@@ -141,7 +141,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
           app.references,
           app.guarantorName ? `Garante: ${app.guarantorName} (${app.guarantorType ?? 'Sin especificar'})` : '',
         ].filter(Boolean).join(' | '),
-      });
+      }, undefined, userId);
 
       if (userId && db) {
         const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
@@ -178,7 +178,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
             app.references,
             app.guarantorName ? `Garante: ${app.guarantorName} (${app.guarantorType ?? ''})` : '',
           ].filter(Boolean).join(' | '),
-        });
+        }, undefined, userId);
         const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
         setDocumentNonBlocking(docRef, { status: 'En análisis', aiAnalysis: result }, { merge: true });
       } catch { /* continue */ }

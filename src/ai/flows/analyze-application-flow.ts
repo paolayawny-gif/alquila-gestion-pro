@@ -9,7 +9,8 @@
  * - Situación BCRA del postulante (si está disponible)
  */
 
-import { ai, createProAI } from '@/ai/genkit';
+import { ai, createProAI, PRO_MODEL } from '@/ai/genkit';
+import { logAIUsage } from '@/lib/ai-usage-logger';
 import { z } from 'genkit';
 
 const AnalyzeApplicationInputSchema = z.object({
@@ -141,7 +142,9 @@ const analyzeApplicationFlow = ai.defineFlow(
 export async function analyzeApplication(
   input: AnalyzeApplicationInput,
   userApiKey?: string,
+  userId?: string,
 ): Promise<AnalyzeApplicationOutput> {
+  const model = userApiKey ? PRO_MODEL : 'gemini-2.0-flash';
   if (userApiKey) {
     const proAI = createProAI(userApiKey);
     const prompt = `Sos un analista de riesgo crediticio especializado en el mercado inmobiliario argentino. Analizá la siguiente solicitud de alquiler.
@@ -192,7 +195,10 @@ CRITERIOS DE EVALUACIÓN PARA ARGENTINA:
 TONO: profesional, español rioplatense. Sé específico con los números.`;
     const { output } = await proAI.generate({ prompt, output: { schema: AnalyzeApplicationOutputSchema } });
     if (!output) throw new Error('El análisis Pro falló.');
+    if (userId) void logAIUsage(userId, 'analyze-application', model, true, true);
     return output;
   }
-  return analyzeApplicationFlow(input);
+  const result = await analyzeApplicationFlow(input);
+  if (userId) void logAIUsage(userId, 'analyze-application', model, false, true);
+  return result;
 }
