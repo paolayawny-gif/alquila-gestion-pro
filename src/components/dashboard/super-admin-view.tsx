@@ -209,6 +209,14 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     return allStats.find(s => s.adminEmail === selectedOrg.ownerEmail) ?? null;
   }, [allStats, selectedOrg]);
 
+  // Stats por org y agregados globales — deben estar ANTES de cualquier return condicional
+  const stats = useMemo(() => ({
+    total:      organizations.length,
+    active:     organizations.filter(o => o.status === 'Activa').length,
+    pending:    organizations.filter(o => o.status === 'Pendiente').length,
+    enterprise: organizations.filter(o => o.plan === 'Enterprise').length,
+  }), [organizations]);
+
   // Agregados globales de plataforma
   const platformStats = useMemo(() => {
     const totalProps   = allStats.reduce((s, a) => s + (a.propiedadesTotal  || 0), 0);
@@ -244,13 +252,6 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    total: organizations.length,
-    active: organizations.filter(o => o.status === 'Activa').length,
-    pending: organizations.filter(o => o.status === 'Pendiente').length,
-    enterprise: organizations.filter(o => o.plan === 'Enterprise').length,
-  }), [organizations]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
