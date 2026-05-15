@@ -77,7 +77,7 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
     );
   }, [db, tenantEntry.tenantEmail]);
   const { data: ticketsRaw } = useCollection<MaintenanceTicket>(ticketsQ);
-  const tickets = [...(ticketsRaw ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const tickets = [...(ticketsRaw ?? [])].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
   const handleCreate = () => {
     if (!title.trim() || !db || !user) {
@@ -170,7 +170,7 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
                       <div className="flex-1 min-w-0">
                         <p className="font-black text-sm text-foreground">{t.title}</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                          {t.category} · {t.createdAt.slice(0, 10).split('-').reverse().join('/')}
+                          {t.category} · {t.createdAt?.slice(0, 10).split('-').reverse().join('/') ?? '—'}
                         </p>
                         {t.description && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{t.description}</p>

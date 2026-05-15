@@ -60,7 +60,7 @@ export function TenantPaymentPlans({ tenantEntry }: TenantPaymentPlansProps) {
       caseId: c.id,
       propertyName: c.propertyName,
     })),
-  ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  ).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
   const handleRespond = async () => {
     if (!confirmPlan || !db) return;

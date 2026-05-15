@@ -218,7 +218,7 @@ export function OwnerOpportunities({ ownerEntry }: Props) {
   const { data: suggestionsRaw } = useCollection<MonetizationSuggestion>(suggestionsQ);
 
   const suggestions = [...(suggestionsRaw ?? [])].sort(
-    (a, b) => b.sentAt.localeCompare(a.sentAt),
+    (a, b) => (b.sentAt ?? '').localeCompare(a.sentAt ?? ''),
   );
   const pendingSuggestions  = suggestions.filter(s => s.status === 'enviada' || s.status === 'vista');
   const repliedSuggestions  = suggestions.filter(s => s.status === 'interesado' || s.status === 'no_por_ahora');
@@ -257,7 +257,7 @@ export function OwnerOpportunities({ ownerEntry }: Props) {
   }, [db, ownerEntry.adminId, ownerEntry.ownerEmail]);
   const { data: offersRaw } = useCollection<MonetizationOffer>(offersQ);
 
-  const offers = [...(offersRaw ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const offers = [...(offersRaw ?? [])].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
   // ── Offer form ─────────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
@@ -671,7 +671,7 @@ export function OwnerOpportunities({ ownerEntry }: Props) {
                             <span className="text-xs text-muted-foreground">{offer.area}</span>
                           )}
                           <span className="text-[10px] text-muted-foreground ml-auto">
-                            {offer.createdAt.slice(0, 10).split('-').reverse().join('/')}
+                            {offer.createdAt?.slice(0, 10).split('-').reverse().join('/') ?? '—'}
                           </span>
                         </div>
 

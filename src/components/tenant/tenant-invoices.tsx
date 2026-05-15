@@ -68,7 +68,7 @@ export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
     );
   }, [db, tenantEntry.adminId, tenantEntry.tenantEmail]);
   const { data: invRaw } = useCollection<Invoice>(invQ);
-  const invoices = [...(invRaw ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+  const invoices = [...(invRaw ?? [])].sort((a, b) => (b.dueDate ?? '').localeCompare(a.dueDate ?? ''));
 
   const pending  = invoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido').length;
   const paid     = invoices.filter(i => i.status === 'Pagado').length;

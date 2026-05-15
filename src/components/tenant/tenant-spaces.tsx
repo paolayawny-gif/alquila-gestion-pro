@@ -63,8 +63,8 @@ function fmt(n: number, cur: 'ARS' | 'USD' = 'ARS') {
   return `${cur === 'USD' ? 'U$D' : '$'}${n.toLocaleString('es-AR')}`;
 }
 
-function formatDate(iso: string) {
-  return iso.slice(0, 10).split('-').reverse().join('/');
+function formatDate(iso: string | undefined) {
+  return iso?.slice(0, 10).split('-').reverse().join('/') ?? '—';
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ export function TenantSpaces({ tenantEntry }: Props) {
     );
   }, [db, tenantEntry.adminId, tenantEntry.propertyId]);
   const { data: offersRaw } = useCollection<MonetizationOffer>(offersQ);
-  const offers = [...(offersRaw ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const offers = [...(offersRaw ?? [])].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
   // ── Live data: tenant's requests ─────────────────────────────────────────
   const requestsQ = useMemoFirebase(() => {
@@ -106,7 +106,7 @@ export function TenantSpaces({ tenantEntry }: Props) {
     );
   }, [db, tenantEntry.adminId, tenantEntry.tenantEmail]);
   const { data: requestsRaw } = useCollection<MonetizationRequest>(requestsQ);
-  const myRequests = [...(requestsRaw ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const myRequests = [...(requestsRaw ?? [])].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
   // ── Submit new request ────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
