@@ -277,6 +277,18 @@ export default function AppClient() {
   // Show onboarding wizard on first load when no data yet — declared after data arrays
 
   const handleLogout = async () => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      }
+    } catch {
+      // best-effort: always sign out regardless
+    }
+    localStorage.removeItem('agp_session_id');
     await signOut(auth);
   };
 

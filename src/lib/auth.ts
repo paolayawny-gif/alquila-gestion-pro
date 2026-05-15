@@ -1,18 +1,22 @@
 import { SignJWT, jwtVerify } from "jose";
+import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebase-admin";
 
-const isProd = process.env.NODE_ENV === "production";
 const rawSecret = process.env.JWT_SECRET;
 
-if (isProd && !rawSecret) {
-  throw new Error(
-    "JWT_SECRET is required in production. Set it in your environment (Vercel → Settings → Environment Variables).",
-  );
+if (!rawSecret) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "JWT_SECRET is required in production. Set it in your environment (Vercel → Settings → Environment Variables).",
+    );
+  }
+  console.warn("[auth] JWT_SECRET not set — using ephemeral secret. Sessions will not persist between server restarts.");
 }
 
-const secretKey = rawSecret || "dev_only_secret_change_for_production";
+// In dev without JWT_SECRET: random per process start (no known fallback value)
+const secretKey = rawSecret ?? randomBytes(32).toString("hex");
 const encodedKey = new TextEncoder().encode(secretKey);
 
 export type SessionPayload = {

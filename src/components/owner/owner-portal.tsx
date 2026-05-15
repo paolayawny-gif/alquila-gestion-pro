@@ -78,6 +78,20 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const auth = useAuth();
 
+  const handleLogout = async () => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      }
+    } catch { /* best-effort */ }
+    localStorage.removeItem('agp_session_id');
+    signOut(auth);
+  };
+
   // ── Blocked screens ──────────────────────────────────────────────────────
   const status = ownerEntry.status ?? 'activo';
 
@@ -207,7 +221,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
             </button>
           )}
           <button
-            onClick={() => signOut(auth)}
+            onClick={handleLogout}
             className={cn(
               'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors',
               collapsed && 'justify-center',

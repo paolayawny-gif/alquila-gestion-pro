@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Loader2, Mail, Lock, UserPlus, LogIn, Info,
@@ -93,11 +93,23 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   useEffect(() => {
     if (user && !isUserLoading) router.push('/');
   }, [user, isUserLoading, router]);
+
+  // Show message when session was terminated by another device login
+  useEffect(() => {
+    if (searchParams.get('reason') === 'device') {
+      toast({
+        title: 'Sesión cerrada',
+        description: 'Tu sesión fue cerrada porque ingresaste desde otro dispositivo.',
+        variant: 'destructive',
+      });
+    }
+  }, [searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,10 +117,29 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       if (mode === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        // Register session server-side (sets JWT cookie + Firestore sessionId for cross-device detection)
+        const idToken = await credential.user.getIdToken();
+        const res = await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (res.ok) {
+          const { sessionId } = await res.json();
+          localStorage.setItem('agp_session_id', sessionId);
+        }
         toast({ title: 'Bienvenido', description: 'Sesión iniciada correctamente.' });
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        const idToken = await credential.user.getIdToken();
+        const res = await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (res.ok) {
+          const { sessionId } = await res.json();
+          localStorage.setItem('agp_session_id', sessionId);
+        }
         toast({ title: 'Cuenta creada', description: 'Tu cuenta fue registrada correctamente.' });
       }
     } catch (error: any) {
