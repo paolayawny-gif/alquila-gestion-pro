@@ -54,7 +54,7 @@ export async function decrypt(session: string | undefined = "") {
 }
 
 export async function createSession(userId: string, role: string, agencyId?: string) {
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 horas
   const session = await encrypt({ userId, role, agencyId, expiresAt });
 
   const cookieStore = await cookies();
@@ -62,7 +62,7 @@ export async function createSession(userId: string, role: string, agencyId?: str
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     expires: expiresAt,
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
   });
 }
