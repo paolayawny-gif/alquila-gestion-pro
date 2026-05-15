@@ -7,12 +7,13 @@ import Link from 'next/link';
 import {
   Loader2, Mail, Lock, UserPlus, LogIn, Info,
   Building2, FileText, BrainCircuit, BarChart3, ShieldCheck, Play, ArrowRight,
+  Fingerprint,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -90,6 +91,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+  const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false);
+  const [webAuthnSupported, setWebAuthnSupported] = useState(false);
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
@@ -99,6 +104,15 @@ export default function LoginPage() {
   useEffect(() => {
     if (user && !isUserLoading) router.push('/');
   }, [user, isUserLoading, router]);
+
+  // Detect WebAuthn support
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setWebAuthnSupported)
+        .catch(() => setWebAuthnSupported(false));
+    }
+  }, []);
 
   // Show message when session was terminated by another device login
   useEffect(() => {
@@ -110,6 +124,90 @@ export default function LoginPage() {
       });
     }
   }, [searchParams, toast]);
+
+  // Register passkey after successful password login
+  const handleRegisterPasskey = async () => {
+    setIsRegisteringPasskey(true);
+    try {
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('No autenticado');
+
+      const optRes = await fetch('/api/auth/passkey/register', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const { options, stateToken } = await optRes.json();
+
+      const regResponse = await startRegistration({ optionsJSON: options });
+
+      const verRes = await fetch('/api/auth/passkey/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ response: regResponse, stateToken }),
+      });
+
+      if (!verRes.ok) throw new Error('Error al registrar');
+
+      setShowPasskeyPrompt(false);
+      toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        toast({ title: 'No se pudo activar', description: err.message, variant: 'destructive' });
+      }
+    } finally {
+      setIsRegisteringPasskey(false);
+    }
+  };
+
+  // Login with passkey (biometric)
+  const handleBiometricLogin = async () => {
+    if (!email) {
+      toast({ title: 'Ingresá tu email primero', variant: 'destructive' });
+      return;
+    }
+    setIsBiometricLoading(true);
+    try {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+
+      const optRes = await fetch(`/api/auth/passkey/authenticate?email=${encodeURIComponent(email)}`);
+      if (optRes.status === 404) {
+        toast({ title: 'Sin huella registrada', description: 'Primero iniciá sesión con tu contraseña para activar la biometría.', variant: 'destructive' });
+        return;
+      }
+      const { options, stateToken } = await optRes.json();
+
+      const authResponse = await startAuthentication({ optionsJSON: options });
+
+      const verRes = await fetch('/api/auth/passkey/authenticate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: authResponse, stateToken }),
+      });
+      if (!verRes.ok) {
+        const { error } = await verRes.json();
+        throw new Error(error);
+      }
+      const { customToken } = await verRes.json();
+
+      const credential = await signInWithCustomToken(auth, customToken);
+      const idToken = await credential.user.getIdToken();
+      const sesRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (sesRes.ok) {
+        const { sessionId } = await sesRes.json();
+        localStorage.setItem('agp_session_id', sessionId);
+      }
+      toast({ title: 'Bienvenido', description: 'Sesión iniciada con biometría.' });
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        toast({ title: 'Error de autenticación', description: err.message, variant: 'destructive' });
+      }
+    } finally {
+      setIsBiometricLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,6 +227,10 @@ export default function LoginPage() {
           localStorage.setItem('agp_session_id', sessionId);
         }
         toast({ title: 'Bienvenido', description: 'Sesión iniciada correctamente.' });
+        // Offer passkey registration if device supports it and not already registered
+        if (webAuthnSupported) {
+          setShowPasskeyPrompt(true);
+        }
       } else {
         const credential = await createUserWithEmailAndPassword(auth, email, password);
         const idToken = await credential.user.getIdToken();
@@ -141,6 +243,9 @@ export default function LoginPage() {
           localStorage.setItem('agp_session_id', sessionId);
         }
         toast({ title: 'Cuenta creada', description: 'Tu cuenta fue registrada correctamente.' });
+        if (webAuthnSupported) {
+          setShowPasskeyPrompt(true);
+        }
       }
     } catch (error: any) {
       let message = 'Ocurrió un error inesperado.';
@@ -418,7 +523,65 @@ export default function LoginPage() {
                 <><UserPlus className="h-5 w-5 mr-2" /> Crear Cuenta</>
               )}
             </Button>
+
+            {/* Biometric login button — shown only in login mode and if device supports it */}
+            {mode === 'login' && webAuthnSupported && (
+              <div className="relative flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[11px] text-muted-foreground font-medium">o</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+            )}
+            {mode === 'login' && webAuthnSupported && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isBiometricLoading}
+                onClick={handleBiometricLogin}
+                className="w-full h-11 font-semibold rounded-xl border-2 gap-2"
+              >
+                {isBiometricLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Fingerprint className="h-5 w-5 text-primary" />
+                )}
+                Ingresar con huella / Face ID
+              </Button>
+            )}
           </form>
+
+          {/* Passkey registration prompt — shown after successful password login */}
+          {showPasskeyPrompt && (
+            <div className="mt-5 p-4 rounded-xl border-2 border-primary/20 bg-primary/5">
+              <div className="flex items-start gap-3">
+                <Fingerprint className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-foreground">¿Activar acceso biométrico?</p>
+                  <p className="text-[11.5px] text-muted-foreground mt-0.5 leading-snug">
+                    La próxima vez podés entrar con huella dactilar, Face ID o Windows Hello.
+                  </p>
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      disabled={isRegisteringPasskey}
+                      onClick={handleRegisterPasskey}
+                      className="h-8 text-xs font-bold px-4"
+                    >
+                      {isRegisteringPasskey ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Activar'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowPasskeyPrompt(false)}
+                      className="h-8 text-xs text-muted-foreground"
+                    >
+                      Ahora no
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Switch mode */}
           <p className="mt-6 text-sm text-center text-muted-foreground">

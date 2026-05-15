@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   '/login',
   '/landing',
   '/api/auth/session',
+  '/api/auth/passkey',
   '/api/billing/webhook',
   '/api/signature',       // firmantes externos no autenticados
   '/_next',
