@@ -169,7 +169,7 @@ export function OwnerProperties({ ownerEntry }: OwnerPropertiesProps) {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Vence</span>
                         <span className="text-xs font-bold">
-                          {activeContract.endDate.split('-').reverse().join('/')}
+                          {activeContract.endDate?.split('-').reverse().join('/') ?? '—'}
                         </span>
                       </div>
                     </div>

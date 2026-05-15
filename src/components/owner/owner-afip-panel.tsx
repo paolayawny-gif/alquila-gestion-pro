@@ -54,6 +54,7 @@ export function OwnerAfipPanel({ ownerEntry }: OwnerAfipPanelProps) {
   const [emittingId,      setEmittingId]      = useState<string | null>(null);
   const [storedConfig,    setStoredConfig]    = useState<AfipStoredConfig | null>(null);
   const [loadingConfig,   setLoadingConfig]   = useState(true);
+  const [guideOpen,       setGuideOpen]       = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── Load stored config (non-sensitive fields from Firestore client) ───────
@@ -203,8 +204,6 @@ export function OwnerAfipPanel({ ownerEntry }: OwnerAfipPanelProps) {
   }
 
   const tipoLabel = (t: number) => t === 11 ? 'Factura C (Monotributo)' : 'Factura B (Responsable Inscripto)';
-
-  const [guideOpen, setGuideOpen] = useState(!storedConfig);
 
   const GUIDE_STEPS = [
     {
