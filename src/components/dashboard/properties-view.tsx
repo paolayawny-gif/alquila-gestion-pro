@@ -59,17 +59,15 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
 
-  // Cuento dependencias de cada propiedad para bloquear deletes peligrosos
-  const contractsQ = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'contratos'), where('status', '==', 'Vigente'));
-  }, [db, userId]);
-  const { data: vigentesData } = useCollection<{ propertyId: string }>(contractsQ);
+  // Cuento dependencias de cada propiedad para bloquear deletes peligrosos.
+  // Los contratos llegan por props desde app-client — no hace falta re-suscribir.
   const vigentesByProp = useMemo(() => {
     const map = new Map<string, number>();
-    (vigentesData ?? []).forEach(c => map.set(c.propertyId, (map.get(c.propertyId) ?? 0) + 1));
+    contracts
+      .filter(c => c.status === 'Vigente')
+      .forEach(c => map.set(c.propertyId, (map.get(c.propertyId) ?? 0) + 1));
     return map;
-  }, [vigentesData]);
+  }, [contracts]);
 
   const getDeleteBlocker = (p: Property): string | null => {
     const vigentes = vigentesByProp.get(p.id) ?? 0;
