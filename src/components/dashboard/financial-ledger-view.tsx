@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
+// xlsx se carga de forma diferida dentro del handler de exportación.
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -247,7 +247,8 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
           <h2 className="text-2xl font-black text-foreground">Libro Mayor Financiero</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Rendimiento financiero detallado por propiedad.</p>
         </div>
-        <Button variant="outline" className="gap-2 font-bold" onClick={() => {
+        <Button variant="outline" className="gap-2 font-bold" onClick={async () => {
+          const XLSX = await import('xlsx');
           const wb = XLSX.utils.book_new();
 
           // Sheet 1: Libro Mayor mensual

@@ -22,7 +22,7 @@ import { doc, writeBatch, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Badge } from '@/components/ui/badge';
 import { fetchCerFromBcra } from '@/ai/flows/fetch-cer-bcra-action';
-import * as XLSX from 'xlsx';
+// xlsx se carga de forma diferida dentro del handler de importación.
 
 interface IndexRecordsViewProps {
   records: IndexRecord[];
@@ -161,6 +161,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
     setImportResult(null);
     try {
       const buffer = await file.arrayBuffer();
+      const XLSX = await import('xlsx');
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });

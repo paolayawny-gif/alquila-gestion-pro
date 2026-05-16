@@ -45,7 +45,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BottomNav } from '@/components/ui/bottom-nav';
-import { SummaryView } from '@/components/dashboard/summary-view';
 import { PropertiesView } from '@/components/dashboard/properties-view';
 import { TenantsView } from '@/components/dashboard/tenants-view';
 import { InvoicesView } from '@/components/dashboard/invoices-view';
@@ -53,14 +52,9 @@ import { MaintenanceView } from '@/components/dashboard/maintenance-view';
 import { LegalView } from '@/components/dashboard/legal-view';
 import { LiquidationsView } from '@/components/dashboard/liquidations-view';
 import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
-import { AIAnalyticsView } from '@/components/dashboard/ai-analytics-view';
-import { PredictiveMaintenanceView } from '@/components/dashboard/predictive-maintenance-view';
-import { ROISimulatorView } from '@/components/dashboard/roi-simulator-view';
-import { FinancialLedgerView } from '@/components/dashboard/financial-ledger-view';
 import { ContractGeneratorView } from '@/components/dashboard/contract-generator-view';
 import { ApplicationsView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
-import { AnalyticsPanelView } from '@/components/dashboard/analytics-panel-view';
 import { IndexRecordsView } from '@/components/dashboard/index-records-view';
 import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
 import { DepositsView } from '@/components/dashboard/deposits-view';
@@ -114,6 +108,37 @@ import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
 import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
 import { NpsSurvey } from '@/components/ui/nps-survey';
+import dynamic from 'next/dynamic';
+
+// Vistas con gráficos (recharts) — se cargan de forma diferida para no incluir
+// la librería de gráficos en el bundle inicial. Solo se descarga al abrir la pestaña.
+const chartViewLoading = () => (
+  <div className="p-8 text-sm text-muted-foreground">Cargando…</div>
+);
+const SummaryView = dynamic(
+  () => import('@/components/dashboard/summary-view').then(m => m.SummaryView),
+  { loading: chartViewLoading },
+);
+const AIAnalyticsView = dynamic(
+  () => import('@/components/dashboard/ai-analytics-view').then(m => m.AIAnalyticsView),
+  { loading: chartViewLoading },
+);
+const PredictiveMaintenanceView = dynamic(
+  () => import('@/components/dashboard/predictive-maintenance-view').then(m => m.PredictiveMaintenanceView),
+  { loading: chartViewLoading },
+);
+const ROISimulatorView = dynamic(
+  () => import('@/components/dashboard/roi-simulator-view').then(m => m.ROISimulatorView),
+  { loading: chartViewLoading },
+);
+const FinancialLedgerView = dynamic(
+  () => import('@/components/dashboard/financial-ledger-view').then(m => m.FinancialLedgerView),
+  { loading: chartViewLoading },
+);
+const AnalyticsPanelView = dynamic(
+  () => import('@/components/dashboard/analytics-panel-view').then(m => m.AnalyticsPanelView),
+  { loading: chartViewLoading },
+);
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler';
