@@ -18,7 +18,7 @@ import { Contract, Liquidation, Property } from '@/lib/types';
 import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
 
 const APP_ID = 'alquilagestion-pro';
-const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerHomeProps {
   ownerEntry: OwnerRegistryEntry;

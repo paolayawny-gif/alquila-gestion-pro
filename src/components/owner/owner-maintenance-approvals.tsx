@@ -37,7 +37,7 @@ const STATUS_COLOR: Record<string, string> = {
   'Cerrado':       'bg-gray-50 text-gray-500 border-gray-200',
 };
 
-const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerMaintenanceApprovalsProps {
   ownerEntry: OwnerRegistryEntry;

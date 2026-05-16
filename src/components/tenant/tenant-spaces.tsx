@@ -59,9 +59,7 @@ const REQUEST_STATUS_CFG: Record<RequestStatus, { label: string; color: string; 
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function fmt(n: number, cur: 'ARS' | 'USD' = 'ARS') {
-  return `${cur === 'USD' ? 'U$D' : '$'}${n.toLocaleString('es-AR')}`;
-}
+import { fmtMoney as fmt } from '@/lib/format';
 
 function formatDate(iso: string | undefined) {
   return iso?.slice(0, 10).split('-').reverse().join('/') ?? '—';

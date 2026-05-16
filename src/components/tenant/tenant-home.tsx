@@ -23,8 +23,7 @@ const APP_ID = 'alquilagestion-pro';
 function daysUntil(dateStr: string) {
   return Math.round((new Date(dateStr + 'T00:00:00').getTime() - Date.now()) / 86_400_000);
 }
-const fmt = (n: number, cur = 'ARS') =>
-  `${cur === 'USD' ? 'U$D' : '$'}${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface TenantHomeProps {
   tenantEntry: TenantRegistryEntry;

@@ -21,8 +21,7 @@ import { OwnerRegistryEntry } from './owner-portal';
 import { Invoice } from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
-const fmt = (n: number, cur = 'ARS') =>
-  `${cur === 'USD' ? 'U$D' : '$'}${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface AfipStoredConfig {
   cuit:            string;

@@ -31,8 +31,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Ele
   'Esperando Factura ARCA':  { label: 'Esperando ARCA',    color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Clock        },
 };
 
-const fmt = (n: number, cur = 'ARS') =>
-  `${cur === 'USD' ? 'U$D' : '$'}${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface TenantInvoicesProps {
   tenantEntry: TenantRegistryEntry;

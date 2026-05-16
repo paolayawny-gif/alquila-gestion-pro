@@ -25,6 +25,15 @@ export function formatCurrency(
 }
 
 /**
+ * Formato moneda compacto sin espacio, estilo portales: 1234567 → "$1.234.567",
+ * USD → "U$D1.234.567". Equivale a los `fmt` inline que había duplicados en
+ * los componentes de portal. Mantener este formato exacto para no alterar la UI.
+ */
+export function fmtMoney(n: number, cur: 'ARS' | 'USD' | string = 'ARS'): string {
+  return `${cur === 'USD' ? 'U$D' : '$'}${(n ?? 0).toLocaleString('es-AR')}`;
+}
+
+/**
  * Formato moneda corto: 1500000 → "$1,5M", 12500 → "$12,5K"
  */
 export function formatCurrencyShort(value: number, currency: 'ARS' | 'USD' | 'UVA' = 'ARS'): string {
