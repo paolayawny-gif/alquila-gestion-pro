@@ -43,6 +43,7 @@ import {
   Settings,
   HelpCircle,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { BottomNav } from '@/components/ui/bottom-nav';
 import { PropertiesView } from '@/components/dashboard/properties-view';
@@ -237,9 +238,10 @@ export default function AppClient() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const db = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
   const orgCtx = useOrgContext();
@@ -290,6 +292,14 @@ export default function AppClient() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Hard auth guard: the dashboard must never render for an unauthenticated
+  // visitor. If Firebase has no signed-in user, send them to /login.
+  useEffect(() => {
+    if (isMounted && !isUserLoading && !user) {
+      router.replace('/login');
+    }
+  }, [isMounted, isUserLoading, user, router]);
 
   // Ctrl+K / Cmd+K → open command palette
   useEffect(() => {
@@ -600,7 +610,9 @@ export default function AppClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties.length, contracts.length, invoices.length, tasks.length, db, user?.uid]);
 
-  if (!isMounted) return null;
+  if (!isMounted || isUserLoading) return null;
+  // Not authenticated → render nothing while the guard effect redirects to /login.
+  if (!user) return null;
 
   // ── Show tenant portal if user is a tenant ──────────────────────────────
   if (tenantEntry && !forceAdmin && !isSuperAdmin) {

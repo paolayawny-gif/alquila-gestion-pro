@@ -95,29 +95,17 @@ function LoginPageInner() {
   const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
   const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false);
   const [webAuthnSupported, setWebAuthnSupported] = useState(false);
-  const { user, isUserLoading } = useUser();
+  const { isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  // If Firebase has a persisted session (e.g. Android PWA, returning user) but no server-side
-  // session cookie exists yet, create the cookie automatically and redirect to dashboard.
-  // This prevents an infinite redirect loop between middleware and the login page.
-  useEffect(() => {
-    if (isUserLoading || !user) return;
-    user.getIdToken().then(async (idToken) => {
-      const res = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (res.ok) {
-        const { sessionId } = await res.json();
-        localStorage.setItem('agp_session_id', sessionId);
-      }
-      router.push('/');
-    });
-  }, [user, isUserLoading, router]);
+  // NOTE: We deliberately do NOT auto-restore a session from Firebase's
+  // persisted user here. Firebase keeps the user signed in indefinitely in
+  // the browser, so auto-restoring would let anyone open the app and land
+  // straight in the last-used account without entering credentials.
+  // Authentication must always be an explicit action: password or biometric.
 
   // Detect WebAuthn support
   useEffect(() => {
@@ -170,6 +158,7 @@ function LoginPageInner() {
       }
     } finally {
       setIsRegisteringPasskey(false);
+      router.push('/');
     }
   };
 
@@ -214,6 +203,7 @@ function LoginPageInner() {
         localStorage.setItem('agp_session_id', sessionId);
       }
       toast({ title: 'Bienvenido', description: 'Sesión iniciada con biometría.' });
+      router.push('/');
     } catch (err: any) {
       if (err.name !== 'NotAllowedError') {
         toast({ title: 'Error de autenticación', description: err.message, variant: 'destructive' });
@@ -241,9 +231,11 @@ function LoginPageInner() {
           localStorage.setItem('agp_session_id', sessionId);
         }
         toast({ title: 'Bienvenido', description: 'Sesión iniciada correctamente.' });
-        // Offer passkey registration if device supports it and not already registered
+        // Offer passkey registration if device supports it; otherwise go straight in
         if (webAuthnSupported) {
           setShowPasskeyPrompt(true);
+        } else {
+          router.push('/');
         }
       } else {
         const credential = await createUserWithEmailAndPassword(auth, email, password);
@@ -259,6 +251,8 @@ function LoginPageInner() {
         toast({ title: 'Cuenta creada', description: 'Tu cuenta fue registrada correctamente.' });
         if (webAuthnSupported) {
           setShowPasskeyPrompt(true);
+        } else {
+          router.push('/');
         }
       }
     } catch (error: any) {
@@ -586,7 +580,7 @@ function LoginPageInner() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setShowPasskeyPrompt(false)}
+                      onClick={() => router.push('/')}
                       className="h-8 text-xs text-muted-foreground"
                     >
                       Ahora no
