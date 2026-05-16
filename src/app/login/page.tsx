@@ -92,8 +92,6 @@ function LoginPageInner() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
-  const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
-  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false);
   const [webAuthnSupported, setWebAuthnSupported] = useState(false);
   const { isUserLoading } = useUser();
   const auth = useAuth();
@@ -126,44 +124,6 @@ function LoginPageInner() {
       });
     }
   }, [searchParams, toast]);
-
-  // Register passkey after successful password login
-  const handleRegisterPasskey = async () => {
-    setIsRegisteringPasskey(true);
-    try {
-      const { startRegistration } = await import('@simplewebauthn/browser');
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('No autenticado');
-
-      const optRes = await fetch('/api/auth/passkey/register', {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      const { options, stateToken } = await optRes.json();
-
-      const regResponse = await startRegistration(options);
-
-      const verRes = await fetch('/api/auth/passkey/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ response: regResponse, stateToken }),
-      });
-
-      if (!verRes.ok) throw new Error('Error al registrar');
-
-      setShowPasskeyPrompt(false);
-      // Biometric was just verified to register the passkey — don't make the
-      // BiometricGate ask for it again on the dashboard this session.
-      sessionStorage.setItem('agp_biometric_unlocked', '1');
-      toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
-    } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
-        toast({ title: 'No se pudo activar', description: err.message, variant: 'destructive' });
-      }
-    } finally {
-      setIsRegisteringPasskey(false);
-      router.push('/');
-    }
-  };
 
   // Login with passkey (biometric)
   const handleBiometricLogin = async () => {
@@ -237,12 +197,7 @@ function LoginPageInner() {
           sessionStorage.setItem('agp_session_id', sessionId);
         }
         toast({ title: 'Bienvenido', description: 'Sesión iniciada correctamente.' });
-        // Offer passkey registration if device supports it; otherwise go straight in
-        if (webAuthnSupported) {
-          setShowPasskeyPrompt(true);
-        } else {
-          router.push('/');
-        }
+        router.push('/');
       } else {
         const credential = await createUserWithEmailAndPassword(auth, email, password);
         const idToken = await credential.user.getIdToken();
@@ -255,11 +210,7 @@ function LoginPageInner() {
           sessionStorage.setItem('agp_session_id', sessionId);
         }
         toast({ title: 'Cuenta creada', description: 'Tu cuenta fue registrada correctamente.' });
-        if (webAuthnSupported) {
-          setShowPasskeyPrompt(true);
-        } else {
-          router.push('/');
-        }
+        router.push('/');
       }
     } catch (error: any) {
       let message = 'Ocurrió un error inesperado.';
@@ -563,39 +514,6 @@ function LoginPageInner() {
               </Button>
             )}
           </form>
-
-          {/* Passkey registration prompt — shown after successful password login */}
-          {showPasskeyPrompt && (
-            <div className="mt-5 p-4 rounded-xl border-2 border-primary/20 bg-primary/5">
-              <div className="flex items-start gap-3">
-                <Fingerprint className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-foreground">¿Activar acceso biométrico?</p>
-                  <p className="text-[11.5px] text-muted-foreground mt-0.5 leading-snug">
-                    La próxima vez podés entrar con huella dactilar, Face ID o Windows Hello.
-                  </p>
-                  <div className="flex gap-2 mt-3">
-                    <Button
-                      size="sm"
-                      disabled={isRegisteringPasskey}
-                      onClick={handleRegisterPasskey}
-                      className="h-8 text-xs font-bold px-4"
-                    >
-                      {isRegisteringPasskey ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Activar'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => router.push('/')}
-                      className="h-8 text-xs text-muted-foreground"
-                    >
-                      Ahora no
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Switch mode */}
           <p className="mt-6 text-sm text-center text-muted-foreground">

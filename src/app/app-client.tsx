@@ -42,6 +42,7 @@ import {
   Menu,
   Settings,
   HelpCircle,
+  Fingerprint,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -237,6 +238,7 @@ export default function AppClient() {
   const [isMounted, setIsMounted] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
   
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -293,6 +295,15 @@ export default function AppClient() {
     setIsMounted(true);
   }, []);
 
+  // Detect built-in biometric support (Touch ID / Face ID / Windows Hello)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setBiometricSupported)
+        .catch(() => setBiometricSupported(false));
+    }
+  }, []);
+
   // Hard auth guard: the dashboard must never render for an unauthenticated
   // visitor. If Firebase has no signed-in user, send them to /login.
   useEffect(() => {
@@ -314,6 +325,35 @@ export default function AppClient() {
   }, []);
 
   // Show onboarding wizard on first load when no data yet — declared after data arrays
+
+  // Register a passkey so future logins can use biometrics
+  const handleEnableBiometric = async () => {
+    try {
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('No autenticado');
+
+      const optRes = await fetch('/api/auth/passkey/register', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const { options, stateToken } = await optRes.json();
+
+      const regResponse = await startRegistration(options);
+
+      const verRes = await fetch('/api/auth/passkey/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ response: regResponse, stateToken }),
+      });
+      if (!verRes.ok) throw new Error('No se pudo registrar la biometría');
+
+      toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        toast({ title: 'No se pudo activar', description: err.message, variant: 'destructive' });
+      }
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -1008,6 +1048,12 @@ export default function AppClient() {
                   <p className="text-[10px] text-muted-foreground">{activeRole}</p>
                 </div>
                 <DropdownMenuSeparator className="sm:hidden" />
+                {biometricSupported && (
+                  <DropdownMenuItem onClick={handleEnableBiometric} className="gap-2">
+                    <Fingerprint className="h-4 w-4" />
+                    Activar biometría
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive gap-2">
                   <LogOut className="h-4 w-4" />
                   Cerrar Sesión
