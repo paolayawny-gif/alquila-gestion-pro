@@ -135,12 +135,13 @@ interface InvoicesViewProps {
   userId?: string;
   contracts: Contract[];
   properties?: Property[];
+  people?: Person[];
 }
 
 const APP_ID = "alquilagestion-pro";
 const CHARGE_TYPES: ChargeType[] = ['Alquiler', 'Expensa Ordinaria', 'Expensa Extraordinaria', 'TGI/ABL', 'Aguas', 'Luz/Gas', 'Otros'];
 
-export function InvoicesView({ invoices, userId, contracts, properties = [] }: InvoicesViewProps) {
+export function InvoicesView({ invoices, userId, contracts, properties = [], people = [] }: InvoicesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
@@ -241,12 +242,6 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   const [filterDateTo,   setFilterDateTo]   = useState('');
   const [filterProperty, setFilterProperty] = useState('');
   const [filterStatus,   setFilterStatus]   = useState<Invoice['status'] | ''>('');
-
-  const peopleQuery = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos'));
-  }, [db, userId]);
-  const { data: people } = useCollection<Person>(peopleQuery);
 
   const nextMonthLabel = React.useMemo(() => {
     const today = new Date();

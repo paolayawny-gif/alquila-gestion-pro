@@ -663,7 +663,7 @@ export default function AppClient() {
       case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} liquidations={liquidations} legalCases={legalCases} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} onOpenContract={() => setActiveTab('Personas' as Tab)} />;
       case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} invoices={invoices} liquidations={liquidations} tasks={tasks} legalCases={legalCases} applications={applications} onOpenProperty={(id) => { setDeepLinkPropertyId(id); setActiveTab('Propiedades' as Tab); }} />;
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;
-      case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} />;
+      case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} people={people} />;
       case 'Centro Liquidaciones': return <CentroLiquidacionesView invoices={invoices} contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} contracts={contracts} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
@@ -683,7 +683,7 @@ export default function AppClient() {
       case 'Simulador ROI': return <ROISimulatorView userId={user?.uid} />;
       case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} userId={user?.uid} />;
       case 'Legales': return <LegalView legalCases={legalCases} userId={user?.uid} properties={properties} />;
-      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} contracts={contracts} />;
+      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} contracts={contracts} invoices={invoices} tasks={tasks} />;
       case 'Cronograma': return <TimelineView contracts={contracts} invoices={invoices} tasks={tasks} liquidations={liquidations} adjustments={rentAdjustments} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
       case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases} assets={monetizableAssets} userId={user?.uid} />;

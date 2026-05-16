@@ -94,11 +94,13 @@ interface LiquidationsViewProps {
   properties: Property[];
   people: Person[];
   contracts?: Contract[];
+  invoices?: Invoice[];
+  tasks?: MaintenanceTask[];
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function LiquidationsView({ liquidations, userId, properties, people, contracts = [] }: LiquidationsViewProps) {
+export function LiquidationsView({ liquidations, userId, properties, people, contracts = [], invoices = [], tasks = [] }: LiquidationsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
@@ -163,20 +165,6 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
     const body = `Estimado/a ${l.ownerName},\n\nAdjunto el detalle de su liquidación correspondiente a ${l.period}:\n\nPropiedad: ${l.propertyName}\nAlquiler bruto: ${formatCurrency(l.ingresoAlquiler)}\nHonorarios admin (10%): -${formatCurrency(l.adminFeeDeduction)}\nServicios/impuestos: -${formatCurrency(l.expenseDeductions)}\nReparaciones: -${formatCurrency(l.maintenanceDeductions)}${interests}\n\nNeto a transferir: ${formatCurrency(l.netAmount)}\n\nSaludos,\nAlquilaGestión Pro`;
     return `mailto:${l.ownerEmail || ''}?subject=${encodeURIComponent(`Liquidación ${l.period} — ${l.propertyName}`)}&body=${encodeURIComponent(body)}`;
   };
-
-  const facturasQuery = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'facturas'));
-  }, [db, userId]);
-  const { data: invoicesData } = useCollection<Invoice>(facturasQuery);
-  const invoices = invoicesData || [];
-
-  const mantenimientoQuery = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento'));
-  }, [db, userId]);
-  const { data: maintenanceData } = useCollection<MaintenanceTask>(mantenimientoQuery);
-  const tasks = maintenanceData || [];
 
   const handleCreateLiq = () => {
     if (selectedPropIds.length === 0 || !userId || !db) return;
