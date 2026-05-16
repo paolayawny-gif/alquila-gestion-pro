@@ -1,6 +1,5 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+// jspdf, jspdf-autotable y xlsx se cargan de forma diferida dentro de cada
+// función — son librerías pesadas y solo se necesitan al exportar.
 
 export interface ExportColumn {
   header: string;
@@ -8,13 +7,15 @@ export interface ExportColumn {
   width?: number;
 }
 
-export function exportToPDF(
+export async function exportToPDF(
   title: string,
   subtitle: string,
   columns: ExportColumn[],
   rows: Record<string, string | number>[],
   filename: string,
-) {
+): Promise<void> {
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
   // Header
@@ -51,12 +52,13 @@ export function exportToPDF(
   doc.save(`${filename}.pdf`);
 }
 
-export function exportToExcel(
+export async function exportToExcel(
   sheetName: string,
   columns: ExportColumn[],
   rows: Record<string, string | number>[],
   filename: string,
-) {
+): Promise<void> {
+  const XLSX = await import('xlsx');
   const ws = XLSX.utils.json_to_sheet(
     rows.map(row =>
       columns.reduce<Record<string, string | number>>((acc, col) => {
