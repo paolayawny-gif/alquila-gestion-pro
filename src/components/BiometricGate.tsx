@@ -7,6 +7,8 @@ import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 
 const SESSION_KEY = 'agp_biometric_unlocked';
+// Set on a device once it registers/uses a passkey — marks it as biometric-capable.
+const DEVICE_PASSKEY_KEY = 'agp_device_has_passkey';
 
 interface Props {
   userEmail: string | null | undefined;
@@ -33,17 +35,14 @@ export function BiometricGate({ userEmail, children }: Props) {
       return;
     }
 
-    // Check if this user has passkeys registered
-    fetch(`/api/auth/passkey/authenticate?email=${encodeURIComponent(userEmail)}`)
-      .then((res) => {
-        if (res.status === 404) {
-          // No passkeys — skip the gate
-          setState('no_passkey');
-        } else {
-          setState('locked');
-        }
-      })
-      .catch(() => setState('no_passkey')); // On error, don't block the user
+    // Lock ONLY if this specific device has a passkey registered. Passkeys
+    // are device-bound, so checking whether the *account* has one elsewhere
+    // would lock out a device that physically cannot satisfy the prompt.
+    if (localStorage.getItem(DEVICE_PASSKEY_KEY) === '1') {
+      setState('locked');
+    } else {
+      setState('no_passkey');
+    }
   }, [userEmail]);
 
   const handleBiometric = async () => {
