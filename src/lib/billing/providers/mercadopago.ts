@@ -216,6 +216,14 @@ export const mercadopagoProvider: BillingProvider = {
     const resourceId: string | undefined = body?.data?.id ?? body?.id;
     if (!resourceId) return null;
 
+    // Clave de idempotencia: los webhooks v2 de MP traen un id de notificación
+    // único por entrega (`body.id`). Usarlo evita que dos eventos distintos del
+    // mismo recurso (ej: la suscripción pasa a pending y luego a paused)
+    // colisionen bajo `${tipo}:${recurso}` y el segundo se descarte como
+    // "duplicado". En IPN clásico no existe ese id → se cae al compuesto.
+    const notifId: string | null =
+      body?.data?.id != null && body?.id != null ? `mp:${body.id}` : null;
+
     // Para `preapproval`: leemos detalle del recurso
     if (type === 'preapproval' || type === 'subscription_preapproval') {
       const res = await fetch(`${MP_API}/preapproval/${resourceId}`, {
@@ -229,7 +237,7 @@ export const mercadopagoProvider: BillingProvider = {
       : data.status === 'cancelled'  ? 'subscription.cancelled'
       :                                 'subscription.updated';
       return {
-        id: `${eventType}:${resourceId}`,
+        id: notifId ?? `${eventType}:${resourceId}`,
         type: eventType,
         subscriptionId: resourceId,
         customerId: data.payer_id ? String(data.payer_id) : null,
@@ -248,7 +256,7 @@ export const mercadopagoProvider: BillingProvider = {
       const eventType: ProviderEvent['type'] =
         data.status === 'approved' ? 'payment.approved' : 'payment.rejected';
       return {
-        id: `${eventType}:${resourceId}`,
+        id: notifId ?? `${eventType}:${resourceId}`,
         type: eventType,
         subscriptionId: data.metadata?.preapproval_id ?? null,
         customerId: data.payer?.id ? String(data.payer.id) : null,
@@ -256,7 +264,7 @@ export const mercadopagoProvider: BillingProvider = {
       };
     }
 
-    return { id: String(resourceId), type: 'unknown', subscriptionId: null, customerId: null, raw: body };
+    return { id: notifId ?? String(resourceId), type: 'unknown', subscriptionId: null, customerId: null, raw: body };
   },
 
   // MercadoPago no expone portal self-service como Stripe.
