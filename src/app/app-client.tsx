@@ -101,6 +101,8 @@ import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink, P
 import { isAdjustmentDue, calculateProposedAmount, buildPendingAdjustment } from '@/lib/rent-adjustment';
 import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
 import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal';
+import { usePlan } from '@/hooks/use-plan';
+import { BillingBlockedScreen } from '@/components/billing/billing-blocked-screen';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
@@ -215,6 +217,7 @@ export default function AppClient() {
   const { toast } = useToast();
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
   const orgCtx = useOrgContext();
+  const plan = usePlan(user?.uid);
 
   // ── Tenant role detection ──────────────────────────────────────────────────
   // undefined = loading; null = not a tenant; TenantRegistryEntry = is tenant
@@ -582,6 +585,28 @@ export default function AppClient() {
 
   // Still loading role check → show nothing
   if (tenantEntry === undefined || ownerEntry === undefined) return null;
+
+  // ── Bloqueo por suscripción impaga ──────────────────────────────────────────
+  // El superadmin nunca se bloquea. No bloqueamos mientras carga el plan, para
+  // no mostrar la pantalla de bloqueo en falso durante la carga inicial.
+  if (!isSuperAdmin && !plan.loading && plan.blocked) {
+    const st = plan.state?.status;
+    const reason =
+      plan.trialExpired   ? 'Tu período de prueba terminó.'
+      : st === 'pending'  ? 'Tu suscripción quedó pendiente de pago por más de 48 horas.'
+      : st === 'past_due' ? 'No pudimos procesar el último cobro y venció el período de gracia.'
+      : st === 'paused'   ? 'Tu suscripción está pausada por falta de pago.'
+      : st === 'cancelled'? 'Tu suscripción fue cancelada.'
+      :                     'Tu suscripción no está activa.';
+    return (
+      <BillingBlockedScreen
+        adminId={user?.uid ?? ''}
+        adminEmail={user?.email ?? ''}
+        reason={reason}
+        onLogout={handleLogout}
+      />
+    );
+  }
 
   // ── Rent adjustment handlers ───────────────────────────────────────────────
   const approveAdjustment = async (id: string) => {
