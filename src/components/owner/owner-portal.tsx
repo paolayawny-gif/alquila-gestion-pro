@@ -24,6 +24,7 @@ import { OwnerOpportunities } from './owner-opportunities';
 import { OwnerServices } from './owner-services';
 import { BottomNav } from '@/components/ui/bottom-nav';
 import { HelpView } from '@/components/dashboard/help-view';
+import { WorkspaceGate } from '@/components/billing/workspace-gate';
 
 export interface OwnerRegistryEntry {
   ownerEmail: string;
@@ -146,6 +147,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
   };
 
   return (
+    <WorkspaceGate adminId={ownerEntry.adminId} contactName={ownerEntry.propertyNames[0]}>
     <div className="flex h-screen w-full bg-background overflow-hidden">
 
       {/* ── Sidebar ── */}
@@ -269,5 +271,6 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
         ]}
       />
     </div>
+    </WorkspaceGate>
   );
 }
