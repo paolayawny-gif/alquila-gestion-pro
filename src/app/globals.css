@@ -131,9 +131,18 @@
   .dark .bg-background {
     background: transparent !important;
   }
+  /* Cards semi-transparentes para dejar pasar el gradiente */
+  .dark .bg-card,
+  .dark .bg-popover {
+    background-color: hsl(var(--card) / 0.6) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
   /* bg-white → bg-card en dark mode para todos los componentes */
   .dark .bg-white {
-    background-color: hsl(var(--card));
+    background-color: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
   /* text-gray-* y text-slate-* en dark → visible sobre fondo azul */
   .dark .text-gray-800,
