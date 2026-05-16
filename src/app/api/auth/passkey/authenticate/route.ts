@@ -37,7 +37,6 @@ export async function GET(req: NextRequest) {
 
   const allowCredentials = passkeysSnap.docs.map((d) => ({
     id: d.id,
-    type: 'public-key' as const,
   }));
 
   const origin = req.headers.get('origin') ?? req.nextUrl.origin;

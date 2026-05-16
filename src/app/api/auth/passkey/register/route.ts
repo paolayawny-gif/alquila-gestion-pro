@@ -27,7 +27,6 @@ export async function GET(req: NextRequest) {
 
   const excludeCredentials = existingSnap.docs.map((d) => ({
     id: d.id,
-    type: 'public-key' as const,
   }));
 
   const options = await generateRegistrationOptions({

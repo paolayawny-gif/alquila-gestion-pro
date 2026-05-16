@@ -152,7 +152,7 @@ export default function LoginPage() {
       });
       const { options, stateToken } = await optRes.json();
 
-      const regResponse = await startRegistration({ optionsJSON: options });
+      const regResponse = await startRegistration(options);
 
       const verRes = await fetch('/api/auth/passkey/register', {
         method: 'POST',
@@ -190,7 +190,7 @@ export default function LoginPage() {
       }
       const { options, stateToken } = await optRes.json();
 
-      const authResponse = await startAuthentication({ optionsJSON: options });
+      const authResponse = await startAuthentication(options);
 
       const verRes = await fetch('/api/auth/passkey/authenticate', {
         method: 'POST',
