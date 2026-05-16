@@ -31,6 +31,7 @@ export interface BillingState {
   trialEndsAt?: string;                   // ISO date (solo si status==='trial')
   lastSyncedAt?: string;                  // ISO date
   failedChargeAt?: string;                // ISO date — primer intento fallido (para gracia)
+  pendingSince?: string;                  // ISO date — inicio de suscripción pendiente de pago (gracia 48 hs)
   cancelledAt?: string;                   // ISO date
 }
 

@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       tierId: tier.id,
       activeUnits,
       status: 'pending',
+      pendingSince: new Date().toISOString(),
     });
 
     await setSubscriptionLookup(subscriptionId, adminId, provider.name);
