@@ -97,6 +97,7 @@ import { signOut } from 'firebase/auth';
 import { collection, query, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { createNotification } from '@/lib/notifications';
+import { BiometricGate } from '@/components/BiometricGate';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink, PendingRentAdjustment, IndexRecord } from '@/lib/types';
 import { isAdjustmentDue, calculateProposedAmount, buildPendingAdjustment } from '@/lib/rent-adjustment';
 import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
@@ -289,6 +290,7 @@ export default function AppClient() {
       // best-effort: always sign out regardless
     }
     localStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_biometric_unlocked');
     await signOut(auth);
   };
 
@@ -748,6 +750,7 @@ export default function AppClient() {
   ];
 
   return (
+    <BiometricGate userEmail={user?.email}>
     <div className="flex h-screen w-full bg-background overflow-hidden">
       {mobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileMenuOpen(false)} />
@@ -931,7 +934,24 @@ export default function AppClient() {
                 {orgCtx.isOrgUser ? orgCtx.role ?? activeRole : `Rol: ${activeRole}`}
               </span>
             </div>
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase">{activeRole[0]}{activeRole[1]}</div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase hover:bg-primary/30 transition-colors">
+                  {activeRole[0]}{activeRole[1]}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-2 py-1.5 sm:hidden">
+                  <p className="text-xs font-bold text-foreground truncate">{user?.email}</p>
+                  <p className="text-[10px] text-muted-foreground">{activeRole}</p>
+                </div>
+                <DropdownMenuSeparator className="sm:hidden" />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
         {/* Banner de solo lectura */}
@@ -980,5 +1000,6 @@ export default function AppClient() {
         <NpsSurvey userId={user?.uid} contractCount={contracts.length} />
       )}
     </div>
+    </BiometricGate>
   );
 }
