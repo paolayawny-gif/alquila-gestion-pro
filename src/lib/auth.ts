@@ -4,20 +4,29 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebase-admin";
 
-const rawSecret = process.env.JWT_SECRET;
+// Resolved lazily so a missing JWT_SECRET only fails when a session is
+// actually signed/verified at runtime — not at module import time (which
+// would break `next build` while collecting page data).
+let encodedKey: Uint8Array | null = null;
 
-if (!rawSecret) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "JWT_SECRET is required in production. Set it in your environment (Vercel → Settings → Environment Variables).",
-    );
+function getEncodedKey(): Uint8Array {
+  if (encodedKey) return encodedKey;
+
+  const rawSecret = process.env.JWT_SECRET;
+  if (!rawSecret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "JWT_SECRET is required in production. Set it in your environment (Vercel → Settings → Environment Variables).",
+      );
+    }
+    console.warn("[auth] JWT_SECRET not set — using ephemeral secret. Sessions will not persist between server restarts.");
   }
-  console.warn("[auth] JWT_SECRET not set — using ephemeral secret. Sessions will not persist between server restarts.");
-}
 
-// In dev without JWT_SECRET: random per process start (no known fallback value)
-const secretKey = rawSecret ?? randomBytes(32).toString("hex");
-const encodedKey = new TextEncoder().encode(secretKey);
+  // In dev without JWT_SECRET: random per process start (no known fallback value)
+  const secretKey = rawSecret ?? randomBytes(32).toString("hex");
+  encodedKey = new TextEncoder().encode(secretKey);
+  return encodedKey;
+}
 
 export type SessionPayload = {
   userId: string;
@@ -39,12 +48,12 @@ export async function encrypt(payload: any) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(encodedKey);
+    .sign(getEncodedKey());
 }
 
 export async function decrypt(session: string | undefined = "") {
   try {
-    const { payload } = await jwtVerify(session, encodedKey, {
+    const { payload } = await jwtVerify(session, getEncodedKey(), {
       algorithms: ["HS256"],
     });
     return payload as unknown as SessionPayload;
