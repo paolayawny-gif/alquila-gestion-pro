@@ -25,7 +25,7 @@ const PLAN_CFG: Record<PaymentPlan['status'], { label: string; color: string; ic
   rechazado: { label: 'Rechazado',  color: 'bg-red-50   text-red-700   border-red-200',    icon: XCircle      },
 };
 
-const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface TenantPaymentPlansProps {
   tenantEntry: TenantRegistryEntry;

@@ -85,7 +85,7 @@ function fmtDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
   return { day: d.getDate(), month: d.toLocaleString('es-AR', { month: 'short' }).toUpperCase() };
 }
-function fmt(n: number) { return `$${n.toLocaleString('es-AR')}`; }
+import { fmtMoney as fmt } from '@/lib/format';
 
 const BENEFIT_ICON: Record<string, React.ElementType> = {
   coffee: Coffee, laundry: Shirt, food: Star, shop: Store, other: Tag,
