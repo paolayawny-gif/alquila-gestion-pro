@@ -1558,6 +1558,21 @@ function BillingCard({ userId }: { userId?: string }) {
               </div>
             )}
 
+            {status === 'pending' && plan.pendingGraceActive && plan.pendingGraceEndsAt && (
+              <div className="text-xs p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                Tu suscripción está pendiente de autorización. Tenés tiempo hasta el{' '}
+                <strong>{plan.pendingGraceEndsAt.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</strong>{' '}
+                para autorizar el pago en MercadoPago. Pasado ese plazo, el servicio se limita.
+              </div>
+            )}
+
+            {status === 'pending' && !plan.pendingGraceActive && (
+              <div className="text-xs p-3 rounded-lg bg-red-50 border border-red-200 text-red-900">
+                Tu suscripción no fue autorizada dentro de las 48 hs. El servicio está limitado
+                hasta que completes el pago — hacé click en <strong>"Activar suscripción"</strong> para regularizar.
+              </div>
+            )}
+
             {plan.overLimit && (
               <div className="text-xs p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-900">
                 Tenés más unidades activas que las que cubre tu plan. Hacé click en "Sincronizar plan" para
