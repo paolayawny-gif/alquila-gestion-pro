@@ -101,8 +101,22 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
+  // If Firebase has a persisted session (e.g. Android PWA, returning user) but no server-side
+  // session cookie exists yet, create the cookie automatically and redirect to dashboard.
+  // This prevents an infinite redirect loop between middleware and the login page.
   useEffect(() => {
-    if (user && !isUserLoading) router.push('/');
+    if (isUserLoading || !user) return;
+    user.getIdToken().then(async (idToken) => {
+      const res = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (res.ok) {
+        const { sessionId } = await res.json();
+        localStorage.setItem('agp_session_id', sessionId);
+      }
+      router.push('/');
+    });
   }, [user, isUserLoading, router]);
 
   // Detect WebAuthn support
