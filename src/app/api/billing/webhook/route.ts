@@ -74,8 +74,11 @@ export async function POST(req: NextRequest) {
         break;
 
       case 'subscription.updated':
+        // La suscripción existe pero todavía no está autorizada (pending) o fue
+        // pausada. No se activa: 'pending' tiene 48 hs de gracia en usePlan, y
+        // pasa a 'active' recién con el evento subscription.authorized.
         await updateBillingState(adminId, {
-          status: event.raw?.status === 'paused' ? 'paused' : 'active',
+          status: event.raw?.status === 'paused' ? 'paused' : 'pending',
         });
         break;
 

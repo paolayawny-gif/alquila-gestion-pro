@@ -42,16 +42,31 @@ export function usePlan(adminId?: string) {
     inGracePeriod = Date.now() < gracePeriodEndsAt.getTime();
   }
 
+  // Suscripción creada pero sin autorizar el pago: 48 hs de gracia para completarlo.
+  let pendingGraceActive = false;
+  let pendingGraceEndsAt: Date | null = null;
+  if (state?.status === 'pending') {
+    const anchor = state.pendingSince ?? state.lastSyncedAt;
+    if (anchor) {
+      pendingGraceEndsAt = new Date(new Date(anchor).getTime() + 48 * 60 * 60 * 1000);
+      pendingGraceActive = Date.now() < pendingGraceEndsAt.getTime();
+    } else {
+      pendingGraceActive = true; // sin fecha de referencia → no bloquear
+    }
+  }
+
   const trialEndsAt = state?.trialEndsAt ? new Date(state.trialEndsAt) : null;
   const trialActive = state?.status === 'trial' && trialEndsAt ? Date.now() < trialEndsAt.getTime() : false;
   const trialExpired = state?.status === 'trial' && trialEndsAt ? Date.now() >= trialEndsAt.getTime() : false;
 
   const overLimit = !!(tier && state && state.activeUnits > tier.maxUnits);
 
-  // Bloqueado: trial vencido sin tarjeta, o past_due fuera de gracia, o cancelado
+  // Bloqueado: trial vencido sin tarjeta, past_due fuera de gracia,
+  // pendiente de pago fuera de las 48 hs, pausado o cancelado.
   const blocked =
     trialExpired ||
     (state?.status === 'past_due' && !inGracePeriod) ||
+    (state?.status === 'pending' && !pendingGraceActive) ||
     state?.status === 'paused' ||
     state?.status === 'cancelled';
 
@@ -64,6 +79,8 @@ export function usePlan(adminId?: string) {
     trialEndsAt,
     inGracePeriod,
     gracePeriodEndsAt,
+    pendingGraceActive,
+    pendingGraceEndsAt,
     overLimit,
     blocked,
     allTiers: BILLING_TIERS,
