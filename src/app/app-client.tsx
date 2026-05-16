@@ -329,7 +329,6 @@ export default function AppClient() {
   // Register a passkey so future logins can use biometrics
   const handleEnableBiometric = async () => {
     try {
-      const { startRegistration } = await import('@simplewebauthn/browser');
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) throw new Error('No autenticado');
 
@@ -338,6 +337,14 @@ export default function AppClient() {
       });
       const { options, stateToken } = await optRes.json();
 
+      // Already enrolled: re-registering errors out in the OS credential
+      // manager, so just confirm it's active instead of attempting again.
+      if ((options?.excludeCredentials?.length ?? 0) > 0) {
+        toast({ title: 'Biometría ya activada', description: 'Ya podés ingresar con huella o Face ID.' });
+        return;
+      }
+
+      const { startRegistration } = await import('@simplewebauthn/browser');
       const regResponse = await startRegistration(options);
 
       const verRes = await fetch('/api/auth/passkey/register', {
@@ -349,9 +356,12 @@ export default function AppClient() {
 
       toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
     } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
-        toast({ title: 'No se pudo activar', description: err.message, variant: 'destructive' });
+      if (err.name === 'NotAllowedError') return; // user cancelled the prompt
+      if (err.name === 'InvalidStateError') {
+        toast({ title: 'Biometría ya activada', description: 'Este dispositivo ya está registrado.' });
+        return;
       }
+      toast({ title: 'No se pudo activar', description: err.message ?? 'Intentá de nuevo.', variant: 'destructive' });
     }
   };
 
