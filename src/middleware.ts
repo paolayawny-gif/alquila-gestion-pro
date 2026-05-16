@@ -28,8 +28,7 @@ export async function middleware(req: NextRequest) {
   const sessionCookie = req.cookies.get('session')?.value;
 
   if (!sessionCookie) {
-    const loginUrl = new URL('/login', req.url);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL('/landing', req.url));
   }
 
   const jwtSecret = process.env.JWT_SECRET;
