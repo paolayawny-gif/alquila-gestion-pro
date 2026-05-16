@@ -91,16 +91,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Verification failed' }, { status: 400 });
   }
 
-  const { credential } = verification.registrationInfo;
+  const { credentialID, credentialPublicKey, counter, credentialDeviceType } = verification.registrationInfo;
 
   const db = getAdminDb();
   await db
     .collection('users').doc(auth.userId)
-    .collection('passkeys').doc(credential.id)
+    .collection('passkeys').doc(credentialID)
     .set({
-      publicKey: Buffer.from(credential.publicKey).toString('base64'),
-      counter: credential.counter,
-      deviceType: verification.registrationInfo.credentialDeviceType,
+      publicKey: Buffer.from(credentialPublicKey).toString('base64'),
+      counter,
+      deviceType: credentialDeviceType,
       name: name ?? 'Este dispositivo',
       createdAt: new Date().toISOString(),
       userEmail: auth.email ?? null,
