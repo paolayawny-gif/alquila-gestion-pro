@@ -101,16 +101,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       const data = snap.data();
       if (!data?.currentSessionId) return;
 
-      // Read localStorage here (inside callback) to always get the current value,
-      // avoiding the race condition where the effect runs before the session is stored.
+      // Use sessionStorage (not localStorage): it is empty on a fresh app
+      // open, so a device that just opened the app — without a session
+      // established this run — is never wrongly signed out. It is only set
+      // after this device completes its own login.
       const storedSessionId = typeof window !== 'undefined'
-        ? localStorage.getItem('agp_session_id')
+        ? sessionStorage.getItem('agp_session_id')
         : null;
 
       if (!storedSessionId) return;
 
       if (data.currentSessionId !== storedSessionId) {
-        localStorage.removeItem('agp_session_id');
+        sessionStorage.removeItem('agp_session_id');
         signOut(auth).finally(() => {
           window.location.href = '/login?reason=device';
         });

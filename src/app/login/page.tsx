@@ -200,7 +200,7 @@ function LoginPageInner() {
       });
       if (sesRes.ok) {
         const { sessionId } = await sesRes.json();
-        localStorage.setItem('agp_session_id', sessionId);
+        sessionStorage.setItem('agp_session_id', sessionId);
       }
       toast({ title: 'Bienvenido', description: 'Sesión iniciada con biometría.' });
       router.push('/');
@@ -228,7 +228,7 @@ function LoginPageInner() {
         });
         if (res.ok) {
           const { sessionId } = await res.json();
-          localStorage.setItem('agp_session_id', sessionId);
+          sessionStorage.setItem('agp_session_id', sessionId);
         }
         toast({ title: 'Bienvenido', description: 'Sesión iniciada correctamente.' });
         // Offer passkey registration if device supports it; otherwise go straight in
@@ -246,7 +246,7 @@ function LoginPageInner() {
         });
         if (res.ok) {
           const { sessionId } = await res.json();
-          localStorage.setItem('agp_session_id', sessionId);
+          sessionStorage.setItem('agp_session_id', sessionId);
         }
         toast({ title: 'Cuenta creada', description: 'Tu cuenta fue registrada correctamente.' });
         if (webAuthnSupported) {
