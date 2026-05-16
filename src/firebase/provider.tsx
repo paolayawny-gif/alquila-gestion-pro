@@ -90,23 +90,26 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe(); // Cleanup
   }, [auth]); // Depends on the auth instance
 
-  // Cross-device session invalidation: if another device logs in, sign out this one
+  // Cross-device session invalidation: if another device logs in, sign out this one.
+  // Uses the same Firestore path as the rest of the app so security rules allow reads.
   useEffect(() => {
     const currentUser = userAuthState.user;
     if (!currentUser || !firestore) return;
 
-    const storedSessionId = typeof window !== 'undefined'
-      ? localStorage.getItem('agp_session_id')
-      : null;
-
-    if (!storedSessionId) return;
-
-    const userDocRef = doc(firestore, 'users', currentUser.uid);
+    const userDocRef = doc(firestore, 'artifacts', 'alquilagestion-pro', 'users', currentUser.uid);
     const unsubscribe = onSnapshot(userDocRef, (snap) => {
       const data = snap.data();
       if (!data?.currentSessionId) return;
+
+      // Read localStorage here (inside callback) to always get the current value,
+      // avoiding the race condition where the effect runs before the session is stored.
+      const storedSessionId = typeof window !== 'undefined'
+        ? localStorage.getItem('agp_session_id')
+        : null;
+
+      if (!storedSessionId) return;
+
       if (data.currentSessionId !== storedSessionId) {
-        // Another device has taken over — sign out silently and redirect
         localStorage.removeItem('agp_session_id');
         signOut(auth).finally(() => {
           window.location.href = '/login?reason=device';

@@ -15,12 +15,15 @@ export async function POST(req: NextRequest) {
 
   const sessionId = randomUUID();
 
-  // Store the current sessionId in Firestore so other devices can detect they were displaced
+  // Store the current sessionId where the client SDK can read it (same path as app data)
   const db = getAdminDb();
-  await db.collection('users').doc(auth.userId).set(
-    { currentSessionId: sessionId, sessionUpdatedAt: new Date().toISOString() },
-    { merge: true },
-  );
+  await db
+    .collection('artifacts').doc('alquilagestion-pro')
+    .collection('users').doc(auth.userId)
+    .set(
+      { currentSessionId: sessionId, sessionUpdatedAt: new Date().toISOString() },
+      { merge: true },
+    );
 
   // Set the JWT session cookie (used by middleware for server-side route protection)
   await createSession(auth.userId, 'user');
@@ -41,10 +44,13 @@ export async function DELETE(req: NextRequest) {
   }
 
   const db = getAdminDb();
-  await db.collection('users').doc(auth.userId).set(
-    { currentSessionId: null, sessionUpdatedAt: new Date().toISOString() },
-    { merge: true },
-  );
+  await db
+    .collection('artifacts').doc('alquilagestion-pro')
+    .collection('users').doc(auth.userId)
+    .set(
+      { currentSessionId: null, sessionUpdatedAt: new Date().toISOString() },
+      { merge: true },
+    );
 
   await logout();
   return NextResponse.json({ ok: true });
