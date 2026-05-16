@@ -56,7 +56,7 @@ export function BiometricGate({ userEmail, children }: Props) {
       const optRes = await fetch(`/api/auth/passkey/authenticate?email=${encodeURIComponent(userEmail)}`);
       const { options, stateToken } = await optRes.json();
 
-      const authResponse = await startAuthentication({ optionsJSON: options });
+      const authResponse = await startAuthentication(options);
 
       const verRes = await fetch('/api/auth/passkey/authenticate', {
         method: 'POST',
