@@ -108,7 +108,20 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
     );
   }
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = async () => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      }
+    } catch { /* best-effort */ }
+    localStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_biometric_unlocked');
+    signOut(auth);
+  };
 
   const renderContent = () => {
     switch (activeTab) {

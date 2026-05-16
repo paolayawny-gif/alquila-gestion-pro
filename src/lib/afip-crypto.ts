@@ -1,6 +1,12 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-const KEY_HEX = process.env.AFIP_ENCRYPTION_KEY ?? '0'.repeat(64);
+const KEY_HEX = process.env.AFIP_ENCRYPTION_KEY;
+if (!KEY_HEX) {
+  throw new Error(
+    'AFIP_ENCRYPTION_KEY env var is required (64-char hex string). ' +
+    'Generate: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+  );
+}
 const KEY = Buffer.from(KEY_HEX, 'hex');
 
 export function encrypt(plaintext: string): string {

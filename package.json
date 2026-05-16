@@ -55,6 +55,8 @@
     "firebase": "^11.9.1",
     "firebase-admin": "^13.9.0",
     "genkit": "^1.28.0",
+    "@simplewebauthn/browser": "^10.0.0",
+    "@simplewebauthn/server": "^10.0.1",
     "jose": "^5.2.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
