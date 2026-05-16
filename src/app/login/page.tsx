@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -86,7 +86,7 @@ function AppWordmark({ dark = false }: { dark?: boolean }) {
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
-export default function LoginPage() {
+function LoginPageInner() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -641,5 +641,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-[#0d1f17]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#1D9E75]" />
+        </div>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   );
 }
