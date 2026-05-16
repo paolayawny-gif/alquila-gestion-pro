@@ -92,7 +92,7 @@ export function BiometricGate({ userEmail, children }: Props) {
         });
       }
     } catch { /* best-effort */ }
-    localStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_session_id');
     sessionStorage.removeItem(SESSION_KEY);
     signOut(auth);
   };

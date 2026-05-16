@@ -327,7 +327,7 @@ export default function AppClient() {
     } catch {
       // best-effort: always sign out regardless
     }
-    localStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_session_id');
     sessionStorage.removeItem('agp_biometric_unlocked');
     await signOut(auth);
   };

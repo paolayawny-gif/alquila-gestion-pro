@@ -89,7 +89,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
         });
       }
     } catch { /* best-effort */ }
-    localStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_session_id');
     sessionStorage.removeItem('agp_biometric_unlocked');
     signOut(auth);
   };
