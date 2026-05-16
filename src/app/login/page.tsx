@@ -151,6 +151,9 @@ function LoginPageInner() {
       if (!verRes.ok) throw new Error('Error al registrar');
 
       setShowPasskeyPrompt(false);
+      // Biometric was just verified to register the passkey — don't make the
+      // BiometricGate ask for it again on the dashboard this session.
+      sessionStorage.setItem('agp_biometric_unlocked', '1');
       toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
     } catch (err: any) {
       if (err.name !== 'NotAllowedError') {
@@ -202,6 +205,9 @@ function LoginPageInner() {
         const { sessionId } = await sesRes.json();
         sessionStorage.setItem('agp_session_id', sessionId);
       }
+      // Identity already verified by this biometric login — skip the
+      // BiometricGate prompt on the dashboard for this session.
+      sessionStorage.setItem('agp_biometric_unlocked', '1');
       toast({ title: 'Bienvenido', description: 'Sesión iniciada con biometría.' });
       router.push('/');
     } catch (err: any) {
