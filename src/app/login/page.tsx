@@ -168,6 +168,8 @@ function LoginPageInner() {
       // Identity already verified by this biometric login — skip the
       // BiometricGate prompt on the dashboard for this session.
       sessionStorage.setItem('agp_biometric_unlocked', '1');
+      // This device can do biometrics for this account — let the gate engage here.
+      localStorage.setItem('agp_device_has_passkey', '1');
       toast({ title: 'Bienvenido', description: 'Sesión iniciada con biometría.' });
       router.push('/');
     } catch (err: any) {
@@ -196,6 +198,9 @@ function LoginPageInner() {
           const { sessionId } = await res.json();
           sessionStorage.setItem('agp_session_id', sessionId);
         }
+        // Just authenticated with the password — don't make the BiometricGate
+        // ask again this session (it engages on the next app open).
+        sessionStorage.setItem('agp_biometric_unlocked', '1');
         toast({ title: 'Bienvenido', description: 'Sesión iniciada correctamente.' });
         router.push('/');
       } else {
@@ -209,6 +214,7 @@ function LoginPageInner() {
           const { sessionId } = await res.json();
           sessionStorage.setItem('agp_session_id', sessionId);
         }
+        sessionStorage.setItem('agp_biometric_unlocked', '1');
         toast({ title: 'Cuenta creada', description: 'Tu cuenta fue registrada correctamente.' });
         router.push('/');
       }

@@ -354,6 +354,8 @@ export default function AppClient() {
       });
       if (!verRes.ok) throw new Error('No se pudo registrar la biometría');
 
+      // Mark this device as biometric-capable so the gate engages on it.
+      localStorage.setItem('agp_device_has_passkey', '1');
       toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
     } catch (err: any) {
       if (err.name === 'NotAllowedError') return; // user cancelled the prompt
