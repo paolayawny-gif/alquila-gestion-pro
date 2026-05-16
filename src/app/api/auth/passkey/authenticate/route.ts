@@ -97,9 +97,9 @@ export async function POST(req: NextRequest) {
       expectedOrigin: origin,
       expectedRPID: rpID,
       requireUserVerification: true,
-      credential: {
-        id: credentialId,
-        publicKey,
+      authenticator: {
+        credentialID: credentialId,
+        credentialPublicKey: new Uint8Array(publicKey),
         counter: stored.counter as number,
       },
     });
