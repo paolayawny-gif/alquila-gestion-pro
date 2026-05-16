@@ -183,6 +183,14 @@ service cloud.firestore {
 
     // ── Colecciones por usuario admin ──────────────────────────────────────
 
+    // Documento de usuario: guarda currentSessionId para el cierre de sesión
+    // cross-device. Solo el backend (Admin SDK) escribe; el dueño lo lee para
+    // detectar si otro dispositivo tomó la sesión.
+    match /artifacts/{appId}/users/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow write: if false;
+    }
+
     // Contratos: admin full access; inquilino lee el suyo
     match /artifacts/{appId}/users/{userId}/contratos/{contractId} {
       allow read: if isOwner(userId) ||
