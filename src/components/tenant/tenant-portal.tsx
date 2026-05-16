@@ -20,6 +20,7 @@ import { TenantPaymentPlans } from './tenant-payment-plans';
 import { TenantSpaces } from './tenant-spaces';
 import { BottomNav } from '@/components/ui/bottom-nav';
 import { HelpView } from '@/components/dashboard/help-view';
+import { WorkspaceGate } from '@/components/billing/workspace-gate';
 
 export interface TenantRegistryEntry {
   tenantEmail: string;
@@ -126,6 +127,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
   };
 
   return (
+    <WorkspaceGate adminId={tenantEntry.adminId} contactName={tenantEntry.propertyName}>
     <div className="flex h-screen w-full bg-background overflow-hidden">
 
       {/* ── Sidebar ── */}
@@ -242,5 +244,6 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
         ]}
       />
     </div>
+    </WorkspaceGate>
   );
 }
