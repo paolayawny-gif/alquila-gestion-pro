@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
   Sparkles, Download, Loader2, Plus, Trash2,
-  ChevronLeft, ChevronRight, GalleryHorizontal,
+  ChevronLeft, ChevronRight, GalleryHorizontal, ImagePlus,
 } from 'lucide-react';
 import {
   CardPreview, CardFormat, CardStyle,
@@ -54,6 +54,22 @@ export function SocialCarousel({
 }: SocialCarouselProps) {
   const { toast } = useToast();
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Solo imágenes', variant: 'destructive' }); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, bgImage: dataUrl } : s));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Slides
   const [slides, setSlides] = useState<Slide[]>(initialSlides ?? DEFAULT_SLIDES);
@@ -247,7 +263,28 @@ export function SocialCarousel({
                   placeholder="Texto de apoyo"
                 />
               </div>
-              {/* Per-slide photo */}
+              {/* Photo upload */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs flex-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  {current.bgImage ? 'Cambiar foto' : 'Agregar foto de fondo'}
+                </Button>
+              </div>
+
+              {/* Per-slide photo preview */}
               {current.bgImage && (
                 <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                   <img src={current.bgImage} alt="" className="h-10 w-14 object-cover rounded flex-shrink-0" />
