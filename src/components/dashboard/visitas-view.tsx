@@ -35,6 +35,7 @@ import {
   emailVisitCancellation,
   emailVisitReschedule,
 } from '@/lib/email-templates';
+import { useOrgContext } from '@/hooks/use-org-context';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -801,6 +802,7 @@ interface VisitasViewProps {
 export function VisitasView({ userId, properties }: VisitasViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
+  const { orgEmailUser, orgEmailPass } = useOrgContext();
 
   // ── Section & calendar view state ─────────────────────────────────────────
   const [section, setSection]     = useState<'calendar' | 'lista' | 'config'>('calendar');
@@ -937,9 +939,11 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
         // Send confirmation email if enabled
         if (config.notifyVisitor && form.visitorEmail) {
           sendEmail({
-            to:      form.visitorEmail,
-            subject: `Visita confirmada — ${property?.name ?? ''}`,
-            html:    emailVisitConfirmation({
+            to:        form.visitorEmail,
+            subject:   `Visita confirmada — ${property?.name ?? ''}`,
+            smtpUser:  orgEmailUser ?? undefined,
+            smtpPass:  orgEmailPass ?? undefined,
+            html:      emailVisitConfirmation({
               visitorName:     form.visitorName,
               propertyName:    property?.name ?? property?.address ?? '',
               propertyAddress: property?.address,
@@ -968,9 +972,11 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
 
     if (status === 'Cancelada' && config.notifyVisitor && visit.visitorEmail) {
       sendEmail({
-        to:      visit.visitorEmail,
-        subject: `Visita cancelada — ${visit.propertyName}`,
-        html:    emailVisitCancellation({
+        to:       visit.visitorEmail,
+        subject:  `Visita cancelada — ${visit.propertyName}`,
+        smtpUser: orgEmailUser ?? undefined,
+        smtpPass: orgEmailPass ?? undefined,
+        html:     emailVisitCancellation({
           visitorName:  visit.visitorName,
           propertyName: visit.propertyName,
           visitDate:    formatDisplayDate(visit.scheduledDate),
@@ -981,9 +987,11 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
 
     if (status === 'Reprogramada' && config.notifyVisitor && visit.visitorEmail) {
       sendEmail({
-        to:      visit.visitorEmail,
-        subject: `Visita reprogramada — ${visit.propertyName}`,
-        html:    emailVisitReschedule({
+        to:       visit.visitorEmail,
+        subject:  `Visita reprogramada — ${visit.propertyName}`,
+        smtpUser: orgEmailUser ?? undefined,
+        smtpPass: orgEmailPass ?? undefined,
+        html:     emailVisitReschedule({
           visitorName:  visit.visitorName,
           propertyName: visit.propertyName,
           oldDate:      formatDisplayDate(visit.scheduledDate),
