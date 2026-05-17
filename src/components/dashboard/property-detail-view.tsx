@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Home, Edit2, ExternalLink, FileText, Wrench, Users, Receipt, CalendarClock, Shield, AlertTriangle, MapPin, Building2, Sparkles, Download, Upload, Save, ChevronRight, Calendar, DollarSign, TrendingUp, FolderOpen, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, Home, Edit2, ExternalLink, FileText, Wrench, Users, Receipt, CalendarClock, Shield, AlertTriangle, MapPin, Building2, Sparkles, Download, Upload, Save, ChevronRight, Calendar, DollarSign, TrendingUp, FolderOpen, Phone, Mail, GalleryHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,12 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Property, Contract, Invoice, Liquidation, MaintenanceTask, RentalApplication, LegalCase, ReserveFund, Currency } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { SocialCarousel } from './social-carousel';
 
 const APP_ID = 'alquilagestion-pro';
 
@@ -42,6 +44,7 @@ export function PropertyDetailView({
   const { toast } = useToast();
   const db = useFirestore();
   const [activeTab, setActiveTab] = useState<string>('resumen');
+  const [carouselOpen, setCarouselOpen] = useState(false);
 
   // ── Datos filtrados ──────────────────────────────────────────────────────
   const propContracts = useMemo(() => contracts.filter(c => c.propertyId === property.id), [contracts, property.id]);
@@ -136,18 +139,63 @@ export function PropertyDetailView({
                 {property.usage ? <><span>·</span><span>{property.usage}</span></> : null}
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
               {onShare && (
                 <Button size="sm" variant="outline" onClick={() => onShare(property)} className="gap-2">
                   <ExternalLink className="h-4 w-4" />
                   Compartir
                 </Button>
               )}
+              <Button size="sm" variant="outline" onClick={() => setCarouselOpen(true)} className="gap-2">
+                <GalleryHorizontal className="h-4 w-4" />
+                Crear carrusel
+              </Button>
               <Button size="sm" onClick={() => onEditTechnical(property)} className="gap-2">
                 <Edit2 className="h-4 w-4" />
                 Editar datos
               </Button>
             </div>
+
+            {/* Carousel dialog */}
+            <Dialog open={carouselOpen} onOpenChange={setCarouselOpen}>
+              <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <GalleryHorizontal className="h-5 w-5 text-primary" />
+                    Crear carrusel — {property.name}
+                  </DialogTitle>
+                </DialogHeader>
+                <SocialCarousel
+                  initialSlides={
+                    property.photos && property.photos.length > 0
+                      ? property.photos.slice(0, 10).map((url, i) => ({
+                          bgImage: url,
+                          title: i === 0
+                            ? property.name
+                            : i === property.photos!.length - 1
+                              ? '¡Consultanos hoy!'
+                              : `${property.type}${property.rooms ? ` · ${property.rooms} amb.` : ''}${property.squareMeters ? ` · ${property.squareMeters} m²` : ''}`,
+                          subtitle: i === 0
+                            ? property.address
+                            : i === property.photos!.length - 1
+                              ? 'Escribinos por DM o WhatsApp para coordinar una visita.'
+                              : property.amenities?.slice(0, 3).join(' · ') ?? '',
+                        }))
+                      : undefined
+                  }
+                  initialTopic={`Propiedad disponible: ${property.name}`}
+                  initialContext={[
+                    property.address,
+                    property.type,
+                    property.rooms ? `${property.rooms} ambientes` : '',
+                    property.squareMeters ? `${property.squareMeters} m²` : '',
+                    property.usage,
+                    ...(property.amenities?.slice(0, 5) ?? []),
+                  ].filter(Boolean).join(', ')}
+                  initialBrandTag={property.address.split(',')[0]}
+                />
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* ── KPIs rápidos ───────────────────────────────────────────── */}

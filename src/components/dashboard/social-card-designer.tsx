@@ -75,16 +75,18 @@ export interface CardPreviewProps {
   headline: string;
   subtext: string;
   brandTag: string;
+  bgImage?: string;
   previewRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function CardPreview({
   format, style, accent, darkBg, textColor,
-  headline, subtext, brandTag, previewRef,
+  headline, subtext, brandTag, bgImage, previewRef,
 }: CardPreviewProps) {
   const { w, h } = PREVIEW_DIMS[format];
-  const bg = getCardBackground(style, accent, darkBg);
-  const isMinimal = style === 'minimal';
+  const bg = bgImage ? `url(${bgImage}) center/cover no-repeat` : getCardBackground(style, accent, darkBg);
+  const isMinimal = !bgImage && style === 'minimal';
+  const effectiveTextColor = bgImage ? '#ffffff' : (isMinimal ? undefined : textColor);
   const headlineSize = format === 'Historia'
     ? (headline.length > 40 ? '1.05rem' : '1.3rem')
     : (headline.length > 40 ? '1rem' : '1.2rem');
@@ -108,8 +110,15 @@ export function CardPreview({
         flexShrink: 0,
       }}
     >
-      {/* Decorative circle */}
-      {!isMinimal && (
+      {/* Dark gradient overlay when using a background image */}
+      {bgImage && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 100%)',
+        }} />
+      )}
+      {/* Decorative circle for color styles */}
+      {!isMinimal && !bgImage && (
         <div style={{
           position: 'absolute', top: -40, right: -40,
           width: 180, height: 180, borderRadius: '50%',
@@ -127,7 +136,7 @@ export function CardPreview({
       <div style={{ position: 'relative', zIndex: 1 }}>
         {headline && (
           <div style={{
-            color: isMinimal ? '#0f172a' : textColor,
+            color: isMinimal ? '#0f172a' : (effectiveTextColor ?? textColor),
             fontSize: headlineSize,
             fontWeight: 900,
             lineHeight: 1.2,
@@ -139,7 +148,7 @@ export function CardPreview({
         )}
         {subtext && (
           <div style={{
-            color: isMinimal ? '#475569' : `${textColor}cc`,
+            color: isMinimal ? '#475569' : `${effectiveTextColor ?? textColor}cc`,
             fontSize: '0.72rem',
             lineHeight: 1.4,
             marginBottom: brandTag ? 12 : 0,
@@ -151,7 +160,7 @@ export function CardPreview({
           <div style={{
             display: 'inline-block',
             background: isMinimal ? accent : 'rgba(255,255,255,0.18)',
-            color: isMinimal ? '#fff' : textColor,
+            color: isMinimal ? '#fff' : (effectiveTextColor ?? textColor),
             fontSize: '0.6rem',
             fontWeight: 700,
             padding: '3px 10px',
