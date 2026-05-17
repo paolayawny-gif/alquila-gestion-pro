@@ -132,11 +132,21 @@
     background: transparent !important;
   }
   /* Cards glass en light mode */
-  .bg-card,
-  .bg-popover {
+  .bg-card {
     background-color: hsl(var(--card) / 0.75) !important;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+  }
+  /* Popovers, dropdowns y dialogs: casi opacos para legibilidad */
+  .bg-popover,
+  [role="dialog"],
+  [role="listbox"],
+  [role="menu"],
+  [cmdk-root],
+  [data-radix-popper-content-wrapper] > * {
+    background-color: hsl(var(--popover) / 0.96) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
   /* Gradiente diagonal azul petróleo en dark mode */
   html.dark {
@@ -154,11 +164,21 @@
     background: transparent !important;
   }
   /* Cards semi-transparentes para dejar pasar el gradiente */
-  .dark .bg-card,
-  .dark .bg-popover {
+  .dark .bg-card {
     background-color: hsl(var(--card) / 0.6) !important;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+  }
+  /* Popovers/dropdowns dark: casi opacos */
+  .dark .bg-popover,
+  .dark [role="dialog"],
+  .dark [role="listbox"],
+  .dark [role="menu"],
+  .dark [cmdk-root],
+  .dark [data-radix-popper-content-wrapper] > * {
+    background-color: hsl(var(--popover) / 0.96) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
   /* bg-white → bg-card en dark mode para todos los componentes */
   .dark .bg-white {
