@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/ui/theme-provider';
+import { DataAssistantChat } from '@/components/ai/DataAssistantChat';
 
 export const metadata: Metadata = {
   title: 'AlquilaGestión Pro - Administración de Alquileres',
@@ -32,6 +33,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <FirebaseClientProvider>
             {children}
+            <DataAssistantChat />
             <Toaster />
           </FirebaseClientProvider>
         </ThemeProvider>
