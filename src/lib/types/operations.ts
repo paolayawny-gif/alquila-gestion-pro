@@ -75,6 +75,18 @@ export interface AppNotification {
   link?: string;
 }
 
+export type AnuncioType = 'novedad' | 'funcion' | 'tip' | 'negocio';
+
+export interface Anuncio {
+  id: string;
+  title: string;
+  body: string;
+  type: AnuncioType;
+  createdAt: string;    // ISO
+  publishedAt: string;  // ISO
+  isPublished: boolean;
+}
+
 export type LegalStage =
   | 'Intimación'
   | 'Carta Documento'
