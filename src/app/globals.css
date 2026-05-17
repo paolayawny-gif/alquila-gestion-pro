@@ -116,6 +116,28 @@
     @apply bg-background text-foreground font-body;
     overflow-x: hidden;
   }
+  /* Gradiente diagonal suave en light mode */
+  html {
+    background: linear-gradient(
+      135deg,
+      hsl(145 45% 95%) 0%,
+      hsl(160 30% 97%) 45%,
+      hsl(210 25% 98%) 100%
+    );
+    background-attachment: fixed;
+    min-height: 100%;
+  }
+  body,
+  .bg-background {
+    background: transparent !important;
+  }
+  /* Cards glass en light mode */
+  .bg-card,
+  .bg-popover {
+    background-color: hsl(var(--card) / 0.75) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
   /* Gradiente diagonal azul petróleo en dark mode */
   html.dark {
     background: linear-gradient(
