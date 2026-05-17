@@ -22,6 +22,7 @@ import { generateCarousel } from '@/ai/flows/generate-carousel-flow';
 interface Slide {
   title: string;
   subtitle: string;
+  bgImage?: string;
 }
 
 const TONE_OPTIONS = [
@@ -32,21 +33,30 @@ const TONE_OPTIONS = [
   { value: 'informativo', label: 'Informativo' },
 ] as const;
 
+const DEFAULT_SLIDES: Slide[] = [
+  { title: 'Tu titular aquí', subtitle: 'Subtexto de apoyo para el primer slide' },
+  { title: 'Segundo punto clave', subtitle: 'Detalle que amplía el titular' },
+  { title: '¡Contactanos!', subtitle: 'Escribinos para más información' },
+];
+
 interface SocialCarouselProps {
   canWrite?: boolean;
   brandContext?: string;
+  initialSlides?: Slide[];
+  initialTopic?: string;
+  initialContext?: string;
+  initialBrandTag?: string;
 }
 
-export function SocialCarousel({ canWrite = true, brandContext }: SocialCarouselProps) {
+export function SocialCarousel({
+  canWrite = true, brandContext,
+  initialSlides, initialTopic = '', initialContext = '', initialBrandTag = '',
+}: SocialCarouselProps) {
   const { toast } = useToast();
   const previewRef = useRef<HTMLDivElement | null>(null);
 
   // Slides
-  const [slides, setSlides] = useState<Slide[]>([
-    { title: 'Tu titular aquí', subtitle: 'Subtexto de apoyo para el primer slide' },
-    { title: 'Segundo punto clave', subtitle: 'Detalle que amplía el titular' },
-    { title: '¡Contactanos!', subtitle: 'Escribinos para más información' },
-  ]);
+  const [slides, setSlides] = useState<Slide[]>(initialSlides ?? DEFAULT_SLIDES);
   const [currentIdx, setCurrentIdx] = useState(0);
 
   // Design
@@ -55,20 +65,20 @@ export function SocialCarousel({ canWrite = true, brandContext }: SocialCarousel
   const [accent, setAccent] = useState(ACCENT_COLORS[0].value);
   const [darkBg, setDarkBg] = useState(DARK_BG_COLORS[0].value);
   const [textColor, setTextColor] = useState(CARD_TEXT_COLORS[0].value);
-  const [brandTag, setBrandTag] = useState('');
+  const [brandTag, setBrandTag] = useState(initialBrandTag);
 
   // AI
-  const [aiTopic, setAiTopic] = useState('');
-  const [aiContext, setAiContext] = useState('');
+  const [aiTopic, setAiTopic] = useState(initialTopic);
+  const [aiContext, setAiContext] = useState(initialContext);
   const [aiTone, setAiTone] = useState<'profesional' | 'cercano' | 'urgente' | 'inspiracional' | 'informativo'>('profesional');
-  const [numSlides, setNumSlides] = useState(5);
+  const [numSlides, setNumSlides] = useState(initialSlides?.length ?? 5);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const current = slides[currentIdx] ?? { title: '', subtitle: '' };
 
   const updateCurrent = (field: keyof Slide, value: string) => {
-    setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, [field]: value } : s));
+    setSlides(prev => prev.map((s, i) => i === currentIdx ? { ...s, [field]: value || undefined } : s));
   };
 
   const addSlide = () => {
@@ -96,7 +106,11 @@ export function SocialCarousel({ canWrite = true, brandContext }: SocialCarousel
         context: aiContext.trim() || undefined,
         brandContext,
       });
-      setSlides(r.slides.map(s => ({ title: s.title, subtitle: s.subtitle })));
+      setSlides(r.slides.map((s, i) => ({
+        title: s.title,
+        subtitle: s.subtitle,
+        bgImage: slides[i]?.bgImage,
+      })));
       setCurrentIdx(0);
       if (!brandTag) setBrandTag(r.hashtags.split(' ')[0] ?? '');
       toast({ title: '✨ Carrusel generado', description: `${r.slides.length} slides listos para editar.` });
@@ -233,6 +247,20 @@ export function SocialCarousel({ canWrite = true, brandContext }: SocialCarousel
                   placeholder="Texto de apoyo"
                 />
               </div>
+              {/* Per-slide photo */}
+              {current.bgImage && (
+                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                  <img src={current.bgImage} alt="" className="h-10 w-14 object-cover rounded flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">Foto de fondo</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{current.bgImage.split('/').pop()}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive" onClick={() => updateCurrent('bgImage', '')}>
+                    Quitar
+                  </Button>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase font-black text-muted-foreground">Etiqueta de marca (todos los slides)</Label>
                 <Input
@@ -359,6 +387,7 @@ export function SocialCarousel({ canWrite = true, brandContext }: SocialCarousel
               headline={current.title}
               subtext={current.subtitle}
               brandTag={brandTag}
+              bgImage={current.bgImage}
               previewRef={previewRef}
             />
           </div>
