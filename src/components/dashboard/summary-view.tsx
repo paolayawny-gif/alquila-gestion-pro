@@ -30,6 +30,7 @@ import { AppAlert, Property, Contract, Invoice, RentalApplication, MaintenanceTa
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/format';
+import { CountUp } from '@/components/ui/count-up';
 import {
   AreaChart,
   Area,
@@ -435,7 +436,7 @@ export function SummaryView({
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
         <Card className="border-none shadow-sm bg-white border-t-4 border-t-primary">
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
@@ -445,7 +446,7 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-primary/20">BRUTO MES</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Recaudación Total</p>
-            <h3 className="text-2xl font-black text-foreground">{formatCurrency(totalProjected)}</h3>
+            <h3 className="text-2xl font-black text-foreground"><CountUp value={totalProjected} format={(n) => formatCurrency(n)} /></h3>
             {totalProjectedUSD > 0 && (
               <p className="text-[10px] text-muted-foreground mt-0.5 font-bold">{formatCurrency(totalProjectedUSD, { currency: 'USD' })}</p>
             )}
@@ -461,7 +462,7 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-red-100 text-red-600">MOROSIDAD</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Total en Riesgo</p>
-            <h3 className="text-2xl font-black text-red-600">{formatCurrency(totalOverdue)}</h3>
+            <h3 className="text-2xl font-black text-red-600"><CountUp value={totalOverdue} format={(n) => formatCurrency(n)} delay={70} /></h3>
             {totalOverdueUSD > 0 && (
               <p className="text-[10px] text-red-400 mt-0.5 font-bold">{formatCurrency(totalOverdueUSD, { currency: 'USD' })}</p>
             )}
@@ -477,7 +478,7 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-blue-100 text-blue-600">{occupancyRate.toFixed(1)}%</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Tasa de Ocupación</p>
-            <h3 className="text-2xl font-black text-foreground">{properties.filter(p => p.status === 'Alquilada').length} / {properties.length}</h3>
+            <h3 className="text-2xl font-black text-foreground"><CountUp value={properties.filter(p => p.status === 'Alquilada').length} delay={140} /> / <CountUp value={properties.length} delay={140} /></h3>
           </CardContent>
         </Card>
 
@@ -490,21 +491,21 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-orange-100 text-orange-600">RECLAMOS</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Incidencias Abiertas</p>
-            <h3 className="text-2xl font-black text-foreground">{tasks.filter(t => t.status !== 'Cerrado').length}</h3>
+            <h3 className="text-2xl font-black text-foreground"><CountUp value={tasks.filter(t => t.status !== 'Cerrado').length} delay={210} /></h3>
           </CardContent>
         </Card>
       </div>
 
       {/* ── Fila de KPIs avanzados ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger-children">
         {/* Cobro en término */}
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Cobro en término</p>
             <div className="flex items-end gap-2">
-              <span className={cn('text-2xl font-black', advancedKpis.collectionRate >= 80 ? 'text-green-600' : advancedKpis.collectionRate >= 60 ? 'text-orange-500' : 'text-red-600')}>
-                {advancedKpis.collectionRate}%
-              </span>
+              <CountUp value={advancedKpis.collectionRate} suffix="%" delay={0}
+                className={cn('text-2xl font-black', advancedKpis.collectionRate >= 80 ? 'text-green-600' : advancedKpis.collectionRate >= 60 ? 'text-orange-500' : 'text-red-600')}
+              />
             </div>
             <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
               <div className={cn('h-full rounded-full transition-colors', advancedKpis.collectionRate >= 80 ? 'bg-green-500' : advancedKpis.collectionRate >= 60 ? 'bg-orange-400' : 'bg-red-500')}
@@ -536,7 +537,7 @@ export function SummaryView({
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Score de cartera</p>
             <div className="flex items-center gap-2">
-              <span className={cn('text-2xl font-black', advancedKpis.riskColor)}>{advancedKpis.riskScore}</span>
+              <CountUp value={advancedKpis.riskScore} delay={140} className={cn('text-2xl font-black', advancedKpis.riskColor)} />
               <span className="text-[10px] text-muted-foreground">/100</span>
             </div>
             <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -551,7 +552,7 @@ export function SummaryView({
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Contratos activos</p>
-            <span className="text-2xl font-black">{advancedKpis.activeContracts}</span>
+            <CountUp value={advancedKpis.activeContracts} delay={210} className="text-2xl font-black" />
             <p className="text-[9px] text-muted-foreground mt-1.5">
               de {contracts.length} totales ·{' '}
               {contracts.filter(c => c.status === 'Próximo a Vencer').length > 0 && (
