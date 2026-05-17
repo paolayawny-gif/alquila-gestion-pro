@@ -110,6 +110,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
 import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
+import { VisitasView } from '@/components/dashboard/visitas-view';
 import { NpsSurvey } from '@/components/ui/nps-survey';
 import dynamic from 'next/dynamic';
 
@@ -144,7 +145,7 @@ const AnalyticsPanelView = dynamic(
 );
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler';
+type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler' | 'Visitas';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -174,6 +175,7 @@ const ADMIN_MENU_GROUPS = [
       { id: 'Facturas',                icon: FileSpreadsheet, label: 'Facturas y Servicios'    },
       { id: 'Mantenimiento',           icon: Wrench,          label: 'Mantenimiento'           },
       { id: 'Mantenimiento Predictivo',icon: ShieldPlus,      label: 'Mantenimiento Predictivo'},
+      { id: 'Visitas',                 icon: CalendarRange,   label: 'Visitas y Turnos'        },
       { id: 'Proveedores',             icon: HardHat,         label: 'Proveedores'             },
       { id: 'Mensajes',                icon: MessagesSquare,  label: 'Mensajes'                },
     ],
@@ -794,6 +796,7 @@ export default function AppClient() {
       case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} people={people} />;
       case 'Centro Liquidaciones': return <CentroLiquidacionesView invoices={invoices} contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
       case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} contracts={contracts} />;
+      case 'Visitas': return <VisitasView userId={user?.uid} properties={properties} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
       case 'Proveedores': return <ProvidersView tasks={tasks} properties={properties} userId={user?.uid} />;
       case 'Mensajes': return <MessagesView contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
