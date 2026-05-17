@@ -204,3 +204,117 @@ export function emailServiceRequest(p: {
     )}
   `, `Enviado por ${p.adminName ?? 'tu administrador'} a través de AlquilaGestión Pro.`);
 }
+
+// ── Visitas / Turnos ──────────────────────────────────────────────────────────
+
+export function emailVisitConfirmation(p: {
+  visitorName: string;
+  propertyName: string;
+  propertyAddress?: string;
+  visitDate: string;
+  visitTime: string;
+  eventType: string;
+  duration: number;
+  agentName?: string;
+  adminName?: string;
+  notes?: string;
+}) {
+  return shell(`
+    <p style="color:${BRAND_DARK};margin:0 0 6px;font-size:15px;">Hola <strong>${p.visitorName}</strong>,</p>
+    <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Tu visita a <strong>${p.propertyName}</strong> está <strong style="color:${BRAND_GREEN};">confirmada</strong>.
+    </p>
+    ${table(
+      kv('Tipo de visita', p.eventType),
+      kv('Fecha', p.visitDate),
+      kv('Hora', p.visitTime),
+      kv('Duración', `${p.duration} minutos`),
+      ...(p.propertyAddress ? [kv('Dirección', p.propertyAddress)] : []),
+      ...(p.agentName ? [kv('Agente', p.agentName)] : []),
+    )}
+    ${p.notes ? `<p style="color:#475569;font-size:13px;margin:16px 0 0;"><strong>Nota:</strong> ${p.notes}</p>` : ''}
+    <p style="color:#475569;font-size:13px;margin:16px 0 0;">
+      Si necesitás reprogramar o cancelar, contactá a tu administrador.
+    </p>
+  `, `Enviado por ${p.adminName ?? 'tu administrador'} a través de AlquilaGestión Pro.`);
+}
+
+export function emailVisitCancellation(p: {
+  visitorName: string;
+  propertyName: string;
+  visitDate: string;
+  visitTime: string;
+  reason?: string;
+  adminName?: string;
+}) {
+  return shell(`
+    <div style="background:#fef2f2;border-left:4px solid #dc2626;border-radius:6px;padding:14px 18px;margin-bottom:24px;">
+      <p style="margin:0;color:#991b1b;font-weight:700;font-size:14px;">Visita cancelada</p>
+    </div>
+    <p style="color:${BRAND_DARK};margin:0 0 6px;font-size:15px;">Hola <strong>${p.visitorName}</strong>,</p>
+    <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Lamentamos informarte que la visita a <strong>${p.propertyName}</strong> programada para el
+      <strong>${p.visitDate}</strong> a las <strong>${p.visitTime}</strong> fue cancelada.
+    </p>
+    ${p.reason ? `${table(kv('Motivo', p.reason))}` : ''}
+    <p style="color:#475569;font-size:13px;margin:16px 0 0;">
+      Podés contactar a tu administrador para reprogramar cuando lo desees.
+    </p>
+  `, `Enviado por ${p.adminName ?? 'tu administrador'} a través de AlquilaGestión Pro.`);
+}
+
+export function emailVisitReschedule(p: {
+  visitorName: string;
+  propertyName: string;
+  oldDate: string;
+  oldTime: string;
+  newDate: string;
+  newTime: string;
+  agentName?: string;
+  adminName?: string;
+}) {
+  return shell(`
+    <p style="color:${BRAND_DARK};margin:0 0 6px;font-size:15px;">Hola <strong>${p.visitorName}</strong>,</p>
+    <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Tu visita a <strong>${p.propertyName}</strong> fue <strong style="color:#d97706;">reprogramada</strong>.
+    </p>
+    ${table(
+      kv('Fecha anterior', `${p.oldDate} ${p.oldTime}`),
+      kv('Nueva fecha', p.newDate, true),
+      kv('Nueva hora', p.newTime, true),
+      ...(p.agentName ? [kv('Agente', p.agentName)] : []),
+    )}
+    <p style="color:#475569;font-size:13px;margin:16px 0 0;">
+      Si esta nueva fecha no te conviene, contactá a tu administrador.
+    </p>
+  `, `Enviado por ${p.adminName ?? 'tu administrador'} a través de AlquilaGestión Pro.`);
+}
+
+export function emailVisitReminder(p: {
+  visitorName: string;
+  propertyName: string;
+  propertyAddress?: string;
+  visitDate: string;
+  visitTime: string;
+  eventType: string;
+  agentName?: string;
+  adminName?: string;
+}) {
+  return shell(`
+    <div style="background:#f0fdf4;border-left:4px solid ${BRAND_GREEN};border-radius:6px;padding:14px 18px;margin-bottom:24px;">
+      <p style="margin:0;color:#166534;font-weight:700;font-size:14px;">Recordatorio de visita — mañana</p>
+    </div>
+    <p style="color:${BRAND_DARK};margin:0 0 6px;font-size:15px;">Hola <strong>${p.visitorName}</strong>,</p>
+    <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Te recordamos que mañana tenés una visita programada:
+    </p>
+    ${table(
+      kv('Propiedad', p.propertyName),
+      ...(p.propertyAddress ? [kv('Dirección', p.propertyAddress)] : []),
+      kv('Tipo', p.eventType),
+      kv('Fecha', p.visitDate, true),
+      kv('Hora', p.visitTime, true),
+      ...(p.agentName ? [kv('Agente', p.agentName)] : []),
+    )}
+  `, `Enviado por ${p.adminName ?? 'tu administrador'} a través de AlquilaGestión Pro.`);
+}
