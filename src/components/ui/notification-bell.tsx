@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, where, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import { AppNotification, NotificationType, Anuncio, AnuncioType } from '@/lib/types';
 import { markNotificationRead, markAllNotificationsRead } from '@/lib/notifications';
 import { markAnuncioRead, markAllAnunciosRead } from '@/lib/anuncios';
@@ -88,16 +88,21 @@ export function NotificationBell({ userId, onNavigate }: NotificationBellProps) 
   const unreadNotifCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
   // — Anuncios publicados (globales) —
+  // Se ordena por publishedAt (índice de un solo campo, automático) y se
+  // filtra isPublished en el cliente: combinar where + orderBy sobre campos
+  // distintos exigiría un índice compuesto.
   const anunciosQ = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(
       collection(db, 'artifacts', APP_ID, 'anuncios'),
-      where('isPublished', '==', true),
       orderBy('publishedAt', 'desc'),
     );
   }, [db, userId]);
   const { data: anunciosData } = useCollection<Anuncio>(anunciosQ);
-  const anuncios = useMemo(() => (anunciosData ?? []).slice(0, 20), [anunciosData]);
+  const anuncios = useMemo(
+    () => (anunciosData ?? []).filter(a => a.isPublished).slice(0, 20),
+    [anunciosData],
+  );
 
   // — Cargar IDs leídos del usuario —
   useMemo(() => {
