@@ -135,6 +135,28 @@ export interface SocialPost {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  scheduledAt?: string;   // YYYY-MM-DD — fecha programada de publicación
+}
+
+export type BrandSpecialty = 'Residencial' | 'Comercial' | 'Vacacional' | 'Mixta' | 'Oficinas';
+export type BrandAudience = 'Propietarios' | 'Inquilinos' | 'Ambos' | 'Inversores';
+
+export interface SocialBrandProfile {
+  id: string;
+  ownerId: string;
+  brandName: string;
+  zone: string;
+  specialty: BrandSpecialty;
+  audience: BrandAudience;
+  usp: string;
+  samplePosts?: string;
+  brief?: string;
+  contentPillars?: string[];
+  powerWords?: string;
+  avoidances?: string;
+  briefGeneratedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ── Sistema de Servicios y Cobros ─────────────────────────────────────────────
