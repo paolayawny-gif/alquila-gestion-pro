@@ -302,6 +302,14 @@ service cloud.firestore {
       allow update, delete: if isOwner(userId);
     }
 
+    // ── Anuncios de plataforma (novedades del superadmin) ─────────────────────
+
+    // Cualquier usuario autenticado puede leer; solo el superadmin escribe
+    match /artifacts/{appId}/anuncios/{anuncioId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
     // ── Seguros & PAS ──────────────────────────────────────────────────────────
 
     // Comisiones de seguro: cualquier autenticado lee; admin autenticado crea/edita
