@@ -23,7 +23,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, getDoc, collection, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
@@ -829,15 +829,10 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
   const [search,       setSearch]       = useState('');
 
   // ── Firestore ─────────────────────────────────────────────────────────────
-  const visitsCol = useMemo(() => {
+  const visitsQuery = useMemoFirebase(() => {
     if (!userId || !db) return null;
-    return collection(db, 'artifacts', APP_ID, 'users', userId, 'visitas');
+    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'visitas'), orderBy('createdAt', 'desc'));
   }, [userId, db]);
-
-  const visitsQuery = useMemo(
-    () => visitsCol ? query(visitsCol, orderBy('createdAt', 'desc')) : null,
-    [visitsCol],
-  );
   const { data: visitsData } = useCollection<Visit>(visitsQuery);
   const visits: Visit[] = useMemo(() => visitsData ?? [], [visitsData]);
 
@@ -897,8 +892,11 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
     setShowDialog(true);
   }, []);
 
+  const visitsColPath = () =>
+    db && userId ? collection(db, 'artifacts', APP_ID, 'users', userId, 'visitas') : null;
+
   const handleSave = async () => {
-    if (!userId || !db || !visitsCol) return;
+    if (!userId || !db) return;
     if (!form.propertyId || !form.visitorName || !form.visitorEmail || !form.eventTypeId) {
       toast({ title: 'Completá los campos obligatorios', variant: 'destructive' });
       return;
@@ -929,11 +927,12 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
         updatedAt:       now,
       };
 
+      const col = visitsColPath()!;
       if (editingVisit) {
-        const ref = doc(visitsCol, editingVisit.id);
+        const ref = doc(col, editingVisit.id);
         setDocumentNonBlocking(ref, { ...visitData, id: editingVisit.id }, { merge: true });
       } else {
-        const ref = doc(visitsCol);
+        const ref = doc(col);
         setDocumentNonBlocking(ref, { ...visitData, id: ref.id }, {});
 
         // Send confirmation email if enabled
@@ -966,8 +965,8 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
   };
 
   const handleStatusChange = async (visit: Visit, status: VisitStatus) => {
-    if (!userId || !db || !visitsCol) return;
-    const ref = doc(visitsCol, visit.id);
+    if (!userId || !db) return;
+    const ref = doc(visitsColPath()!, visit.id);
     setDocumentNonBlocking(ref, { status, updatedAt: Date.now() }, { merge: true });
 
     if (status === 'Cancelada' && config.notifyVisitor && visit.visitorEmail) {
@@ -1007,8 +1006,8 @@ export function VisitasView({ userId, properties }: VisitasViewProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!userId || !db || !visitsCol) return;
-    const ref = doc(visitsCol, id);
+    if (!userId || !db) return;
+    const ref = doc(visitsColPath()!, id);
     deleteDocumentNonBlocking(ref);
     setDetailVisit(null);
     toast({ title: 'Visita eliminada' });
