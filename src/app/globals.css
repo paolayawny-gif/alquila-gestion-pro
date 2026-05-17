@@ -220,6 +220,11 @@
   .tabular  { font-variant-numeric: tabular-nums; }
 }
 
+/* Cards clickeables: hover lift sutil */
+.card-interactive {
+  @apply cursor-pointer transition-all duration-200 ease-spring hover:-translate-y-0.5 hover:shadow-md;
+}
+
 /* Accesibilidad: sin animaciones para usuarios que lo prefieran */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
