@@ -89,13 +89,13 @@ export function NotificationBell({ userId, onNavigate }: NotificationBellProps) 
 
   // — Anuncios publicados (globales) —
   const anunciosQ = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !userId) return null;
     return query(
       collection(db, 'artifacts', APP_ID, 'anuncios'),
       where('isPublished', '==', true),
       orderBy('publishedAt', 'desc'),
     );
-  }, [db]);
+  }, [db, userId]);
   const { data: anunciosData } = useCollection<Anuncio>(anunciosQ);
   const anuncios = useMemo(() => (anunciosData ?? []).slice(0, 20), [anunciosData]);
 
