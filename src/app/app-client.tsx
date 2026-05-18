@@ -251,6 +251,16 @@ export default function AppClient() {
   const orgCtx = useOrgContext();
   const plan = usePlan(user?.uid);
 
+  // ── Asistente IA: escucha eventos de navegación por tab ───────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const tab = (e as CustomEvent<{ tab: string }>).detail?.tab;
+      if (tab) setActiveTab(tab as Tab);
+    };
+    window.addEventListener('alquila-navigate', handler);
+    return () => window.removeEventListener('alquila-navigate', handler);
+  }, []);
+
   // ── Tenant role detection ──────────────────────────────────────────────────
   // undefined = loading; null = not a tenant; TenantRegistryEntry = is tenant
   const [tenantEntry, setTenantEntry] = useState<TenantRegistryEntry | null | undefined>(undefined);
