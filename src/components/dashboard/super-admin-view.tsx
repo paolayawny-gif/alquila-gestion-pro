@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import { collection, query, doc, updateDoc, getDoc, orderBy } from 'firebase/fir
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Anuncio, AnuncioType } from '@/lib/types';
 import { createAnuncio, publishAnuncio, unpublishAnuncio, deleteAnuncio } from '@/lib/anuncios';
+import { authedFetch } from '@/lib/authed-fetch';
 
 const APP_ID = 'alquilagestion-pro';
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
@@ -66,6 +67,16 @@ interface CancelRequest {
   notes?: string;
   requestedAt: string;
   status: 'pendiente' | 'procesada' | 'cancelada_por_usuario';
+  processedAt?: string;
+}
+
+interface PortalPlusRequest {
+  id: string; // = adminId
+  adminId: string;
+  adminEmail: string;
+  adminName?: string;
+  requestedAt: string;
+  status: 'pendiente' | 'aprobada' | 'rechazada';
   processedAt?: string;
 }
 
@@ -120,6 +131,138 @@ const ROLE_CONFIG: Record<OrgUserRole, { color: string; desc: string }> = {
   'Agente':        { color: 'bg-blue-100 text-blue-700',  desc: 'Puede gestionar propiedades, contratos y facturas. No puede eliminar.' },
   'Solo lectura':  { color: 'bg-slate-100 text-slate-600', desc: 'Solo puede ver los datos, sin modificaciones.' },
 };
+
+// ─── Portal Moderation Card ─────────────────────────────────────────────────
+
+interface PortalListing {
+  adminId: string;
+  adminName: string;
+  propertyId: string;
+  name: string;
+  address: string;
+  status: string;
+  portalBlocked: boolean;
+  hasActiveContract: boolean;
+  visible: boolean;
+}
+
+function PortalModerationCard() {
+  const { toast } = useToast();
+  const [listings, setListings] = useState<PortalListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authedFetch('/api/portal/moderate');
+      if (res.ok) {
+        const data = await res.json();
+        setListings(data.listings ?? []);
+      }
+    } catch { /* sin conexión */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const moderate = async (l: PortalListing, action: 'block' | 'unblock' | 'unpublish') => {
+    setBusy(`${l.adminId}/${l.propertyId}`);
+    try {
+      const res = await authedFetch('/api/portal/moderate', {
+        method: 'POST',
+        body: JSON.stringify({ adminId: l.adminId, propertyId: l.propertyId, action }),
+      });
+      if (res.ok) {
+        toast({
+          title: action === 'block' ? 'Publicación suspendida'
+            : action === 'unblock' ? 'Publicación reactivada'
+            : 'Publicación quitada del portal',
+        });
+        await load();
+      } else {
+        toast({ title: 'Error', description: 'No se pudo aplicar la acción.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo aplicar la acción.', variant: 'destructive' });
+    }
+    setBusy(null);
+  };
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-100">
+              <Globe className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-black">Moderación del Portal</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Todas las publicaciones de la vidriera pública — suspendé o quitá las que correspondan.
+              </CardDescription>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs h-7" onClick={load} disabled={loading}>
+            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+            Actualizar
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {loading ? (
+          <p className="text-xs text-muted-foreground">Cargando publicaciones...</p>
+        ) : listings.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">No hay publicaciones activas en el portal.</p>
+        ) : (
+          listings.map(l => {
+            const key = `${l.adminId}/${l.propertyId}`;
+            const isBusy = busy === key;
+            return (
+              <div key={key} className="flex items-start gap-3 p-3 rounded-xl border border-border/50 bg-muted/20">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold truncate">{l.name}</p>
+                    {l.portalBlocked ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Suspendida</span>
+                    ) : l.visible ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">Visible</span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">
+                        {l.hasActiveContract ? 'Con contrato' : `Estado: ${l.status}`}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {l.address} · {l.adminName}
+                  </p>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  {l.portalBlocked ? (
+                    <Button size="sm" className="text-xs h-7 font-bold bg-emerald-600 hover:bg-emerald-700"
+                      disabled={isBusy} onClick={() => moderate(l, 'unblock')}>
+                      Reactivar
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="text-xs h-7 font-bold text-amber-700"
+                      disabled={isBusy} onClick={() => moderate(l, 'block')}>
+                      Suspender
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="text-xs h-7 font-bold text-destructive"
+                    disabled={isBusy} onClick={() => moderate(l, 'unpublish')}>
+                    Quitar
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -193,6 +336,15 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const { data: cancelData } = useCollection<CancelRequest>(cancelQuery);
   const cancelRequests: CancelRequest[] = cancelData || [];
   const pendingCancelCount = cancelRequests.filter(r => r.status === 'pendiente').length;
+
+  // — Load Portal Plus requests —
+  const portalPlusQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'superadmin', 'data', 'portalPlusRequests'));
+  }, [db, user]);
+  const { data: portalPlusData } = useCollection<PortalPlusRequest>(portalPlusQuery);
+  const portalPlusRequests: PortalPlusRequest[] = portalPlusData || [];
+  const pendingPortalPlusCount = portalPlusRequests.filter(r => r.status === 'pendiente').length;
 
   // — Load anuncios —
   const anunciosQuery = useMemoFirebase(() => {
@@ -1131,6 +1283,107 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Solicitudes de Portal Plus ── */}
+      {portalPlusRequests.length > 0 && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${pendingPortalPlusCount > 0 ? 'bg-emerald-100' : 'bg-muted/30'}`}>
+                  <Globe className={`h-5 w-5 ${pendingPortalPlusCount > 0 ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-black">Solicitudes de Portal Plus</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Pedidos de activación de la vidriera pública de propiedades (+5 USD/mes)
+                  </CardDescription>
+                </div>
+              </div>
+              {pendingPortalPlusCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">
+                  <Clock className="h-3 w-3" />
+                  {pendingPortalPlusCount} pendiente{pendingPortalPlusCount !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {portalPlusRequests
+              .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+              .map(r => (
+                <div
+                  key={r.id}
+                  className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
+                    r.status === 'pendiente'
+                      ? 'border-emerald-300 bg-emerald-50/50'
+                      : 'border-border/50 bg-muted/20'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold">{r.adminName || r.adminEmail}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        r.status === 'pendiente'
+                          ? 'bg-amber-100 text-amber-700'
+                          : r.status === 'aprobada'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {r.status === 'pendiente' ? 'Pendiente' : r.status === 'aprobada' ? 'Aprobada' : 'Rechazada'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {r.adminName ? `${r.adminEmail} · ` : ''}
+                      Solicitado: {new Date(r.requestedAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                    {r.processedAt && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Procesada: {new Date(r.processedAt).toLocaleDateString('es-AR')}
+                      </p>
+                    )}
+                  </div>
+                  {r.status === 'pendiente' && (
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        className="text-xs h-7 font-bold bg-emerald-600 hover:bg-emerald-700"
+                        onClick={async () => {
+                          if (!db) return;
+                          await updateDoc(
+                            doc(db, 'artifacts', APP_ID, 'superadmin', 'data', 'portalPlusRequests', r.id),
+                            { status: 'aprobada', processedAt: new Date().toISOString() },
+                          );
+                          toast({ title: 'Portal Plus activado', description: `${r.adminEmail} ya puede publicar en el portal.` });
+                        }}
+                      >
+                        Aprobar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 font-bold text-muted-foreground"
+                        onClick={async () => {
+                          if (!db) return;
+                          await updateDoc(
+                            doc(db, 'artifacts', APP_ID, 'superadmin', 'data', 'portalPlusRequests', r.id),
+                            { status: 'rechazada', processedAt: new Date().toISOString() },
+                          );
+                          toast({ title: 'Solicitud rechazada' });
+                        }}
+                      >
+                        Rechazar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Moderación del Portal ── */}
+      <PortalModerationCard />
 
       {/* New Org Dialog */}
       <Dialog open={showNewOrgDialog} onOpenChange={setShowNewOrgDialog}>

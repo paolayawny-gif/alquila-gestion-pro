@@ -50,6 +50,11 @@ export interface Property {
   virtualTourUrl?: string;
   /** Manuales de electrodomésticos u otros documentos de la unidad */
   manuals?: PropertyManual[];
+  // ── Portal público (vidriera tipo zonaprop) ───────────────────────────────
+  /** El admin habilitó esta propiedad para la vidriera pública /portal */
+  publicarEnPortal?: boolean;
+  /** El super-admin suspendió la publicación (override de moderación) */
+  portalBlocked?: boolean;
   // ── Análisis de valor (Panel Analítico) ──────────────────────────────────
   purchasePrice?: number;        // precio de compra en $
   currentValue?: number;         // valuación actual en $
