@@ -138,11 +138,11 @@ export function DataAssistantChat() {
         </span>
       </button>
 
-      {/* Chat panel */}
+      {/* Chat panel — colores forzados para que no los pise el dark mode */}
       <div className={cn(
-        'fixed bottom-6 right-6 z-50 flex flex-col w-[360px] max-h-[560px] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-200 origin-bottom-right',
+        'fixed bottom-6 right-6 z-50 flex flex-col w-[360px] max-h-[560px] rounded-2xl shadow-2xl overflow-hidden transition-all duration-200 origin-bottom-right',
         open ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-      )}>
+      )} style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#111827' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2 bg-emerald-600 text-white">
           <div className="flex items-center gap-2">
@@ -158,7 +158,7 @@ export function DataAssistantChat() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50 min-h-0">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" style={{ backgroundColor: '#f9fafb' }}>
           {messages.map((msg, i) => (
             <div key={i} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
               {msg.role === 'assistant' && (
@@ -207,7 +207,7 @@ export function DataAssistantChat() {
         </div>
 
         {/* Input */}
-        <div className="flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white">
+        <div className="flex items-center gap-2 px-3 py-3" style={{ borderTop: '1px solid #f3f4f6', backgroundColor: '#ffffff' }}>
           <input
             ref={inputRef}
             type="text"
@@ -216,7 +216,8 @@ export function DataAssistantChat() {
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Preguntá o decí 'ir a contratos'..."
             disabled={loading}
-            className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50"
+            className="flex-1 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+            style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827' }}
           />
           <button
             onClick={() => handleSend()}
