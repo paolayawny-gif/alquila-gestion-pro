@@ -109,6 +109,7 @@ import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
+import { OnboardingChecklist } from '@/components/ui/onboarding-checklist';
 import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
 import { VisitasView } from '@/components/dashboard/visitas-view';
 import { NpsSurvey } from '@/components/ui/nps-survey';
@@ -799,7 +800,19 @@ export default function AppClient() {
     }
 
     switch (activeTab) {
-      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} userId={user?.uid} />;
+      case 'Resumen': return (
+        <>
+          {!isSuperAdmin && !tenantEntry && !ownerEntry && (
+            <OnboardingChecklist
+              userId={user?.uid}
+              propertyCount={properties.length}
+              contractCount={contracts.length}
+              onNavigate={(tab) => setActiveTab(tab as Tab)}
+            />
+          )}
+          <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} userId={user?.uid} />
+        </>
+      );
       case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} liquidations={liquidations} legalCases={legalCases} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} onOpenContract={() => setActiveTab('Personas' as Tab)} />;
       case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} invoices={invoices} liquidations={liquidations} tasks={tasks} legalCases={legalCases} applications={applications} onOpenProperty={(id) => { setDeepLinkPropertyId(id); setActiveTab('Propiedades' as Tab); }} />;
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;

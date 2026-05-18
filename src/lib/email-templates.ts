@@ -205,6 +205,37 @@ export function emailServiceRequest(p: {
   `, `Enviado por ${p.adminName ?? 'tu administrador'} a través de AlquilaGestión Pro.`);
 }
 
+export function emailWelcomeAdmin(p: {
+  ownerName: string;
+  orgName: string;
+  plan: string;
+  loginUrl?: string;
+}) {
+  const url = p.loginUrl ?? 'https://alquilagestion.pro';
+  return shell(`
+    <p style="color:${BRAND_DARK};margin:0 0 6px;font-size:15px;">¡Hola <strong>${p.ownerName}</strong>!</p>
+    <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Tu cuenta en <strong>AlquilaGestión Pro</strong> fue activada y ya podés empezar a usarla.
+      Desde el panel podés gestionar propiedades, contratos, facturas, liquidaciones y mucho más.
+    </p>
+    ${table(
+      kv('Organización', p.orgName),
+      kv('Plan', p.plan),
+    )}
+    <p style="color:#475569;font-size:14px;margin:20px 0 8px;font-weight:600;">Primeros pasos recomendados:</p>
+    <ol style="color:#475569;font-size:13px;line-height:1.9;margin:0 0 20px;padding-left:20px;">
+      <li>Configurá tu número de <strong>WhatsApp Business</strong> en Configuración</li>
+      <li>Cargá tu <strong>primera propiedad</strong> en el módulo Propiedades</li>
+      <li>Registrá un <strong>inquilino y contrato</strong> en Personas y Contratos</li>
+      <li>Publicá tu <strong>página pública</strong> para mostrar propiedades disponibles</li>
+    </ol>
+    ${btn('Ingresar al panel', url)}
+    <p style="color:#94a3b8;font-size:12px;margin:16px 0 0;line-height:1.6;">
+      Si tenés alguna consulta, respondé este email y te ayudamos.
+    </p>
+  `, 'AlquilaGestión Pro — Plataforma de administración de alquileres');
+}
+
 // ── Visitas / Turnos ──────────────────────────────────────────────────────────
 
 export function emailVisitConfirmation(p: {
