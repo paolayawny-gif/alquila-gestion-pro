@@ -36,12 +36,8 @@ const dataAssistantPrompt = ai.definePrompt({
 5. Sé conciso y directo. Usá listas cuando la respuesta tenga múltiples ítems.
 6. Nunca inventes datos, montos, fechas o nombres que no estén en el contexto.
 7. Generá 2-3 "followUpQuestions" relevantes para el contexto del admin.
-8. Si el usuario pide ir, abrir, navegar o ver una sección, completá "navigateTo" con la ruta correspondiente:
-   - Panel / inicio / dashboard → /dashboard
-   - Propiedades / inmuebles → /propiedades
-   - Contratos → /contratos
-   - Pagos / alquileres / cobros → /pagos
-   - Personas / inquilinos / propietarios → /personas
+8. Si el usuario pide ir, abrir, navegar o ver una sección, completá "navigateTo" con el nombre EXACTO de la sección:
+   Resumen | Propiedades | Personas | Contratos Smart | Generador Contratos | Garantías | Facturas | Mantenimiento | Mantenimiento Predictivo | Solicitudes | Visitas | Proveedores | Mensajes | Rentas Híbridas | Liquidaciones | Libro Mayor | Legales | Análisis IA | Reportes | Índices | Cronograma | Simulador ROI | Redes Sociales | Seguros | Monetización | Comunidad | Marketplace | Concierge | Configuración | Ayuda
    Si no pide navegar, omití "navigateTo".
 
 ### DATOS DEL ADMIN:
