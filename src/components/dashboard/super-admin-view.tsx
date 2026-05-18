@@ -15,8 +15,9 @@ import {
   Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight,
   BarChart3, Home, DollarSign, TrendingUp, Activity, FileText, Wrench,
   LogOut, AlertTriangle, Target, Settings, CreditCard, EyeOff,
-  Megaphone, Zap, Lightbulb, Send, Globe,
+  Megaphone, Zap, Lightbulb, Send, Globe, TrendingDown, Banknote,
 } from 'lucide-react';
+import { tierForUnits } from '@/lib/billing/tiers';
 import { CaptacionView } from '@/components/dashboard/captacion-view';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -268,6 +269,41 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     return { totalProps, totalContratos, totalTareas, tipos, promedioARS, promedioUSD };
   }, [allStats]);
 
+  // ── Métricas SaaS (MRR, churn, nuevas orgs) ───────────────────────────────
+  const saasMetrics = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    // MRR: por cada org activa, tomamos sus contratos vigentes y calculamos el tier
+    const mrr = organizations
+      .filter(o => o.status === 'Activa')
+      .reduce((sum, org) => {
+        const stat = allStats.find(s => s.adminEmail === org.ownerEmail);
+        const units = stat?.contratosVigentes ?? 0;
+        return sum + tierForUnits(units).priceARS;
+      }, 0);
+
+    // Orgs nuevas este mes
+    const nuevasEsteMes = organizations.filter(o => o.createdAt >= startOfMonth).length;
+
+    // Bajas procesadas este mes (proxy de churn)
+    const bajasEsteMes = cancelRequests.filter(
+      r => r.status === 'procesada' && (r.processedAt ?? '') >= startOfMonth,
+    ).length;
+
+    // Churn rate aproximado: bajas / orgs activas al inicio del mes
+    // (simplificado: bajas / total activas actuales)
+    const activeCount = organizations.filter(o => o.status === 'Activa').length;
+    const churnRate = activeCount > 0 ? Math.round((bajasEsteMes / activeCount) * 100) : 0;
+
+    // Orgs sin actividad registrada (posible riesgo de churn)
+    const orgsInactivas = organizations
+      .filter(o => o.status === 'Activa')
+      .filter(o => !allStats.find(s => s.adminEmail === o.ownerEmail)).length;
+
+    return { mrr, nuevasEsteMes, bajasEsteMes, churnRate, orgsInactivas };
+  }, [organizations, allStats, cancelRequests]);
+
   // Access guard
   if (userEmail !== SUPER_ADMIN_EMAIL) {
     return (
@@ -375,6 +411,22 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     setDocumentNonBlocking(ref, { status }, { merge: true });
     if (selectedOrg?.id === org.id) setSelectedOrg({ ...org, status });
     toast({ title: `Estado actualizado`, description: `${org.name} → ${status}` });
+
+    // Enviar email de bienvenida la primera vez que se activa la org
+    if (status === 'Activa' && org.status !== 'Activa' && !(org as any).welcomeEmailSentAt) {
+      fetch('/api/superadmin/welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId: org.id, callerEmail: userEmail }),
+      })
+        .then(r => r.json())
+        .then(r => {
+          if (r.ok && !r.skipped) {
+            toast({ title: '📧 Email de bienvenida enviado', description: `Se notificó a ${org.ownerEmail}` });
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const handleDeleteOrg = (org: Organization) => {
@@ -643,6 +695,73 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
 
       {/* ── Vista Organizaciones ── */}
       {mainView === 'orgs' && <>
+
+      {/* ── Métricas SaaS ── */}
+      <Card className="border-none shadow-sm bg-white">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Banknote className="h-4 w-4 text-primary" /> Métricas del negocio
+            <span className="ml-auto text-[10px] font-normal text-muted-foreground">Este mes</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {[
+              {
+                label: 'MRR estimado',
+                value: `$${Math.round(saasMetrics.mrr / 1000)}K`,
+                sub: 'ARS / mes',
+                icon: DollarSign,
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50',
+              },
+              {
+                label: 'Orgs nuevas',
+                value: saasMetrics.nuevasEsteMes,
+                sub: 'altas este mes',
+                icon: TrendingUp,
+                color: 'text-blue-600',
+                bg: 'bg-blue-50',
+              },
+              {
+                label: 'Bajas procesadas',
+                value: saasMetrics.bajasEsteMes,
+                sub: 'este mes',
+                icon: TrendingDown,
+                color: saasMetrics.bajasEsteMes > 0 ? 'text-red-600' : 'text-muted-foreground',
+                bg: saasMetrics.bajasEsteMes > 0 ? 'bg-red-50' : 'bg-muted/30',
+              },
+              {
+                label: 'Churn rate',
+                value: `${saasMetrics.churnRate}%`,
+                sub: 'sobre activas',
+                icon: Activity,
+                color: saasMetrics.churnRate > 5 ? 'text-red-600' : saasMetrics.churnRate > 0 ? 'text-amber-600' : 'text-green-600',
+                bg: saasMetrics.churnRate > 5 ? 'bg-red-50' : saasMetrics.churnRate > 0 ? 'bg-amber-50' : 'bg-green-50',
+              },
+              {
+                label: 'Sin actividad',
+                value: saasMetrics.orgsInactivas,
+                sub: 'riesgo churn',
+                icon: AlertTriangle,
+                color: saasMetrics.orgsInactivas > 0 ? 'text-amber-600' : 'text-muted-foreground',
+                bg: saasMetrics.orgsInactivas > 0 ? 'bg-amber-50' : 'bg-muted/30',
+              },
+            ].map(k => (
+              <div key={k.label} className={cn('rounded-xl p-3 flex items-center gap-2.5', k.bg)}>
+                <div className="p-1.5 bg-white rounded-lg shrink-0">
+                  <k.icon className={cn('h-4 w-4', k.color)} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase text-muted-foreground leading-none">{k.label}</p>
+                  <p className={cn('text-sm font-black mt-0.5 truncate', k.color)}>{k.value}</p>
+                  <p className="text-[9px] text-muted-foreground">{k.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Métricas globales de plataforma */}
       {allStats.length > 0 && (
