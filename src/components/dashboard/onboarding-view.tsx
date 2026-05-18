@@ -28,7 +28,11 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldX,
-  Shield
+  Shield,
+  ChevronLeft,
+  Users,
+  UserPlus,
+  Home
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -86,6 +90,9 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   const [bcraReport, setBcraReport] = useState<BcraDeudaReport | null>(null);
   const [isFetchingBcra, setIsFetchingBcra] = useState(false);
   const [cuitInput, setCuitInput] = useState('');
+
+  // Property grouping
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   const getStatusBadge = (status: ApplicationStatus) => {
     const styles = {
@@ -265,26 +272,200 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
     }
   };
 
-  const filteredApps = applications.filter(app => 
-    app.applicantName.toLowerCase().includes(searchTerm.toLowerCase())
+  const formatPropStreet = (prop: Property) => {
+    const streetOnly = prop.address
+      .replace(/,?\s*\d{2,5}(?=\s|,|$)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return prop.unit ? `${streetOnly} · ${prop.unit}` : streetOnly;
+  };
+
+  // Overview: properties that have at least one application
+  const propertiesWithApps = properties
+    .map(prop => ({
+      prop,
+      total: applications.filter(a => a.propertyId === prop.id).length,
+      nuevas: applications.filter(a => a.propertyId === prop.id && a.status === 'Nueva').length,
+    }))
+    .filter(({ total }) => total > 0)
+    .sort((a, b) => b.nuevas - a.nuevas || b.total - a.total);
+
+  const generalApps = applications.filter(
+    a => a.propertyId === 'general' || !properties.find(p => p.id === a.propertyId)
   );
+
+  const selectedProperty = properties.find(p => p.id === selectedPropertyId) ?? null;
+
+  const filteredApps = applications
+    .filter(app => {
+      if (selectedPropertyId === '__general__') return generalApps.some(a => a.id === app.id);
+      if (selectedPropertyId) return app.propertyId === selectedPropertyId;
+      return true;
+    })
+    .filter(app => app.applicantName.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const pendingApps = filteredApps.filter(app => ['Nueva', 'En análisis', 'Pendiente de documentación'].includes(app.status));
   const historyApps = filteredApps.filter(app => ['Aprobada', 'Rechazada'].includes(app.status));
 
+  // ── Property overview (no property selected) ─────────────────────────────
+  if (!selectedPropertyId) {
+    const hasAny = propertiesWithApps.length > 0 || generalApps.length > 0;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-black">Postulaciones por Inmueble</h2>
+            <p className="text-sm text-muted-foreground">
+              {applications.length === 0
+                ? 'Aún no hay postulaciones recibidas.'
+                : `${applications.length} postulante${applications.length !== 1 ? 's' : ''} en total`}
+            </p>
+          </div>
+          <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary text-white gap-2 font-bold shadow-md">
+                <ExternalLink className="h-4 w-4" /> Enlace Público
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" /> Recibir Postulaciones
+                </DialogTitle>
+                <DialogDescription className="pt-2">Comparte este link para recibir carpetas digitales.</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-4">
+                <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-xl border border-dashed border-primary/20">
+                  <code className="text-[10px] flex-1 truncate font-mono text-primary font-bold">/apply?adminId={userId}</code>
+                  <Button size="icon" variant="ghost" aria-label="Copiar enlace público" onClick={copyPublicLink}><Copy className="h-4 w-4 text-primary" /></Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {!hasAny ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+            <div className="bg-primary/5 p-5 rounded-3xl">
+              <UserPlus className="h-12 w-12 text-primary/40" />
+            </div>
+            <p className="font-bold text-muted-foreground">Todavía no llegaron postulaciones</p>
+            <p className="text-xs text-muted-foreground max-w-xs">Compartí el enlace público con interesados para comenzar a recibir carpetas.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {propertiesWithApps.map(({ prop, total, nuevas }) => (
+              <button
+                key={prop.id}
+                onClick={() => setSelectedPropertyId(prop.id)}
+                className="text-left group"
+              >
+                <Card className="h-full border hover:border-primary/40 hover:shadow-md transition-all bg-white">
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="bg-primary/10 p-2 rounded-xl">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                      {nuevas > 0 && (
+                        <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-blue-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+                          {nuevas} nueva{nuevas !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-wide">{prop.type}</p>
+                      <p className="font-bold text-sm leading-snug mt-0.5">{formatPropStreet(prop)}</p>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        {total} postulante{total !== 1 ? 's' : ''}
+                      </span>
+                      <span className="text-xs font-bold text-primary group-hover:underline">Ver →</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            ))}
+
+            {generalApps.length > 0 && (
+              <button onClick={() => setSelectedPropertyId('__general__')} className="text-left group">
+                <Card className="h-full border hover:border-primary/40 hover:shadow-md transition-all bg-white">
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="bg-muted p-2 rounded-xl">
+                        <Home className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      {generalApps.filter(a => a.status === 'Nueva').length > 0 && (
+                        <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-blue-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+                          {generalApps.filter(a => a.status === 'Nueva').length} nueva{generalApps.filter(a => a.status === 'Nueva').length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Consulta General</p>
+                      <p className="font-bold text-sm leading-snug mt-0.5">Sin inmueble asignado</p>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        {generalApps.length} postulante{generalApps.length !== 1 ? 's' : ''}
+                      </span>
+                      <span className="text-xs font-bold text-primary group-hover:underline">Ver →</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+
+      {/* Back button + property header */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2"
+          onClick={() => { setSelectedPropertyId(null); setSearchTerm(''); }}
+        >
+          <ChevronLeft className="h-4 w-4" /> Todos los inmuebles
+        </Button>
+        {selectedProperty && (
+          <>
+            <span className="text-muted-foreground">/</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-primary uppercase tracking-wide">{selectedProperty.type}</span>
+              <span className="font-bold text-sm">{formatPropStreet(selectedProperty)}</span>
+            </div>
+          </>
+        )}
+        {selectedPropertyId === '__general__' && (
+          <>
+            <span className="text-muted-foreground">/</span>
+            <span className="font-bold text-sm">Consulta General</span>
+          </>
+        )}
+      </div>
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar candidatos..." 
-            className="pl-9 bg-white" 
+          <Input
+            placeholder="Buscar candidatos..."
+            className="pl-9 bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
+
         <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary text-white gap-2 font-bold shadow-md">

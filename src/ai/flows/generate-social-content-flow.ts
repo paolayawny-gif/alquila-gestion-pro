@@ -15,6 +15,7 @@ const InputSchema = z.object({
   tone: z.enum(['profesional', 'cercano', 'urgente', 'inspiracional', 'informativo']).describe('Tono del mensaje.'),
   propertyName: z.string().optional().describe('Nombre o dirección de la propiedad, si aplica.'),
   extraContext: z.string().optional().describe('Contexto adicional: precio, superficie, amenities, etc.'),
+  brandContext: z.string().optional().describe('Brief de marca de la inmobiliaria — aplicar siempre para mantener coherencia de voz.'),
 });
 
 export type GenerateSocialContentInput = z.infer<typeof InputSchema>;
@@ -49,7 +50,7 @@ const generateSocialContentFlow = ai.defineFlow(
 
     const { output } = await ai.generate({
       prompt: `Sos un experto en marketing inmobiliario argentino y gestión de redes sociales.
-Generá contenido para ${input.network} con estas características:
+${input.brandContext ? `BRIEF DE MARCA (aplicar en todo el contenido — voz, tono y estilo de esta inmobiliaria):\n${input.brandContext}\n\n` : ''}Generá contenido para ${input.network} con estas características:
 
 - Tema: ${input.topic}
 - Tipo: ${input.contentType}

@@ -135,12 +135,13 @@ interface InvoicesViewProps {
   userId?: string;
   contracts: Contract[];
   properties?: Property[];
+  people?: Person[];
 }
 
 const APP_ID = "alquilagestion-pro";
 const CHARGE_TYPES: ChargeType[] = ['Alquiler', 'Expensa Ordinaria', 'Expensa Extraordinaria', 'TGI/ABL', 'Aguas', 'Luz/Gas', 'Otros'];
 
-export function InvoicesView({ invoices, userId, contracts, properties = [] }: InvoicesViewProps) {
+export function InvoicesView({ invoices, userId, contracts, properties = [], people = [] }: InvoicesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
@@ -242,12 +243,6 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
   const [filterProperty, setFilterProperty] = useState('');
   const [filterStatus,   setFilterStatus]   = useState<Invoice['status'] | ''>('');
 
-  const peopleQuery = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'inquilinos'));
-  }, [db, userId]);
-  const { data: people } = useCollection<Person>(peopleQuery);
-
   const nextMonthLabel = React.useMemo(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth() + 1, 1)
@@ -335,7 +330,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [] }: I
     return invoices.filter(i => {
       if (filterSearch) {
         const q = filterSearch.toLowerCase();
-        if (!i.tenantName.toLowerCase().includes(q) && !i.propertyName.toLowerCase().includes(q) && !(i.period ?? '').toLowerCase().includes(q)) return false;
+        if (!(i.tenantName ?? '').toLowerCase().includes(q) && !(i.propertyName ?? '').toLowerCase().includes(q) && !(i.period ?? '').toLowerCase().includes(q)) return false;
       }
       if (filterProperty && i.propertyId !== filterProperty) return false;
       if (filterStatus && i.status !== filterStatus) return false;

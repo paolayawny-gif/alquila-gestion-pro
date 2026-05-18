@@ -37,7 +37,7 @@ const STATUS_COLOR: Record<string, string> = {
   'Cerrado':       'bg-gray-50 text-gray-500 border-gray-200',
 };
 
-const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerMaintenanceApprovalsProps {
   ownerEntry: OwnerRegistryEntry;
@@ -60,9 +60,9 @@ export function OwnerMaintenanceApprovals({ ownerEntry }: OwnerMaintenanceApprov
     );
   }, [db, ownerEntry.adminId, ownerEntry.ownerEmail]);
   const { data: tasksRaw } = useCollection<MaintenanceTask>(tasksQ);
-  const tasks = [...(tasksRaw ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const tasks = [...(tasksRaw ?? [])].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
-  const pending   = tasks.filter(t => t.isApprovedByOwner == null || t.isApprovedByOwner === false).length;
+  const pending   = tasks.filter(t => t.isApprovedByOwner == null).length;
   const approved  = tasks.filter(t => t.isApprovedByOwner === true).length;
   const total     = tasks.length;
 
@@ -148,8 +148,9 @@ export function OwnerMaintenanceApprovals({ ownerEntry }: OwnerMaintenanceApprov
         <div className="space-y-3">
           {tasks.map(task => {
             const isOpen = expanded === task.id;
-            const needsApproval = task.isApprovedByOwner == null || task.isApprovedByOwner === false;
+            const needsApproval = task.isApprovedByOwner == null;
             const isApproved    = task.isApprovedByOwner === true;
+            const isRejected    = task.isApprovedByOwner === false;
             const totalCost     = (task.estimatedCost ?? 0) || (task.actualCost ?? 0);
 
             return (
@@ -161,13 +162,13 @@ export function OwnerMaintenanceApprovals({ ownerEntry }: OwnerMaintenanceApprov
                   >
                     <div className={cn(
                       'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
-                      isApproved ? 'bg-green-50' : needsApproval ? 'bg-amber-50' : 'bg-muted/30',
+                      isApproved ? 'bg-green-50' : isRejected ? 'bg-red-50' : 'bg-amber-50',
                     )}>
                       {isApproved
                         ? <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        : needsApproval
-                        ? <Clock className="h-5 w-5 text-amber-600" />
-                        : <XCircle className="h-5 w-5 text-red-500" />
+                        : isRejected
+                        ? <XCircle className="h-5 w-5 text-red-500" />
+                        : <Clock className="h-5 w-5 text-amber-600" />
                       }
                     </div>
                     <div className="flex-1 min-w-0">
@@ -201,7 +202,7 @@ export function OwnerMaintenanceApprovals({ ownerEntry }: OwnerMaintenanceApprov
                             <ThumbsUp className="h-3 w-3" /> Aprobaste esta tarea
                           </span>
                         )}
-                        {task.isApprovedByOwner === false && !needsApproval && (
+                        {isRejected && (
                           <span className="text-[10px] font-bold text-red-500 flex items-center gap-1">
                             <ThumbsDown className="h-3 w-3" /> Rechazada
                           </span>

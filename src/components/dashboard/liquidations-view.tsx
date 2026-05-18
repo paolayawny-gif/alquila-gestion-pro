@@ -94,11 +94,13 @@ interface LiquidationsViewProps {
   properties: Property[];
   people: Person[];
   contracts?: Contract[];
+  invoices?: Invoice[];
+  tasks?: MaintenanceTask[];
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function LiquidationsView({ liquidations, userId, properties, people, contracts = [] }: LiquidationsViewProps) {
+export function LiquidationsView({ liquidations, userId, properties, people, contracts = [], invoices = [], tasks = [] }: LiquidationsViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
@@ -118,7 +120,7 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
   const filteredProperties = React.useMemo(() => {
     const q = propSearch.trim().toLowerCase();
     if (!q) return sortedProperties;
-    return sortedProperties.filter(p => p.name.toLowerCase().includes(q));
+    return sortedProperties.filter(p => (p.name ?? '').toLowerCase().includes(q));
   }, [sortedProperties, propSearch]);
 
   const allFilteredSelected = filteredProperties.length > 0 && filteredProperties.every(p => selectedPropIds.includes(p.id));
@@ -163,20 +165,6 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
     const body = `Estimado/a ${l.ownerName},\n\nAdjunto el detalle de su liquidación correspondiente a ${l.period}:\n\nPropiedad: ${l.propertyName}\nAlquiler bruto: ${formatCurrency(l.ingresoAlquiler)}\nHonorarios admin (10%): -${formatCurrency(l.adminFeeDeduction)}\nServicios/impuestos: -${formatCurrency(l.expenseDeductions)}\nReparaciones: -${formatCurrency(l.maintenanceDeductions)}${interests}\n\nNeto a transferir: ${formatCurrency(l.netAmount)}\n\nSaludos,\nAlquilaGestión Pro`;
     return `mailto:${l.ownerEmail || ''}?subject=${encodeURIComponent(`Liquidación ${l.period} — ${l.propertyName}`)}&body=${encodeURIComponent(body)}`;
   };
-
-  const facturasQuery = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'facturas'));
-  }, [db, userId]);
-  const { data: invoicesData } = useCollection<Invoice>(facturasQuery);
-  const invoices = invoicesData || [];
-
-  const mantenimientoQuery = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento'));
-  }, [db, userId]);
-  const { data: maintenanceData } = useCollection<MaintenanceTask>(mantenimientoQuery);
-  const tasks = maintenanceData || [];
 
   const handleCreateLiq = () => {
     if (selectedPropIds.length === 0 || !userId || !db) return;
@@ -224,11 +212,16 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
         return;
       }
 
+      const activeContractForLiq = contracts.find(
+        c => c.propertyId === property.id && (c.status === 'Vigente' || c.status === 'Próximo a Vencer')
+      );
+
       const docId = Math.random().toString(36).substr(2, 9);
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', docId);
 
       const liqData: Liquidation = {
         id: docId,
+        contractId: activeContractForLiq?.id,
         propertyId: propId,
         propertyName: property.name,
         ownerId: owner.id,

@@ -42,10 +42,11 @@ import {
   Menu,
   Settings,
   HelpCircle,
+  Fingerprint,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { BottomNav } from '@/components/ui/bottom-nav';
-import { SummaryView } from '@/components/dashboard/summary-view';
 import { PropertiesView } from '@/components/dashboard/properties-view';
 import { TenantsView } from '@/components/dashboard/tenants-view';
 import { InvoicesView } from '@/components/dashboard/invoices-view';
@@ -53,14 +54,9 @@ import { MaintenanceView } from '@/components/dashboard/maintenance-view';
 import { LegalView } from '@/components/dashboard/legal-view';
 import { LiquidationsView } from '@/components/dashboard/liquidations-view';
 import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
-import { AIAnalyticsView } from '@/components/dashboard/ai-analytics-view';
-import { PredictiveMaintenanceView } from '@/components/dashboard/predictive-maintenance-view';
-import { ROISimulatorView } from '@/components/dashboard/roi-simulator-view';
-import { FinancialLedgerView } from '@/components/dashboard/financial-ledger-view';
 import { ContractGeneratorView } from '@/components/dashboard/contract-generator-view';
 import { ApplicationsView } from '@/components/dashboard/onboarding-view';
 import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
-import { AnalyticsPanelView } from '@/components/dashboard/analytics-panel-view';
 import { IndexRecordsView } from '@/components/dashboard/index-records-view';
 import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
 import { DepositsView } from '@/components/dashboard/deposits-view';
@@ -97,10 +93,13 @@ import { signOut } from 'firebase/auth';
 import { collection, query, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { createNotification } from '@/lib/notifications';
+import { BiometricGate } from '@/components/BiometricGate';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink, PendingRentAdjustment, IndexRecord } from '@/lib/types';
 import { isAdjustmentDue, calculateProposedAmount, buildPendingAdjustment } from '@/lib/rent-adjustment';
 import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
 import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal';
+import { usePlan } from '@/hooks/use-plan';
+import { BillingBlockedScreen } from '@/components/billing/billing-blocked-screen';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { SuperAdminView } from '@/components/dashboard/super-admin-view';
@@ -111,10 +110,42 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
 import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
+import { VisitasView } from '@/components/dashboard/visitas-view';
 import { NpsSurvey } from '@/components/ui/nps-survey';
+import dynamic from 'next/dynamic';
+
+// Vistas con gráficos (recharts) — se cargan de forma diferida para no incluir
+// la librería de gráficos en el bundle inicial. Solo se descarga al abrir la pestaña.
+const chartViewLoading = () => (
+  <div className="p-8 text-sm text-muted-foreground">Cargando…</div>
+);
+const SummaryView = dynamic(
+  () => import('@/components/dashboard/summary-view').then(m => m.SummaryView),
+  { loading: chartViewLoading },
+);
+const AIAnalyticsView = dynamic(
+  () => import('@/components/dashboard/ai-analytics-view').then(m => m.AIAnalyticsView),
+  { loading: chartViewLoading },
+);
+const PredictiveMaintenanceView = dynamic(
+  () => import('@/components/dashboard/predictive-maintenance-view').then(m => m.PredictiveMaintenanceView),
+  { loading: chartViewLoading },
+);
+const ROISimulatorView = dynamic(
+  () => import('@/components/dashboard/roi-simulator-view').then(m => m.ROISimulatorView),
+  { loading: chartViewLoading },
+);
+const FinancialLedgerView = dynamic(
+  () => import('@/components/dashboard/financial-ledger-view').then(m => m.FinancialLedgerView),
+  { loading: chartViewLoading },
+);
+const AnalyticsPanelView = dynamic(
+  () => import('@/components/dashboard/analytics-panel-view').then(m => m.AnalyticsPanelView),
+  { loading: chartViewLoading },
+);
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
-type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler';
+type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler' | 'Visitas';
 
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
@@ -144,6 +175,7 @@ const ADMIN_MENU_GROUPS = [
       { id: 'Facturas',                icon: FileSpreadsheet, label: 'Facturas y Servicios'    },
       { id: 'Mantenimiento',           icon: Wrench,          label: 'Mantenimiento'           },
       { id: 'Mantenimiento Predictivo',icon: ShieldPlus,      label: 'Mantenimiento Predictivo'},
+      { id: 'Visitas',                 icon: CalendarRange,   label: 'Visitas y Turnos'        },
       { id: 'Proveedores',             icon: HardHat,         label: 'Proveedores'             },
       { id: 'Mensajes',                icon: MessagesSquare,  label: 'Mensajes'                },
     ],
@@ -208,13 +240,26 @@ export default function AppClient() {
   const [isMounted, setIsMounted] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
   
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const db = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
   const orgCtx = useOrgContext();
+  const plan = usePlan(user?.uid);
+
+  // ── Asistente IA: escucha eventos de navegación por tab ───────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const tab = (e as CustomEvent<{ tab: string }>).detail?.tab;
+      if (tab) setActiveTab(tab as Tab);
+    };
+    window.addEventListener('alquila-navigate', handler);
+    return () => window.removeEventListener('alquila-navigate', handler);
+  }, []);
 
   // ── Tenant role detection ──────────────────────────────────────────────────
   // undefined = loading; null = not a tenant; TenantRegistryEntry = is tenant
@@ -262,6 +307,23 @@ export default function AppClient() {
     setIsMounted(true);
   }, []);
 
+  // Detect built-in biometric support (Touch ID / Face ID / Windows Hello)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setBiometricSupported)
+        .catch(() => setBiometricSupported(false));
+    }
+  }, []);
+
+  // Hard auth guard: the dashboard must never render for an unauthenticated
+  // visitor. If Firebase has no signed-in user, send them to /login.
+  useEffect(() => {
+    if (isMounted && !isUserLoading && !user) {
+      router.replace('/login');
+    }
+  }, [isMounted, isUserLoading, user, router]);
+
   // Ctrl+K / Cmd+K → open command palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -276,7 +338,61 @@ export default function AppClient() {
 
   // Show onboarding wizard on first load when no data yet — declared after data arrays
 
+  // Register a passkey so future logins can use biometrics
+  const handleEnableBiometric = async () => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('No autenticado');
+
+      const optRes = await fetch('/api/auth/passkey/register', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const { options, stateToken } = await optRes.json();
+
+      // Already enrolled: re-registering errors out in the OS credential
+      // manager, so just confirm it's active instead of attempting again.
+      if ((options?.excludeCredentials?.length ?? 0) > 0) {
+        toast({ title: 'Biometría ya activada', description: 'Ya podés ingresar con huella o Face ID.' });
+        return;
+      }
+
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const regResponse = await startRegistration(options);
+
+      const verRes = await fetch('/api/auth/passkey/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ response: regResponse, stateToken }),
+      });
+      if (!verRes.ok) throw new Error('No se pudo registrar la biometría');
+
+      // Mark this device as biometric-capable so the gate engages on it.
+      localStorage.setItem('agp_device_has_passkey', '1');
+      toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') return; // user cancelled the prompt
+      if (err.name === 'InvalidStateError') {
+        toast({ title: 'Biometría ya activada', description: 'Este dispositivo ya está registrado.' });
+        return;
+      }
+      toast({ title: 'No se pudo activar', description: err.message ?? 'Intentá de nuevo.', variant: 'destructive' });
+    }
+  };
+
   const handleLogout = async () => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      }
+    } catch {
+      // best-effort: always sign out regardless
+    }
+    sessionStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_biometric_unlocked');
     await signOut(auth);
   };
 
@@ -373,6 +489,8 @@ export default function AppClient() {
   const socialLinks = socialLinksData || [];
   const rentAdjustments = adjustmentsData || [];
   const pendingAdjustmentsCount = rentAdjustments.filter(a => a.status === 'pendiente').length;
+  const newApplicationsCount = applications.filter(a => a.status === 'Nueva').length;
+  const [deepLinkPropertyId, setDeepLinkPropertyId] = useState<string | null>(null);
 
   // Show onboarding wizard on first load when no data yet
   useEffect(() => {
@@ -556,7 +674,9 @@ export default function AppClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties.length, contracts.length, invoices.length, tasks.length, db, user?.uid]);
 
-  if (!isMounted) return null;
+  if (!isMounted || isUserLoading) return null;
+  // Not authenticated → render nothing while the guard effect redirects to /login.
+  if (!user) return null;
 
   // ── Show tenant portal if user is a tenant ──────────────────────────────
   if (tenantEntry && !forceAdmin && !isSuperAdmin) {
@@ -580,6 +700,28 @@ export default function AppClient() {
 
   // Still loading role check → show nothing
   if (tenantEntry === undefined || ownerEntry === undefined) return null;
+
+  // ── Bloqueo por suscripción impaga ──────────────────────────────────────────
+  // El superadmin nunca se bloquea. No bloqueamos mientras carga el plan, para
+  // no mostrar la pantalla de bloqueo en falso durante la carga inicial.
+  if (!isSuperAdmin && !plan.loading && plan.blocked) {
+    const st = plan.state?.status;
+    const reason =
+      plan.trialExpired   ? 'Tu período de prueba terminó.'
+      : st === 'pending'  ? 'Tu suscripción quedó pendiente de pago por más de 48 horas.'
+      : st === 'past_due' ? 'No pudimos procesar el último cobro y venció el período de gracia.'
+      : st === 'paused'   ? 'Tu suscripción está pausada por falta de pago.'
+      : st === 'cancelled'? 'Tu suscripción fue cancelada.'
+      :                     'Tu suscripción no está activa.';
+    return (
+      <BillingBlockedScreen
+        adminId={user?.uid ?? ''}
+        adminEmail={user?.email ?? ''}
+        reason={reason}
+        onLogout={handleLogout}
+      />
+    );
+  }
 
   // ── Rent adjustment handlers ───────────────────────────────────────────────
   const approveAdjustment = async (id: string) => {
@@ -657,13 +799,14 @@ export default function AppClient() {
     }
 
     switch (activeTab) {
-      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
-      case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} />;
-      case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} />;
+      case 'Resumen': return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} userId={user?.uid} />;
+      case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} liquidations={liquidations} legalCases={legalCases} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} onOpenContract={() => setActiveTab('Personas' as Tab)} />;
+      case 'Personas': return <TenantsView people={people} userId={user?.uid} contracts={contracts} properties={properties} indexRecords={indexRecords} invoices={invoices} liquidations={liquidations} tasks={tasks} legalCases={legalCases} applications={applications} onOpenProperty={(id) => { setDeepLinkPropertyId(id); setActiveTab('Propiedades' as Tab); }} />;
       case 'Solicitudes': return <ApplicationsView applications={applications} userId={user?.uid} properties={properties} />;
-      case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} />;
+      case 'Facturas': return <InvoicesView invoices={invoices} userId={user?.uid} contracts={contracts} properties={properties} people={people} />;
       case 'Centro Liquidaciones': return <CentroLiquidacionesView invoices={invoices} contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
-      case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} />;
+      case 'Mantenimiento': return <MaintenanceView tasks={tasks} userId={user?.uid} properties={properties} people={people} contracts={contracts} />;
+      case 'Visitas': return <VisitasView userId={user?.uid} properties={properties} />;
       case 'Mantenimiento Predictivo': return <PredictiveMaintenanceView properties={properties} tasks={tasks} userId={user?.uid} />;
       case 'Proveedores': return <ProvidersView tasks={tasks} properties={properties} userId={user?.uid} />;
       case 'Mensajes': return <MessagesView contracts={contracts} properties={properties} people={people} userId={user?.uid} />;
@@ -681,7 +824,7 @@ export default function AppClient() {
       case 'Simulador ROI': return <ROISimulatorView userId={user?.uid} />;
       case 'Libro Mayor': return <FinancialLedgerView properties={properties} invoices={invoices} contracts={contracts} userId={user?.uid} />;
       case 'Legales': return <LegalView legalCases={legalCases} userId={user?.uid} properties={properties} />;
-      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} contracts={contracts} />;
+      case 'Liquidaciones': return <LiquidationsView liquidations={liquidations} userId={user?.uid} properties={properties} people={people} contracts={contracts} invoices={invoices} tasks={tasks} />;
       case 'Cronograma': return <TimelineView contracts={contracts} invoices={invoices} tasks={tasks} liquidations={liquidations} adjustments={rentAdjustments} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
       case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases} assets={monetizableAssets} userId={user?.uid} />;
@@ -704,17 +847,23 @@ export default function AppClient() {
       category: 'nav' as const,
       onSelect: () => setActiveTab(item.id as Tab),
     })),
+    ...(isSuperAdmin ? [{
+      id: 'nav-superadmin',
+      label: 'Super Admin',
+      category: 'nav' as const,
+      onSelect: () => setActiveTab('Super Admin' as Tab),
+    }] : []),
     ...properties.map(p => ({
       id: `prop-${p.id}`,
-      label: p.name,
-      sublabel: p.address,
+      label: p.name ?? p.address ?? '—',
+      sublabel: p.address ?? '',
       category: 'property' as const,
       onSelect: () => setActiveTab('Propiedades'),
     })),
     ...people.map((p: any) => ({
       id: `tenant-${p.id}`,
-      label: p.name,
-      sublabel: p.email,
+      label: p.fullName ?? '—',
+      sublabel: p.email ?? '',
       category: 'tenant' as const,
       onSelect: () => setActiveTab('Personas'),
     })),
@@ -728,6 +877,7 @@ export default function AppClient() {
   ];
 
   return (
+    <BiometricGate userEmail={user?.email}>
     <div className="flex h-screen w-full bg-background overflow-hidden">
       {mobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileMenuOpen(false)} />
@@ -809,6 +959,11 @@ export default function AppClient() {
                       {!isSidebarCollapsed && item.id === 'Ajustes Alquiler' && pendingAdjustmentsCount > 0 && (
                         <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold px-1">
                           {pendingAdjustmentsCount}
+                        </span>
+                      )}
+                      {!isSidebarCollapsed && item.id === 'Solicitudes' && newApplicationsCount > 0 && (
+                        <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-bold px-1">
+                          {newApplicationsCount}
                         </span>
                       )}
                     </button>
@@ -906,7 +1061,30 @@ export default function AppClient() {
                 {orgCtx.isOrgUser ? orgCtx.role ?? activeRole : `Rol: ${activeRole}`}
               </span>
             </div>
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase">{activeRole[0]}{activeRole[1]}</div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase hover:bg-primary/30 transition-colors">
+                  {activeRole[0]}{activeRole[1]}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-2 py-1.5 sm:hidden">
+                  <p className="text-xs font-bold text-foreground truncate">{user?.email}</p>
+                  <p className="text-[10px] text-muted-foreground">{activeRole}</p>
+                </div>
+                <DropdownMenuSeparator className="sm:hidden" />
+                {biometricSupported && (
+                  <DropdownMenuItem onClick={handleEnableBiometric} className="gap-2">
+                    <Fingerprint className="h-4 w-4" />
+                    Activar biometría
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
         {/* Banner de solo lectura */}
@@ -955,5 +1133,6 @@ export default function AppClient() {
         <NpsSurvey userId={user?.uid} contractCount={contracts.length} />
       )}
     </div>
+    </BiometricGate>
   );
 }

@@ -45,7 +45,7 @@ export function CommandPalette({ open, onOpenChange, items }: CommandPaletteProp
 
   const filtered = query.trim()
     ? items.filter(item =>
-        item.label.toLowerCase().includes(query.toLowerCase()) ||
+        item.label?.toLowerCase().includes(query.toLowerCase()) ||
         item.sublabel?.toLowerCase().includes(query.toLowerCase())
       )
     : items;

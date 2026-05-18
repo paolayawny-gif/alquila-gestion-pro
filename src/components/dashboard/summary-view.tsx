@@ -2,6 +2,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { Visit } from '@/lib/types/visitas';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   TrendingUp,
@@ -27,6 +30,7 @@ import { AppAlert, Property, Contract, Invoice, RentalApplication, MaintenanceTa
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/format';
+import { CountUp } from '@/components/ui/count-up';
 import {
   AreaChart,
   Area,
@@ -40,6 +44,175 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+const APP_ID = 'alquilagestion-pro';
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAY_LABELS  = ['L','M','M','J','V','S','D'];
+
+function pad(n: number) { return String(n).padStart(2, '0'); }
+function fmtDate(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+function VisitsCalendarWidget({ userId, onNavigate }: { userId?: string; onNavigate: (tab: string) => void }) {
+  const db = useFirestore();
+  const [calDate, setCalDate] = useState(new Date());
+
+  const visitsQuery = useMemoFirebase(() => {
+    if (!userId || !db) return null;
+    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'visitas'), orderBy('scheduledDate'));
+  }, [userId, db]);
+  const { data: visitsData } = useCollection<Visit>(visitsQuery);
+  const visits = visitsData ?? [];
+
+  const year  = calDate.getFullYear();
+  const month = calDate.getMonth();
+  const today = fmtDate(new Date());
+
+  const cells = useMemo(() => {
+    const firstDow = new Date(year, month, 1).getDay();
+    const offset   = firstDow === 0 ? 6 : firstDow - 1;
+    const days     = new Date(year, month + 1, 0).getDate();
+    const arr: (number | null)[] = [];
+    for (let i = 0; i < offset; i++) arr.push(null);
+    for (let d = 1; d <= days; d++) arr.push(d);
+    while (arr.length % 7 !== 0) arr.push(null);
+    return arr;
+  }, [year, month]);
+
+  const visitDates = useMemo(() => {
+    const set: Record<string, string[]> = {};
+    for (const v of visits) {
+      if (!set[v.scheduledDate]) set[v.scheduledDate] = [];
+      set[v.scheduledDate].push(v.eventTypeColor ?? '#10b981');
+    }
+    return set;
+  }, [visits]);
+
+  // Próximas 3 visitas desde hoy
+  const upcoming = useMemo(() =>
+    visits
+      .filter(v => v.scheduledDate >= today && v.status !== 'Cancelada')
+      .sort((a, b) => (a.scheduledDate + a.scheduledTime).localeCompare(b.scheduledDate + b.scheduledTime))
+      .slice(0, 3),
+  [visits, today]);
+
+  return (
+    <Card className="shadow-sm border-none bg-white">
+      <CardHeader className="border-b pb-3 mb-0">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Calendar className="h-5 w-5 text-primary" />
+            Agenda de Visitas
+          </CardTitle>
+          <Button variant="ghost" size="sm" className="text-xs text-primary font-bold h-auto p-0"
+            onClick={() => onNavigate('Visitas')}>
+            Ver todo →
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-3 space-y-3">
+        {/* Mini calendar */}
+        <div>
+          {/* Month navigation */}
+          <div className="flex items-center justify-between mb-2">
+            <button
+              className="p-1 rounded hover:bg-muted/50 text-muted-foreground"
+              onClick={() => setCalDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+            >
+              ‹
+            </button>
+            <span className="text-xs font-bold text-foreground">
+              {MONTH_NAMES[month]} {year}
+            </span>
+            <button
+              className="p-1 rounded hover:bg-muted/50 text-muted-foreground"
+              onClick={() => setCalDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+            >
+              ›
+            </button>
+          </div>
+
+          {/* Day headers */}
+          <div className="grid grid-cols-7 mb-1">
+            {DAY_LABELS.map((l, i) => (
+              <div key={i} className="text-center text-[9px] font-bold text-muted-foreground py-0.5">{l}</div>
+            ))}
+          </div>
+
+          {/* Day cells */}
+          <div className="grid grid-cols-7 gap-y-0.5">
+            {cells.map((day, i) => {
+              if (!day) return <div key={`e${i}`} />;
+              const dateStr = `${year}-${pad(month+1)}-${pad(day)}`;
+              const colors  = visitDates[dateStr];
+              const isToday = dateStr === today;
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => onNavigate('Visitas')}
+                  className={cn(
+                    'flex flex-col items-center py-0.5 rounded transition-colors hover:bg-primary/10',
+                    isToday && 'bg-primary/10',
+                  )}
+                >
+                  <span className={cn(
+                    'text-[11px] font-medium leading-tight',
+                    isToday ? 'text-primary font-bold' : 'text-foreground',
+                    !colors && !isToday && 'text-muted-foreground',
+                  )}>
+                    {day}
+                  </span>
+                  {colors ? (
+                    <div className="flex gap-0.5 mt-0.5">
+                      {colors.slice(0,3).map((c, ci) => (
+                        <div key={ci} className="h-1 w-1 rounded-full" style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
+                  ) : <div className="h-1" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Upcoming visits */}
+        {upcoming.length > 0 && (
+          <div className="space-y-1.5 border-t pt-3">
+            <p className="text-[10px] font-black uppercase text-muted-foreground">Próximas visitas</p>
+            {upcoming.map(v => (
+              <button
+                key={v.id}
+                onClick={() => onNavigate('Visitas')}
+                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-left"
+              >
+                <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: v.eventTypeColor }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-foreground truncate">{v.visitorName}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{v.propertyName}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-bold text-foreground">{v.scheduledTime}</p>
+                  <p className="text-[9px] text-muted-foreground">
+                    {String(parseInt(v.scheduledDate.split('-')[2])).padStart(2,'0')}/{v.scheduledDate.split('-')[1]}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {upcoming.length === 0 && visits.length === 0 && (
+          <div className="py-4 text-center text-muted-foreground opacity-50">
+            <p className="text-xs">Sin visitas agendadas</p>
+            <Button variant="link" size="sm" className="text-xs text-primary font-bold p-0 h-auto mt-1"
+              onClick={() => onNavigate('Visitas')}>
+              + Agendar visita
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface SummaryViewProps {
   onNavigate: (tab: string) => void;
   properties: Property[];
@@ -47,6 +220,7 @@ interface SummaryViewProps {
   invoices: Invoice[];
   applications: RentalApplication[];
   tasks: MaintenanceTask[];
+  userId?: string;
 }
 
 export function SummaryView({
@@ -55,7 +229,8 @@ export function SummaryView({
   contracts = [],
   invoices = [],
   applications = [],
-  tasks = []
+  tasks = [],
+  userId,
 }: SummaryViewProps) {
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
   const [bcraRate, setBcraRate] = useState<{ compra: number; venta: number; fecha: string } | null>(null);
@@ -261,7 +436,7 @@ export function SummaryView({
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
         <Card className="border-none shadow-sm bg-white border-t-4 border-t-primary">
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
@@ -271,7 +446,7 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-primary/20">BRUTO MES</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Recaudación Total</p>
-            <h3 className="text-2xl font-black text-foreground">{formatCurrency(totalProjected)}</h3>
+            <h3 className="text-2xl font-black text-foreground"><CountUp value={totalProjected} format={(n) => formatCurrency(n)} /></h3>
             {totalProjectedUSD > 0 && (
               <p className="text-[10px] text-muted-foreground mt-0.5 font-bold">{formatCurrency(totalProjectedUSD, { currency: 'USD' })}</p>
             )}
@@ -287,7 +462,7 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-red-100 text-red-600">MOROSIDAD</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Total en Riesgo</p>
-            <h3 className="text-2xl font-black text-red-600">{formatCurrency(totalOverdue)}</h3>
+            <h3 className="text-2xl font-black text-red-600"><CountUp value={totalOverdue} format={(n) => formatCurrency(n)} delay={70} /></h3>
             {totalOverdueUSD > 0 && (
               <p className="text-[10px] text-red-400 mt-0.5 font-bold">{formatCurrency(totalOverdueUSD, { currency: 'USD' })}</p>
             )}
@@ -303,7 +478,7 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-blue-100 text-blue-600">{occupancyRate.toFixed(1)}%</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Tasa de Ocupación</p>
-            <h3 className="text-2xl font-black text-foreground">{properties.filter(p => p.status === 'Alquilada').length} / {properties.length}</h3>
+            <h3 className="text-2xl font-black text-foreground"><CountUp value={properties.filter(p => p.status === 'Alquilada').length} delay={140} /> / <CountUp value={properties.length} delay={140} /></h3>
           </CardContent>
         </Card>
 
@@ -316,21 +491,21 @@ export function SummaryView({
               <Badge variant="outline" className="text-[10px] font-bold border-orange-100 text-orange-600">RECLAMOS</Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Incidencias Abiertas</p>
-            <h3 className="text-2xl font-black text-foreground">{tasks.filter(t => t.status !== 'Cerrado').length}</h3>
+            <h3 className="text-2xl font-black text-foreground"><CountUp value={tasks.filter(t => t.status !== 'Cerrado').length} delay={210} /></h3>
           </CardContent>
         </Card>
       </div>
 
       {/* ── Fila de KPIs avanzados ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger-children">
         {/* Cobro en término */}
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Cobro en término</p>
             <div className="flex items-end gap-2">
-              <span className={cn('text-2xl font-black', advancedKpis.collectionRate >= 80 ? 'text-green-600' : advancedKpis.collectionRate >= 60 ? 'text-orange-500' : 'text-red-600')}>
-                {advancedKpis.collectionRate}%
-              </span>
+              <CountUp value={advancedKpis.collectionRate} suffix="%" delay={0}
+                className={cn('text-2xl font-black', advancedKpis.collectionRate >= 80 ? 'text-green-600' : advancedKpis.collectionRate >= 60 ? 'text-orange-500' : 'text-red-600')}
+              />
             </div>
             <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
               <div className={cn('h-full rounded-full transition-colors', advancedKpis.collectionRate >= 80 ? 'bg-green-500' : advancedKpis.collectionRate >= 60 ? 'bg-orange-400' : 'bg-red-500')}
@@ -362,7 +537,7 @@ export function SummaryView({
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Score de cartera</p>
             <div className="flex items-center gap-2">
-              <span className={cn('text-2xl font-black', advancedKpis.riskColor)}>{advancedKpis.riskScore}</span>
+              <CountUp value={advancedKpis.riskScore} delay={140} className={cn('text-2xl font-black', advancedKpis.riskColor)} />
               <span className="text-[10px] text-muted-foreground">/100</span>
             </div>
             <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -377,7 +552,7 @@ export function SummaryView({
         <Card className="border-none shadow-sm bg-white">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Contratos activos</p>
-            <span className="text-2xl font-black">{advancedKpis.activeContracts}</span>
+            <CountUp value={advancedKpis.activeContracts} delay={210} className="text-2xl font-black" />
             <p className="text-[9px] text-muted-foreground mt-1.5">
               de {contracts.length} totales ·{' '}
               {contracts.filter(c => c.status === 'Próximo a Vencer').length > 0 && (
@@ -529,6 +704,7 @@ export function SummaryView({
               ))}
             </CardContent>
           </Card>
+          <VisitsCalendarWidget userId={userId} onNavigate={onNavigate} />
         </div>
       </div>
 

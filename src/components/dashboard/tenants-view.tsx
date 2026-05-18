@@ -5,11 +5,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  UserPlus, 
-  Edit2, 
-  Trash2, 
-  Search, 
-  Mail, 
+  UserPlus,
+  Edit2,
+  Trash2,
+  Search,
+  Mail,
   Upload,
   Plus,
   Sparkles,
@@ -35,11 +35,17 @@ import {
   User,
   History,
   Clock,
-  CalendarClock
+  CalendarClock,
+  FolderOpen,
+  Layers,
+  ChevronRight,
+  Home,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Contract, Person, Property, IndexRecord } from '@/lib/types';
+import { Contract, Person, Property, IndexRecord, Invoice, Liquidation, MaintenanceTask, LegalCase, RentalApplication } from '@/lib/types';
+import { ContractDetailPanel } from '@/components/dashboard/contract-detail-panel';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -80,6 +86,12 @@ interface TenantsViewProps {
   contracts: Contract[];
   properties: Property[];
   indexRecords: IndexRecord[];
+  invoices?: Invoice[];
+  liquidations?: Liquidation[];
+  tasks?: MaintenanceTask[];
+  legalCases?: LegalCase[];
+  applications?: RentalApplication[];
+  onOpenProperty?: (propertyId: string) => void;
 }
 
 const APP_ID = "alquilagestion-pro";
@@ -117,11 +129,14 @@ function addMonthsToDate(dateStr: string, months: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function TenantsView({ people, userId, contracts, properties, indexRecords }: TenantsViewProps) {
+export function TenantsView({ people, userId, contracts, properties, indexRecords, invoices = [], liquidations = [], tasks = [], legalCases = [], applications = [], onOpenProperty }: TenantsViewProps) {
   const { canWrite, canDelete } = useOrgPermissions();
   const { toast } = useToast();
   const db = useFirestore();
-  const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal'>('contracts');
+  const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal' | 'owners'>('owners');
+  const [selectedDetailContract, setSelectedDetailContract] = useState<Contract | null>(null);
+  const [peopleSearch, setPeopleSearch] = useState('');
+  const [peopleTypeFilter, setPeopleTypeFilter] = useState<'Todos' | 'Propietario' | 'Inquilino' | 'Garante' | 'Proveedor'>('Todos');
 
   // ── Tenant Registry (portal access management) ──────────────────────────
   const registryQ = useMemoFirebase(() => {
@@ -200,7 +215,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     setIsPersonDialogOpen(true);
   };
 
-  const [contractFormData, setContractFormData] = useState<Partial<Contract>>({
+  const INITIAL_CONTRACT_FORM: Partial<Contract> = {
     tenantId: '',
     propertyId: '',
     startDate: '',
@@ -215,7 +230,8 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
     depositAmount: 0,
     status: 'Vigente',
     documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] }
-  });
+  };
+  const [contractFormData, setContractFormData] = useState<Partial<Contract>>(INITIAL_CONTRACT_FORM);
   const [provinceRules, setProvinceRules] = useState<ProvinceRule | null>(null);
 
   // Detectar provincia del inmueble y pre-llenar reglas cuando cambia la propiedad
@@ -697,6 +713,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           <TabsList className="bg-transparent">
             <TabsTrigger value="contracts" className="data-[state=active]:bg-primary data-[state=active]:text-white">Contratos</TabsTrigger>
             <TabsTrigger value="people" className="data-[state=active]:bg-primary data-[state=active]:text-white">Personas</TabsTrigger>
+            <TabsTrigger value="owners" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-1.5">
+              <FolderOpen className="h-3.5 w-3.5" /> Por Propietario
+            </TabsTrigger>
             <TabsTrigger value="portal" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-1.5">
               <Globe className="h-3.5 w-3.5" /> Accesos Portal
               {registryEntries.filter((e: any) => e.status === 'suspendido').length > 0 && (
@@ -709,7 +728,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         </Tabs>
         <div className="flex gap-2 w-full sm:w-auto">
           {canWrite && activeTab === 'contracts' && (
-            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
+            <Button className="bg-primary text-white gap-2 font-bold" onClick={() => { setEditingContract(null); setContractFormData(INITIAL_CONTRACT_FORM); setContractDialogTab('general'); setAiExtractedData(null); setIsContractDialogOpen(true); }}>
               <Plus className="h-4 w-4" /> Nuevo Contrato
             </Button>
           )}
@@ -1241,6 +1260,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
+                      {/* Ver Detalle del Contrato */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-indigo-600 hover:bg-indigo-50"
+                        title="Ver detalle completo del contrato"
+                        onClick={() => setSelectedDetailContract(c)}
+                      >
+                        <Layers className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1249,45 +1278,95 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             </TableBody>
           </Table>
           </div>
+        ) : activeTab === 'owners' ? (
+          /* ── Vista Por Propietario ── */
+          <OwnersView
+            contracts={contracts}
+            people={people}
+            properties={properties}
+            invoices={invoices}
+            liquidations={liquidations}
+            tasks={tasks}
+            legalCases={legalCases}
+            applications={applications}
+            onSelectContract={(c) => setSelectedDetailContract(c)}
+            onOpenProperty={onOpenProperty}
+          />
         ) : activeTab === 'people' ? (
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Rol en Sistema</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {people.map(p => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-bold">{p.fullName}</TableCell>
-                  <TableCell>{p.taxId}</TableCell>
-                  <TableCell><Badge variant="outline" className="border-primary/30 text-primary">{p.type}</Badge></TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {canWrite && (
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {people.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4}>
-                    <EmptyState
-                      icon={UserPlus}
-                      title="Sin personas registradas"
-                      description="Agregá inquilinos y propietarios para asociarlos a contratos y propiedades."
-                    />
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <div className="space-y-4">
+            {/* Búsqueda + filtro por tipo */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nombre, email o CUIT..."
+                  className="pl-9 bg-white"
+                  value={peopleSearch}
+                  onChange={e => setPeopleSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {(['Todos', 'Propietario', 'Inquilino', 'Garante', 'Proveedor'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setPeopleTypeFilter(t)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors',
+                      peopleTypeFilter === t
+                        ? 'bg-primary text-white'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >{t}</button>
+                ))}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Tipo</TableHead><TableHead>Email</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {people
+                  .filter(p => peopleTypeFilter === 'Todos' || p.type === peopleTypeFilter)
+                  .filter(p => {
+                    const q = peopleSearch.toLowerCase();
+                    return !q || p.fullName?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.taxId?.includes(q);
+                  })
+                  .sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? '', 'es'))
+                  .map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-bold">{p.fullName}</TableCell>
+                      <TableCell className="text-xs">{p.taxId || '—'}</TableCell>
+                      <TableCell><Badge variant="outline" className="border-primary/30 text-primary text-[10px]">{p.type}</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{p.email || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {canWrite && (
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenPersonDialog(p)}>
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeletePerson(p.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                {people.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <EmptyState
+                        icon={UserPlus}
+                        title="Sin personas registradas"
+                        description="Agregá inquilinos y propietarios para asociarlos a contratos y propiedades."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            </div>
           </div>
         ) : (
           /* ── Accesos Portal ── */
@@ -1405,6 +1484,24 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
         )}
       </Card>
 
+      {/* ── Sheet: Detalle del Contrato ── */}
+      <Sheet open={!!selectedDetailContract} onOpenChange={(open) => { if (!open) setSelectedDetailContract(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
+          {selectedDetailContract && (
+            <ContractDetailPanel
+              contract={selectedDetailContract}
+              people={people}
+              properties={properties}
+              invoices={invoices}
+              liquidations={liquidations}
+              tasks={tasks}
+              legalCases={legalCases}
+              onClose={() => setSelectedDetailContract(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* ── Modal: Ver Documento Redactado ── */}
       {viewDocContract && (
         <Dialog open={!!viewDocContract} onOpenChange={() => setViewDocContract(null)}>
@@ -1434,6 +1531,294 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+// ── Vista "Por Propietario" ────────────────────────────────────────────────────
+
+interface OwnersViewProps {
+  contracts: Contract[];
+  people: Person[];
+  properties: Property[];
+  invoices: Invoice[];
+  liquidations: Liquidation[];
+  tasks: MaintenanceTask[];
+  legalCases: LegalCase[];
+  applications: RentalApplication[];
+  onSelectContract: (c: Contract) => void;
+  onOpenProperty?: (propertyId: string) => void;
+}
+
+function OwnersView({ contracts, people, properties, invoices, liquidations, tasks, legalCases, applications, onSelectContract, onOpenProperty }: OwnersViewProps) {
+  const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null);
+  const [ownerSearch, setOwnerSearch] = useState('');
+
+  const formatPropStreet = (prop: Property) => {
+    const streetOnly = prop.address.replace(/,?\s*\d{2,5}(?=\s|,|$)/g, '').replace(/\s+/g, ' ').trim();
+    return prop.unit ? `${streetOnly} · ${prop.unit}` : streetOnly;
+  };
+
+  // Agrupar contratos por propietario. Empezamos sembrando TODAS las personas de
+  // tipo Propietario (o vinculadas a alguna propiedad por email) para que también
+  // aparezcan los propietarios sin contratos.
+  const ownerMap = new Map<string, { person: Person; contracts: Contract[] }>();
+
+  // 1) Sembrar con todas las personas tipo Propietario
+  people
+    .filter(p => p.type === 'Propietario')
+    .forEach(p => {
+      ownerMap.set(p.id, { person: p, contracts: [] });
+    });
+
+  // 2) Sembrar también personas que figuran como dueños de alguna propiedad
+  //    por coincidencia de email, aunque el type no sea "Propietario"
+  const ownerEmails = new Set<string>();
+  properties.forEach(prop => {
+    prop.owners?.forEach(o => {
+      if (o.email) ownerEmails.add(o.email.toLowerCase());
+    });
+  });
+  people.forEach(p => {
+    if (ownerMap.has(p.id)) return;
+    if (p.email && ownerEmails.has(p.email.toLowerCase())) {
+      ownerMap.set(p.id, { person: p, contracts: [] });
+    }
+  });
+
+  // 3) Asignar contratos a sus propietarios
+  contracts.forEach(c => {
+    const ids = c.ownerIds ?? [];
+    if (ids.length === 0) {
+      const key = '__sin_propietario__';
+      if (!ownerMap.has(key)) {
+        ownerMap.set(key, {
+          person: { id: key, fullName: 'Sin Propietario', type: 'Propietario', taxId: '', email: '', phone: '', documents: [], ownerId: '' },
+          contracts: [],
+        });
+      }
+      ownerMap.get(key)!.contracts.push(c);
+    } else {
+      ids.forEach(oid => {
+        const person = people.find(p => p.id === oid);
+        if (!person) return;
+        if (!ownerMap.has(oid)) ownerMap.set(oid, { person, contracts: [] });
+        ownerMap.get(oid)!.contracts.push(c);
+      });
+    }
+  });
+
+  const ownerGroups = Array.from(ownerMap.values()).sort((a, b) =>
+    (a.person.fullName ?? '').localeCompare(b.person.fullName ?? '')
+  );
+
+  const filteredGroups = ownerGroups.filter(({ person }) => {
+    const q = ownerSearch.toLowerCase();
+    return !q || person.fullName?.toLowerCase().includes(q) || person.email?.toLowerCase().includes(q);
+  });
+
+  if (ownerGroups.length === 0) {
+    return (
+      <div className="py-20 text-center text-muted-foreground p-6">
+        <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-20" />
+        <p className="font-semibold">Sin propietarios registrados</p>
+        <p className="text-xs mt-1">Asigná propietarios a los contratos o a las propiedades para verlos aquí.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Búsqueda */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar propietario..."
+          className="pl-9 bg-white"
+          value={ownerSearch}
+          onChange={e => setOwnerSearch(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-3">
+      {filteredGroups.map(({ person, contracts: ownerContracts }) => {
+        const isExpanded = expandedOwnerId === person.id;
+        const vigentes = ownerContracts.filter(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer');
+        const totalRent = vigentes.reduce((s, c) => s + c.currentRentAmount, 0);
+        const ownerInvoices = invoices.filter(i => ownerContracts.some(c => c.id === i.contractId));
+        const pendingInvoices = ownerInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
+
+        return (
+          <div key={person.id} className="border rounded-xl overflow-hidden">
+            {/* Header de propietario */}
+            <button
+              className="w-full flex items-center gap-3 p-4 hover:bg-muted/10 transition-colors text-left"
+              onClick={() => setExpandedOwnerId(isExpanded ? null : person.id)}
+            >
+              <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 font-black text-primary">
+                {(person.fullName ?? person.email ?? '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-sm">{person.fullName}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{person.email || 'Sin email'}</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-black text-primary">
+                    {vigentes.length > 0 ? `ARS ${totalRent.toLocaleString('es-AR')}` : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{ownerContracts.length} contrato{ownerContracts.length !== 1 ? 's' : ''}</p>
+                </div>
+                {pendingInvoices.length > 0 && (
+                  <span className="h-5 px-1.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center">
+                    {pendingInvoices.length} pend.
+                  </span>
+                )}
+                <ChevronRight className={cn('h-4 w-4 text-muted-foreground transition-transform', isExpanded && 'rotate-90')} />
+              </div>
+            </button>
+
+            {/* Propiedades del propietario */}
+            {isExpanded && (() => {
+              const ownerProperties = properties.filter(prop =>
+                prop.owners?.some(o => o.email?.toLowerCase() === person.email?.toLowerCase())
+              );
+              const orphanContracts = ownerContracts.filter(c =>
+                !ownerProperties.some(p => p.id === c.propertyId)
+              );
+              return (
+                <div className="border-t bg-muted/5 divide-y">
+                  {ownerProperties.map(prop => {
+                    const propContracts = contracts.filter(c => c.propertyId === prop.id);
+                    const activeContract = propContracts.find(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer');
+                    const propInvoices = invoices.filter(i => propContracts.some(c => c.id === i.contractId));
+                    const pendingInv = propInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
+                    const openTasks = tasks.filter(t => t.propertyId === prop.id && t.status !== 'Completado');
+                    const newApps = applications.filter(a => a.propertyId === prop.id && a.status === 'Nueva');
+                    const daysLeft = activeContract
+                      ? Math.round((new Date(activeContract.endDate).getTime() - Date.now()) / 86_400_000)
+                      : null;
+                    return (
+                      <div
+                        key={prop.id}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted/10 cursor-pointer"
+                        onClick={() => onOpenProperty?.(prop.id)}
+                      >
+                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Home className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm">{formatPropStreet(prop)}</span>
+                            <span className="text-[10px] text-muted-foreground font-black uppercase">{prop.type}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                            {activeContract ? (
+                              <>
+                                <span>{activeContract.currency} {activeContract.currentRentAmount.toLocaleString('es-AR')}/mes</span>
+                                <span>·</span>
+                                <span>Vence: {new Date(activeContract.endDate).toLocaleDateString('es-AR')}</span>
+                                {daysLeft !== null && daysLeft <= 60 && (
+                                  <span className={cn('font-black', daysLeft <= 30 ? 'text-red-600' : 'text-amber-600')}>
+                                    ({daysLeft}d)
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="italic">Sin contrato activo</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {newApps.length > 0 && (
+                            <span className="h-5 px-1.5 rounded-full bg-blue-100 text-blue-700 text-[9px] font-black flex items-center border border-blue-200">
+                              {newApps.length} sol.
+                            </span>
+                          )}
+                          {pendingInv.length > 0 && (
+                            <span className="h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black flex items-center border border-amber-200">
+                              {pendingInv.length} pend.
+                            </span>
+                          )}
+                          {openTasks.length > 0 && (
+                            <span className="h-5 px-1.5 rounded-full bg-red-100 text-red-700 text-[9px] font-black flex items-center border border-red-200">
+                              {openTasks.length} mant.
+                            </span>
+                          )}
+                          {activeContract && (
+                            <Badge
+                              className={cn(
+                                'border text-[9px] font-bold',
+                                activeContract.status === 'Vigente' ? 'bg-green-50 text-green-700 border-green-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
+                              )}
+                            >
+                              {activeContract.status}
+                            </Badge>
+                          )}
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {orphanContracts.map(c => {
+                    const contInvoices = invoices.filter(i => i.contractId === c.id);
+                    const contPending = contInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido');
+                    const daysLeft = Math.round((new Date(c.endDate).getTime() - Date.now()) / 86_400_000);
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted/10 cursor-pointer opacity-70"
+                        onClick={() => onSelectContract(c)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm">{c.tenantName ?? '—'}</span>
+                            <span className="text-[10px] text-muted-foreground font-black uppercase">{c.propertyName}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                            <span>{c.currency} {c.currentRentAmount.toLocaleString('es-AR')}/mes</span>
+                            <span>·</span>
+                            <span>Vence: {new Date(c.endDate).toLocaleDateString('es-AR')}</span>
+                            {daysLeft >= 0 && daysLeft <= 60 && (
+                              <span className={cn('font-black', daysLeft <= 30 ? 'text-red-600' : 'text-amber-600')}>
+                                ({daysLeft}d)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {contPending.length > 0 && (
+                            <span className="h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black flex items-center border border-amber-200">
+                              {contPending.length} pend.
+                            </span>
+                          )}
+                          <Badge
+                            className={cn(
+                              'border text-[9px] font-bold',
+                              c.status === 'Vigente' ? 'bg-green-50 text-green-700 border-green-200' :
+                              c.status === 'Próximo a Vencer' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              c.status === 'Finalizado' ? 'bg-slate-50 text-slate-500 border-slate-200' :
+                              'bg-muted text-muted-foreground border-border'
+                            )}
+                          >
+                            {c.status}
+                          </Badge>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {ownerProperties.length === 0 && ownerContracts.length === 0 && (
+                    <div className="px-4 py-3 text-xs text-muted-foreground italic">Sin propiedades ni contratos vinculados.</div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })}
+      </div>
     </div>
   );
 }

@@ -204,9 +204,9 @@ export function MarketplaceView({ userId, userEmail, userName }: MarketplaceView
   // ── Filtrado ──
   const activeItems = allItems.filter(i => i.status !== 'Vendido');
   const filtered = activeItems.filter(item => {
-    const matchSearch = !search || item.title.toLowerCase().includes(search.toLowerCase()) ||
-      item.description.toLowerCase().includes(search.toLowerCase()) ||
-      item.sellerName.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search || (item.title ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.description ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.sellerName ?? '').toLowerCase().includes(search.toLowerCase());
     const matchCat  = filterCat === 'Todos' || item.category === filterCat;
     const matchType = filterType === 'all' || (filterType === 'exchange' ? item.isExchange : !item.isExchange);
     return matchSearch && matchCat && matchType;

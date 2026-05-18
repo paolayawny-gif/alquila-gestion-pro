@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import type { AdminPaymentConfig } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,9 +8,10 @@ export const dynamic = 'force-dynamic';
 const APP_ID = 'alquilagestion-pro';
 
 /**
- * POST /api/services/webhook
+ * POST /api/services/webhook?adminId=<id>
  * MercadoPago payment notification for one-time service payments.
- * Automatically confirms payment when MP reports it as approved.
+ * adminId is passed as query param in the notification_url so we can look up
+ * the admin's access token without a circular auth dependency.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -21,19 +23,35 @@ export async function POST(req: NextRequest) {
     }
 
     const paymentId = String(data.id);
+    const adminId = req.nextUrl.searchParams.get('adminId');
 
-    // We need to find which admin this payment belongs to via external_reference
-    // MP sends paymentId, we fetch the payment to get external_reference
-    // external_reference format: "adminId|requestId"
+    if (!adminId) {
+      console.warn('[services/webhook] Notificación sin adminId en query param');
+      return NextResponse.json({ ok: true });
+    }
 
-    // Fetch payment details from MP — we need any admin's access token
-    // Since we store per-admin tokens, we rely on external_reference to locate the admin
-    // First fetch with a generic approach: query for serviceRequests with this mpPaymentId
     const db = getAdminDb();
 
-    // Get payment details — try without auth first (public endpoint)
+    // Look up admin's MP access token
+    const cfgSnap = await db
+      .collection('artifacts').doc(APP_ID)
+      .collection('users').doc(adminId)
+      .collection('config').doc('paymentConfig')
+      .get();
+
+    const cfg = cfgSnap.exists ? (cfgSnap.data() as AdminPaymentConfig) : null;
+    const accessToken = cfg?.mercadopago?.accessToken;
+
+    if (!accessToken) {
+      console.warn('[services/webhook] Admin sin accessToken configurado', adminId);
+      return NextResponse.json({ ok: true });
+    }
+
     const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!mpRes.ok) {
@@ -49,7 +67,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    const [adminId, requestId] = externalRef.split('|');
+    const [refAdminId, requestId] = externalRef.split('|');
+
+    // Sanity check: external_reference should match the adminId from query param
+    if (refAdminId !== adminId) {
+      console.warn('[services/webhook] adminId mismatch', { queryParam: adminId, externalRef: refAdminId });
+      return NextResponse.json({ ok: true });
+    }
 
     if (status === 'approved') {
       await db

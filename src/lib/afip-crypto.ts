@@ -1,11 +1,21 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-const KEY_HEX = process.env.AFIP_ENCRYPTION_KEY ?? '0'.repeat(64);
-const KEY = Buffer.from(KEY_HEX, 'hex');
+// Resolved lazily so a missing env var only fails when crypto is actually
+// used at runtime — not at module import time (which would break `next build`).
+function getKey(): Buffer {
+  const keyHex = process.env.AFIP_ENCRYPTION_KEY;
+  if (!keyHex) {
+    throw new Error(
+      'AFIP_ENCRYPTION_KEY env var is required (64-char hex string). ' +
+      'Generate: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
+  }
+  return Buffer.from(keyHex, 'hex');
+}
 
 export function encrypt(plaintext: string): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', KEY, iv);
+  const cipher = createCipheriv('aes-256-gcm', getKey(), iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   return Buffer.concat([iv, tag, encrypted]).toString('base64');
@@ -16,7 +26,7 @@ export function decrypt(ciphertext: string): string {
   const iv = buf.subarray(0, 12);
   const tag = buf.subarray(12, 28);
   const data = buf.subarray(28);
-  const decipher = createDecipheriv('aes-256-gcm', KEY, iv);
+  const decipher = createDecipheriv('aes-256-gcm', getKey(), iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
 }

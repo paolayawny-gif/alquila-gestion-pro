@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,15 +14,18 @@ import {
   Crown, Building2, Users, Plus, CheckCircle2, Clock, XCircle,
   Trash2, RefreshCw, UserPlus, ShieldCheck, Eye, Pencil, ChevronRight,
   BarChart3, Home, DollarSign, TrendingUp, Activity, FileText, Wrench,
-  LogOut, AlertTriangle, Target,
+  LogOut, AlertTriangle, Target, Settings, CreditCard, EyeOff,
+  Megaphone, Zap, Lightbulb, Send, Globe,
 } from 'lucide-react';
 import { CaptacionView } from '@/components/dashboard/captacion-view';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, getDoc, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Anuncio, AnuncioType } from '@/lib/types';
+import { createAnuncio, publishAnuncio, unpublishAnuncio, deleteAnuncio } from '@/lib/anuncios';
 
 const APP_ID = 'alquilagestion-pro';
 const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
@@ -126,7 +129,11 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const { user } = useUser();
 
   // — Vista principal —
-  const [mainView, setMainView] = useState<'orgs' | 'captacion'>('orgs');
+  const [mainView, setMainView] = useState<'orgs' | 'captacion' | 'config' | 'novedades'>('orgs');
+
+  // — Anuncios state —
+  const [anuncioForm, setAnuncioForm] = useState({ title: '', body: '', type: 'novedad' as AnuncioType });
+  const [isSavingAnuncio, setIsSavingAnuncio] = useState(false);
 
   // — Org state —
   const [showNewOrgDialog, setShowNewOrgDialog] = useState(false);
@@ -147,6 +154,12 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   // — Email config state —
   const [emailForm, setEmailForm] = useState({ emailUser: '', emailPass: '' });
   const [isSavingEmail, setIsSavingEmail] = useState(false);
+
+  // — MP platform config state —
+  const [mpConfigForm, setMpConfigForm] = useState({ mpAccessToken: '', mpWebhookSecret: '' });
+  const [isSavingMpConfig, setIsSavingMpConfig] = useState(false);
+  const [showMpToken, setShowMpToken] = useState(false);
+  const [showMpSecret, setShowMpSecret] = useState(false);
 
   // — Load organizations —
   const orgsQuery = useMemoFirebase(() => {
@@ -181,11 +194,54 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const cancelRequests: CancelRequest[] = cancelData || [];
   const pendingCancelCount = cancelRequests.filter(r => r.status === 'pendiente').length;
 
+  // — Load anuncios —
+  const anunciosQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(
+      collection(db, 'artifacts', APP_ID, 'anuncios'),
+      orderBy('createdAt', 'desc'),
+    );
+  }, [db, user]);
+  const { data: anunciosData } = useCollection<Anuncio>(anunciosQuery);
+  const anuncios: Anuncio[] = anunciosData || [];
+
+  // Recordatorio: días desde el último anuncio publicado
+  const diasDesdeUltimoAnuncio = useMemo(() => {
+    const published = anuncios.filter(a => a.isPublished);
+    if (!published.length) return null;
+    const last = new Date(published[0].publishedAt);
+    return Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24));
+  }, [anuncios]);
+
+  // Cargar credenciales MP existentes desde Firestore
+  useEffect(() => {
+    if (!db) return;
+    getDoc(doc(db, 'artifacts', APP_ID, 'superadmin', 'platformConfig'))
+      .then(snap => {
+        if (snap.exists()) {
+          const d = snap.data();
+          setMpConfigForm({
+            mpAccessToken: d.mpAccessToken || '',
+            mpWebhookSecret: d.mpWebhookSecret || '',
+          });
+        }
+      })
+      .catch(() => {});
+  }, [db]);
+
   // Stats del org seleccionado
   const selectedOrgStats = useMemo(() => {
     if (!selectedOrg) return null;
     return allStats.find(s => s.adminEmail === selectedOrg.ownerEmail) ?? null;
   }, [allStats, selectedOrg]);
+
+  // Stats por org y agregados globales — deben estar ANTES de cualquier return condicional
+  const stats = useMemo(() => ({
+    total:      organizations.length,
+    active:     organizations.filter(o => o.status === 'Activa').length,
+    pending:    organizations.filter(o => o.status === 'Pendiente').length,
+    enterprise: organizations.filter(o => o.plan === 'Enterprise').length,
+  }), [organizations]);
 
   // Agregados globales de plataforma
   const platformStats = useMemo(() => {
@@ -223,14 +279,58 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     );
   }
 
-  const stats = useMemo(() => ({
-    total: organizations.length,
-    active: organizations.filter(o => o.status === 'Activa').length,
-    pending: organizations.filter(o => o.status === 'Pendiente').length,
-    enterprise: organizations.filter(o => o.plan === 'Enterprise').length,
-  }), [organizations]);
-
   // ── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleCreateAnuncio = async () => {
+    if (!anuncioForm.title.trim() || !anuncioForm.body.trim()) {
+      toast({ title: 'Faltan datos', description: 'El título y el contenido son obligatorios.', variant: 'destructive' });
+      return;
+    }
+    if (!db) return;
+    setIsSavingAnuncio(true);
+    try {
+      createAnuncio(db, { title: anuncioForm.title.trim(), body: anuncioForm.body.trim(), type: anuncioForm.type });
+      setAnuncioForm({ title: '', body: '', type: 'novedad' });
+      toast({ title: 'Anuncio guardado', description: 'Publicalo cuando esté listo.' });
+    } finally {
+      setIsSavingAnuncio(false);
+    }
+  };
+
+  const handlePublishAnuncio = (anuncio: Anuncio) => {
+    if (!db) return;
+    publishAnuncio(db, anuncio.id);
+    toast({ title: '✅ Publicado', description: `"${anuncio.title}" ya es visible para todos los usuarios.` });
+  };
+
+  const handleUnpublishAnuncio = (anuncio: Anuncio) => {
+    if (!db) return;
+    unpublishAnuncio(db, anuncio.id);
+    toast({ title: 'Despublicado', description: `"${anuncio.title}" dejó de ser visible.` });
+  };
+
+  const handleDeleteAnuncio = (anuncio: Anuncio) => {
+    if (!db) return;
+    deleteAnuncio(db, anuncio.id);
+    toast({ title: 'Eliminado', description: `"${anuncio.title}" fue eliminado.` });
+  };
+
+  const handleCreateAnuncioAndPublish = async () => {
+    if (!anuncioForm.title.trim() || !anuncioForm.body.trim()) {
+      toast({ title: 'Faltan datos', description: 'El título y el contenido son obligatorios.', variant: 'destructive' });
+      return;
+    }
+    if (!db) return;
+    setIsSavingAnuncio(true);
+    try {
+      const a = createAnuncio(db, { title: anuncioForm.title.trim(), body: anuncioForm.body.trim(), type: anuncioForm.type });
+      publishAnuncio(db, a.id);
+      setAnuncioForm({ title: '', body: '', type: 'novedad' });
+      toast({ title: '🚀 Publicado', description: 'El anuncio ya es visible para todos los usuarios.' });
+    } finally {
+      setIsSavingAnuncio(false);
+    }
+  };
 
   const handleCreateOrg = async () => {
     if (!orgForm.name || !orgForm.ownerEmail) {
@@ -337,6 +437,22 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     toast({ title: `Usuario ${newStatus}`, description: orgUser.email });
   };
 
+  const handleSaveMpConfig = () => {
+    if (!db) return;
+    setIsSavingMpConfig(true);
+    const ref = doc(db, 'artifacts', APP_ID, 'superadmin', 'platformConfig');
+    setDocumentNonBlocking(ref, {
+      mpAccessToken: mpConfigForm.mpAccessToken.trim(),
+      mpWebhookSecret: mpConfigForm.mpWebhookSecret.trim() || null,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    toast({
+      title: '✅ Credenciales guardadas',
+      description: 'Las claves de MercadoPago se actualizaron. El servidor las recarga en hasta 5 minutos.',
+    });
+    setIsSavingMpConfig(false);
+  };
+
   const handleSaveEmailConfig = () => {
     if (!db || !selectedOrg) return;
     setIsSavingEmail(true);
@@ -386,6 +502,26 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
             >
               <Target className="h-3.5 w-3.5" /> Captación de Clientes
             </button>
+            <button
+              onClick={() => setMainView('config')}
+              className={cn('px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5',
+                mainView === 'config' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground')}
+            >
+              <Settings className="h-3.5 w-3.5" /> Configuración
+            </button>
+            <button
+              onClick={() => setMainView('novedades')}
+              className={cn('px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5 relative',
+                mainView === 'novedades' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground')}
+            >
+              <Megaphone className="h-3.5 w-3.5" /> Novedades
+              {diasDesdeUltimoAnuncio !== null && diasDesdeUltimoAnuncio >= 30 && mainView !== 'novedades' && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 border border-white" />
+              )}
+              {diasDesdeUltimoAnuncio === null && anuncios.length === 0 && mainView !== 'novedades' && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 border border-white" />
+              )}
+            </button>
           </div>
           {mainView === 'orgs' && (
             <Button onClick={() => setShowNewOrgDialog(true)} className="bg-primary text-white gap-2 font-bold">
@@ -419,6 +555,90 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
       {/* Vista Captación de Clientes */}
       {mainView === 'captacion' && (
         <CaptacionView userId={userId} />
+      )}
+
+      {/* ── Vista Configuración ── */}
+      {mainView === 'config' && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" /> Cobro por suscripción — MercadoPago
+            </CardTitle>
+            <CardDescription className="text-xs leading-relaxed">
+              Credenciales de tu cuenta de MercadoPago para cobrar la suscripción mensual a los admins.
+              Si configurás credenciales acá tienen prioridad sobre las variables de entorno de Vercel.
+              El servidor las recarga automáticamente en hasta 5 minutos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5 max-w-lg">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase">Access Token</Label>
+              <div className="relative">
+                <input
+                  type={showMpToken ? 'text' : 'password'}
+                  placeholder="APP_USR-... o TEST-..."
+                  value={mpConfigForm.mpAccessToken}
+                  onChange={e => setMpConfigForm({ ...mpConfigForm, mpAccessToken: e.target.value })}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-9 text-xs font-mono shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMpToken(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showMpToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Obtené tu Access Token en <strong>mercadopago.com.ar/developers → Tus integraciones → [tu app]</strong>
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase">Webhook Secret <span className="font-normal normal-case text-muted-foreground">(opcional)</span></Label>
+              <div className="relative">
+                <input
+                  type={showMpSecret ? 'text' : 'password'}
+                  placeholder="Clave secreta para validar firma de webhooks"
+                  value={mpConfigForm.mpWebhookSecret}
+                  onChange={e => setMpConfigForm({ ...mpConfigForm, mpWebhookSecret: e.target.value })}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-9 text-xs font-mono shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMpSecret(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showMpSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Generalo en Dashboard MP → Webhooks → Clave secreta
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-800 space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5">
+                <Settings className="h-3.5 w-3.5" /> URL del webhook para configurar en MercadoPago
+              </p>
+              <p className="font-mono break-all text-[11px]">https://alquilagestion.pro/api/billing/webhook</p>
+              <p className="text-[11px] opacity-75">
+                Dashboard MP → Tus integraciones → [tu app] → Webhooks → Agregar URL
+              </p>
+            </div>
+
+            <Button
+              onClick={handleSaveMpConfig}
+              disabled={isSavingMpConfig || !mpConfigForm.mpAccessToken.trim()}
+              className="bg-primary text-white gap-2 font-bold"
+            >
+              {isSavingMpConfig
+                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                : <CheckCircle2 className="h-4 w-4" />}
+              Guardar credenciales
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* ── Vista Organizaciones ── */}
@@ -1018,6 +1238,188 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
 
       {/* Cierre del bloque mainView === 'orgs' */}
       </>}
+
+      {/* ── Vista Novedades ── */}
+      {mainView === 'novedades' && (
+        <div className="space-y-6">
+          {/* Recordatorio */}
+          {(diasDesdeUltimoAnuncio === null || diasDesdeUltimoAnuncio >= 30) && (
+            <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50">
+              <div className="p-2 bg-amber-100 rounded-lg shrink-0">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-800">
+                  {diasDesdeUltimoAnuncio === null
+                    ? 'Todavía no publicaste ninguna novedad'
+                    : `Hace ${diasDesdeUltimoAnuncio} días que no publicás novedades`}
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Mantené a tus usuarios informados — contales sobre nuevas funciones, tips o negocios que pueden hacer con la app.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Formulario nuevo anuncio */}
+          <Card className="border-none shadow-sm bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-primary" /> Nuevo anuncio
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Se mostrará en la campanita de todos los usuarios bajo la pestaña &quot;Novedades&quot;.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                  <Label className="text-xs font-bold">Tipo</Label>
+                  <Select
+                    value={anuncioForm.type}
+                    onValueChange={v => setAnuncioForm(f => ({ ...f, type: v as AnuncioType }))}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="novedad"><span className="flex items-center gap-1.5"><Megaphone className="h-3.5 w-3.5" /> Novedad</span></SelectItem>
+                      <SelectItem value="funcion"><span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Nueva función</span></SelectItem>
+                      <SelectItem value="tip"><span className="flex items-center gap-1.5"><Lightbulb className="h-3.5 w-3.5" /> Tip</span></SelectItem>
+                      <SelectItem value="negocio"><span className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Oportunidad de negocio</span></SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs font-bold">Título</Label>
+                  <Input
+                    className="h-9 text-xs"
+                    placeholder="Ej: Ahora podés exportar informes en PDF"
+                    value={anuncioForm.title}
+                    onChange={e => setAnuncioForm(f => ({ ...f, title: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs font-bold">Contenido</Label>
+                  <textarea
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[100px] resize-none"
+                    placeholder="Contá la novedad con detalle..."
+                    value={anuncioForm.body}
+                    onChange={e => setAnuncioForm(f => ({ ...f, body: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  onClick={handleCreateAnuncio}
+                  disabled={isSavingAnuncio}
+                >
+                  {isSavingAnuncio ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                  Guardar borrador
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-xs gap-1.5 bg-primary text-white"
+                  onClick={handleCreateAnuncioAndPublish}
+                  disabled={isSavingAnuncio}
+                >
+                  {isSavingAnuncio ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  Publicar ahora
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista de anuncios */}
+          <Card className="border-none shadow-sm bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Globe className="h-4 w-4 text-primary" /> Anuncios enviados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {anuncios.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  <Megaphone className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  Todavía no hay anuncios.
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {anuncios.map(a => {
+                    const typeLabels: Record<AnuncioType, string> = {
+                      novedad: 'Novedad', funcion: 'Nueva función', tip: 'Tip', negocio: 'Oportunidad',
+                    };
+                    const typeColors: Record<AnuncioType, string> = {
+                      novedad: 'bg-blue-100 text-blue-700',
+                      funcion: 'bg-violet-100 text-violet-700',
+                      tip: 'bg-amber-100 text-amber-700',
+                      negocio: 'bg-green-100 text-green-700',
+                    };
+                    return (
+                      <li key={a.id} className="px-4 py-3 flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded', typeColors[a.type])}>
+                              {typeLabels[a.type]}
+                            </span>
+                            {a.isPublished ? (
+                              <span className="text-[10px] font-bold text-green-600 flex items-center gap-0.5">
+                                <Globe className="h-3 w-3" /> Publicado
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-muted-foreground">Borrador</span>
+                            )}
+                          </div>
+                          <p className="text-xs font-bold">{a.title}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{a.body}</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                            {new Date(a.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {a.isPublished ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              title="Despublicar"
+                              onClick={() => handleUnpublishAnuncio(a)}
+                            >
+                              <EyeOff className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-green-600 hover:text-green-700"
+                              title="Publicar"
+                              onClick={() => handlePublishAnuncio(a)}
+                            >
+                              <Send className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            title="Eliminar"
+                            onClick={() => handleDeleteAnuncio(a)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
     </div>
   );

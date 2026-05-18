@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta adminEmail' }, { status: 400 });
     }
 
-    await getOrInitBillingState(adminId);
+    const existing = await getOrInitBillingState(adminId);
 
     const provider = getBillingProvider();
     const { tier, activeUnits } = await calculateCurrentTier(adminId);
@@ -38,12 +38,22 @@ export async function POST(req: NextRequest) {
       returnUrl,
     });
 
+    // Si el admin YA estaba 'pending', conservamos el inicio original del plazo
+    // de gracia. Así no puede reiniciar las 48 hs re-lanzando el checkout una y
+    // otra vez sin llegar a pagar. Si venía de cualquier otro estado (trial,
+    // active, cancelled, past_due) es un alta genuina → arranca un plazo nuevo.
+    const pendingSince =
+      existing.status === 'pending'
+        ? existing.pendingSince ?? new Date().toISOString()
+        : new Date().toISOString();
+
     await updateBillingState(adminId, {
       provider: provider.name,
       subscriptionId,
       tierId: tier.id,
       activeUnits,
       status: 'pending',
+      pendingSince,
     });
 
     await setSubscriptionLookup(subscriptionId, adminId, provider.name);

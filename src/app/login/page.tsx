@@ -1,18 +1,19 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Loader2, Mail, Lock, UserPlus, LogIn, Info,
   Building2, FileText, BrainCircuit, BarChart3, ShieldCheck, Play, ArrowRight,
+  Fingerprint,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -85,19 +86,100 @@ function AppWordmark({ dark = false }: { dark?: boolean }) {
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
-export default function LoginPage() {
+function LoginPageInner() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { user, isUserLoading } = useUser();
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+  const [webAuthnSupported, setWebAuthnSupported] = useState(false);
+  const { isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
+  // NOTE: We deliberately do NOT auto-restore a session from Firebase's
+  // persisted user here. Firebase keeps the user signed in indefinitely in
+  // the browser, so auto-restoring would let anyone open the app and land
+  // straight in the last-used account without entering credentials.
+  // Authentication must always be an explicit action: password or biometric.
+
+  // Detect WebAuthn support
   useEffect(() => {
-    if (user && !isUserLoading) router.push('/');
-  }, [user, isUserLoading, router]);
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setWebAuthnSupported)
+        .catch(() => setWebAuthnSupported(false));
+    }
+  }, []);
+
+  // Show message when session was terminated by another device login
+  useEffect(() => {
+    if (searchParams.get('reason') === 'device') {
+      toast({
+        title: 'Sesión cerrada',
+        description: 'Tu sesión fue cerrada porque ingresaste desde otro dispositivo.',
+        variant: 'destructive',
+      });
+    }
+  }, [searchParams, toast]);
+
+  // Login with passkey (biometric)
+  const handleBiometricLogin = async () => {
+    if (!email) {
+      toast({ title: 'Ingresá tu email primero', variant: 'destructive' });
+      return;
+    }
+    setIsBiometricLoading(true);
+    try {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+
+      const optRes = await fetch(`/api/auth/passkey/authenticate?email=${encodeURIComponent(email)}`);
+      if (optRes.status === 404) {
+        toast({ title: 'Sin huella registrada', description: 'Primero iniciá sesión con tu contraseña para activar la biometría.', variant: 'destructive' });
+        return;
+      }
+      const { options, stateToken } = await optRes.json();
+
+      const authResponse = await startAuthentication(options);
+
+      const verRes = await fetch('/api/auth/passkey/authenticate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: authResponse, stateToken }),
+      });
+      if (!verRes.ok) {
+        const { error } = await verRes.json();
+        throw new Error(error);
+      }
+      const { customToken } = await verRes.json();
+
+      const credential = await signInWithCustomToken(auth, customToken);
+      const idToken = await credential.user.getIdToken();
+      const sesRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (sesRes.ok) {
+        const { sessionId } = await sesRes.json();
+        sessionStorage.setItem('agp_session_id', sessionId);
+      }
+      // Identity already verified by this biometric login — skip the
+      // BiometricGate prompt on the dashboard for this session.
+      sessionStorage.setItem('agp_biometric_unlocked', '1');
+      // This device can do biometrics for this account — let the gate engage here.
+      localStorage.setItem('agp_device_has_passkey', '1');
+      toast({ title: 'Bienvenido', description: 'Sesión iniciada con biometría.' });
+      router.push('/');
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        toast({ title: 'Error de autenticación', description: err.message, variant: 'destructive' });
+      }
+    } finally {
+      setIsBiometricLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,11 +187,36 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       if (mode === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        // Register session server-side (sets JWT cookie + Firestore sessionId for cross-device detection)
+        const idToken = await credential.user.getIdToken();
+        const res = await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (res.ok) {
+          const { sessionId } = await res.json();
+          sessionStorage.setItem('agp_session_id', sessionId);
+        }
+        // Just authenticated with the password — don't make the BiometricGate
+        // ask again this session (it engages on the next app open).
+        sessionStorage.setItem('agp_biometric_unlocked', '1');
         toast({ title: 'Bienvenido', description: 'Sesión iniciada correctamente.' });
+        router.push('/');
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        const idToken = await credential.user.getIdToken();
+        const res = await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (res.ok) {
+          const { sessionId } = await res.json();
+          sessionStorage.setItem('agp_session_id', sessionId);
+        }
+        sessionStorage.setItem('agp_biometric_unlocked', '1');
         toast({ title: 'Cuenta creada', description: 'Tu cuenta fue registrada correctamente.' });
+        router.push('/');
       }
     } catch (error: any) {
       let message = 'Ocurrió un error inesperado.';
@@ -387,6 +494,31 @@ export default function LoginPage() {
                 <><UserPlus className="h-5 w-5 mr-2" /> Crear Cuenta</>
               )}
             </Button>
+
+            {/* Biometric login button — shown only in login mode and if device supports it */}
+            {mode === 'login' && webAuthnSupported && (
+              <div className="relative flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[11px] text-muted-foreground font-medium">o</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+            )}
+            {mode === 'login' && webAuthnSupported && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isBiometricLoading}
+                onClick={handleBiometricLogin}
+                className="w-full h-11 font-semibold rounded-xl border-2 gap-2"
+              >
+                {isBiometricLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Fingerprint className="h-5 w-5 text-primary" />
+                )}
+                Ingresar con huella / Face ID
+              </Button>
+            )}
           </form>
 
           {/* Switch mode */}
@@ -433,5 +565,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-[#0d1f17]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#1D9E75]" />
+        </div>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   );
 }

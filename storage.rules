@@ -1,0 +1,27 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Fotos de propiedades — lectura pública (se muestran en el portal), escritura autenticada
+    match /properties/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Fotos de marketplace — lectura pública, escritura autenticada
+    match /marketplace/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Comprobantes de pago — solo usuarios autenticados
+    match /comprobantes/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Todo lo demás requiere autenticación
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

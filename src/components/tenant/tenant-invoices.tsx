@@ -31,8 +31,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Ele
   'Esperando Factura ARCA':  { label: 'Esperando ARCA',    color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Clock        },
 };
 
-const fmt = (n: number, cur = 'ARS') =>
-  `${cur === 'USD' ? 'U$D' : '$'}${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface TenantInvoicesProps {
   tenantEntry: TenantRegistryEntry;
@@ -68,7 +67,7 @@ export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
     );
   }, [db, tenantEntry.adminId, tenantEntry.tenantEmail]);
   const { data: invRaw } = useCollection<Invoice>(invQ);
-  const invoices = [...(invRaw ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+  const invoices = [...(invRaw ?? [])].sort((a, b) => (b.dueDate ?? '').localeCompare(a.dueDate ?? ''));
 
   const pending  = invoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido').length;
   const paid     = invoices.filter(i => i.status === 'Pagado').length;

@@ -20,6 +20,11 @@ import { TenantPaymentPlans } from './tenant-payment-plans';
 import { TenantSpaces } from './tenant-spaces';
 import { BottomNav } from '@/components/ui/bottom-nav';
 import { HelpView } from '@/components/dashboard/help-view';
+import { WorkspaceGate } from '@/components/billing/workspace-gate';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export interface TenantRegistryEntry {
   tenantEmail: string;
@@ -107,7 +112,20 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
     );
   }
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = async () => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      }
+    } catch { /* best-effort */ }
+    sessionStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_biometric_unlocked');
+    signOut(auth);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -126,6 +144,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
   };
 
   return (
+    <WorkspaceGate adminId={tenantEntry.adminId} contactName={tenantEntry.propertyName}>
     <div className="flex h-screen w-full bg-background overflow-hidden">
 
       {/* ── Sidebar ── */}
@@ -220,9 +239,24 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
               <p className="text-xs font-bold text-foreground">{tenantEntry.tenantName}</p>
               <p className="text-[10px] text-muted-foreground">{tenantEntry.tenantEmail}</p>
             </div>
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-black text-sm uppercase">
-              {tenantEntry.tenantName.charAt(0)}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-black text-sm uppercase hover:bg-primary/30 transition-colors">
+                  {tenantEntry.tenantName.charAt(0)}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <div className="px-2 py-1.5">
+                  <p className="text-xs font-bold text-foreground truncate">{tenantEntry.tenantName}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{tenantEntry.tenantEmail}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -242,5 +276,6 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
         ]}
       />
     </div>
+    </WorkspaceGate>
   );
 }

@@ -24,6 +24,11 @@ import { OwnerOpportunities } from './owner-opportunities';
 import { OwnerServices } from './owner-services';
 import { BottomNav } from '@/components/ui/bottom-nav';
 import { HelpView } from '@/components/dashboard/help-view';
+import { WorkspaceGate } from '@/components/billing/workspace-gate';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export interface OwnerRegistryEntry {
   ownerEmail: string;
@@ -77,6 +82,21 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const auth = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      }
+    } catch { /* best-effort */ }
+    sessionStorage.removeItem('agp_session_id');
+    sessionStorage.removeItem('agp_biometric_unlocked');
+    signOut(auth);
+  };
 
   // ── Blocked screens ──────────────────────────────────────────────────────
   const status = ownerEntry.status ?? 'activo';
@@ -146,6 +166,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
   };
 
   return (
+    <WorkspaceGate adminId={ownerEntry.adminId} contactName={ownerEntry.propertyNames[0]}>
     <div className="flex h-screen w-full bg-background overflow-hidden">
 
       {/* ── Sidebar ── */}
@@ -207,7 +228,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
             </button>
           )}
           <button
-            onClick={() => signOut(auth)}
+            onClick={handleLogout}
             className={cn(
               'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors',
               collapsed && 'justify-center',
@@ -246,9 +267,24 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
               <p className="text-xs font-bold text-foreground">{ownerEntry.ownerName}</p>
               <p className="text-[10px] text-muted-foreground">{ownerEntry.ownerEmail}</p>
             </div>
-            <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-sm uppercase">
-              {ownerEntry.ownerName.charAt(0)}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-sm uppercase hover:bg-emerald-200 transition-colors">
+                  {ownerEntry.ownerName.charAt(0)}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <div className="px-2 py-1.5">
+                  <p className="text-xs font-bold text-foreground truncate">{ownerEntry.ownerName}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{ownerEntry.ownerEmail}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -269,5 +305,6 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
         ]}
       />
     </div>
+    </WorkspaceGate>
   );
 }

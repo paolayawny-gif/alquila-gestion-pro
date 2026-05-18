@@ -14,8 +14,7 @@ import { OwnerRegistryEntry } from './owner-portal';
 import { Property, Contract } from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
-const fmt = (n: number, cur = 'ARS') =>
-  `${cur === 'USD' ? 'U$D' : '$'}${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerPropertiesProps {
   ownerEntry: OwnerRegistryEntry;
@@ -169,7 +168,7 @@ export function OwnerProperties({ ownerEntry }: OwnerPropertiesProps) {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Vence</span>
                         <span className="text-xs font-bold">
-                          {activeContract.endDate.split('-').reverse().join('/')}
+                          {activeContract.endDate?.split('-').reverse().join('/') ?? '—'}
                         </span>
                       </div>
                     </div>

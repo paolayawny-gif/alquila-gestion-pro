@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MaintenanceTask, Property, Person, Provider } from '@/lib/types';
+import { MaintenanceTask, Property, Person, Provider, Contract } from '@/lib/types';
 import { SelectWithOther } from '@/components/ui/select-with-other';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, getDoc, collection, query as fsQuery, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -71,11 +71,12 @@ interface MaintenanceViewProps {
   userId?: string;
   properties: Property[];
   people: Person[];
+  contracts?: Contract[];
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function MaintenanceView({ tasks, userId, properties, people }: MaintenanceViewProps) {
+export function MaintenanceView({ tasks, userId, properties, people, contracts = [] }: MaintenanceViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
@@ -116,7 +117,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     isApprovedByOwner: false
   });
 
-  const providersQuery = useMemo(() => {
+  const providersQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return fsQuery(collection(db, 'artifacts', APP_ID, 'users', userId, 'proveedores'), orderBy('name'));
   }, [db, userId]);
@@ -126,7 +127,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
   const filteredProviders = useMemo(() => {
     if (!providerSearch) return providers;
     const s = providerSearch.toLowerCase();
-    return providers.filter(p => p.name.toLowerCase().includes(s) || p.specialty.toLowerCase().includes(s));
+    return providers.filter(p => (p.name ?? '').toLowerCase().includes(s) || ((p as any).specialty ?? (p as any).category ?? '').toLowerCase().includes(s));
   }, [providers, providerSearch]);
 
   const handleSaveProvider = () => {
@@ -220,8 +221,13 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     // If charged to owner, populate ownerEmail from property.owners[0]
     const ownerEmail = property?.owners?.[0]?.email ?? '';
 
+    const activeContract = contracts.find(
+      c => c.propertyId === newTicket.propertyId && (c.status === 'Vigente' || c.status === 'Próximo a Vencer')
+    );
+
     const task: MaintenanceTask = {
       id: docId,
+      contractId: activeContract?.id,
       propertyId: newTicket.propertyId!,
       propertyName: property?.name || 'Propiedad desconocida',
       concept: newTicket.concept!,
@@ -389,7 +395,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
     if (filterStatus === 'open') base = tasks.filter(t => t.status === 'Pendiente');
     if (filterStatus === 'inprogress') base = tasks.filter(t => t.status === 'En curso' || t.status === 'Presupuestado');
     if (filterStatus === 'resolved') base = tasks.filter(t => t.status === 'Completado' || t.status === 'Cerrado');
-    if (searchTerm) base = base.filter(t => t.concept.toLowerCase().includes(searchTerm.toLowerCase()) || t.propertyName.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (searchTerm) base = base.filter(t => (t.concept ?? '').toLowerCase().includes(searchTerm.toLowerCase()) || (t.propertyName ?? '').toLowerCase().includes(searchTerm.toLowerCase()));
     return base.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
   }, [tasks, filterStatus, searchTerm]);
 
@@ -623,7 +629,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors", filterStatus === 'all' && "ring-2 ring-primary")}
+          className={cn("border-none shadow-sm bg-white card-interactive", filterStatus === 'all' && "ring-2 ring-primary")}
           onClick={() => setFilterStatus('all')}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -635,7 +641,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
           </CardContent>
         </Card>
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors border-l-4 border-l-red-400", filterStatus === 'open' && "ring-2 ring-red-400")}
+          className={cn("border-none shadow-sm bg-white card-interactive border-l-4 border-l-red-400", filterStatus === 'open' && "ring-2 ring-red-400")}
           onClick={() => setFilterStatus('open')}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -647,7 +653,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
           </CardContent>
         </Card>
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors border-l-4 border-l-blue-400", filterStatus === 'inprogress' && "ring-2 ring-blue-400")}
+          className={cn("border-none shadow-sm bg-white card-interactive border-l-4 border-l-blue-400", filterStatus === 'inprogress' && "ring-2 ring-blue-400")}
           onClick={() => setFilterStatus('inprogress')}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -659,7 +665,7 @@ export function MaintenanceView({ tasks, userId, properties, people }: Maintenan
           </CardContent>
         </Card>
         <Card
-          className={cn("border-none shadow-sm bg-white cursor-pointer transition-colors border-l-4 border-l-green-400", filterStatus === 'resolved' && "ring-2 ring-green-400")}
+          className={cn("border-none shadow-sm bg-white card-interactive border-l-4 border-l-green-400", filterStatus === 'resolved' && "ring-2 ring-green-400")}
           onClick={() => setFilterStatus('resolved')}
         >
           <CardContent className="p-4 flex items-center gap-3">

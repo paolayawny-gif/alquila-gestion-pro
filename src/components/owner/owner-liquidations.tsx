@@ -13,7 +13,7 @@ import { OwnerRegistryEntry } from './owner-portal';
 import { Liquidation } from '@/lib/types';
 
 const APP_ID = 'alquilagestion-pro';
-const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerLiquidationsProps {
   ownerEntry: OwnerRegistryEntry;

@@ -3,13 +3,13 @@
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { 
-  ShieldCheck, 
-  Building2, 
-  User, 
-  Mail, 
-  Phone, 
-  TrendingUp, 
+import {
+  ShieldCheck,
+  Building2,
+  User,
+  Mail,
+  Phone,
+  TrendingUp,
   FileText,
   Send,
   CheckCircle2,
@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Upload,
   FileCheck,
-  X
+  X,
+  Hash
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,12 +51,32 @@ function ApplyPageContent() {
     name: '',
     email: '',
     phone: '',
+    taxId: '',
     income: '',
     guarantorName: '',
     guarantorType: 'Sin garante',
     guarantorIncome: '',
     references: ''
   });
+
+  const formatTaxId = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 10) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
+  };
+
+  const isValidTaxId = (value: string) => /^\d{11}$/.test(value.replace(/\D/g, ''));
+
+  // Muestra tipo + calle sin número + unidad, para no exponer la dirección exacta
+  const formatPropertyLabel = (p: Property) => {
+    const streetOnly = p.address
+      .replace(/,?\s*\d{2,5}(?=\s|,|$)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const unit = p.unit ? ` · ${p.unit}` : '';
+    return { type: p.type, street: `${streetOnly}${unit}` };
+  };
 
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -85,11 +106,11 @@ function ApplyPageContent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 800000) {
-      toast({ 
-        title: "Archivo demasiado grande", 
-        description: "Por favor suba archivos menores a 800KB para el prototipo.",
-        variant: "destructive" 
+    if (file.size > 4194304) {
+      toast({
+        title: "Archivo demasiado grande",
+        description: "Por favor suba archivos menores a 4 MB.",
+        variant: "destructive"
       });
       return;
     }
@@ -119,10 +140,10 @@ function ApplyPageContent() {
     e.preventDefault();
     if (!adminId || !db) return;
 
-    if (documents.length === 0) {
-      toast({ 
-        title: "Documentación Faltante", 
-        description: "Debe adjuntar al menos su comprobante de ingresos.",
+    if (!isValidTaxId(formData.taxId)) {
+      toast({
+        title: "CUIT/CUIL inválido",
+        description: "Ingresá un CUIT o CUIL de 11 dígitos.",
         variant: "destructive"
       });
       return;
@@ -140,6 +161,7 @@ function ApplyPageContent() {
         applicantName: formData.name,
         applicantEmail: formData.email,
         applicantPhone: formData.phone,
+        applicantTaxId: formData.taxId.replace(/\D/g, ''),
         ingreso: parseFloat(formData.income) || 0,
         currency: 'ARS',
         rentAmount: undefined, // se asignará en el análisis IA del admin
@@ -194,8 +216,11 @@ function ApplyPageContent() {
           </div>
           <CardTitle className="text-2xl font-black">¡Recibido!</CardTitle>
           <CardDescription>
-            Tu solicitud para <strong>{property?.name || 'alquiler'}</strong> ha sido enviada con éxito. 
-            El equipo de administración se pondrá en contacto contigo pronto.
+            {property ? (() => {
+              const { type, street } = formatPropertyLabel(property);
+              return <>Tu solicitud para el <strong>{type}</strong> en <strong>{street}</strong> fue enviada con éxito.</>;
+            })() : 'Tu solicitud fue enviada con éxito.'}
+            {' '}El equipo de administración se pondrá en contacto contigo pronto.
           </CardDescription>
           <Button variant="outline" className="w-full" onClick={() => window.close()}>Cerrar ventana</Button>
         </Card>
@@ -223,18 +248,28 @@ function ApplyPageContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-bold text-lg">{property?.name || 'Carga General'}</p>
-                <p className="text-xs text-muted-foreground">{property?.address || 'Pendiente de asignación'}</p>
+                {property ? (() => {
+                  const { type, street } = formatPropertyLabel(property);
+                  return (
+                    <>
+                      <p className="text-xs font-bold text-primary uppercase tracking-wide mb-0.5">{type}</p>
+                      <p className="font-bold text-base leading-snug">{street}</p>
+                    </>
+                  );
+                })() : (
+                  <p className="font-bold text-lg text-muted-foreground">Consulta General</p>
+                )}
               </CardContent>
             </Card>
 
             <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-              <p className="text-xs font-bold text-primary mb-2 uppercase">Documentación Obligatoria</p>
+              <p className="text-xs font-bold text-primary mb-2 uppercase">Documentación (opcional)</p>
               <ul className="text-[10px] text-primary/70 space-y-1 list-disc pl-4">
                 <li>Recibo de sueldo o Certificación Contable</li>
                 <li>DNI (Frente y Dorso)</li>
                 <li>Garantía (Recibo, Propiedad o Seguro de Caución)</li>
               </ul>
+              <p className="text-[10px] text-primary/50 mt-2 italic">Podés adjuntar los docs ahora o enviarlos después por email a la administración.</p>
             </div>
           </div>
 
@@ -269,18 +304,34 @@ function ApplyPageContent() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2"><Phone className="h-3 w-3" /> Teléfono</Label>
-                  <Input 
-                    required 
+                  <Input
+                    required
                     placeholder="+54 9 11 ..."
                     value={formData.phone}
                     onChange={e => setFormData({...formData, phone: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Hash className="h-3 w-3" /> CUIT / CUIL</Label>
+                  <Input
+                    required
+                    placeholder="20-12345678-9"
+                    value={formData.taxId}
+                    onChange={e => setFormData({...formData, taxId: formatTaxId(e.target.value)})}
+                    className={formData.taxId && !isValidTaxId(formData.taxId) ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  />
+                  {formData.taxId && !isValidTaxId(formData.taxId) && (
+                    <p className="text-[10px] text-destructive">Debe tener 11 dígitos</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
+                <div className="space-y-2">
                   <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Ingresos Mensuales (Neto)</Label>
-                  <Input 
-                    required 
-                    type="number" 
+                  <Input
+                    required
+                    type="number"
                     placeholder="ARS"
                     value={formData.income}
                     onChange={e => setFormData({...formData, income: e.target.value})}
@@ -290,7 +341,7 @@ function ApplyPageContent() {
 
               <div className="space-y-4 border-t pt-4">
                 <h3 className="font-bold text-sm flex items-center gap-2">
-                  <Upload className="h-4 w-4 text-primary" /> Documentación Respaldatoria
+                  <Upload className="h-4 w-4 text-primary" /> Documentación Respaldatoria <span className="text-xs font-normal text-muted-foreground">(opcional, máx. 4 MB por archivo)</span>
                 </h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -6,7 +6,7 @@ import { PublicPropertyPage } from './public-property-page';
 const APP_ID = 'alquilagestion-pro';
 
 interface Props {
-  params: { adminId: string };
+  params: Promise<{ adminId: string }>;
 }
 
 async function getAdminData(adminId: string) {
@@ -27,7 +27,8 @@ async function getAdminData(adminId: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const data = await getAdminData(params.adminId);
+  const { adminId } = await params;
+  const data = await getAdminData(adminId);
   const name = data?.profile?.displayName ?? 'AlquilaGestión Pro';
   return {
     title: `Propiedades disponibles — ${name}`,
@@ -42,7 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export const revalidate = 300; // 5 min cache
 
 export default async function Page({ params }: Props) {
-  const data = await getAdminData(params.adminId);
+  const { adminId } = await params;
+  const data = await getAdminData(adminId);
   if (!data) return notFound();
   return <PublicPropertyPage {...data} />;
 }

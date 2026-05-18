@@ -1,13 +1,14 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink, Share2, Copy, Link2, CheckCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Property, PropertyStatus, PropertyOwner, PropertyManual } from '@/lib/types';
+import { Property, PropertyStatus, PropertyOwner, PropertyManual, Contract, Invoice, MaintenanceTask, RentalApplication, Liquidation, LegalCase, ReserveFund } from '@/lib/types';
+import { PropertyDetailView } from '@/components/dashboard/property-detail-view';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -39,26 +40,34 @@ import { normalizeAddress } from '@/lib/format';
 interface PropertiesViewProps {
   properties: Property[];
   userId?: string;
+  contracts?: Contract[];
+  invoices?: Invoice[];
+  tasks?: MaintenanceTask[];
+  applications?: RentalApplication[];
+  liquidations?: Liquidation[];
+  legalCases?: LegalCase[];
+  reserveFunds?: ReserveFund[];
+  deepLinkPropertyId?: string | null;
+  onDeepLinkConsumed?: () => void;
+  onOpenContract?: (c: Contract) => void;
 }
 
 const APP_ID = "alquilagestion-pro";
 
-export function PropertiesView({ properties, userId }: PropertiesViewProps) {
+export function PropertiesView({ properties, userId, contracts = [], invoices = [], tasks = [], applications = [], liquidations = [], legalCases = [], reserveFunds = [], deepLinkPropertyId, onDeepLinkConsumed, onOpenContract }: PropertiesViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
 
-  // Cuento dependencias de cada propiedad para bloquear deletes peligrosos
-  const contractsQ = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return query(collection(db, 'artifacts', APP_ID, 'users', userId, 'contratos'), where('status', '==', 'Vigente'));
-  }, [db, userId]);
-  const { data: vigentesData } = useCollection<{ propertyId: string }>(contractsQ);
+  // Cuento dependencias de cada propiedad para bloquear deletes peligrosos.
+  // Los contratos llegan por props desde app-client — no hace falta re-suscribir.
   const vigentesByProp = useMemo(() => {
     const map = new Map<string, number>();
-    (vigentesData ?? []).forEach(c => map.set(c.propertyId, (map.get(c.propertyId) ?? 0) + 1));
+    contracts
+      .filter(c => c.status === 'Vigente')
+      .forEach(c => map.set(c.propertyId, (map.get(c.propertyId) ?? 0) + 1));
     return map;
-  }, [vigentesData]);
+  }, [contracts]);
 
   const getDeleteBlocker = (p: Property): string | null => {
     const vigentes = vigentesByProp.get(p.id) ?? 0;
@@ -73,6 +82,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [detailProperty, setDetailProperty] = useState<Property | null>(null);
   const [formErrors, setFormErrors] = useState<{ name?: string; address?: string }>({});
   const [timelineProperty, setTimelineProperty] = useState<Property | null>(null);
   
@@ -189,8 +199,8 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     if (activeTab === 'available') base = properties.filter(p => p.status === 'Disponible' || p.status === 'Reservada');
     if (activeTab === 'maintenance') base = properties.filter(p => p.status === 'En Mantenimiento');
     return base.filter(p =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.address.toLowerCase().includes(searchTerm.toLowerCase())
+      (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.address ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [properties, activeTab, searchTerm]);
 
@@ -235,6 +245,23 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     setFormErrors({});
     setIsDialogOpen(true);
   };
+
+  useEffect(() => {
+    if (!deepLinkPropertyId) return;
+    const prop = properties.find(p => p.id === deepLinkPropertyId);
+    if (prop) {
+      setDetailProperty(prop);
+      onDeepLinkConsumed?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkPropertyId, properties]);
+
+  // Mantener detailProperty sincronizado cuando cambia la lista (ej: edición)
+  useEffect(() => {
+    if (!detailProperty) return;
+    const updated = properties.find(p => p.id === detailProperty.id);
+    if (updated && updated !== detailProperty) setDetailProperty(updated);
+  }, [properties, detailProperty]);
 
   const handleOpenInviteDialog = async (owner: PropertyOwner) => {
     setInvitingOwner({ name: owner.name, email: owner.email });
@@ -317,8 +344,28 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
     toast({ title: "Propiedad eliminada", description: "La unidad ha sido removida." });
   };
 
+  // Si hay propiedad seleccionada, mostramos pantalla de detalle. Los Dialogs (que
+  // viven en el div hidden de abajo) siguen montados y se renderizan vía Portal.
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <>
+    {detailProperty && (
+      <PropertyDetailView
+        property={detailProperty}
+        userId={userId}
+        contracts={contracts}
+        invoices={invoices}
+        liquidations={liquidations}
+        tasks={tasks}
+        applications={applications}
+        legalCases={legalCases}
+        reserveFunds={reserveFunds}
+        onBack={() => setDetailProperty(null)}
+        onEditTechnical={(p) => handleOpenDialog(p)}
+        onShare={(p) => setShareProperty(p)}
+        onOpenContract={onOpenContract}
+      />
+    )}
+    <div className={cn("space-y-6 animate-in fade-in duration-500", detailProperty && 'hidden')}>
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-white">
@@ -418,13 +465,134 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
             <DialogDescription>Gestión técnica y legal de la unidad.</DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="specs" className="mt-4">
-            <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-6">
+          <Tabs defaultValue={editingProperty ? 'control' : 'specs'} className="mt-4">
+            <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-6 overflow-x-auto">
+              {editingProperty && (
+                <TabsTrigger value="control" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent whitespace-nowrap">🎯 Centro de Control</TabsTrigger>
+              )}
               <TabsTrigger value="specs" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Datos Técnicos</TabsTrigger>
               <TabsTrigger value="owners" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Propietarios</TabsTrigger>
               <TabsTrigger value="portal" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Portal Inquilino</TabsTrigger>
               <TabsTrigger value="extra" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none bg-transparent">Notas</TabsTrigger>
             </TabsList>
+
+            {editingProperty && (() => {
+              const propId = editingProperty.id;
+              const propContracts = contracts.filter(c => c.propertyId === propId);
+              const activeContract = propContracts.find(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer');
+              const propInvoices = invoices.filter(i => propContracts.some(c => c.id === i.contractId));
+              const pendingInv = propInvoices.filter(i => i.status === 'Pendiente' || i.status === 'Vencido').slice(0, 5);
+              const openTasks = tasks.filter(t => t.propertyId === propId && t.status !== 'Completado').slice(0, 5);
+              const propApps = applications.filter(a => a.propertyId === propId).slice(0, 5);
+              const daysLeft = activeContract
+                ? Math.round((new Date(activeContract.endDate).getTime() - Date.now()) / 86_400_000)
+                : null;
+              return (
+                <TabsContent value="control" className="pt-6 space-y-5">
+                  {/* Contrato activo */}
+                  <div className="rounded-xl border p-4 space-y-2">
+                    <p className="text-xs font-black uppercase text-muted-foreground tracking-wider">Contrato activo</p>
+                    {activeContract ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold">{activeContract.tenantName ?? '—'}</span>
+                          <span className={cn('text-xs font-black px-2 py-0.5 rounded-full',
+                            activeContract.status === 'Vigente' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          )}>{activeContract.status}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {activeContract.currency} {activeContract.currentRentAmount.toLocaleString('es-AR')}/mes
+                          {' · '}Vence: {new Date(activeContract.endDate).toLocaleDateString('es-AR')}
+                          {daysLeft !== null && daysLeft <= 60 && (
+                            <span className={cn('ml-1 font-black', daysLeft <= 30 ? 'text-red-600' : 'text-amber-600')}>
+                              ({daysLeft}d)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Sin contrato activo</p>
+                    )}
+                  </div>
+
+                  {/* Facturas pendientes */}
+                  <div className="rounded-xl border p-4 space-y-2">
+                    <p className="text-xs font-black uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                      Facturas pendientes
+                      {pendingInv.length > 0 && <span className="h-4 px-1.5 rounded-full bg-amber-500 text-white text-[9px] font-black">{pendingInv.length}</span>}
+                    </p>
+                    {pendingInv.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">Sin facturas pendientes</p>
+                    ) : (
+                      <div className="divide-y">
+                        {pendingInv.map(inv => (
+                          <div key={inv.id} className="flex items-center justify-between py-1.5 text-sm">
+                            <span>{inv.period ?? 'Factura'}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">{inv.currency} {inv.totalAmount.toLocaleString('es-AR')}</span>
+                              <span className={cn('text-[10px] font-black px-1.5 py-0.5 rounded-full',
+                                inv.status === 'Vencido' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                              )}>{inv.status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mantenimiento abierto */}
+                  <div className="rounded-xl border p-4 space-y-2">
+                    <p className="text-xs font-black uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                      Mantenimiento abierto
+                      {openTasks.length > 0 && <span className="h-4 px-1.5 rounded-full bg-red-500 text-white text-[9px] font-black">{openTasks.length}</span>}
+                    </p>
+                    {openTasks.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">Sin tareas abiertas</p>
+                    ) : (
+                      <div className="divide-y">
+                        {openTasks.map(t => (
+                          <div key={t.id} className="flex items-center justify-between py-1.5 text-sm">
+                            <span>{t.concept ?? t.description ?? 'Tarea'}</span>
+                            <span className={cn('text-[10px] font-black px-1.5 py-0.5 rounded-full',
+                              t.priority === 'Alta' ? 'bg-red-100 text-red-700' :
+                              t.priority === 'Media' ? 'bg-amber-100 text-amber-700' :
+                              'bg-slate-100 text-slate-600'
+                            )}>{t.priority ?? t.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Postulantes */}
+                  <div className="rounded-xl border p-4 space-y-2">
+                    <p className="text-xs font-black uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                      Postulantes
+                      {propApps.filter(a => a.status === 'Nueva').length > 0 && (
+                        <span className="h-4 px-1.5 rounded-full bg-blue-500 text-white text-[9px] font-black">{propApps.filter(a => a.status === 'Nueva').length} nuevos</span>
+                      )}
+                    </p>
+                    {propApps.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">Sin postulantes</p>
+                    ) : (
+                      <div className="divide-y">
+                        {propApps.map(app => (
+                          <div key={app.id} className="flex items-center justify-between py-1.5 text-sm">
+                            <span>{app.applicantName ?? '—'}</span>
+                            <span className={cn('text-[10px] font-black px-1.5 py-0.5 rounded-full',
+                              app.status === 'Nueva' ? 'bg-blue-100 text-blue-700' :
+                              app.status === 'Aprobada' ? 'bg-green-100 text-green-700' :
+                              app.status === 'Rechazada' ? 'bg-red-100 text-red-700' :
+                              'bg-slate-100 text-slate-600'
+                            )}>{app.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              );
+            })()}
 
             <TabsContent value="specs" className="space-y-5 pt-6">
               {/* Fila 1: Nombre + Dirección */}
@@ -736,7 +904,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
           </TableHeader>
           <TableBody>
             {filteredProperties.map((p) => (
-              <TableRow key={p.id}>
+              <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setDetailProperty(p)}>
                 <TableCell>
                   <p className="font-bold">{p.name}</p>
                   {p.address && (
@@ -789,7 +957,7 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-end gap-2">
                     {(p.status === 'Disponible' || p.status === 'Reservada') && (
                       <Button
@@ -1109,5 +1277,6 @@ export function PropertiesView({ properties, userId }: PropertiesViewProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

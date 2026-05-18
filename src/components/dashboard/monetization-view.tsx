@@ -159,9 +159,9 @@ export function MonetizationView({ assets, properties, userId, userEmail }: Mone
     if (searchQ) {
       const q = searchQ.toLowerCase();
       list = list.filter(a =>
-        a.name.toLowerCase().includes(q) ||
-        a.propertyName.toLowerCase().includes(q) ||
-        a.location.toLowerCase().includes(q)
+        (a.name ?? '').toLowerCase().includes(q) ||
+        (a.propertyName ?? '').toLowerCase().includes(q) ||
+        (a.location ?? '').toLowerCase().includes(q)
       );
     }
     if (filterCat !== 'all')    list = list.filter(a => a.category === filterCat);

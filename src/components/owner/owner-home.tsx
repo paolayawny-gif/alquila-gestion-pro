@@ -18,7 +18,7 @@ import { Contract, Liquidation, Property } from '@/lib/types';
 import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
 
 const APP_ID = 'alquilagestion-pro';
-const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`;
+import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerHomeProps {
   ownerEntry: OwnerRegistryEntry;
@@ -153,7 +153,7 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
       {/* Greeting */}
       <div>
         <h1 className="text-2xl font-black text-foreground">
-          Hola, {ownerEntry.ownerName.split(' ')[0]} 👋
+          Hola, {ownerEntry.ownerName?.split(' ')?.[0] ?? 'Propietario'} 👋
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
           <Building2 className="h-3.5 w-3.5" />
