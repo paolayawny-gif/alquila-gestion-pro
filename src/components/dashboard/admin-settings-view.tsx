@@ -31,7 +31,7 @@ import {
   CreditCard, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2,
   Settings, Briefcase, Scale, Wrench, Shield, FileText, Landmark,
   ChevronsUpDown, Eye, EyeOff, ExternalLink, DollarSign, Pencil,
-  LogOut, Info, Globe, Copy, Lock, Gift,
+  LogOut, Info, Globe, Copy, Lock, Gift, Sparkles, Building2,
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -85,6 +85,7 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
         <TabsContent value="general" className="max-w-2xl space-y-6">
           <ReferralCard userId={userId} />
           <PublicPageCard userId={userId} />
+          <PortalPlusCard userId={userId} />
           <WhatsAppCard userId={userId} />
           <WhatsAppApiCard userId={userId} />
           <BillingCard userId={userId} />
@@ -1317,6 +1318,128 @@ function PublicPageCard({ userId }: { userId?: string }) {
         <p className="text-[11px] text-muted-foreground">
           La página muestra todas las propiedades con estado "Disponible". Se actualiza automáticamente cuando cambiás el estado de una propiedad.
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Portal Plus Card — vidriera pública general (zonaprop-style)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PortalPlusCard({ userId }: { userId?: string }) {
+  const db = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+  const [status, setStatus] = useState<'none' | 'pendiente' | 'aprobada' | 'rechazada'>('none');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!db || !userId) { setLoading(false); return; }
+    getDoc(doc(db, 'artifacts', APP_ID, 'superadmin', 'data', 'portalPlusRequests', userId))
+      .then(snap => {
+        if (snap.exists()) setStatus(((snap.data()?.status as string) ?? 'none') as typeof status);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [db, userId]);
+
+  const handleCheckout = async () => {
+    if (!userId) return;
+    setSubmitting(true);
+    try {
+      const res = await authedFetch('/api/portal/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          adminId: userId,
+          adminEmail: user?.email ?? '',
+          adminName: user?.displayName ?? '',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.initUrl) {
+        window.location.href = data.initUrl as string;
+        return;
+      }
+      toast({ title: 'Error', description: data.error ?? 'No se pudo iniciar el pago.', variant: 'destructive' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo iniciar el pago.', variant: 'destructive' });
+    }
+    setSubmitting(false);
+  };
+
+  const portalUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://alquilagestionpro.com'}/portal`;
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-emerald-50">
+            <Building2 className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base font-black flex items-center gap-2">
+              Portal de Propiedades
+              <Badge className="bg-emerald-100 text-emerald-700 border-none text-[10px] font-bold gap-1">
+                <Sparkles className="h-3 w-3" /> Plus · +5 USD/mes
+              </Badge>
+            </CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Publicá tus propiedades disponibles en la vidriera pública general, indexada en Google.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading ? (
+          <p className="text-xs text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando estado...
+          </p>
+        ) : status === 'aprobada' ? (
+          <div className="space-y-3">
+            <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4" /> Portal Plus activo
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Todas tus propiedades con estado "Disponible" aparecen automáticamente en el portal público. Se actualiza cada 5 minutos.
+            </p>
+            <Button variant="outline" size="sm" className="gap-1.5" asChild>
+              <a href={portalUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" /> Ver el portal
+              </a>
+            </Button>
+          </div>
+        ) : status === 'pendiente' ? (
+          <div className="space-y-3">
+            <p className="text-xs text-amber-700 font-bold flex items-center gap-1.5">
+              <Clock className="h-4 w-4" /> Pago pendiente
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Tu suscripción se activa apenas se confirme el pago en MercadoPago. Si no lo completaste, podés retomarlo.
+            </p>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCheckout} disabled={submitting}>
+              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+              Completar pago
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {status === 'rechazada' && (
+              <p className="text-xs text-destructive flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4" /> Tu suscripción anterior no está activa. Podés suscribirte de nuevo.
+              </p>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              Con el Portal Plus, las propiedades que marques como publicables aparecen en la vidriera pública.
+              El cobro es una suscripción mensual por MercadoPago — se activa automáticamente al confirmarse el pago.
+            </p>
+            <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={handleCheckout} disabled={submitting}>
+              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+              Suscribirme — 5 USD/mes
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
