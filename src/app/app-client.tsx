@@ -49,32 +49,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { BottomNav } from '@/components/ui/bottom-nav';
-import { PropertiesView } from '@/components/dashboard/properties-view';
-import { TenantsView } from '@/components/dashboard/tenants-view';
-import { InvoicesView } from '@/components/dashboard/invoices-view';
-import { MaintenanceView } from '@/components/dashboard/maintenance-view';
-import { LegalView } from '@/components/dashboard/legal-view';
-import { LiquidationsView } from '@/components/dashboard/liquidations-view';
-import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
-import { ContractGeneratorView } from '@/components/dashboard/contract-generator-view';
-import { ApplicationsView } from '@/components/dashboard/onboarding-view';
-import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
-import { IndexRecordsView } from '@/components/dashboard/index-records-view';
-import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
-import { DepositsView } from '@/components/dashboard/deposits-view';
-import { ProvidersView } from '@/components/dashboard/providers-view';
-import { MessagesView } from '@/components/dashboard/messages-view';
-import { HybridRentalsView } from '@/components/dashboard/hybrid-rentals-view';
-import { CommunityVotingView } from '@/components/dashboard/community-voting-view';
-import { ConciergeView } from '@/components/dashboard/concierge-view';
-import { InsuranceView } from '@/components/dashboard/insurance-view';
-import { MonetizationView } from '@/components/dashboard/monetization-view';
-import { SocialMediaView } from '@/components/dashboard/social-media-view';
-import { CommunityWallView } from '@/components/dashboard/community-wall-view';
-import { MarketplaceView } from '@/components/dashboard/marketplace-view';
-import { CentroLiquidacionesView } from '@/components/dashboard/centro-liquidaciones-view';
-import { AdminSettingsView } from '@/components/dashboard/admin-settings-view';
-import { HelpView } from '@/components/dashboard/help-view';
+import dynamic from 'next/dynamic';
 import { NotificationBell } from '@/components/ui/notification-bell';
 import { 
   DropdownMenu, 
@@ -98,53 +73,65 @@ import { createNotification } from '@/lib/notifications';
 import { BiometricGate } from '@/components/BiometricGate';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink, PendingRentAdjustment, IndexRecord } from '@/lib/types';
 import { isAdjustmentDue, calculateProposedAmount, buildPendingAdjustment } from '@/lib/rent-adjustment';
-import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
-import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal';
+// Types only — stripped at compile time, zero runtime cost
+import type { TenantRegistryEntry } from '@/components/tenant/tenant-portal';
+import type { OwnerRegistryEntry } from '@/components/owner/owner-portal';
 import { usePlan } from '@/hooks/use-plan';
 import { BillingBlockedScreen } from '@/components/billing/billing-blocked-screen';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { SuperAdminView } from '@/components/dashboard/super-admin-view';
-import { TimelineView } from '@/components/dashboard/timeline-view';
 import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
-import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
-import { VisitasView } from '@/components/dashboard/visitas-view';
 import { NpsSurvey } from '@/components/ui/nps-survey';
-import dynamic from 'next/dynamic';
 
-// Vistas con gráficos (recharts) — se cargan de forma diferida para no incluir
-// la librería de gráficos en el bundle inicial. Solo se descarga al abrir la pestaña.
-const chartViewLoading = () => (
-  <div className="p-8 text-sm text-muted-foreground">Cargando…</div>
+// ── Lazy views — downloaded only on first navigation, not at startup ──────────
+const ViewLoader = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+  </div>
 );
-const SummaryView = dynamic(
-  () => import('@/components/dashboard/summary-view').then(m => m.SummaryView),
-  { loading: chartViewLoading },
-);
-const AIAnalyticsView = dynamic(
-  () => import('@/components/dashboard/ai-analytics-view').then(m => m.AIAnalyticsView),
-  { loading: chartViewLoading },
-);
-const PredictiveMaintenanceView = dynamic(
-  () => import('@/components/dashboard/predictive-maintenance-view').then(m => m.PredictiveMaintenanceView),
-  { loading: chartViewLoading },
-);
-const ROISimulatorView = dynamic(
-  () => import('@/components/dashboard/roi-simulator-view').then(m => m.ROISimulatorView),
-  { loading: chartViewLoading },
-);
-const FinancialLedgerView = dynamic(
-  () => import('@/components/dashboard/financial-ledger-view').then(m => m.FinancialLedgerView),
-  { loading: chartViewLoading },
-);
-const AnalyticsPanelView = dynamic(
-  () => import('@/components/dashboard/analytics-panel-view').then(m => m.AnalyticsPanelView),
-  { loading: chartViewLoading },
-);
+
+const SummaryView             = dynamic(() => import('@/components/dashboard/summary-view').then(m => m.SummaryView),                          { loading: ViewLoader });
+const PropertiesView          = dynamic(() => import('@/components/dashboard/properties-view').then(m => m.PropertiesView),                    { loading: ViewLoader });
+const TenantsView             = dynamic(() => import('@/components/dashboard/tenants-view').then(m => m.TenantsView),                          { loading: ViewLoader });
+const InvoicesView            = dynamic(() => import('@/components/dashboard/invoices-view').then(m => m.InvoicesView),                        { loading: ViewLoader });
+const MaintenanceView         = dynamic(() => import('@/components/dashboard/maintenance-view').then(m => m.MaintenanceView),                  { loading: ViewLoader });
+const LegalView               = dynamic(() => import('@/components/dashboard/legal-view').then(m => m.LegalView),                              { loading: ViewLoader });
+const LiquidationsView        = dynamic(() => import('@/components/dashboard/liquidations-view').then(m => m.LiquidationsView),                { loading: ViewLoader });
+const AIAssistantView         = dynamic(() => import('@/components/dashboard/ai-assistant-view').then(m => m.AIAssistantView),                 { loading: ViewLoader });
+const AIAnalyticsView         = dynamic(() => import('@/components/dashboard/ai-analytics-view').then(m => m.AIAnalyticsView),                 { loading: ViewLoader });
+const ContractGeneratorView   = dynamic(() => import('@/components/dashboard/contract-generator-view').then(m => m.ContractGeneratorView),     { loading: ViewLoader });
+const ApplicationsView        = dynamic(() => import('@/components/dashboard/onboarding-view').then(m => m.ApplicationsView),                  { loading: ViewLoader });
+const TenantPortalView        = dynamic(() => import('@/components/dashboard/tenant-portal-view').then(m => m.TenantPortalView),               { loading: ViewLoader });
+const IndexRecordsView        = dynamic(() => import('@/components/dashboard/index-records-view').then(m => m.IndexRecordsView),               { loading: ViewLoader });
+const SmartContractsView      = dynamic(() => import('@/components/dashboard/smart-contracts-view').then(m => m.SmartContractsView),           { loading: ViewLoader });
+const DepositsView            = dynamic(() => import('@/components/dashboard/deposits-view').then(m => m.DepositsView),                        { loading: ViewLoader });
+const ProvidersView           = dynamic(() => import('@/components/dashboard/providers-view').then(m => m.ProvidersView),                      { loading: ViewLoader });
+const MessagesView            = dynamic(() => import('@/components/dashboard/messages-view').then(m => m.MessagesView),                        { loading: ViewLoader });
+const HybridRentalsView       = dynamic(() => import('@/components/dashboard/hybrid-rentals-view').then(m => m.HybridRentalsView),             { loading: ViewLoader });
+const CommunityVotingView     = dynamic(() => import('@/components/dashboard/community-voting-view').then(m => m.CommunityVotingView),         { loading: ViewLoader });
+const ConciergeView           = dynamic(() => import('@/components/dashboard/concierge-view').then(m => m.ConciergeView),                      { loading: ViewLoader });
+const InsuranceView           = dynamic(() => import('@/components/dashboard/insurance-view').then(m => m.InsuranceView),                      { loading: ViewLoader });
+const MonetizationView        = dynamic(() => import('@/components/dashboard/monetization-view').then(m => m.MonetizationView),                { loading: ViewLoader });
+const SocialMediaView         = dynamic(() => import('@/components/dashboard/social-media-view').then(m => m.SocialMediaView),                 { loading: ViewLoader });
+const CommunityWallView       = dynamic(() => import('@/components/dashboard/community-wall-view').then(m => m.CommunityWallView),             { loading: ViewLoader });
+const MarketplaceView         = dynamic(() => import('@/components/dashboard/marketplace-view').then(m => m.MarketplaceView),                  { loading: ViewLoader });
+const CentroLiquidacionesView = dynamic(() => import('@/components/dashboard/centro-liquidaciones-view').then(m => m.CentroLiquidacionesView), { loading: ViewLoader });
+const AdminSettingsView       = dynamic(() => import('@/components/dashboard/admin-settings-view').then(m => m.AdminSettingsView),             { loading: ViewLoader });
+const HelpView                = dynamic(() => import('@/components/dashboard/help-view').then(m => m.HelpView),                                { loading: ViewLoader });
+const SuperAdminView          = dynamic(() => import('@/components/dashboard/super-admin-view').then(m => m.SuperAdminView),                   { loading: ViewLoader });
+const TimelineView            = dynamic(() => import('@/components/dashboard/timeline-view').then(m => m.TimelineView),                        { loading: ViewLoader });
+const PendingAdjustmentsView  = dynamic(() => import('@/components/dashboard/pending-adjustments-view').then(m => m.PendingAdjustmentsView),   { loading: ViewLoader });
+const VisitasView             = dynamic(() => import('@/components/dashboard/visitas-view').then(m => m.VisitasView),                          { loading: ViewLoader });
+const PredictiveMaintenanceView = dynamic(() => import('@/components/dashboard/predictive-maintenance-view').then(m => m.PredictiveMaintenanceView), { loading: ViewLoader });
+const ROISimulatorView        = dynamic(() => import('@/components/dashboard/roi-simulator-view').then(m => m.ROISimulatorView),               { loading: ViewLoader });
+const FinancialLedgerView     = dynamic(() => import('@/components/dashboard/financial-ledger-view').then(m => m.FinancialLedgerView),         { loading: ViewLoader });
+const AnalyticsPanelView      = dynamic(() => import('@/components/dashboard/analytics-panel-view').then(m => m.AnalyticsPanelView),           { loading: ViewLoader });
+const TenantPortal            = dynamic(() => import('@/components/tenant/tenant-portal').then(m => m.TenantPortal),                           { loading: ViewLoader });
+const OwnerPortal             = dynamic(() => import('@/components/owner/owner-portal').then(m => m.OwnerPortal),                              { loading: ViewLoader });
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler' | 'Visitas';
