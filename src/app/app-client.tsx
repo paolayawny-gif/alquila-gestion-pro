@@ -87,8 +87,6 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
 import { OnboardingChecklist } from '@/components/ui/onboarding-checklist';
-import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
-import { VisitasView } from '@/components/dashboard/visitas-view';
 import { NpsSurvey } from '@/components/ui/nps-survey';
 
 // ── Lazy views — downloaded only on first navigation, not at startup ──────────
@@ -920,7 +918,7 @@ export default function AppClient() {
             ? ADMIN_MENU_GROUPS.map((group, gi) => (
                 <div key={gi}>
                   {group.section && !isSidebarCollapsed && (
-                    <p className="px-3 pt-4 pb-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 select-none">
+                    <p className="px-3 pt-4 pb-1 text-[9px] font-bold uppercase tracking-[0.10em] text-muted-foreground/70 select-none">
                       {group.section}
                     </p>
                   )}
@@ -933,11 +931,13 @@ export default function AppClient() {
                       onClick={() => { setActiveTab(item.id as Tab); setMobileMenuOpen(false); }}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                        activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted",
+                        activeTab === item.id
+                          ? "bg-accent/15 text-accent font-semibold shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         isSidebarCollapsed && "justify-center",
                       )}
                     >
-                      <item.icon className={cn("h-5 w-5 shrink-0", activeTab === item.id ? "text-primary" : "text-muted-foreground")} />
+                      <item.icon className={cn("h-5 w-5 shrink-0", activeTab === item.id ? "text-accent" : "text-muted-foreground")} />
                       {!isSidebarCollapsed && <span className="truncate flex-1">{item.label}</span>}
                       {!isSidebarCollapsed && item.id === 'Ajustes Alquiler' && pendingAdjustmentsCount > 0 && (
                         <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold px-1">
@@ -957,9 +957,9 @@ export default function AppClient() {
                 <button
                   key={item.id}
                   onClick={() => { setActiveTab(item.id as Tab); setMobileMenuOpen(false); }}
-                  className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors", activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted")}
+                  className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors", activeTab === item.id ? "bg-accent/15 text-accent font-semibold shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
                 >
-                  <item.icon className={cn("h-5 w-5", activeTab === item.id ? "text-primary" : "text-muted-foreground")} />
+                  <item.icon className={cn("h-5 w-5", activeTab === item.id ? "text-accent" : "text-muted-foreground")} />
                   {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
                 </button>
               ))
@@ -968,7 +968,7 @@ export default function AppClient() {
         <div className="p-4 border-t space-y-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-primary bg-primary/5 hover:bg-primary/10 transition-colors", isSidebarCollapsed && "justify-center")}>
+              <button className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-accent bg-accent/8 hover:bg-accent/15 transition-colors", isSidebarCollapsed && "justify-center")}>
                 <ArrowLeftRight className="h-5 w-5" />
                 {!isSidebarCollapsed && <span className="truncate">Cambiar Rol: {activeRole}</span>}
               </button>
