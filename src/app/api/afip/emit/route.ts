@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { getWSAAToken, getLastVoucher, emitirFactura } from '@/lib/afip-service';
 import { decrypt } from '@/lib/afip-crypto';
 import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { apiError } from '@/lib/api-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -127,6 +128,6 @@ export async function POST(req: NextRequest) {
       nroComprobante: result.nroComprobante,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message ?? 'Error emitiendo factura' }, { status: 500 });
+    return NextResponse.json({ error: apiError(err, 'Error emitiendo factura') }, { status: 500 });
   }
 }
