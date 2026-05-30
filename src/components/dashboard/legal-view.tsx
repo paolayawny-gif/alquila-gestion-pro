@@ -35,7 +35,8 @@ import { fetchDeudaBcra, type BcraDeudaReport } from '@/ai/flows/fetch-deudas-bc
 import { situacionLabel, situacionColor } from '@/lib/bcra-utils';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, getDocs, updateDoc } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Progress } from '@/components/ui/progress';
 
@@ -203,7 +204,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
       hasFile: false,
       ownerId: userId,
     };
-    setDocumentNonBlocking(docRef, caseData, { merge: true });
+    setDocumentSafe(docRef, Schemas.LegalCaseCreate, caseData, { merge: true });
     setIsNewCaseOpen(false);
     setNewCase({ type: '', propertyId: '', startDate: new Date().toISOString().split('T')[0], attorney: '', status: 'Iniciado', stage: 'Intimación' });
     toast({ title: 'Caso Registrado', description: 'Sincronizado con la nube.' });
@@ -222,7 +223,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     const update: Partial<LegalCase> = { stage, lastActionDate: new Date().toISOString().split('T')[0] };
     if (stage === 'Reporte Veraz') update.verazReported = true;
     if (stage === 'Cerrado') update.status = 'Cerrado';
-    setDocumentNonBlocking(docRef, update, { merge: true });
+    setDocumentSafe(docRef, Schemas.LegalCasePatch, update, { merge: true });
     toast({ title: `Etapa actualizada → ${stage}` });
   };
 
@@ -242,7 +243,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     };
     const existing = caseObj.paymentPlans ?? [];
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', selectedCaseId);
-    setDocumentNonBlocking(docRef, { paymentPlans: [...existing, plan] }, { merge: true });
+    setDocumentSafe(docRef, Schemas.LegalCasePatch, { paymentPlans: [...existing, plan] }, { merge: true });
     setIsAddPlanOpen(false);
     setNewPlan({ tenantName: '', installments: 3, totalAmount: 0, note: '', status: 'pendiente' });
     toast({ title: 'Plan de pago propuesto' });
@@ -254,7 +255,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     if (!caseObj) return;
     const updated = (caseObj.paymentPlans ?? []).map(p => p.id === planId ? { ...p, status } : p);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', caseId);
-    setDocumentNonBlocking(docRef, { paymentPlans: updated }, { merge: true });
+    setDocumentSafe(docRef, Schemas.LegalCasePatch, { paymentPlans: updated }, { merge: true });
     toast({ title: `Plan actualizado → ${status}` });
   };
 
@@ -289,7 +290,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
     const today = new Date().toISOString().split('T')[0];
     actives.forEach(c => {
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'legales', c.id);
-      setDocumentNonBlocking(docRef, {
+      setDocumentSafe(docRef, Schemas.LegalCasePatch, {
         stage: 'Carta Documento' as const,
         lastActionDate: today,
         lastActionNote: 'Acción masiva de intimación ejecutada',

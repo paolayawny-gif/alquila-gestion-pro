@@ -29,7 +29,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import {
   Property, Contract, Invoice, MaintenanceTask, LegalCase,
   MonetizableAsset, ReserveFund,
@@ -831,7 +832,7 @@ function PlusvaliaTab({ properties, tasks, userId }: Pick<AnalyticsPanelProps, '
   const handleSaveValue = () => {
     if (!prop || !userId || !db) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'propiedades', prop.id);
-    setDocumentNonBlocking(docRef, {
+    setDocumentSafe(docRef, Schemas.PropertyPatch, {
       purchasePrice: Number(valueForm.purchasePrice) || undefined,
       currentValue: Number(valueForm.currentValue) || undefined,
       purchaseYear: Number(valueForm.purchaseYear) || undefined,

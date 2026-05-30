@@ -56,7 +56,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, getDoc, collection, query as fsQuery, orderBy } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { createNotification } from '@/lib/notifications';
 import { OwnerRegistryEntry } from '@/components/owner/owner-portal';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
@@ -245,7 +246,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
       hasFile: false
     };
 
-    setDocumentNonBlocking(docRef, task, { merge: true });
+    setDocumentSafe(docRef, Schemas.MaintenanceCreate, task, { merge: true });
     setIsNewClaimOpen(false);
     toast({ title: "Ticket Creado", description: "Se ha registrado el nuevo reclamo." });
   };
@@ -263,7 +264,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
 
     const wasChargedToOwner = selectedTask.chargedTo === 'Propietario';
 
-    setDocumentNonBlocking(docRef, {
+    setDocumentSafe(docRef, Schemas.MaintenancePatch, {
       ...selectedTask,
       ownerEmail,
       updatedAt: new Date().toLocaleDateString('es-AR')
@@ -302,7 +303,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
     if (!ratingTaskId || !userId || !db) return;
     const task = tasks.find(t => t.id === ratingTaskId);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento', ratingTaskId);
-    setDocumentNonBlocking(docRef, {
+    setDocumentSafe(docRef, Schemas.MaintenancePatch, {
       contractorRating: ratingValue,
       contractorRatingComment: ratingComment || undefined,
     }, { merge: true });

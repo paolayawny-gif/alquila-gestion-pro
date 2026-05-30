@@ -194,6 +194,70 @@ export const PropertyPatchSchema = z.object({
   purchasePrice:  MoneySchema.optional(),
 });
 
+// ── Legal ─────────────────────────────────────────────────────────────────────
+
+export const LegalStatusSchema = z.enum([
+  'Iniciado', 'En proceso', 'Mediación', 'Cerrado',
+]);
+
+export const LegalStageSchema = z.enum([
+  'Intimación', 'Carta Documento', 'Burofax', 'Demanda',
+  'Reporte Veraz', 'Mediación', 'Cerrado',
+]);
+
+export const PaymentPlanSchema = z.object({
+  id:           z.string().min(1),
+  tenantName:   z.string().min(1),
+  installments: z.coerce.number().int().min(1),
+  totalAmount:  PositiveMoneySchema,
+  note:         z.string().optional(),
+  status:       z.enum(['pendiente', 'aceptado', 'rechazado']),
+  createdAt:    z.string().min(1),
+});
+
+export const LegalCaseCreateSchema = z.object({
+  propertyId:    z.string().min(1),
+  propertyName:  z.string().min(1),
+  type:          z.string().min(1),
+  startDate:     z.string().min(1),
+  attorney:      z.string().min(1),
+  status:        LegalStatusSchema,
+  ownerId:       z.string().min(1),
+  debtAmount:    MoneySchema.optional(),
+  daysOverdue:   z.coerce.number().int().nonnegative().optional(),
+  stage:         LegalStageSchema.optional(),
+  verazReported: z.boolean().optional(),
+  paymentPlans:  z.array(PaymentPlanSchema).optional(),
+});
+
+export const LegalCasePatchSchema = z.object({
+  status:          LegalStatusSchema.optional(),
+  stage:           LegalStageSchema.optional(),
+  debtAmount:      MoneySchema.optional(),
+  daysOverdue:     z.coerce.number().int().nonnegative().optional(),
+  verazReported:   z.boolean().optional(),
+  lastActionDate:  z.string().optional(),
+  lastActionNote:  z.string().optional(),
+  paymentPlans:    z.array(PaymentPlanSchema).optional(),
+});
+
+// ── Maintenance (create) ──────────────────────────────────────────────────────
+
+export const MaintenanceCreateSchema = z.object({
+  propertyId:        z.string().min(1),
+  propertyName:      z.string().min(1),
+  concept:           z.string().min(1),
+  description:       z.string().min(1),
+  priority:          MaintenancePrioritySchema,
+  status:            MaintenanceStatusSchema,
+  estimatedCost:     MoneySchema,
+  actualCost:        MoneySchema,
+  chargedTo:         z.enum(['Inquilino', 'Propietario', 'N/A']).optional(),
+  isApprovedByOwner: z.boolean().optional(),
+  createdAt:         z.string().min(1),
+  updatedAt:         z.string().min(1),
+});
+
 // ── Barril de todos los schemas ───────────────────────────────────────────────
 
 export const Schemas = {
@@ -210,7 +274,11 @@ export const Schemas = {
   LiquidationCreate:      LiquidationCreateSchema,
   LiquidationPatch:       LiquidationPatchSchema,
   // Mantenimiento
+  MaintenanceCreate:      MaintenanceCreateSchema,
   MaintenancePatch:       MaintenancePatchSchema,
+  // Legales
+  LegalCaseCreate:        LegalCaseCreateSchema,
+  LegalCasePatch:         LegalCasePatchSchema,
   // Propiedades
   PropertyPatch:          PropertyPatchSchema,
   // Primitivos útiles para validaciones inline
