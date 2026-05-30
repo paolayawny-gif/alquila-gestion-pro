@@ -1,21 +1,30 @@
 "use client";
 
 import React from 'react';
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Props {
   children: React.ReactNode;
-  /** Nombre del módulo (aparece en el mensaje de error y en Sentry) */
+  /** Nombre del módulo — aparece en el mensaje y en el reporte de errores */
   module?: string;
-  /** Fallback personalizado. Si no se pasa, se usa el default. */
   fallback?: React.ReactNode;
 }
 
 interface State {
   hasError: boolean;
   eventId: string | null;
+}
+
+async function captureError(error: Error, extra: Record<string, unknown>): Promise<string | null> {
+  try {
+    // Importación dinámica — si Sentry no está instalado o sin DSN, falla silenciosamente
+    const { captureException } = await import('@sentry/nextjs');
+    return captureException(error, { extra }) ?? null;
+  } catch {
+    console.error('[ErrorBoundary]', extra.module, error);
+    return null;
+  }
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
@@ -29,13 +38,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    const eventId = Sentry.captureException(error, {
-      extra: {
-        componentStack: info.componentStack,
-        module: this.props.module ?? 'unknown',
-      },
-    });
-    this.setState({ eventId: eventId ?? null });
+    captureError(error, {
+      componentStack: info.componentStack,
+      module: this.props.module ?? 'unknown',
+    }).then(id => this.setState({ eventId: id }));
   }
 
   handleReset = () => {
@@ -44,7 +50,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (!this.state.hasError) return this.props.children;
-
     if (this.props.fallback) return this.props.fallback;
 
     return (
@@ -65,11 +70,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <RefreshCw className="h-4 w-4 mr-2" />
             Reintentar
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => window.location.reload()}
-          >
+          <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
             Recargar página
           </Button>
         </div>

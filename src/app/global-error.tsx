@@ -1,6 +1,5 @@
 "use client";
 
-import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
@@ -12,7 +11,10 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    // Reporta a Sentry si está configurado; no-op si el DSN está vacío
+    import('@sentry/nextjs')
+      .then(({ captureException }) => captureException(error))
+      .catch(() => console.error('[GlobalError]', error));
   }, [error]);
 
   return (
