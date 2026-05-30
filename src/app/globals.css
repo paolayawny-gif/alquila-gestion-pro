@@ -4,31 +4,34 @@
 
 @layer base {
   :root {
-    --background: 138 40% 97%;
-    --foreground: 150 25% 8%;
+    /* ── Palette: Professional Navy + Ocean Blue (Opción A) ─────────────── */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 150 25% 8%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 150 25% 8%;
-    --primary: 142 70% 28%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 222 47% 11%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 142 25% 92%;
-    --secondary-foreground: 142 40% 15%;
-    --muted: 142 18% 93%;
-    --muted-foreground: 150 10% 42%;
-    --accent: 142 55% 36%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 201 96% 32%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 142 15% 88%;
-    --input: 142 15% 88%;
-    --ring: 142 70% 28%;
+    --border: 213 31% 91%;
+    --input: 213 31% 91%;
+    --ring: 201 96% 32%;
     --radius: 0.75rem;
-    --chart-1: 142 70% 28%;
-    --chart-2: 142 50% 45%;
-    --chart-3: 142 35% 62%;
-    --chart-4: 142 20% 78%;
-    --chart-5: 38 90% 55%;
+
+    /* ── Chart colors: diverse accessible scale ─────────────────────────── */
+    --chart-1: 201 96% 32%;
+    --chart-2: 175 84% 32%;
+    --chart-3: 262 83% 58%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 60%;
 
     /* ── Status colors ──────────────────────────────────────────────── */
     --status-paid-bg:    142 60% 94%;
@@ -37,15 +40,15 @@
     --status-pending-fg: 28 80% 38%;
     --status-overdue-bg: 0 90% 95%;
     --status-overdue-fg: 0 70% 42%;
-    --status-info-bg:    210 90% 95%;
-    --status-info-fg:    212 75% 40%;
+    --status-info-bg:    201 96% 93%;
+    --status-info-fg:    201 96% 28%;
 
     /* ── Shadows ────────────────────────────────────────────────────── */
     --shadow-xs:      0 1px 2px rgb(0 0 0 / 0.04);
     --shadow-sm:      0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04);
-    --shadow-md:      0 4px 12px -2px rgb(16 24 16 / 0.08), 0 2px 4px rgb(16 24 16 / 0.04);
-    --shadow-lg:      0 10px 30px -10px rgb(16 24 16 / 0.18);
-    --shadow-primary: 0 6px 18px -6px hsl(142 70% 28% / 0.35);
+    --shadow-md:      0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px rgb(15 23 42 / 0.04);
+    --shadow-lg:      0 10px 30px -10px rgb(15 23 42 / 0.18);
+    --shadow-primary: 0 6px 18px -6px hsl(201 96% 32% / 0.35);
 
     /* ── Extra radii ────────────────────────────────────────────────── */
     --radius-sm:   0.5rem;
@@ -53,8 +56,8 @@
     --radius-pill: 9999px;
 
     /* ── Font families ──────────────────────────────────────────────── */
-    --font-body:     "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-    --font-headline: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-body:     var(--font-plus-jakarta-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-headline: var(--font-plus-jakarta-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono:     ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
     /* ── Type scale ─────────────────────────────────────────────────── */
@@ -86,25 +89,25 @@
     --card-foreground: 210 20% 95%;
     --popover: 200 30% 12%;
     --popover-foreground: 210 20% 95%;
-    --primary: 142 60% 42%;
+    --primary: 201 80% 52%;
     --primary-foreground: 0 0% 98%;
     --secondary: 200 25% 18%;
     --secondary-foreground: 210 20% 90%;
     --muted: 200 25% 18%;
-    --muted-foreground: 210 15% 60%;
-    --accent: 142 55% 36%;
+    --muted-foreground: 210 20% 68%;
+    --accent: 201 80% 52%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
     --border: 200 25% 20%;
     --input: 200 25% 20%;
-    --ring: 142 60% 42%;
-    --shadow-primary: 0 6px 18px -6px hsl(142 60% 42% / 0.45);
-    --chart-1: 142 60% 42%;
-    --chart-2: 142 45% 55%;
-    --chart-3: 142 30% 65%;
-    --chart-4: 142 18% 75%;
-    --chart-5: 38 90% 55%;
+    --ring: 201 80% 52%;
+    --shadow-primary: 0 6px 18px -6px hsl(201 80% 52% / 0.45);
+    --chart-1: 201 80% 52%;
+    --chart-2: 175 70% 45%;
+    --chart-3: 262 70% 68%;
+    --chart-4: 38 90% 55%;
+    --chart-5: 0 72% 60%;
   }
 }
 
@@ -116,13 +119,13 @@
     @apply bg-background text-foreground font-body;
     overflow-x: hidden;
   }
-  /* Gradiente diagonal suave en light mode */
+  /* Gradiente diagonal suave en light mode — cool neutral */
   html {
     background: linear-gradient(
       135deg,
-      hsl(145 45% 95%) 0%,
-      hsl(160 30% 97%) 45%,
-      hsl(210 25% 98%) 100%
+      hsl(210 40% 98%) 0%,
+      hsl(213 50% 97%) 50%,
+      hsl(220 40% 98%) 100%
     );
     background-attachment: fixed;
     min-height: 100%;
@@ -137,16 +140,21 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
-  /* Popovers, dropdowns y dialogs: casi opacos para legibilidad */
+  /* Popovers y dropdowns: ligero blur */
   .bg-popover,
-  [role="dialog"],
   [role="listbox"],
   [role="menu"],
   [cmdk-root],
   [data-radix-popper-content-wrapper] > * {
-    background-color: hsl(var(--popover) / 0.96) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background-color: hsl(var(--popover) / 0.97) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  /* Dialogs y modales: completamente opacos para formularios legibles */
+  [role="dialog"] {
+    background-color: hsl(var(--popover)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
   /* Gradiente diagonal azul petróleo en dark mode */
   html.dark {
@@ -169,16 +177,21 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
-  /* Popovers/dropdowns dark: casi opacos */
+  /* Popovers/dropdowns dark: ligero blur */
   .dark .bg-popover,
-  .dark [role="dialog"],
   .dark [role="listbox"],
   .dark [role="menu"],
   .dark [cmdk-root],
   .dark [data-radix-popper-content-wrapper] > * {
     background-color: hsl(var(--popover) / 0.96) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  /* Dialogs dark: opacos */
+  .dark [role="dialog"] {
+    background-color: hsl(var(--card)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
   /* bg-white → bg-card en dark mode para todos los componentes */
   .dark .bg-white {
@@ -242,13 +255,27 @@
 @layer utilities {
   .body-sm  { font-size: var(--text-sm);  line-height: 1.5;  color: hsl(var(--muted-foreground)); }
   .body-xs  { font-size: var(--text-xs);  line-height: 1.4;  color: hsl(var(--muted-foreground)); }
-  .eyebrow  { font-size: 0.6875rem; font-weight: var(--fw-black); letter-spacing: 0.22em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+  .eyebrow  { font-size: 0.6875rem; font-weight: var(--fw-black); letter-spacing: 0.10em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
   .tabular  { font-variant-numeric: tabular-nums; }
 }
 
-/* Cards clickeables: hover lift sutil */
+/* Table row hover state */
+tbody tr {
+  @apply transition-colors duration-100;
+}
+tbody tr:hover {
+  @apply bg-muted/50;
+}
+
+/* Columnas de montos: fuente monoespaciada para alineación perfecta */
+.amount-col {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cards clickeables: hover lift más pronunciado */
 .card-interactive {
-  @apply cursor-pointer transition-all duration-200 ease-spring hover:-translate-y-0.5 hover:shadow-md;
+  @apply cursor-pointer transition-all duration-200 ease-spring hover:-translate-y-1 hover:shadow-md;
 }
 
 /* Skeleton shimmer */
