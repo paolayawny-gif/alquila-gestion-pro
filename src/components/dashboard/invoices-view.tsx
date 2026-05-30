@@ -2,7 +2,7 @@
 "use client";
 import { APP_ID } from '@/lib/constants';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -369,23 +369,39 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
     return <Badge variant="outline" className={cn("border font-bold", styles[status] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>{status}</Badge>;
   };
 
-  const calculateInterest = (inv: Invoice) => {
-    if (inv.lateFees > 0) return inv.lateFees;
+  const contractsById = useMemo(
+    () => new Map(contracts.map(c => [c.id, c])),
+    [contracts],
+  );
 
-    const contract = contracts.find(c => c.id === inv.contractId);
-    if (!contract || !contract.lateFeePercentage) return 0;
+  const propertiesById = useMemo(
+    () => new Map(properties.map(p => [p.id, p])),
+    [properties],
+  );
 
-    const [day, month, year] = inv.dueDate.split('/');
-    const dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  const interestCache = useMemo(() => {
     const today = new Date();
-
-    if (today > dueDate && inv.status !== 'Pagado') {
-      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return (inv.totalAmount * (contract.lateFeePercentage / 100)) * diffDays;
+    const cache = new Map<string, number>();
+    for (const inv of invoices) {
+      if (inv.lateFees > 0) { cache.set(inv.id, inv.lateFees); continue; }
+      const contract = contractsById.get(inv.contractId);
+      if (!contract || !contract.lateFeePercentage) { cache.set(inv.id, 0); continue; }
+      const [day, month, year] = inv.dueDate.split('/');
+      const dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (today > dueDate && inv.status !== 'Pagado') {
+        const diffDays = Math.ceil(Math.abs(today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+        cache.set(inv.id, (inv.totalAmount * (contract.lateFeePercentage / 100)) * diffDays);
+      } else {
+        cache.set(inv.id, 0);
+      }
     }
-    return 0;
-  };
+    return cache;
+  }, [invoices, contractsById]);
+
+  const calculateInterest = useCallback(
+    (inv: Invoice) => interestCache.get(inv.id) ?? 0,
+    [interestCache],
+  );
 
   const handleSaveManualFee = () => {
     if (!selectedInvForFee || !userId || !db) return;
@@ -406,7 +422,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
       const docId = Math.random().toString(36).substr(2, 9);
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', docId);
 
-      const property = properties.find(p => p.id === contract.propertyId);
+      const property = propertiesById.get(contract.propertyId);
       const ownerEmail = property?.owners?.[0]?.email ?? '';
       const ownerName = property?.owners?.[0]?.name ?? 'Propietario';
 

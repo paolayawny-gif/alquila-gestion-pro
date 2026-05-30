@@ -2,7 +2,7 @@
 "use client";
 import { APP_ID } from '@/lib/constants';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -137,6 +137,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [selectedDetailContract, setSelectedDetailContract] = useState<Contract | null>(null);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleTypeFilter, setPeopleTypeFilter] = useState<'Todos' | 'Propietario' | 'Inquilino' | 'Garante' | 'Proveedor'>('Todos');
+
+  const filteredSortedPeople = useMemo(() => {
+    const q = peopleSearch.toLowerCase();
+    return people
+      .filter(p =>
+        (peopleTypeFilter === 'Todos' || p.type === peopleTypeFilter) &&
+        (!q || p.fullName?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.taxId?.includes(q)),
+      )
+      .sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? '', 'es'));
+  }, [people, peopleTypeFilter, peopleSearch]);
 
   // ── Tenant Registry (portal access management) ──────────────────────────
   const registryQ = useMemoFirebase(() => {
@@ -1324,13 +1334,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <Table>
               <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Tipo</TableHead><TableHead>Email</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
               <TableBody>
-                {people
-                  .filter(p => peopleTypeFilter === 'Todos' || p.type === peopleTypeFilter)
-                  .filter(p => {
-                    const q = peopleSearch.toLowerCase();
-                    return !q || p.fullName?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.taxId?.includes(q);
-                  })
-                  .sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? '', 'es'))
+                {filteredSortedPeople
                   .map(p => (
                     <TableRow key={p.id}>
                       <TableCell className="font-bold">{p.fullName}</TableCell>

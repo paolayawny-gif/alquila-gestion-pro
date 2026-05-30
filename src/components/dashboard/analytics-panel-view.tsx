@@ -217,9 +217,12 @@ function ImpactoTab({ properties, contracts, invoices, tasks, legalCases, assets
   }, [invoices, assets, tasks, contracts]);
 
   // ── Gastos imprevistos / Cobertura ────────────────────────────────────────
-  const correctiveCost = tasks
-    .filter(t => t.priority === 'Urgente' || t.priority === 'Alta')
-    .reduce((s, t) => s + (t.actualCost || t.estimatedCost || 0), 0);
+  const correctiveCost = useMemo(() =>
+    tasks
+      .filter(t => t.priority === 'Urgente' || t.priority === 'Alta')
+      .reduce((s, t) => s + (t.actualCost || t.estimatedCost || 0), 0),
+    [tasks],
+  );
 
   const { toast } = useToast();
 

@@ -2,7 +2,7 @@
 import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
 import { AppLogo } from '@/components/ui/app-logo';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard,
   Building,
@@ -839,7 +839,7 @@ export default function AppClient() {
 
   const menuItems = activeRole === 'Administrador' ? ADMIN_MENU : [{ id: 'Mi Portal', icon: User, label: 'Mi Portal' }];
 
-  const cmdItems: CommandItem[] = [
+  const cmdItems = useMemo<CommandItem[]>(() => [
     ...ADMIN_MENU.map(item => ({
       id: `nav-${item.id}`,
       label: item.label,
@@ -873,7 +873,9 @@ export default function AppClient() {
       category: 'contract' as const,
       onSelect: () => setActiveTab('Personas'),
     })),
-  ];
+  // setActiveTab is a stable state setter, no need to include
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [isSuperAdmin, properties, people, contracts]);
 
   return (
     <BiometricGate userEmail={user?.email}>
