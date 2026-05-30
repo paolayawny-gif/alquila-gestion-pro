@@ -63,7 +63,8 @@ import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { sendEmail } from '@/services/email-service';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useStorage } from '@/firebase';
 import { doc, query, collection } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { writePropertyEvent } from '@/lib/property-events';
 import { uploadReceiptToStorage } from '@/lib/upload-receipt';
 
@@ -185,7 +186,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
       const inv = invoices.find(i => i.id === id);
       if (!inv || inv.status === 'Pagado') continue;
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', id);
-      setDocumentNonBlocking(docRef, { status: 'Pagado', paymentDate: now }, { merge: true });
+      setDocumentSafe(docRef, Schemas.InvoicePatch, { status: 'Pagado', paymentDate: now }, { merge: true });
     }
     setBulkProcessing(false);
     setSelectedIds(new Set());
@@ -297,7 +298,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
 
       // Mark as Vencido and notify owner
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
-      setDocumentNonBlocking(docRef, { status: 'Vencido', ownerNotifiedAt: new Date().toISOString() }, { merge: true });
+      setDocumentSafe(docRef, Schemas.InvoicePatch, { status: 'Vencido', ownerNotifiedAt: new Date().toISOString() }, { merge: true });
 
       const totalAmt = (inv.totalAmount ?? 0) + (inv.lateFees ?? 0);
       const currency = inv.currency === 'USD' ? 'U$D' : '$';
@@ -406,7 +407,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
   const handleSaveManualFee = () => {
     if (!selectedInvForFee || !userId || !db) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', selectedInvForFee.id);
-    setDocumentNonBlocking(docRef, { lateFees: manualFeeInput }, { merge: true });
+    setDocumentSafe(docRef, Schemas.InvoicePatch, { lateFees: manualFeeInput }, { merge: true });
     setIsLateFeeDialogOpen(false);
     toast({ title: "Punitorio Actualizado", description: "Se ha registrado el monto manual de intereses." });
   };
@@ -464,7 +465,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
         status: 'Pendiente',
         liquidacionEnviadaAt: now,
       };
-      setDocumentNonBlocking(docRef, invoiceData, { merge: true });
+      setDocumentSafe(docRef, Schemas.InvoiceCreate, invoiceData, { merge: true });
       count++;
 
       if (contract.tenantEmail) {
@@ -781,7 +782,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
       status: 'Pendiente'
     };
 
-    setDocumentNonBlocking(docRef, invoiceData, { merge: true });
+    setDocumentSafe(docRef, Schemas.InvoiceCreate, invoiceData, { merge: true });
     writePropertyEvent(db, userId, {
       propertyId: contract.propertyId,
       propertyName: contract.propertyName ?? '',

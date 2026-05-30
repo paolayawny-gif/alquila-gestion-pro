@@ -68,7 +68,8 @@ import {
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, query, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { createNotification } from '@/lib/notifications';
 import { BiometricGate } from '@/components/BiometricGate';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink, PendingRentAdjustment, IndexRecord } from '@/lib/types';
@@ -564,7 +565,7 @@ export default function AppClient() {
       const newAdj = buildPendingAdjustment(contract, calc, user.uid);
       const id = `${contract.id}_${Date.now()}`;
       const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'rentAdjustments', id);
-      setDocumentNonBlocking(ref, { ...newAdj, id, createdAt: new Date().toISOString() }, { merge: false });
+      setDocumentSafe(ref, Schemas.RentAdjustmentCreate, { ...newAdj, id, createdAt: new Date().toISOString() }, { merge: false });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts.length, indexRecords.length, db, user?.uid]);
@@ -719,7 +720,8 @@ export default function AppClient() {
     await updateDoc(ref, { status: 'aprobado', approvedAt: now, approvedBy: user.email ?? user.uid });
     // Update contract currentRentAmount + lastAdjustmentDate
     const contractRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos', adj.contractId);
-    setDocumentNonBlocking(contractRef, {
+    // Validar que el nuevo monto es un número positivo válido antes de escribirlo al contrato
+    setDocumentSafe(contractRef, Schemas.ContractPatch, {
       currentRentAmount: adj.proposedAmount,
       lastAdjustmentDate: now,
     }, { merge: true });
