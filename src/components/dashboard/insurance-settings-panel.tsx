@@ -1,4 +1,5 @@
-'use client';
+'use client'
+import { APP_ID } from '@/lib/constants';;
 
 /**
  * insurance-settings-panel.tsx
@@ -30,7 +31,6 @@ import { useFirestore, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-const APP_ID = 'alquilagestion-pro';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type PolicyType = 'Incendio' | 'Responsabilidad Civil' | 'Integral Hogar' | 'Caución' | 'Granizo' | 'Robo y Hurto' | 'Otro';

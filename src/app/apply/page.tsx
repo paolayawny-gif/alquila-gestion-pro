@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -32,7 +33,6 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Property, RentalApplication, DocumentInfo } from '@/lib/types';
 
-const APP_ID = "alquilagestion-pro";
 
 function ApplyPageContent() {
   const searchParams = useSearchParams();

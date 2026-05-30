@@ -1,4 +1,5 @@
-'use client';
+'use client'
+import { APP_ID } from '@/lib/constants';;
 
 import React, { useMemo } from 'react';
 import { collection, query, where, orderBy } from 'firebase/firestore';
@@ -11,7 +12,6 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
-const APP_ID = 'alquilagestion-pro';
 
 const EVENT_CONFIG: Record<PropertyEvent['type'], {
   label: string;

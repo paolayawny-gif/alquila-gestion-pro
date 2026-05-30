@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getBillingProvider, getTierById } from '@/lib/billing';
@@ -6,7 +7,6 @@ import { calculateCurrentTier, updateBillingState } from '@/lib/billing/state';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 /**
  * Cron diario que recorre todos los admins:

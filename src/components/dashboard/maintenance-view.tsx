@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -74,7 +75,6 @@ interface MaintenanceViewProps {
   contracts?: Contract[];
 }
 
-const APP_ID = "alquilagestion-pro";
 
 export function MaintenanceView({ tasks, userId, properties, people, contracts = [] }: MaintenanceViewProps) {
   const { toast } = useToast();

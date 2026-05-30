@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +25,6 @@ import { useToast } from '@/hooks/use-toast';
 import { OwnerRegistryEntry } from './owner-portal';
 import { MonetizationSuggestion, MonetizationOffer, SpaceType } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 const SPACE_TYPES: SpaceType[] = [
   'Publicidad exterior',

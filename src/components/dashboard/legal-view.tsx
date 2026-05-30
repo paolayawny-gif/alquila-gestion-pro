@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +45,6 @@ interface LegalViewProps {
   properties: Property[];
 }
 
-const APP_ID = "alquilagestion-pro";
 
 // ── Config de etapas ─────────────────────────────────────────────────────────
 const STAGE_CFG: Record<LegalStage, { label: string; color: string; icon: React.ReactNode; badge: string }> = {

@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebase-admin";
+import { SUPERADMIN_UID } from "@/lib/constants";
 
 // Resolved lazily so a missing JWT_SECRET only fails when a session is
 // actually signed/verified at runtime — not at module import time (which
@@ -40,8 +41,6 @@ export type FirebaseSessionPayload = {
   email?: string;       // Email del token verificado
   emailVerified?: boolean;
 };
-
-const SUPERADMIN_UID = process.env.SUPERADMIN_UID || "wYkBqQjJuSdQu7F20eFAHZ0qX9N2";
 
 export async function encrypt(payload: any) {
   return new SignJWT(payload)

@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,7 +40,6 @@ interface SocialMediaViewProps {
   userId?: string;
 }
 
-const APP_ID = 'alquilagestion-pro';
 
 type ActiveTab = SocialContentType | 'Calendario' | 'Tarjeta' | 'Carrusel' | 'Perfil';
 

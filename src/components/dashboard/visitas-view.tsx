@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
@@ -39,7 +40,6 @@ import { useOrgContext } from '@/hooks/use-org-context';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const APP_ID = 'alquilagestion-pro';
 
 const PRESET_COLORS = [
   '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6',

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Bell, Check, CheckCheck, Wrench, FileText, Calendar, AlertTriangle, DollarSign, Megaphone, Zap, Lightbulb, TrendingUp } from 'lucide-react';
@@ -17,7 +17,6 @@ import { AppNotification, NotificationType, Anuncio, AnuncioType } from '@/lib/t
 import { markNotificationRead, markAllNotificationsRead } from '@/lib/notifications';
 import { markAnuncioRead, markAllAnunciosRead } from '@/lib/anuncios';
 
-const APP_ID = 'alquilagestion-pro';
 
 const ICONS: Record<NotificationType, React.ElementType> = {
   maintenance_approved: Wrench,

@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +23,6 @@ import { useFirestore } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-const APP_ID = 'alquilagestion-pro';
 
 const SCENARIOS = [
   { id: 'tradicional', label: 'Alquiler Tradicional', icon: Home },

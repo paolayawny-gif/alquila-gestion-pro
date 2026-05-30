@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -94,7 +95,6 @@ interface TenantsViewProps {
   onOpenProperty?: (propertyId: string) => void;
 }
 
-const APP_ID = "alquilagestion-pro";
 
 function contractRiskBadge(c: Contract): React.ReactNode {
   if (c.status === 'Finalizado' || c.status === 'Rescindido' || c.status === 'Borrador') return null;

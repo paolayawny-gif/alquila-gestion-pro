@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useMemo, useState } from 'react';
 // xlsx se carga de forma diferida dentro del handler de exportación.
@@ -31,7 +32,6 @@ import { sendEmail } from '@/services/email-service';
 import { formatCurrency } from '@/lib/format';
 import { FiscalPanel } from '@/components/ui/fiscal-panel';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface FinancialLedgerViewProps {
   properties: Property[];

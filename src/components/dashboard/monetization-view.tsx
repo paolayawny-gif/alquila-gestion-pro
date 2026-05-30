@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +41,6 @@ interface MonetizationViewProps {
   userEmail?: string;
 }
 
-const APP_ID = 'alquilagestion-pro';
 
 // ── Catálogo de categorías ────────────────────────────────────────────────────
 const CATEGORY_CFG: Record<AssetCategory, { icon: React.ReactNode; color: string; badge: string }> = {

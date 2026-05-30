@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -44,7 +45,6 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-const APP_ID = 'alquilagestion-pro';
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAY_LABELS  = ['L','M','M','J','V','S','D'];
 

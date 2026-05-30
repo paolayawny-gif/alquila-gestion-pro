@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -138,7 +139,6 @@ interface InvoicesViewProps {
   people?: Person[];
 }
 
-const APP_ID = "alquilagestion-pro";
 const CHARGE_TYPES: ChargeType[] = ['Alquiler', 'Expensa Ordinaria', 'Expensa Extraordinaria', 'TGI/ABL', 'Aguas', 'Luz/Gas', 'Otros'];
 
 export function InvoicesView({ invoices, userId, contracts, properties = [], people = [] }: InvoicesViewProps) {

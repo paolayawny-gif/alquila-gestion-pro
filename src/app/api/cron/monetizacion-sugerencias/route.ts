@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { SUGGESTION_TEMPLATES } from '@/lib/monetization-templates';
@@ -5,7 +6,6 @@ import { SUGGESTION_TEMPLATES } from '@/lib/monetization-templates';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 const MONTHS_BETWEEN_SUGGESTIONS = 3;
 
 export async function GET(req: NextRequest) {

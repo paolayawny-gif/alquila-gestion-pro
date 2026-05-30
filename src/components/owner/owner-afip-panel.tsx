@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +20,6 @@ import { useToast } from '@/hooks/use-toast';
 import { OwnerRegistryEntry } from './owner-portal';
 import { Invoice } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 import { fmtMoney as fmt } from '@/lib/format';
 
 interface AfipStoredConfig {

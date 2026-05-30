@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,6 @@ import { collection, query, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 
-const APP_ID = 'alquilagestion-pro';
 
 type ProviderCategory = string;          // open string so custom categories work
 type ProviderStatus = 'Verificado' | 'En evaluación' | 'Suspendido' | 'Inactivo';

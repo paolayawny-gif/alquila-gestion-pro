@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,7 +26,6 @@ import type {
 } from '@/lib/types';
 import type { OwnerRegistryEntry } from './owner-portal';
 
-const APP_ID = 'alquilagestion-pro';
 
 const CATEGORY_LABELS: Record<ServiceCategory, string> = {
   legal: 'Legal',

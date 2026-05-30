@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,6 @@ import type {
   ServicePriceType, ServiceDeliverable,
 } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface AdminSettingsViewProps {
   userId?: string;

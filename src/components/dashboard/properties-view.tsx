@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -52,7 +53,6 @@ interface PropertiesViewProps {
   onOpenContract?: (c: Contract) => void;
 }
 
-const APP_ID = "alquilagestion-pro";
 
 export function PropertiesView({ properties, userId, contracts = [], invoices = [], tasks = [], applications = [], liquidations = [], legalCases = [], reserveFunds = [], deepLinkPropertyId, onDeepLinkConsumed, onOpenContract }: PropertiesViewProps) {
   const { toast } = useToast();

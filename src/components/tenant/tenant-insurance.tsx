@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { TenantRegistryEntry } from './tenant-portal';
 import { Property } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 type PolicyType = 'Incendio' | 'Responsabilidad Civil' | 'Integral Hogar' | 'Robo y Hurto';
 

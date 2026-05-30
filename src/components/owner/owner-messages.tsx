@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { writePropertyEvent } from '@/lib/property-events';
 import { OwnerRegistryEntry } from './owner-portal';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface ChatMessage {
   id: string;

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,6 @@ import { useToast } from '@/hooks/use-toast';
 import { richCommunication, fetchIndexTicker } from '@/ai/flows/rich-communication-flow';
 import type { RichCommunicationInput, IndexTicker } from '@/ai/flows/rich-communication-types';
 
-const APP_ID = 'alquilagestion-pro';
 
 // ── Tipos ──────────────────────────────────────────────
 interface Chat {

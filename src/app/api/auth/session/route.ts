@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { requireFirebaseAuth, createSession, logout } from '@/lib/auth';
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
   // Store the current sessionId where the client SDK can read it (same path as app data)
   const db = getAdminDb();
   await db
-    .collection('artifacts').doc('alquilagestion-pro')
+    .collection('artifacts').doc(APP_ID)
     .collection('users').doc(auth.userId)
     .set(
       { currentSessionId: sessionId, sessionUpdatedAt: new Date().toISOString() },
@@ -45,7 +46,7 @@ export async function DELETE(req: NextRequest) {
 
   const db = getAdminDb();
   await db
-    .collection('artifacts').doc('alquilagestion-pro')
+    .collection('artifacts').doc(APP_ID)
     .collection('users').doc(auth.userId)
     .set(
       { currentSessionId: null, sessionUpdatedAt: new Date().toISOString() },

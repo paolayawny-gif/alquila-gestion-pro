@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,7 +49,6 @@ import {
 } from '@/lib/types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const APP_ID = 'alquilagestion-pro';
 
 type TabId = 'sugerencias' | 'ofertas' | 'solicitudes';
 

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,7 +25,6 @@ import type { Lead, LeadStatus, GoogleLeadResult } from '@/lib/types';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 
-const APP_ID = 'alquilagestion-pro';
 
 const STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; dot: string }> = {
   'Nuevo':       { label: 'Nuevo',       color: 'bg-slate-100 text-slate-700 border-slate-200',   dot: 'bg-slate-400' },

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +17,6 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
 
-const APP_ID = 'alquilagestion-pro';
 
 type TicketStatus   = 'Abierto' | 'En proceso' | 'Resuelto';
 type TicketCategory = 'Plomería' | 'Electricidad' | 'Gas' | 'Carpintería' | 'Pintura' | 'Limpieza' | 'Acceso / Llave' | 'Climatización' | 'Otro';

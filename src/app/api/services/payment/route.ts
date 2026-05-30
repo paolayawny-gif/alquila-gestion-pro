@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionForAdmin } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -6,7 +7,6 @@ import type { AdminPaymentConfig, ServiceRequest } from '@/lib/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 /**
  * POST /api/services/payment

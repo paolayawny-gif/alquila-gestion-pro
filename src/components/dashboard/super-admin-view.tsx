@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,8 +27,6 @@ import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/no
 import { Anuncio, AnuncioType } from '@/lib/types';
 import { createAnuncio, publishAnuncio, unpublishAnuncio, deleteAnuncio } from '@/lib/anuncios';
 
-const APP_ID = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

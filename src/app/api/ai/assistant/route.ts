@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionForAdmin } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -5,7 +6,6 @@ import { getAdminDb } from '@/lib/firebase-admin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 const SYSTEM_PROMPT = `Sos el asistente de datos de "AlquilaGestión Pro".
 

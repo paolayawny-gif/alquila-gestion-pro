@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,8 +32,6 @@ import { InsuranceSettingsPanel, type PASPartner, type CommissionConfig } from '
 import { Settings2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const APP_ID            = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 // Fallback defaults — se usan si no hay config dinámica para el PAS + tipo
 const DEFAULT_ADMIN_RATE  = 0.03;
 const DEFAULT_SUPER_RATE  = 0.02;

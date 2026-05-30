@@ -1,4 +1,5 @@
 'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
@@ -96,7 +97,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const currentUser = userAuthState.user;
     if (!currentUser || !firestore) return;
 
-    const userDocRef = doc(firestore, 'artifacts', 'alquilagestion-pro', 'users', currentUser.uid);
+    const userDocRef = doc(firestore, 'artifacts', APP_ID, 'users', currentUser.uid);
     const unsubscribe = onSnapshot(userDocRef, (snap) => {
       const data = snap.data();
       if (!data?.currentSessionId) return;

@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +20,6 @@ import {
 import { SocialBrandProfile, BrandSpecialty, BrandAudience } from '@/lib/types';
 import { generateBrandBrief } from '@/ai/flows/generate-brand-brief-flow';
 
-const APP_ID = 'alquilagestion-pro';
 
 const SPECIALTY_OPTIONS: { value: BrandSpecialty; label: string }[] = [
   { value: 'Residencial', label: 'Residencial (casas y deptos)' },

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import { useEffect, useState } from 'react';
 import { useFirestore } from '@/firebase';
@@ -6,7 +6,6 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import type { BillingState } from '@/lib/billing/types';
 import { getTierById, BILLING_TIERS, TRIAL_TIER } from '@/lib/billing/tiers';
 
-const APP_ID = 'alquilagestion-pro';
 
 /**
  * Suscripción en tiempo real al BillingState del admin.

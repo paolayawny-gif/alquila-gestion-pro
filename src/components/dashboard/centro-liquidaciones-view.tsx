@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,7 +18,6 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { sendEmail } from '@/services/email-service';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 
-const APP_ID = 'alquilagestion-pro';
 
 // ── Prose email templates ─────────────────────────────────────────────────────
 

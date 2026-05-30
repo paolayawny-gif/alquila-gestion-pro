@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { AdminPaymentConfig } from '@/lib/types';
@@ -5,7 +6,6 @@ import type { AdminPaymentConfig } from '@/lib/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 /**
  * POST /api/services/webhook?adminId=<id>

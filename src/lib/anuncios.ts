@@ -1,8 +1,8 @@
+import { APP_ID } from '@/lib/constants';
 import { Firestore, doc, getDoc, updateDoc, arrayUnion, collection } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Anuncio, AnuncioType } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 export function createAnuncio(
   db: Firestore,

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,6 @@ import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 
-const APP_ID = 'alquilagestion-pro';
 
 // ── Tipos ──────────────────────────────────────────────
 export type ProposalIconType   = 'solar' | 'gym' | 'paint' | 'pets' | 'security' | 'other';

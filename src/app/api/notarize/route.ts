@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -7,7 +8,6 @@ import { requireSessionForAdmin } from '@/lib/auth';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 /** Same inputs as ContractSignModal so the hash is consistent. */
 function computeDocumentHash(contract: any): string {

@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,7 +33,6 @@ import { generateContract } from '@/ai/flows/generate-contract-flow';
 import { extractTextFromPdfDataUri, isPdfDataUri } from '@/lib/pdf-extract';
 import { ContractRiskPanel } from '@/components/ui/contract-risk-panel';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface ContractGeneratorViewProps {
   properties: Property[];

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,7 +13,6 @@ import { collection, query, where } from 'firebase/firestore';
 import { OwnerRegistryEntry } from './owner-portal';
 import { Invoice } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   'Pendiente':               { label: 'Pendiente',      color: 'bg-amber-50 text-amber-700 border-amber-200',    icon: Clock         },

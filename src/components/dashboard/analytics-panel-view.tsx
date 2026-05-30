@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,7 +46,6 @@ interface AnalyticsPanelProps {
   userId?: string;
 }
 
-const APP_ID = 'alquilagestion-pro';
 const ACCENT = '#1D9E75';
 const COLORS = [ACCENT, '#f97316', '#8b5cf6', '#3b82f6', '#ef4444', '#eab308'];
 

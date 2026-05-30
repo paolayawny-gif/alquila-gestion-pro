@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Home, Edit2, ExternalLink, FileText, Wrench, Users, Receipt, CalendarClock, Shield, AlertTriangle, MapPin, Building2, Sparkles, Download, Upload, Save, ChevronRight, Calendar, DollarSign, TrendingUp, FolderOpen, Phone, Mail, GalleryHorizontal } from 'lucide-react';
@@ -18,7 +19,6 @@ import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { SocialCarousel } from './social-carousel';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface PropertyDetailViewProps {
   property: Property;

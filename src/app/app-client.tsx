@@ -1,4 +1,6 @@
 "use client";
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { AppLogo } from '@/components/ui/app-logo';
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -147,8 +149,6 @@ const AnalyticsPanelView = dynamic(
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler' | 'Visitas';
 
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
-
 const ADMIN_MENU_GROUPS = [
   {
     section: null, // no label — solo el dashboard
@@ -230,7 +230,6 @@ const ADMIN_MENU_GROUPS = [
 const ADMIN_MENU = ADMIN_MENU_GROUPS.flatMap(g => g.items)
   .filter((item, idx, arr) => arr.findIndex(x => x.id === item.id) === idx);
 
-const APP_ID = "alquilagestion-pro";
 
 export default function AppClient() {
   const [activeRole, setActiveRole] = useState<Role>('Administrador');
@@ -892,20 +891,7 @@ export default function AppClient() {
         <div className="px-4 h-16 flex items-center border-b">
           {!isSidebarCollapsed ? (
             <div className="flex items-center gap-3 overflow-hidden">
-              {/* Ícono cuadrado: casa + barras + tendencia */}
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0" aria-hidden="true">
-                <rect width="36" height="36" rx="9" fill="#1D9E75"/>
-                {/* Techo */}
-                <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                {/* Barras de crecimiento */}
-                <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
-                <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
-                <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
-                {/* Línea de tendencia */}
-                <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
-                <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
-              </svg>
+              <AppLogo />
               {/* Wordmark */}
               <div className="leading-none overflow-hidden flex-1 min-w-0">
                 <span className="block text-[9px] font-medium tracking-[0.22em] text-muted-foreground uppercase mb-0.5">ALQUILA</span>
@@ -920,16 +906,7 @@ export default function AppClient() {
               </div>
             </div>
           ) : (
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto" aria-hidden="true">
-              <rect width="36" height="36" rx="9" fill="#1D9E75"/>
-              <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
-              <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
-              <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
-              <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
-              <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
-            </svg>
+            <AppLogo collapsed />
           )}
         </div>
         <nav className="flex-1 px-4 mt-4 overflow-y-auto space-y-0.5 pb-4">

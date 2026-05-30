@@ -1,4 +1,5 @@
-'use client';
+'use client'
+import { APP_ID } from '@/lib/constants';;
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -23,7 +24,6 @@ import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { collection, query, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface DepositsViewProps {
   contracts: Contract[];

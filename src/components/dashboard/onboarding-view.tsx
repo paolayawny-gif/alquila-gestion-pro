@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -68,7 +69,6 @@ interface ApplicationsViewProps {
   properties: Property[];
 }
 
-const APP_ID = "alquilagestion-pro";
 
 export function ApplicationsView({ applications, userId, properties }: ApplicationsViewProps) {
   const { toast } = useToast();

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { writePropertyEvent } from '@/lib/property-events';
 import { TenantRegistryEntry } from './tenant-portal';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface SharedChat {
   id: string;

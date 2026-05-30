@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
 import { LegalCase, PaymentPlan } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 const PLAN_CFG: Record<PaymentPlan['status'], { label: string; color: string; icon: React.ElementType }> = {
   pendiente: { label: 'Pendiente',  color: 'bg-amber-50 text-amber-700 border-amber-200',  icon: Clock        },

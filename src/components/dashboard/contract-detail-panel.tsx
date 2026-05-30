@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useRef } from 'react';
 import {
@@ -45,7 +46,6 @@ import {
   ContractFileCategory,
 } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {

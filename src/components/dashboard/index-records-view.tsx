@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,7 +30,6 @@ interface IndexRecordsViewProps {
   userId?: string;
 }
 
-const APP_ID = 'alquilagestion-pro';
 const PAGE_SIZE = 50;
 
 export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
