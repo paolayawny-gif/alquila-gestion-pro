@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import AppClient from './app-client';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {
@@ -24,5 +25,9 @@ export default function Home() {
     );
   }
 
-  return <AppClient />;
+  return (
+    <ErrorBoundary module="Aplicación principal">
+      <AppClient />
+    </ErrorBoundary>
+  );
 }
