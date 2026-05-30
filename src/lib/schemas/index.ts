@@ -192,6 +192,9 @@ export const PropertyPatchSchema = z.object({
   status:         PropertyStatusSchema.optional(),
   currentValue:   MoneySchema.optional(),
   purchasePrice:  MoneySchema.optional(),
+  purchaseYear:   z.coerce.number().int().min(1900).max(2100).optional(),
+  marketPricePerSqm: MoneySchema.optional(),
+  financialNotes: z.string().optional(),
 });
 
 // ── Legal ─────────────────────────────────────────────────────────────────────
@@ -258,6 +261,132 @@ export const MaintenanceCreateSchema = z.object({
   updatedAt:         z.string().min(1),
 });
 
+// ── Index Record (ICL / IPC / CER) ────────────────────────────────────────────
+
+export const IndexTypeSchema = z.enum(['ICL', 'IPC', 'CER', 'CasaPropia']);
+
+/** Índices financieros mensuales (ICL, IPC) o diarios (CER). */
+export const IndexRecordSchema = z.object({
+  id:    z.string().min(1),
+  month: z.string().min(1), // YYYY-MM o YYYY-MM-DD para CER diario
+  type:  IndexTypeSchema,
+  value: z.coerce.number().finite().positive('El valor del índice debe ser mayor a 0'),
+});
+export const IndexRecordPatchSchema = IndexRecordSchema.partial();
+
+// ── Deposit Movement ──────────────────────────────────────────────────────────
+
+export const DepositMovementTypeSchema = z.enum(['Recibido', 'Devuelto', 'Ajuste']);
+
+export const DepositMovementSchema = z.object({
+  id:            z.string().min(1),
+  contractId:    z.string().min(1),
+  tenantName:    z.string().min(1),
+  propertyName:  z.string().min(1),
+  type:          DepositMovementTypeSchema,
+  amount:        MoneySchema,
+  currency:      CurrencySchema,
+  exchangeRate:  z.coerce.number().finite().positive(),
+  usdEquivalent: z.coerce.number().finite().nonnegative(),
+  date:          z.string().min(1),
+  notes:         z.string().optional(),
+  ownerId:       z.string().min(1),
+});
+
+// ── Insurance ─────────────────────────────────────────────────────────────────
+
+export const PolicyTypeSchema = z.enum([
+  'Incendio', 'Responsabilidad Civil', 'Integral Hogar',
+  'Caución', 'Granizo', 'Robo y Hurto', 'Otro',
+]);
+export const PolicyStatusSchema = z.enum(['Vigente', 'Por vencer', 'Vencida', 'Cancelada']);
+export const InsurancePayStatusSchema = z.enum(['Pagado', 'Pendiente', 'Vencido']);
+
+export const InsurancePolicyCreateSchema = z.object({
+  id:                z.string().min(1),
+  propertyId:        z.string().min(1),
+  propertyName:      z.string().min(1),
+  type:              PolicyTypeSchema,
+  insurer:           z.string().min(1),
+  policyNumber:      z.string().min(1),
+  coverageAmount:    MoneySchema,
+  annualPremium:     MoneySchema,
+  startDate:         z.string().min(1),
+  endDate:           z.string().min(1),
+  totalInstallments: z.coerce.number().int().min(1),
+  paidInstallments:  z.coerce.number().int().nonnegative(),
+  status:            PolicyStatusSchema,
+  ownerId:           z.string().min(1),
+  createdAt:         z.string().min(1),
+});
+export const InsurancePolicyPatchSchema = InsurancePolicyCreateSchema.partial();
+
+export const InsurancePaymentRecordSchema = z.object({
+  id:                z.string().min(1),
+  policyId:          z.string().min(1),
+  policyName:        z.string().min(1),
+  propertyName:      z.string().min(1),
+  installmentNumber: z.coerce.number().int().min(1),
+  amount:            MoneySchema,
+  dueDate:           z.string().min(1),
+  paidDate:          z.string().optional(),
+  status:            InsurancePayStatusSchema,
+  ownerId:           z.string().min(1),
+});
+
+export const InsuranceCommissionSchema = z.object({
+  id:              z.string().min(1),
+  policyId:        z.string().min(1),
+  policyType:      z.string().min(1),
+  insurer:         z.string().min(1),
+  propertyName:    z.string().min(1),
+  annualPremium:   MoneySchema,
+  adminCommission: MoneySchema,
+  superCommission: MoneySchema,
+  adminEmail:      z.string().email(),
+  adminUserId:     z.string().min(1),
+  createdAt:       z.string().min(1),
+});
+
+export const InsuranceQuoteStatusSchema = z.enum(['Enviada', 'Respondida', 'Convertida']);
+export const InsuranceQuotePatchSchema = z.object({
+  status:       InsuranceQuoteStatusSchema.optional(),
+  responseDate: z.string().optional(),
+});
+
+// ── Person (Inquilino / Propietario / Garante) ────────────────────────────────
+
+export const PersonTypeSchema = z.enum(['Inquilino', 'Propietario', 'Garante']);
+
+export const PersonCreateSchema = z.object({
+  id:       z.string().min(1),
+  fullName: z.string().min(1),
+  email:    z.union([z.string().email(), z.literal('')]).optional(),
+  phone:    z.string().optional(),
+  type:     PersonTypeSchema,
+  ownerId:  z.string().min(1),
+});
+export const PersonPatchSchema = PersonCreateSchema.partial();
+
+// ── Maintenance Ticket (tenant-side) ─────────────────────────────────────────
+
+export const MaintenanceTicketCreateSchema = z.object({
+  id:           z.string().min(1),
+  adminId:      z.string().min(1),
+  tenantEmail:  z.string().email(),
+  tenantName:   z.string().min(1),
+  propertyId:   z.string().min(1),
+  propertyName: z.string().min(1),
+  title:        z.string().min(1),
+  description:  z.string().min(1),
+  category:     z.string().min(1),
+  priority:     z.enum(['Normal', 'Urgente']),
+  status:       z.literal('Abierto'),
+  photoUrl:     z.string().optional(),
+  createdAt:    z.string().min(1),
+  updatedAt:    z.string().min(1),
+});
+
 // ── Barril de todos los schemas ───────────────────────────────────────────────
 
 export const Schemas = {
@@ -281,6 +410,22 @@ export const Schemas = {
   LegalCasePatch:         LegalCasePatchSchema,
   // Propiedades
   PropertyPatch:          PropertyPatchSchema,
+  // Índices financieros
+  IndexRecord:              IndexRecordSchema,
+  IndexRecordPatch:         IndexRecordPatchSchema,
+  // Depósitos
+  DepositMovement:          DepositMovementSchema,
+  // Seguros
+  InsurancePolicyCreate:    InsurancePolicyCreateSchema,
+  InsurancePolicyPatch:     InsurancePolicyPatchSchema,
+  InsurancePaymentRecord:   InsurancePaymentRecordSchema,
+  InsuranceCommission:      InsuranceCommissionSchema,
+  InsuranceQuotePatch:      InsuranceQuotePatchSchema,
+  // Personas
+  PersonCreate:             PersonCreateSchema,
+  PersonPatch:              PersonPatchSchema,
+  // Tickets de mantenimiento (portal inquilino)
+  MaintenanceTicketCreate:  MaintenanceTicketCreateSchema,
   // Primitivos útiles para validaciones inline
   Currency:               CurrencySchema,
   InvoiceStatus:          InvoiceStatusSchema,

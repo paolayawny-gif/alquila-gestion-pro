@@ -33,7 +33,8 @@ import { PhotoUpload } from '@/components/ui/photo-upload';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { doc, collection, query, where } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { PropertyTimeline } from '@/components/ui/property-timeline';
 import { normalizeAddress } from '@/lib/format';
@@ -327,7 +328,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
       owners: formData.owners || []
     } as Property;
 
-    setDocumentNonBlocking(docRef, propertyData, { merge: true });
+    setDocumentSafe(docRef, Schemas.PropertyPatch, propertyData, { merge: true });
     
     toast({ 
       title: editingProperty ? "Propiedad actualizada" : "Propiedad creada", 

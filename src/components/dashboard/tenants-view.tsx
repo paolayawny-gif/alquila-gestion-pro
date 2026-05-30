@@ -68,7 +68,8 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query, where } from 'firebase/firestore';
 import { ShieldOff, ShieldCheck, UserX, ShieldAlert, Globe } from 'lucide-react';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { fetchIpc } from '@/ai/flows/fetch-ipc-indec-action';
 import { fetchIcl } from '@/ai/flows/fetch-icl-bcra-action';
@@ -288,7 +289,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       documents: personFormData.documents || []
     } as Person;
 
-    setDocumentNonBlocking(docRef, personData, { merge: true });
+    setDocumentSafe(docRef, Schemas.PersonCreate, personData, { merge: true });
     setIsPersonDialogOpen(false);
     toast({ 
       title: editingPerson ? "Persona actualizada" : "Persona creada", 
@@ -676,7 +677,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       ...(editingContract ? { updatedBy: userId } : { createdBy: userId }),
     } as Contract;
 
-    setDocumentNonBlocking(docRef, newContract, { merge: true });
+    setDocumentSafe(docRef, Schemas.ContractCreate, newContract, { merge: true });
     setIsContractDialogOpen(false);
     toast({ title: "Contrato Guardado ✓", description: `${tenant?.fullName} — ${property?.name}` });
   };
@@ -709,7 +710,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       createdBy: userId,
       documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] },
     };
-    setDocumentNonBlocking(docRef, draft, { merge: true });
+    setDocumentSafe(docRef, Schemas.ContractCreate, draft, { merge: true });
     toast({
       title: 'Borrador de renovación creado',
       description: `${contract.tenantName} — ${contract.propertyName} · ${newStartStr} → ${newEndStr}. Revisalo en Contratos.`,

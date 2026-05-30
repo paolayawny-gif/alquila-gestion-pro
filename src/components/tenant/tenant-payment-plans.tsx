@@ -12,7 +12,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
 import { LegalCase, PaymentPlan } from '@/lib/types';
@@ -71,7 +72,7 @@ export function TenantPaymentPlans({ tenantEntry }: TenantPaymentPlansProps) {
       p.id === plan.id ? { ...p, status: newStatus } : p,
     );
     const ref = doc(db, 'artifacts', APP_ID, 'users', tenantEntry.adminId, 'legales', plan.caseId);
-    setDocumentNonBlocking(ref, { paymentPlans: updatedPlans }, { merge: true });
+    setDocumentSafe(ref, Schemas.LegalCasePatch, { paymentPlans: updatedPlans }, { merge: true });
 
     toast({
       title: newStatus === 'aceptado' ? '✅ Plan aceptado' : '❌ Plan rechazado',

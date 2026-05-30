@@ -539,7 +539,7 @@ export default function AppClient() {
       }
       if (nextStatus && nextStatus !== contract.status) {
         const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos', contract.id);
-        setDocumentNonBlocking(ref, { status: nextStatus }, { merge: true });
+        setDocumentSafe(ref, Schemas.ContractPatch, { status: nextStatus }, { merge: true });
         if (notifInput) {
           createNotification(db, user.uid, {
             ...notifInput,

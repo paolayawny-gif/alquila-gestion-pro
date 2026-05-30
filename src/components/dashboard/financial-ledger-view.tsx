@@ -26,7 +26,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { calculateRentAdjustment, type RentAdjustmentResult } from '@/ai/flows/calculate-rent-adjustment-action';
 import { sendEmail } from '@/services/email-service';
 import { formatCurrency } from '@/lib/format';
@@ -85,7 +86,7 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
     try {
       // 1. Actualiza el contrato en Firestore
       const contractRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'contratos', propertyContract.id);
-      setDocumentNonBlocking(contractRef, {
+      setDocumentSafe(contractRef, Schemas.ContractPatch, {
         currentRentAmount: adjData.newAmount,
         lastAdjustmentDate: new Date().toISOString().slice(0, 10),
       }, { merge: true });
@@ -640,8 +641,7 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
               setIsSavingEdit(true);
               try {
                 const docRef = doc(collection(db, 'artifacts', APP_ID, 'users', userId, 'propiedades'), selectedProperty.id);
-                setDocumentNonBlocking(docRef, {
-                  ...selectedProperty,
+                setDocumentSafe(docRef, Schemas.PropertyPatch, {
                   purchasePrice: Number(editPurchasePrice) || purchasePrice,
                   financialNotes: editNotes,
                 }, { merge: true });

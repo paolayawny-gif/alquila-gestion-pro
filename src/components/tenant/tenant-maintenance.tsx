@@ -13,7 +13,8 @@ import { Wrench, Plus, Clock, CheckCircle2, Loader2, MessageSquare } from 'lucid
 import { cn } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, orderBy } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
 
@@ -96,7 +97,7 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
       photoUrl: photoUrl.trim() || '',
       createdAt: now, updatedAt: now,
     };
-    setDocumentNonBlocking(ref, ticket, {});
+    setDocumentSafe(ref, Schemas.MaintenanceTicketCreate, ticket, {});
     toast({ title: '✅ Solicitud enviada', description: 'La administración fue notificada.' });
     setTitle(''); setDescription(''); setCategory('Otro'); setPriority('Normal'); setPhotoUrl('');
     setShowNew(false);
