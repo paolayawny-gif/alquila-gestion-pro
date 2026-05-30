@@ -201,6 +201,32 @@
     color: hsl(var(--muted-foreground));
   }
 
+  /* Portal público: animaciones de entrada */
+  @keyframes portalRise {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes portalFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes portalGlow {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.85; }
+  }
+
+  /* Portal público: siempre en modo claro, sin importar el tema de la app */
+  .dark .portal-scope.bg-white,
+  .dark .portal-scope .bg-white {
+    background-color: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .dark .portal-scope .text-gray-800 { color: #1f2937; }
+  .dark .portal-scope .text-gray-900 { color: #111827; }
+  .dark .portal-scope .text-gray-600 { color: #4b5563; }
+  .dark .portal-scope .text-gray-500 { color: #6b7280; }
+
   .bottom-nav-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }

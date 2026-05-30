@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
@@ -673,6 +674,41 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                   />
                 </div>
               </div>
+
+              {/* Publicación en el Portal público */}
+              {(() => {
+                const hasVigente = editingProperty ? (vigentesByProp.get(editingProperty.id) ?? 0) > 0 : false;
+                return (
+                  <div className="rounded-xl border p-4 space-y-3 bg-muted/20">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <Label className="flex items-center gap-2 font-bold">
+                          <Globe className="h-4 w-4 text-emerald-600" />
+                          Publicar en el Portal público
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Muestra esta propiedad en la vidriera general donde cualquiera puede buscarla.
+                          Activá esto solo si el propietario quiere difundirla.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!formData.publicarEnPortal}
+                        onCheckedChange={v => setFormData({ ...formData, publicarEnPortal: v })}
+                      />
+                    </div>
+                    {formData.publicarEnPortal && formData.status !== 'Disponible' && (
+                      <p className="text-[11px] text-amber-600 font-medium">
+                        ⚠️ La propiedad se publicará solo cuando su estado sea "Disponible". Hoy está "{formData.status}".
+                      </p>
+                    )}
+                    {formData.publicarEnPortal && hasVigente && (
+                      <p className="text-[11px] text-amber-600 font-medium">
+                        ⚠️ Esta propiedad tiene un contrato vigente — no aparecerá en el portal hasta que el contrato finalice.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="owners" className="space-y-6 pt-6">

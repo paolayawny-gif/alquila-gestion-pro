@@ -6,9 +6,12 @@ import type { NextRequest } from 'next/server';
 const PUBLIC_PATHS = [
   '/login',
   '/landing',
+  '/portal',              // vidriera pública de propiedades
+  '/p/',                  // página pública por administrador
   '/api/auth/session',
   '/api/auth/passkey',
   '/api/billing/webhook',
+  '/api/portal/billing/webhook', // MercadoPago notifica sin sesión
   '/api/signature',       // firmantes externos no autenticados
   '/_next',
   '/favicon.ico',
