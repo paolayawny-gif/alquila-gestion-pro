@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,7 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, writeBatch, collection } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { Badge } from '@/components/ui/badge';
 import { fetchCerFromBcra } from '@/ai/flows/fetch-cer-bcra-action';
 // xlsx se carga de forma diferida dentro del handler de importación.
@@ -29,7 +31,6 @@ interface IndexRecordsViewProps {
   userId?: string;
 }
 
-const APP_ID = 'alquilagestion-pro';
 const PAGE_SIZE = 50;
 
 export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
@@ -110,7 +111,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
     }
     const docId = `${formData.type}_${formData.month}`;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'indices', docId);
-    setDocumentNonBlocking(docRef, { id: docId, month: formData.month, type: formData.type, value: formData.value }, { merge: true });
+    setDocumentSafe(docRef, Schemas.IndexRecord, { id: docId, month: formData.month, type: formData.type, value: formData.value }, { merge: true });
     toast({ title: 'Índice Guardado', description: `${formData.type} para ${formData.month}.` });
   };
 
@@ -124,7 +125,7 @@ export function IndexRecordsView({ records, userId }: IndexRecordsViewProps) {
     if (isNaN(val)) { toast({ title: 'Error', description: 'Valor inválido.', variant: 'destructive' }); return; }
     const id = `CER_${cerDate}`;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'indices', id);
-    setDocumentNonBlocking(docRef, { id, month: cerDate, type: 'CER', value: val }, { merge: true });
+    setDocumentSafe(docRef, Schemas.IndexRecord, { id, month: cerDate, type: 'CER', value: val }, { merge: true });
     toast({ title: 'CER guardado', description: `${cerDate} → ${val}` });
     setCerValue('');
   };

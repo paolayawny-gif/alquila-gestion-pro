@@ -1,10 +1,10 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 export async function POST(req: NextRequest) {
   try {

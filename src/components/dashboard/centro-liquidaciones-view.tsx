@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,11 +14,11 @@ import { Invoice, Contract, Property, Person } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { sendEmail } from '@/services/email-service';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 
-const APP_ID = 'alquilagestion-pro';
 
 // ── Prose email templates ─────────────────────────────────────────────────────
 
@@ -193,7 +193,7 @@ export function CentroLiquidacionesView({ invoices, contracts, properties, peopl
       await sendEmail({ to: email, subject, html });
       const newLog = [...(inv.sendLog ?? []), { ts: now, to: email, type }];
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
-      setDocumentNonBlocking(docRef, { liquidacionEnviadaAt: now, sendLog: newLog, pendingApproval: false }, { merge: true });
+      setDocumentSafe(docRef, Schemas.InvoicePatch, { liquidacionEnviadaAt: now, sendLog: newLog, pendingApproval: false }, { merge: true });
       toast({ title: '✓ Enviado', description: `Correo enviado a ${email}` });
     } catch {
       toast({ title: 'Error', description: 'No se pudo enviar el correo.', variant: 'destructive' });
@@ -231,7 +231,7 @@ export function CentroLiquidacionesView({ invoices, contracts, properties, peopl
         }).catch(() => {}));
       }
       const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'facturas', inv.id);
-      setDocumentNonBlocking(docRef, { liquidacionEnviadaAt: now, sendLog: newLog, pendingApproval: false }, { merge: true });
+      setDocumentSafe(docRef, Schemas.InvoicePatch, { liquidacionEnviadaAt: now, sendLog: newLog, pendingApproval: false }, { merge: true });
     }
 
     await Promise.allSettled(promises);

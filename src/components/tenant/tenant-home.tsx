@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,6 @@ import { TenantAdvancePayment } from './tenant-advance-payment';
 import { Contract, Property } from '@/lib/types';
 import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
 
-const APP_ID = 'alquilagestion-pro';
 
 function daysUntil(dateStr: string) {
   return Math.round((new Date(dateStr + 'T00:00:00').getTime() - Date.now()) / 86_400_000);

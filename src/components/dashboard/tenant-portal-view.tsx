@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,7 +39,6 @@ interface TenantPortalViewProps {
   tasks: MaintenanceTask[];
 }
 
-const APP_ID = "alquilagestion-pro";
 
 // ─────────────────────────────────────────────
 //  Sección de Onboarding (componente interno)

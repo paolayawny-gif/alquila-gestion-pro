@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 /**
  * Helpers para leer/escribir el BillingState en Firestore (server-side).
  *
@@ -9,7 +10,6 @@ import type { BillingState, ProviderName } from './types';
 import type { BillingTier } from './tiers';
 import { TRIAL_TIER, tierForUnits } from './tiers';
 
-const APP_ID = 'alquilagestion-pro';
 
 function billingDocRef(adminId: string) {
   return getAdminDb()

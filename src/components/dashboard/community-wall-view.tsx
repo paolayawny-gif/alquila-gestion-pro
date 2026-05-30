@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,8 +22,6 @@ import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 
-const APP_ID = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface PostReply {

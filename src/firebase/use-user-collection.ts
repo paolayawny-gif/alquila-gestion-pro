@@ -1,10 +1,8 @@
-'use client';
-
+import { APP_ID } from '@/lib/constants';
 import { collection, query, QueryConstraint, CollectionReference, Query, orderBy as orderByFn, where as whereFn } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase } from './provider';
 import { useCollection } from './firestore/use-collection';
 
-const APP_ID = 'alquilagestion-pro';
 
 /**
  * Hook unificado para acceder a colecciones bajo `users/{userId}/{name}`.
@@ -30,9 +28,11 @@ export function useUserCollection<T>(
     if (!db || !userId) return null;
     const ref = collection(db, 'artifacts', APP_ID, 'users', userId, collectionName);
     return constraints && constraints.length > 0 ? query(ref, ...constraints) : ref;
-    // Las constraints son por valor; el caller las debe memoizar si las arma inline.
+    // constraints deben venir memoizadas del caller (useMemo). No se serializan
+    // aquí porque hacerlo correctamente requeriría comparación profunda — la
+    // responsabilidad de estabilidad está en quien llama al hook.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, userId, collectionName, JSON.stringify(constraints?.map(() => 0))]);
+  }, [db, userId, collectionName]);
 
   return useCollection<T>(q as any);
 }

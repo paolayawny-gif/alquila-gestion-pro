@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +21,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Property } from '@/lib/types';
 import { MaintenanceTicket } from '@/components/tenant/tenant-maintenance';
 
-const APP_ID = 'alquilagestion-pro';
 
 const STATUS_COLOR: Record<string, string> = {
   'Abierto':    'bg-amber-50 text-amber-700 border-amber-200',

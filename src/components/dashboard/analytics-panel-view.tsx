@@ -1,4 +1,5 @@
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,7 +29,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import {
   Property, Contract, Invoice, MaintenanceTask, LegalCase,
   MonetizableAsset, ReserveFund,
@@ -45,7 +47,6 @@ interface AnalyticsPanelProps {
   userId?: string;
 }
 
-const APP_ID = 'alquilagestion-pro';
 const ACCENT = '#1D9E75';
 const COLORS = [ACCENT, '#f97316', '#8b5cf6', '#3b82f6', '#ef4444', '#eab308'];
 
@@ -217,9 +218,12 @@ function ImpactoTab({ properties, contracts, invoices, tasks, legalCases, assets
   }, [invoices, assets, tasks, contracts]);
 
   // ── Gastos imprevistos / Cobertura ────────────────────────────────────────
-  const correctiveCost = tasks
-    .filter(t => t.priority === 'Urgente' || t.priority === 'Alta')
-    .reduce((s, t) => s + (t.actualCost || t.estimatedCost || 0), 0);
+  const correctiveCost = useMemo(() =>
+    tasks
+      .filter(t => t.priority === 'Urgente' || t.priority === 'Alta')
+      .reduce((s, t) => s + (t.actualCost || t.estimatedCost || 0), 0),
+    [tasks],
+  );
 
   const { toast } = useToast();
 
@@ -828,7 +832,7 @@ function PlusvaliaTab({ properties, tasks, userId }: Pick<AnalyticsPanelProps, '
   const handleSaveValue = () => {
     if (!prop || !userId || !db) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'propiedades', prop.id);
-    setDocumentNonBlocking(docRef, {
+    setDocumentSafe(docRef, Schemas.PropertyPatch, {
       purchasePrice: Number(valueForm.purchasePrice) || undefined,
       currentValue: Number(valueForm.currentValue) || undefined,
       purchaseYear: Number(valueForm.purchaseYear) || undefined,

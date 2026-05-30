@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,6 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { OwnerRegistryEntry } from './owner-portal';
 import { Property, Contract } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerPropertiesProps {

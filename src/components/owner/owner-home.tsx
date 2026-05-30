@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +17,6 @@ import { OwnerContractSign } from './owner-contract-sign';
 import { Contract, Liquidation, Property } from '@/lib/types';
 import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
 
-const APP_ID = 'alquilagestion-pro';
 import { fmtMoney as fmt } from '@/lib/format';
 
 interface OwnerHomeProps {

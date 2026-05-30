@@ -1,8 +1,8 @@
+import { APP_ID } from '@/lib/constants';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { polygonScanUrl } from '@/lib/polygon-notarize';
 import { LegajoClient } from './legajo-client';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface Props { params: Promise<{ txHash: string }> }
 

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +15,12 @@ import {
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
 import { Invoice } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   'Pendiente':               { label: 'Pendiente',         color: 'bg-amber-50 text-amber-700 border-amber-200',    icon: Clock        },
@@ -77,7 +77,7 @@ export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
     if (!payDialog || !db) return;
     setSaving(true);
     const ref = doc(db, 'artifacts', APP_ID, 'users', tenantEntry.adminId, 'facturas', payDialog.id);
-    setDocumentNonBlocking(ref, {
+    setDocumentSafe(ref, Schemas.InvoicePatch, {
       status: 'Pago Informado',
       tenantReceiptUrl: receiptUrl.trim() || '',
       tenantReceiptNote: receiptNote.trim() || '',

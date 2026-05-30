@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,7 +47,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query, getDoc } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency, normalizePhoneForWhatsApp } from '@/lib/format';
 import { calculateLiquidationNet, recalculateNetWithInterest, computeLiquidationFromSources } from '@/lib/calculations/liquidation';
@@ -98,7 +100,6 @@ interface LiquidationsViewProps {
   tasks?: MaintenanceTask[];
 }
 
-const APP_ID = "alquilagestion-pro";
 
 export function LiquidationsView({ liquidations, userId, properties, people, contracts = [], invoices = [], tasks = [] }: LiquidationsViewProps) {
   const { toast } = useToast();
@@ -147,7 +148,7 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
     const l = interestDialog.liq;
     const newNet = recalculateNetWithInterest(l, amount);
     const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', l.id);
-    setDocumentNonBlocking(docRef, { interestAmount: amount, netAmount: newNet }, { merge: true });
+    setDocumentSafe(docRef, Schemas.LiquidationPatch, { interestAmount: amount, netAmount: newNet }, { merge: true });
     setInterestDialog(null);
     setInterestInput('');
     toast({ title: 'Intereses registrados', description: `+${formatCurrency(amount)} sumados al neto de ${l.propertyName}.` });
@@ -239,7 +240,7 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
         dateCreated: new Date().toLocaleDateString('es-AR')
       };
 
-      setDocumentNonBlocking(docRef, liqData, { merge: true });
+      setDocumentSafe(docRef, Schemas.LiquidationCreate, liqData, { merge: true });
       totalDeductions += calc.serviceDeductions + calc.maintenanceDeductions;
       generated += 1;
 

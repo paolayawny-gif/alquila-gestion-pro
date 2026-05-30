@@ -1,4 +1,5 @@
-'use client';
+'use client'
+import { APP_ID } from '@/lib/constants';;
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -21,9 +22,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { collection, query, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface DepositsViewProps {
   contracts: Contract[];
@@ -106,7 +107,7 @@ export function DepositsView({ contracts, people, properties, userId }: Deposits
     const amount = parseFloat(movAmount.replace(/\./g, '').replace(',', '.'));
     const id = `dep_${Date.now()}`;
     const ref = doc(collection(db, 'artifacts', APP_ID, 'users', user.uid, 'depositos'), id);
-    setDocumentNonBlocking(ref, {
+    setDocumentSafe(ref, Schemas.DepositMovement, {
       id,
       contractId: movContractId,
       tenantName: contract?.tenantName ?? '',

@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,7 +34,8 @@ import { PhotoUpload } from '@/components/ui/photo-upload';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { doc, collection, query, where } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { PropertyTimeline } from '@/components/ui/property-timeline';
 import { normalizeAddress } from '@/lib/format';
@@ -53,7 +55,6 @@ interface PropertiesViewProps {
   onOpenContract?: (c: Contract) => void;
 }
 
-const APP_ID = "alquilagestion-pro";
 
 export function PropertiesView({ properties, userId, contracts = [], invoices = [], tasks = [], applications = [], liquidations = [], legalCases = [], reserveFunds = [], deepLinkPropertyId, onDeepLinkConsumed, onOpenContract }: PropertiesViewProps) {
   const { toast } = useToast();
@@ -328,7 +329,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
       owners: formData.owners || []
     } as Property;
 
-    setDocumentNonBlocking(docRef, propertyData, { merge: true });
+    setDocumentSafe(docRef, Schemas.PropertyPatch, propertyData, { merge: true });
     
     toast({ 
       title: editingProperty ? "Propiedad actualizada" : "Propiedad creada", 

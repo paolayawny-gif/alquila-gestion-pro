@@ -1,9 +1,9 @@
+import { APP_ID } from '@/lib/constants';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { PublicPropertyPage } from './public-property-page';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface Props {
   params: Promise<{ adminId: string }>;

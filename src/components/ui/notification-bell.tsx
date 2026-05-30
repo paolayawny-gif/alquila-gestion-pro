@@ -1,6 +1,6 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Bell, Check, CheckCheck, Wrench, FileText, Calendar, AlertTriangle, DollarSign, Megaphone, Zap, Lightbulb, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,7 +17,6 @@ import { AppNotification, NotificationType, Anuncio, AnuncioType } from '@/lib/t
 import { markNotificationRead, markAllNotificationsRead } from '@/lib/notifications';
 import { markAnuncioRead, markAllAnunciosRead } from '@/lib/anuncios';
 
-const APP_ID = 'alquilagestion-pro';
 
 const ICONS: Record<NotificationType, React.ElementType> = {
   maintenance_approved: Wrench,
@@ -104,13 +103,12 @@ export function NotificationBell({ userId, onNavigate }: NotificationBellProps) 
     [anunciosData],
   );
 
-  // — Cargar IDs leídos del usuario —
-  useMemo(() => {
+  // — Cargar IDs leídos del usuario — recargar al abrir el popover
+  useEffect(() => {
     if (!db || !userId) return;
     getDoc(doc(db, 'artifacts', APP_ID, 'users', userId, 'meta', 'anunciosLeidos'))
       .then(snap => { if (snap.exists()) setReadAnuncioIds(snap.data().readIds ?? []); })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db, userId, open]);
 
   const unreadAnuncioCount = useMemo(

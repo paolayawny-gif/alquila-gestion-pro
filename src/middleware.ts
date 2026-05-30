@@ -36,7 +36,15 @@ export async function middleware(req: NextRequest) {
 
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
-    // Dev without JWT_SECRET configured — skip server-side check, Firebase handles client auth
+    // Sin JWT_SECRET no podemos verificar sesiones.
+    // En desarrollo: dejamos pasar (Firebase client auth actúa de segunda capa).
+    // En producción: jamás debería ocurrir — forzamos logout para evitar acceso sin verificar.
+    if (process.env.NODE_ENV === 'production') {
+      const loginUrl = new URL('/login', req.url);
+      const res = NextResponse.redirect(loginUrl);
+      res.cookies.delete('session');
+      return res;
+    }
     return NextResponse.next();
   }
 

@@ -1,8 +1,8 @@
+import { APP_ID } from '@/lib/constants';
 import { Firestore, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { AppNotification, NotificationType } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 export interface CreateNotificationInput {
   type: NotificationType;

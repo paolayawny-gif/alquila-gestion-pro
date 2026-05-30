@@ -1,11 +1,10 @@
-'use client';
+'use client'
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';;
 
 import { useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 
-const APP_ID = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
 export type OrgUserRole = 'Administrador' | 'Agente' | 'Solo lectura';
 

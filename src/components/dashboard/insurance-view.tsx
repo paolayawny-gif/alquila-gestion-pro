@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,15 +25,14 @@ import { Property } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { checkSSNAuthorization, type SSNResult } from '@/ai/flows/fetch-ssn-action';
 import { InsuranceSettingsPanel, type PASPartner, type CommissionConfig } from '@/components/dashboard/insurance-settings-panel';
 import { Settings2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const APP_ID            = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 // Fallback defaults — se usan si no hay config dinámica para el PAS + tipo
 const DEFAULT_ADMIN_RATE  = 0.03;
 const DEFAULT_SUPER_RATE  = 0.02;
@@ -386,7 +385,7 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
       ownerId:           userId,
       createdAt:         editingPolicy?.createdAt || new Date().toISOString(),
     };
-    setDocumentNonBlocking(ref, data, { merge: true });
+    setDocumentSafe(ref, Schemas.InsurancePolicyCreate, data, { merge: true });
 
     // Commission on new policies only — uses dynamic rates from PAS config
     if (!editingPolicy && data.annualPremium > 0 && user?.email) {
@@ -403,7 +402,7 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
         adminEmail: user.email, adminUserId: userId,
         createdAt: new Date().toISOString(),
       };
-      setDocumentNonBlocking(cRef, comm, {});
+      setDocumentSafe(cRef, Schemas.InsuranceCommission, comm, {});
     }
 
     toast({ title: editingPolicy ? '✅ Póliza actualizada' : '✅ Póliza registrada', description: `${data.type} — ${data.insurer}` });
@@ -433,7 +432,7 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const handleMarkPaid = (policy: InsurancePolicy) => {
     if (!userId || !db) return;
     const newPaid = Math.min(policy.paidInstallments + 1, policy.totalInstallments);
-    setDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'seguros', policy.id), { paidInstallments: newPaid }, { merge: true });
+    setDocumentSafe(doc(db, 'artifacts', APP_ID, 'users', userId, 'seguros', policy.id), Schemas.InsurancePolicyPatch, { paidInstallments: newPaid }, { merge: true });
     const pId  = Math.random().toString(36).substr(2, 9);
     const rec: PaymentRecord = {
       id: pId, policyId: policy.id,
@@ -445,7 +444,7 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
       paidDate: new Date().toISOString().slice(0,10),
       status: 'Pagado', ownerId: userId,
     };
-    setDocumentNonBlocking(doc(db, 'artifacts', APP_ID, 'users', userId, 'segurosPagos', pId), rec, {});
+    setDocumentSafe(doc(db, 'artifacts', APP_ID, 'users', userId, 'segurosPagos', pId), Schemas.InsurancePaymentRecord, rec, {});
     toast({ title: `Cuota ${newPaid}/${policy.totalInstallments} registrada`, description: fmt(rec.amount) });
   };
 
@@ -511,9 +510,9 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
     if (!userId || !db) return;
     const update: Partial<QuoteRequest> = { status };
     if (status === 'Respondida') update.responseDate = new Date().toISOString();
-    setDocumentNonBlocking(
+    setDocumentSafe(
       doc(db, 'artifacts', APP_ID, 'users', userId, 'cotizacionesSeguros', q.id),
-      update, { merge: true },
+      Schemas.InsuranceQuotePatch, update, { merge: true },
     );
     toast({ title: `Cotización marcada como "${status}"` });
   };
@@ -538,9 +537,9 @@ export function InsuranceView({ properties, userId }: InsuranceViewProps) {
     setEditingPolicy(null);
     // Mark as converted
     if (db) {
-      setDocumentNonBlocking(
+      setDocumentSafe(
         doc(db, 'artifacts', APP_ID, 'users', userId!, 'cotizacionesSeguros', q.id),
-        { status: 'Convertida' }, { merge: true },
+        Schemas.InsuranceQuotePatch, { status: 'Convertida' }, { merge: true },
       );
     }
     setShowAddPolicy(true);

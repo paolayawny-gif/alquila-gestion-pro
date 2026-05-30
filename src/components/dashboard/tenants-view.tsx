@@ -1,7 +1,8 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -67,7 +68,8 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query, where } from 'firebase/firestore';
 import { ShieldOff, ShieldCheck, UserX, ShieldAlert, Globe } from 'lucide-react';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { fetchIpc } from '@/ai/flows/fetch-ipc-indec-action';
 import { fetchIcl } from '@/ai/flows/fetch-icl-bcra-action';
@@ -94,7 +96,6 @@ interface TenantsViewProps {
   onOpenProperty?: (propertyId: string) => void;
 }
 
-const APP_ID = "alquilagestion-pro";
 
 function contractRiskBadge(c: Contract): React.ReactNode {
   if (c.status === 'Finalizado' || c.status === 'Rescindido' || c.status === 'Borrador') return null;
@@ -137,6 +138,16 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const [selectedDetailContract, setSelectedDetailContract] = useState<Contract | null>(null);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleTypeFilter, setPeopleTypeFilter] = useState<'Todos' | 'Propietario' | 'Inquilino' | 'Garante' | 'Proveedor'>('Todos');
+
+  const filteredSortedPeople = useMemo(() => {
+    const q = peopleSearch.toLowerCase();
+    return people
+      .filter(p =>
+        (peopleTypeFilter === 'Todos' || p.type === peopleTypeFilter) &&
+        (!q || p.fullName?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.taxId?.includes(q)),
+      )
+      .sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? '', 'es'));
+  }, [people, peopleTypeFilter, peopleSearch]);
 
   // ── Tenant Registry (portal access management) ──────────────────────────
   const registryQ = useMemoFirebase(() => {
@@ -278,7 +289,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       documents: personFormData.documents || []
     } as Person;
 
-    setDocumentNonBlocking(docRef, personData, { merge: true });
+    setDocumentSafe(docRef, Schemas.PersonCreate, personData, { merge: true });
     setIsPersonDialogOpen(false);
     toast({ 
       title: editingPerson ? "Persona actualizada" : "Persona creada", 
@@ -666,7 +677,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       ...(editingContract ? { updatedBy: userId } : { createdBy: userId }),
     } as Contract;
 
-    setDocumentNonBlocking(docRef, newContract, { merge: true });
+    setDocumentSafe(docRef, Schemas.ContractCreate, newContract, { merge: true });
     setIsContractDialogOpen(false);
     toast({ title: "Contrato Guardado ✓", description: `${tenant?.fullName} — ${property?.name}` });
   };
@@ -699,7 +710,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       createdBy: userId,
       documents: { mainContractUrl: '', mainContractName: '', versions: [], annexes: [] },
     };
-    setDocumentNonBlocking(docRef, draft, { merge: true });
+    setDocumentSafe(docRef, Schemas.ContractCreate, draft, { merge: true });
     toast({
       title: 'Borrador de renovación creado',
       description: `${contract.tenantName} — ${contract.propertyName} · ${newStartStr} → ${newEndStr}. Revisalo en Contratos.`,
@@ -1324,13 +1335,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <Table>
               <TableHeader><TableRow className="bg-muted/50"><TableHead>Nombre Completo</TableHead><TableHead>CUIT / DNI</TableHead><TableHead>Tipo</TableHead><TableHead>Email</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
               <TableBody>
-                {people
-                  .filter(p => peopleTypeFilter === 'Todos' || p.type === peopleTypeFilter)
-                  .filter(p => {
-                    const q = peopleSearch.toLowerCase();
-                    return !q || p.fullName?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.taxId?.includes(q);
-                  })
-                  .sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? '', 'es'))
+                {filteredSortedPeople
                   .map(p => (
                     <TableRow key={p.id}>
                       <TableCell className="font-bold">{p.fullName}</TableCell>

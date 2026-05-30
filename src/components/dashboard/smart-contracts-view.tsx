@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,7 +32,6 @@ import { WhatsAppButton } from '@/components/ui/whatsapp-button';
 import { WA_TEMPLATES } from '@/lib/whatsapp';
 import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface SmartContractsViewProps {
   contracts: Contract[];

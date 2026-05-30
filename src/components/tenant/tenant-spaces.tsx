@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +20,6 @@ import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
 import { MonetizationOffer, MonetizationRequest, SpaceType } from '@/lib/types';
 
-const APP_ID = 'alquilagestion-pro';
 
 // ── Emoji map ─────────────────────────────────────────────────────────────────
 const SPACE_EMOJI: Record<SpaceType, string> = {

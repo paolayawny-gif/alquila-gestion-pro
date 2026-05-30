@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -20,7 +20,6 @@ import { Contract, AdvancePayment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Wallet, TrendingDown, CheckCircle2, Loader2 } from 'lucide-react';
 
-const APP_ID = 'alquilagestion-pro';
 
 interface TenantAdvancePaymentProps {
   contract: Contract;

@@ -1,5 +1,6 @@
 
 "use client";
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -44,7 +45,6 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-const APP_ID = 'alquilagestion-pro';
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAY_LABELS  = ['L','M','M','J','V','S','D'];
 
@@ -356,16 +356,24 @@ export function SummaryView({
     return events.slice(0, 5);
   }, [invoices, tasks, contracts]);
 
-  const arsInvoices = invoices.filter(i => !i.currency || i.currency === 'ARS');
-  const usdInvoices = invoices.filter(i => i.currency === 'USD');
-
-  const totalProjected = arsInvoices.reduce((acc, i) => acc + i.totalAmount, 0);
-  const totalProjectedUSD = usdInvoices.reduce((acc, i) => acc + i.totalAmount, 0);
-  const totalCollected = arsInvoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
-  const totalCollectedUSD = usdInvoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0);
-  const totalOverdue = arsInvoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
-  const totalOverdueUSD = usdInvoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0);
-  const occupancyRate = properties.length > 0 ? (properties.filter(p => p.status === 'Alquilada').length / properties.length) * 100 : 0;
+  const {
+    totalProjected, totalProjectedUSD,
+    totalCollected, totalCollectedUSD,
+    totalOverdue, totalOverdueUSD,
+    occupancyRate,
+  } = useMemo(() => {
+    const arsInvoices = invoices.filter(i => !i.currency || i.currency === 'ARS');
+    const usdInvoices = invoices.filter(i => i.currency === 'USD');
+    return {
+      totalProjected:    arsInvoices.reduce((acc, i) => acc + i.totalAmount, 0),
+      totalProjectedUSD: usdInvoices.reduce((acc, i) => acc + i.totalAmount, 0),
+      totalCollected:    arsInvoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0),
+      totalCollectedUSD: usdInvoices.filter(i => i.status === 'Pagado').reduce((acc, i) => acc + i.totalAmount, 0),
+      totalOverdue:      arsInvoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0),
+      totalOverdueUSD:   usdInvoices.filter(i => i.status === 'Vencido' || i.status === 'Pendiente').reduce((acc, i) => acc + i.totalAmount, 0),
+      occupancyRate:     properties.length > 0 ? (properties.filter(p => p.status === 'Alquilada').length / properties.length) * 100 : 0,
+    };
+  }, [invoices, properties]);
 
   // ── KPIs avanzados ──────────────────────────────────────────────────────
   const advancedKpis = useMemo(() => {
@@ -410,12 +418,12 @@ export function SummaryView({
     return { collectionRate, avgCloseDays, riskScore, riskLevel, riskColor, activeContracts };
   }, [invoices, tasks, contracts, properties, totalOverdue, totalProjected]);
 
-  const CASHFLOW_DATA = [
+  const CASHFLOW_DATA = useMemo(() => [
     { name: 'Semana 1', cobrado: totalCollected * 0.4, proyectado: totalProjected * 0.3 },
     { name: 'Semana 2', cobrado: totalCollected * 0.7, proyectado: totalProjected * 0.6 },
     { name: 'Semana 3', cobrado: totalCollected * 0.9, proyectado: totalProjected * 0.8 },
     { name: 'Semana 4', cobrado: totalCollected, proyectado: totalProjected },
-  ];
+  ], [totalCollected, totalProjected]);
 
   const projectionData = useMemo(() => {
     const now = new Date();

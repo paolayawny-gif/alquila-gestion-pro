@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,8 +25,6 @@ import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { PhotoUpload } from '@/components/ui/photo-upload';
 import { sendEmail } from '@/services/email-service';
 
-const APP_ID = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 const ADMIN_COMMISSION  = 0.03;
 const SUPER_COMMISSION  = 0.03;
 

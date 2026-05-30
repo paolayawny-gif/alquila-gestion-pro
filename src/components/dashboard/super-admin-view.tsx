@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,8 +29,6 @@ import { Anuncio, AnuncioType } from '@/lib/types';
 import { createAnuncio, publishAnuncio, unpublishAnuncio, deleteAnuncio } from '@/lib/anuncios';
 import { authedFetch } from '@/lib/authed-fetch';
 
-const APP_ID = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

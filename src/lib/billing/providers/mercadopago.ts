@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 /**
  * MercadoPago Subscriptions provider.
  * Usa la API REST directamente (sin SDK) para minimizar dependencias.
@@ -37,7 +38,7 @@ async function getPlatformConfig(): Promise<{ accessToken: string; webhookSecret
   try {
     const { getAdminDb } = await import('@/lib/firebase-admin');
     const snap = await getAdminDb()
-      .collection('artifacts').doc('alquilagestion-pro')
+      .collection('artifacts').doc(APP_ID)
       .collection('superadmin').doc('platformConfig')
       .get();
     const d = snap.data();

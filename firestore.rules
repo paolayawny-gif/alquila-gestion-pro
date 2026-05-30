@@ -164,13 +164,19 @@ service cloud.firestore {
     }
 
     // Solicitudes de pago anticipado: admin (adminId) e inquilino (tenantEmail) leen/actualizan
+    // SECURITY: list está restringido — permite listar solo las propias.
+    // Querys del cliente deben filtrar por adminId == uid o tenantEmail == email.
     match /artifacts/{appId}/advancePaymentRequests/{reqId} {
       allow get: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.token.email == resource.data.tenantEmail ||
         isSuperAdmin()
       );
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        isSuperAdmin()
+      );
       allow create: if isSignedIn() && (
         request.resource.data.tenantEmail == request.auth.token.email ||
         request.resource.data.adminId == request.auth.uid ||
@@ -214,6 +220,11 @@ service cloud.firestore {
     match /artifacts/{appId}/notarizations/{txHash} {
       allow read: if true;
       allow write: if false; // solo backend con Admin SDK
+    }
+
+    // Rate limits internos — solo el backend escribe (Admin SDK bypassa estas reglas)
+    match /artifacts/{appId}/_rateLimits/{docId} {
+      allow read, write: if false;
     }
 
     // ── Colecciones por usuario admin ──────────────────────────────────────────
@@ -312,11 +323,11 @@ service cloud.firestore {
 
     // ── Seguros & PAS ──────────────────────────────────────────────────────────
 
-    // Comisiones de seguro: cualquier autenticado lee; admin autenticado crea/edita
+    // Comisiones de seguro: cualquier autenticado lee; solo superadmin escribe
+    // SECURITY: restringido a superadmin para evitar que inquilinos/propietarios manipulen tasas
     match /artifacts/{appId}/seguroComisiones/{docId} {
       allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      allow create, update, delete: if isSuperAdmin();
     }
 
     // Partners PAS: cualquier autenticado lee; superadmin escribe

@@ -1,4 +1,4 @@
-'use client';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 import { Loader2, CreditCard, Check, X, Settings } from 'lucide-react';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 
-const APP_ID = 'alquilagestion-pro';
 
 function generateCoveredPeriods(startFromNow: number, count: number): string[] {
   const periods: string[] = [];

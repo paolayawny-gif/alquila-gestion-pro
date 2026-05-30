@@ -1,9 +1,9 @@
+import { APP_ID } from '@/lib/constants';
 // Client-side utility — called from client components with their Firestore instance.
 import type { Firestore } from 'firebase/firestore';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-const APP_ID = 'alquilagestion-pro';
 
 export type PropertyEventType =
   | 'message_admin'

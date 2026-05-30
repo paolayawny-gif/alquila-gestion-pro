@@ -1,6 +1,8 @@
 "use client";
+import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { AppLogo } from '@/components/ui/app-logo';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard,
   Building,
@@ -47,32 +49,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { BottomNav } from '@/components/ui/bottom-nav';
-import { PropertiesView } from '@/components/dashboard/properties-view';
-import { TenantsView } from '@/components/dashboard/tenants-view';
-import { InvoicesView } from '@/components/dashboard/invoices-view';
-import { MaintenanceView } from '@/components/dashboard/maintenance-view';
-import { LegalView } from '@/components/dashboard/legal-view';
-import { LiquidationsView } from '@/components/dashboard/liquidations-view';
-import { AIAssistantView } from '@/components/dashboard/ai-assistant-view';
-import { ContractGeneratorView } from '@/components/dashboard/contract-generator-view';
-import { ApplicationsView } from '@/components/dashboard/onboarding-view';
-import { TenantPortalView } from '@/components/dashboard/tenant-portal-view';
-import { IndexRecordsView } from '@/components/dashboard/index-records-view';
-import { SmartContractsView } from '@/components/dashboard/smart-contracts-view';
-import { DepositsView } from '@/components/dashboard/deposits-view';
-import { ProvidersView } from '@/components/dashboard/providers-view';
-import { MessagesView } from '@/components/dashboard/messages-view';
-import { HybridRentalsView } from '@/components/dashboard/hybrid-rentals-view';
-import { CommunityVotingView } from '@/components/dashboard/community-voting-view';
-import { ConciergeView } from '@/components/dashboard/concierge-view';
-import { InsuranceView } from '@/components/dashboard/insurance-view';
-import { MonetizationView } from '@/components/dashboard/monetization-view';
-import { SocialMediaView } from '@/components/dashboard/social-media-view';
-import { CommunityWallView } from '@/components/dashboard/community-wall-view';
-import { MarketplaceView } from '@/components/dashboard/marketplace-view';
-import { CentroLiquidacionesView } from '@/components/dashboard/centro-liquidaciones-view';
-import { AdminSettingsView } from '@/components/dashboard/admin-settings-view';
-import { HelpView } from '@/components/dashboard/help-view';
+import dynamic from 'next/dynamic';
 import { NotificationBell } from '@/components/ui/notification-bell';
 import { 
   DropdownMenu, 
@@ -91,19 +68,19 @@ import {
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, query, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { createNotification } from '@/lib/notifications';
 import { BiometricGate } from '@/components/BiometricGate';
 import { Contract, LegalCase, MonetizableAsset, SocialPost, SocialNetworkLink, PendingRentAdjustment, IndexRecord } from '@/lib/types';
 import { isAdjustmentDue, calculateProposedAmount, buildPendingAdjustment } from '@/lib/rent-adjustment';
-import { TenantPortal, TenantRegistryEntry } from '@/components/tenant/tenant-portal';
-import { OwnerPortal, OwnerRegistryEntry } from '@/components/owner/owner-portal';
+// Types only — stripped at compile time, zero runtime cost
+import type { TenantRegistryEntry } from '@/components/tenant/tenant-portal';
+import type { OwnerRegistryEntry } from '@/components/owner/owner-portal';
 import { usePlan } from '@/hooks/use-plan';
 import { BillingBlockedScreen } from '@/components/billing/billing-blocked-screen';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { SuperAdminView } from '@/components/dashboard/super-admin-view';
-import { TimelineView } from '@/components/dashboard/timeline-view';
 import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -113,42 +90,55 @@ import { OnboardingChecklist } from '@/components/ui/onboarding-checklist';
 import { PendingAdjustmentsView } from '@/components/dashboard/pending-adjustments-view';
 import { VisitasView } from '@/components/dashboard/visitas-view';
 import { NpsSurvey } from '@/components/ui/nps-survey';
-import dynamic from 'next/dynamic';
 
-// Vistas con gráficos (recharts) — se cargan de forma diferida para no incluir
-// la librería de gráficos en el bundle inicial. Solo se descarga al abrir la pestaña.
-const chartViewLoading = () => (
-  <div className="p-8 text-sm text-muted-foreground">Cargando…</div>
+// ── Lazy views — downloaded only on first navigation, not at startup ──────────
+const ViewLoader = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+  </div>
 );
-const SummaryView = dynamic(
-  () => import('@/components/dashboard/summary-view').then(m => m.SummaryView),
-  { loading: chartViewLoading },
-);
-const AIAnalyticsView = dynamic(
-  () => import('@/components/dashboard/ai-analytics-view').then(m => m.AIAnalyticsView),
-  { loading: chartViewLoading },
-);
-const PredictiveMaintenanceView = dynamic(
-  () => import('@/components/dashboard/predictive-maintenance-view').then(m => m.PredictiveMaintenanceView),
-  { loading: chartViewLoading },
-);
-const ROISimulatorView = dynamic(
-  () => import('@/components/dashboard/roi-simulator-view').then(m => m.ROISimulatorView),
-  { loading: chartViewLoading },
-);
-const FinancialLedgerView = dynamic(
-  () => import('@/components/dashboard/financial-ledger-view').then(m => m.FinancialLedgerView),
-  { loading: chartViewLoading },
-);
-const AnalyticsPanelView = dynamic(
-  () => import('@/components/dashboard/analytics-panel-view').then(m => m.AnalyticsPanelView),
-  { loading: chartViewLoading },
-);
+
+const SummaryView             = dynamic(() => import('@/components/dashboard/summary-view').then(m => m.SummaryView),                          { loading: ViewLoader });
+const PropertiesView          = dynamic(() => import('@/components/dashboard/properties-view').then(m => m.PropertiesView),                    { loading: ViewLoader });
+const TenantsView             = dynamic(() => import('@/components/dashboard/tenants-view').then(m => m.TenantsView),                          { loading: ViewLoader });
+const InvoicesView            = dynamic(() => import('@/components/dashboard/invoices-view').then(m => m.InvoicesView),                        { loading: ViewLoader });
+const MaintenanceView         = dynamic(() => import('@/components/dashboard/maintenance-view').then(m => m.MaintenanceView),                  { loading: ViewLoader });
+const LegalView               = dynamic(() => import('@/components/dashboard/legal-view').then(m => m.LegalView),                              { loading: ViewLoader });
+const LiquidationsView        = dynamic(() => import('@/components/dashboard/liquidations-view').then(m => m.LiquidationsView),                { loading: ViewLoader });
+const AIAssistantView         = dynamic(() => import('@/components/dashboard/ai-assistant-view').then(m => m.AIAssistantView),                 { loading: ViewLoader });
+const AIAnalyticsView         = dynamic(() => import('@/components/dashboard/ai-analytics-view').then(m => m.AIAnalyticsView),                 { loading: ViewLoader });
+const ContractGeneratorView   = dynamic(() => import('@/components/dashboard/contract-generator-view').then(m => m.ContractGeneratorView),     { loading: ViewLoader });
+const ApplicationsView        = dynamic(() => import('@/components/dashboard/onboarding-view').then(m => m.ApplicationsView),                  { loading: ViewLoader });
+const TenantPortalView        = dynamic(() => import('@/components/dashboard/tenant-portal-view').then(m => m.TenantPortalView),               { loading: ViewLoader });
+const IndexRecordsView        = dynamic(() => import('@/components/dashboard/index-records-view').then(m => m.IndexRecordsView),               { loading: ViewLoader });
+const SmartContractsView      = dynamic(() => import('@/components/dashboard/smart-contracts-view').then(m => m.SmartContractsView),           { loading: ViewLoader });
+const DepositsView            = dynamic(() => import('@/components/dashboard/deposits-view').then(m => m.DepositsView),                        { loading: ViewLoader });
+const ProvidersView           = dynamic(() => import('@/components/dashboard/providers-view').then(m => m.ProvidersView),                      { loading: ViewLoader });
+const MessagesView            = dynamic(() => import('@/components/dashboard/messages-view').then(m => m.MessagesView),                        { loading: ViewLoader });
+const HybridRentalsView       = dynamic(() => import('@/components/dashboard/hybrid-rentals-view').then(m => m.HybridRentalsView),             { loading: ViewLoader });
+const CommunityVotingView     = dynamic(() => import('@/components/dashboard/community-voting-view').then(m => m.CommunityVotingView),         { loading: ViewLoader });
+const ConciergeView           = dynamic(() => import('@/components/dashboard/concierge-view').then(m => m.ConciergeView),                      { loading: ViewLoader });
+const InsuranceView           = dynamic(() => import('@/components/dashboard/insurance-view').then(m => m.InsuranceView),                      { loading: ViewLoader });
+const MonetizationView        = dynamic(() => import('@/components/dashboard/monetization-view').then(m => m.MonetizationView),                { loading: ViewLoader });
+const SocialMediaView         = dynamic(() => import('@/components/dashboard/social-media-view').then(m => m.SocialMediaView),                 { loading: ViewLoader });
+const CommunityWallView       = dynamic(() => import('@/components/dashboard/community-wall-view').then(m => m.CommunityWallView),             { loading: ViewLoader });
+const MarketplaceView         = dynamic(() => import('@/components/dashboard/marketplace-view').then(m => m.MarketplaceView),                  { loading: ViewLoader });
+const CentroLiquidacionesView = dynamic(() => import('@/components/dashboard/centro-liquidaciones-view').then(m => m.CentroLiquidacionesView), { loading: ViewLoader });
+const AdminSettingsView       = dynamic(() => import('@/components/dashboard/admin-settings-view').then(m => m.AdminSettingsView),             { loading: ViewLoader });
+const HelpView                = dynamic(() => import('@/components/dashboard/help-view').then(m => m.HelpView),                                { loading: ViewLoader });
+const SuperAdminView          = dynamic(() => import('@/components/dashboard/super-admin-view').then(m => m.SuperAdminView),                   { loading: ViewLoader });
+const TimelineView            = dynamic(() => import('@/components/dashboard/timeline-view').then(m => m.TimelineView),                        { loading: ViewLoader });
+const PendingAdjustmentsView  = dynamic(() => import('@/components/dashboard/pending-adjustments-view').then(m => m.PendingAdjustmentsView),   { loading: ViewLoader });
+const VisitasView             = dynamic(() => import('@/components/dashboard/visitas-view').then(m => m.VisitasView),                          { loading: ViewLoader });
+const PredictiveMaintenanceView = dynamic(() => import('@/components/dashboard/predictive-maintenance-view').then(m => m.PredictiveMaintenanceView), { loading: ViewLoader });
+const ROISimulatorView        = dynamic(() => import('@/components/dashboard/roi-simulator-view').then(m => m.ROISimulatorView),               { loading: ViewLoader });
+const FinancialLedgerView     = dynamic(() => import('@/components/dashboard/financial-ledger-view').then(m => m.FinancialLedgerView),         { loading: ViewLoader });
+const AnalyticsPanelView      = dynamic(() => import('@/components/dashboard/analytics-panel-view').then(m => m.AnalyticsPanelView),           { loading: ViewLoader });
+const TenantPortal            = dynamic(() => import('@/components/tenant/tenant-portal').then(m => m.TenantPortal),                           { loading: ViewLoader });
+const OwnerPortal             = dynamic(() => import('@/components/owner/owner-portal').then(m => m.OwnerPortal),                              { loading: ViewLoader });
 
 type Role = 'Administrador' | 'Inquilino' | 'Propietario';
 type Tab = 'Resumen' | 'Cronograma' | 'Propiedades' | 'Personas' | 'Solicitudes' | 'Facturas' | 'Centro Liquidaciones' | 'Mantenimiento' | 'Mantenimiento Predictivo' | 'Legales' | 'Liquidaciones' | 'Reportes' | 'Asistente IA' | 'Análisis IA' | 'Simulador ROI' | 'Libro Mayor' | 'Generador Contratos' | 'Mi Portal' | 'Índices' | 'Contratos Smart' | 'Garantías' | 'Proveedores' | 'Mensajes' | 'Rentas Híbridas' | 'Votaciones' | 'Concierge' | 'Comunidad' | 'Marketplace' | 'Seguros' | 'Monetización' | 'Redes Sociales' | 'Super Admin' | 'Configuración' | 'Ayuda' | 'Ajustes Alquiler' | 'Visitas';
-
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
 
 const ADMIN_MENU_GROUPS = [
   {
@@ -231,7 +221,6 @@ const ADMIN_MENU_GROUPS = [
 const ADMIN_MENU = ADMIN_MENU_GROUPS.flatMap(g => g.items)
   .filter((item, idx, arr) => arr.findIndex(x => x.id === item.id) === idx);
 
-const APP_ID = "alquilagestion-pro";
 
 export default function AppClient() {
   const [activeRole, setActiveRole] = useState<Role>('Administrador');
@@ -553,7 +542,7 @@ export default function AppClient() {
       }
       if (nextStatus && nextStatus !== contract.status) {
         const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos', contract.id);
-        setDocumentNonBlocking(ref, { status: nextStatus }, { merge: true });
+        setDocumentSafe(ref, Schemas.ContractPatch, { status: nextStatus }, { merge: true });
         if (notifInput) {
           createNotification(db, user.uid, {
             ...notifInput,
@@ -579,7 +568,7 @@ export default function AppClient() {
       const newAdj = buildPendingAdjustment(contract, calc, user.uid);
       const id = `${contract.id}_${Date.now()}`;
       const ref = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'rentAdjustments', id);
-      setDocumentNonBlocking(ref, { ...newAdj, id, createdAt: new Date().toISOString() }, { merge: false });
+      setDocumentSafe(ref, Schemas.RentAdjustmentCreate, { ...newAdj, id, createdAt: new Date().toISOString() }, { merge: false });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts.length, indexRecords.length, db, user?.uid]);
@@ -734,7 +723,8 @@ export default function AppClient() {
     await updateDoc(ref, { status: 'aprobado', approvedAt: now, approvedBy: user.email ?? user.uid });
     // Update contract currentRentAmount + lastAdjustmentDate
     const contractRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'contratos', adj.contractId);
-    setDocumentNonBlocking(contractRef, {
+    // Validar que el nuevo monto es un número positivo válido antes de escribirlo al contrato
+    setDocumentSafe(contractRef, Schemas.ContractPatch, {
       currentRentAmount: adj.proposedAmount,
       lastAdjustmentDate: now,
     }, { merge: true });
@@ -853,7 +843,7 @@ export default function AppClient() {
 
   const menuItems = activeRole === 'Administrador' ? ADMIN_MENU : [{ id: 'Mi Portal', icon: User, label: 'Mi Portal' }];
 
-  const cmdItems: CommandItem[] = [
+  const cmdItems = useMemo<CommandItem[]>(() => [
     ...ADMIN_MENU.map(item => ({
       id: `nav-${item.id}`,
       label: item.label,
@@ -887,7 +877,9 @@ export default function AppClient() {
       category: 'contract' as const,
       onSelect: () => setActiveTab('Personas'),
     })),
-  ];
+  // setActiveTab is a stable state setter, no need to include
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [isSuperAdmin, properties, people, contracts]);
 
   return (
     <BiometricGate userEmail={user?.email}>
@@ -905,20 +897,7 @@ export default function AppClient() {
         <div className="px-4 h-16 flex items-center border-b">
           {!isSidebarCollapsed ? (
             <div className="flex items-center gap-3 overflow-hidden">
-              {/* Ícono cuadrado: casa + barras + tendencia */}
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0" aria-hidden="true">
-                <rect width="36" height="36" rx="9" fill="#1D9E75"/>
-                {/* Techo */}
-                <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                {/* Barras de crecimiento */}
-                <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
-                <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
-                <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
-                {/* Línea de tendencia */}
-                <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
-                <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
-              </svg>
+              <AppLogo />
               {/* Wordmark */}
               <div className="leading-none overflow-hidden flex-1 min-w-0">
                 <span className="block text-[9px] font-medium tracking-[0.22em] text-muted-foreground uppercase mb-0.5">ALQUILA</span>
@@ -933,16 +912,7 @@ export default function AppClient() {
               </div>
             </div>
           ) : (
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto" aria-hidden="true">
-              <rect width="36" height="36" rx="9" fill="#1D9E75"/>
-              <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
-              <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
-              <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
-              <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
-              <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
-            </svg>
+            <AppLogo collapsed />
           )}
         </div>
         <nav className="flex-1 px-4 mt-4 overflow-y-auto space-y-0.5 pb-4">

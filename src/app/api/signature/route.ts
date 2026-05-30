@@ -1,12 +1,13 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { ContractSignature, SignerRole } from '@/lib/types';
 import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { apiError } from '@/lib/api-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,6 +90,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, signedAt: signature.signedAt });
   } catch (err: any) {
     console.error('[signature]', err);
-    return NextResponse.json({ error: err.message ?? 'Error interno' }, { status: 500 });
+    return NextResponse.json({ error: apiError(err) }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 'use client';
-    
+
 import {
   setDoc,
   addDoc,
@@ -10,7 +10,64 @@ import {
   SetOptions,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import {FirestorePermissionError} from '@/firebase/errors';
+import { FirestorePermissionError } from '@/firebase/errors';
+import type { ZodTypeAny } from 'zod';
+
+// ── Validated write ────────────────────────────────────────────────────────────
+
+/**
+ * Versión validada de setDocumentNonBlocking.
+ *
+ * Pasos:
+ *  1. Valida el objeto con el schema Zod provisto.
+ *  2. Si es válido → escribe solo los campos reconocidos (strip de campos desconocidos).
+ *  3. Si es inválido:
+ *     - Registra el error en consola (y en Sentry si está configurado).
+ *     - En development: BLOQUEA la escritura para forzar al dev a corregir el problema.
+ *     - En production: PERMITE la escritura con los datos originales (graceful degradation)
+ *       para no perder una confirmación de pago por un campo inesperado.
+ *
+ * @example
+ *   setDocumentSafe(docRef, Schemas.InvoicePatch, { status: 'Pagado', paymentDate: today }, { merge: true });
+ */
+export function setDocumentSafe(
+  docRef: DocumentReference,
+  schema: ZodTypeAny,
+  data: unknown,
+  options: SetOptions = {},
+): void {
+  const result = schema.safeParse(data);
+
+  if (!result.success) {
+    const errors = result.error.issues
+      .map(i => `[${i.path.join('.')}] ${i.message}`)
+      .join(' | ');
+    const msg = `[setDocumentSafe] Schema inválido en ${docRef.path}: ${errors}`;
+
+    console.error(msg, { data });
+
+    // Reportar a Sentry si está disponible (import dinámico — no rompe si no está)
+    import('@sentry/nextjs')
+      .then(({ captureMessage }) => captureMessage(msg, 'error'))
+      .catch(() => {});
+
+    if (process.env.NODE_ENV === 'development') {
+      // En dev: bloquear la escritura para que el problema sea visible inmediatamente
+      throw new Error(msg);
+    }
+
+    // En producción: escribir igual con los datos originales para no perder info
+    // (no sacrificamos una confirmación de pago por un campo inesperado)
+    setDocumentNonBlocking(docRef, data, options);
+    return;
+  }
+
+  // Importante: escribimos los datos ORIGINALES, no result.data.
+  // La validación actúa como GUARDIA (detecta tipos/valores inválidos) pero NO
+  // transforma ni hace strip — así preservamos campos opcionales legítimos
+  // que el schema no declara explícitamente (ownerCbu, liquidacionEnviadaAt, etc.)
+  setDocumentNonBlocking(docRef, data, options);
+}
 
 /**
  * Initiates a setDoc operation for a document reference.

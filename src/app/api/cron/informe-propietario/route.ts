@@ -1,3 +1,4 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import nodemailer from 'nodemailer';
@@ -5,7 +6,6 @@ import nodemailer from 'nodemailer';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
 
 function fmt(n: number) {
   return n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
@@ -93,8 +93,8 @@ function buildWeeklyOwnerEmail(opts: {
 }
 
 async function sendEmail(to: string, subject: string, html: string, smtpUser?: string, smtpPass?: string) {
-  const user = smtpUser ?? process.env.SMTP_USER;
-  const pass = smtpPass ?? process.env.SMTP_PASS;
+  const user = smtpUser ?? process.env.EMAIL_USER ?? process.env.SMTP_USER;
+  const pass = smtpPass ?? process.env.EMAIL_PASS ?? process.env.SMTP_PASS;
   if (!user || !pass) return;
   const t = nodemailer.createTransport({
     host: process.env.SMTP_HOST ?? 'smtp.gmail.com',

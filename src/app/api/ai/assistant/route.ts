@@ -1,11 +1,50 @@
+import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionForAdmin } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { apiError } from '@/lib/api-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
+// ── Rate limiting — máx 30 llamadas por admin por hora ────────────────────────
+// Usa Firestore como store distribuido (funciona en serverless/multi-instancia).
+const AI_RATE_LIMIT = 30; // requests por ventana
+const AI_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hora
+
+async function checkRateLimit(adminId: string): Promise<boolean> {
+  try {
+    const db = getAdminDb();
+    const ref = db
+      .collection('artifacts').doc(APP_ID)
+      .collection('_rateLimits').doc(`ai:${adminId}`);
+
+    const now = Date.now();
+    const windowStart = now - AI_RATE_WINDOW_MS;
+
+    const allowed = await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? snap.data()! : { count: 0, windowStart: now };
+
+      // Resetear la ventana si expiró
+      if (data.windowStart < windowStart) {
+        tx.set(ref, { count: 1, windowStart: now });
+        return true;
+      }
+
+      if (data.count >= AI_RATE_LIMIT) return false;
+
+      tx.update(ref, { count: data.count + 1 });
+      return true;
+    });
+
+    return allowed;
+  } catch {
+    // Si Firestore falla, dejar pasar para no bloquear el servicio
+    return true;
+  }
+}
+
 
 const SYSTEM_PROMPT = `Sos el asistente de datos de "AlquilaGestión Pro".
 
@@ -34,6 +73,15 @@ export async function POST(req: NextRequest) {
 
     const auth = await requireSessionForAdmin(req, adminId);
     if (auth instanceof NextResponse) return auth;
+
+    // Rate limit — 30 req/hora por admin
+    const allowed = await checkRateLimit(adminId);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Límite de consultas alcanzado. Intentá de nuevo en una hora.' },
+        { status: 429 },
+      );
+    }
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
     if (!apiKey) {
@@ -130,6 +178,6 @@ ${question}`;
     return NextResponse.json({ ok: true, answer, followUpQuestions });
   } catch (e: any) {
     console.error('[ai/assistant] error:', e);
-    return NextResponse.json({ error: e.message ?? 'Error interno' }, { status: 500 });
+    return NextResponse.json({ error: apiError(e) }, { status: 500 });
   }
 }
