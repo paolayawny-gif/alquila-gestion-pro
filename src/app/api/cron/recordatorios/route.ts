@@ -90,16 +90,17 @@ async function processAdmin(
     const profileSnap = await usersRef.doc(adminId).collection('config').doc('profile').get();
     if (profileSnap.exists) {
       const p = profileSnap.data() as any;
-      const smtpUser = p.smtpUser ?? process.env.SMTP_USER;
-      const smtpPass = p.smtpPass ?? process.env.SMTP_PASS;
+      // p.smtpUser/Pass son credenciales custom del admin; fallback a las vars de plataforma
+      const smtpUser = p.smtpUser ?? process.env.EMAIL_USER ?? process.env.SMTP_USER;
+      const smtpPass = p.smtpPass ?? process.env.EMAIL_PASS ?? process.env.SMTP_PASS;
       if (smtpUser && smtpPass) transporter = buildTransporter(smtpUser, smtpPass);
       waPhone = p.whatsappNumber;
       waPhoneId = p.waPhoneNumberId;
       waToken = p.waAccessToken;
       adminName = p.displayName ?? adminName;
     } else {
-      const u = process.env.SMTP_USER;
-      const p = process.env.SMTP_PASS;
+      const u = process.env.EMAIL_USER ?? process.env.SMTP_USER;
+      const p = process.env.EMAIL_PASS ?? process.env.SMTP_PASS;
       if (u && p) transporter = buildTransporter(u, p);
     }
   } catch { /* continue without custom SMTP */ }
