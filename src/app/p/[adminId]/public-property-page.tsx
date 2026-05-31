@@ -14,7 +14,7 @@ const PropertyMap = dynamic(
     ssr: false,
     loading: () => (
       <div className="h-[400px] bg-gray-50 flex flex-col items-center justify-center gap-3 text-gray-400">
-        <Loader2 size={28} className="animate-spin text-emerald-500" />
+        <Loader2 size={28} className="animate-spin text-[#0369A1]" />
         <p className="text-sm">Cargando mapa…</p>
       </div>
     ),
@@ -50,7 +50,7 @@ interface Props {
   properties: Property[];
 }
 
-const BRAND = '#1D9E75';
+const BRAND = '#0369A1';
 
 function buildWaLink(phone: string, message: string) {
   const n = phone.replace(/[\s\-\(\)\+\.]/g, '').replace(/^0/, '54');
@@ -216,7 +216,7 @@ function GalleryLightbox({ photos, initial, onClose }: {
               key={i}
               onClick={e => { e.stopPropagation(); setIdx(i); }}
               className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
-                i === idx ? 'border-emerald-400 opacity-100' : 'border-transparent opacity-40 hover:opacity-70'
+                i === idx ? 'border-[#38bdf8] opacity-100' : 'border-transparent opacity-40 hover:opacity-70'
               }`}
             >
               <img src={url} alt="" className="w-full h-full object-cover" />
@@ -279,7 +279,7 @@ function InquiryModal({ prop, adminId, orgName, onClose }: {
   };
 
   const fieldClass = (key: keyof InquiryFormState) =>
-    `w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 transition-colors ${
+    `w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-[#7DD3FC] transition-colors ${
       errors[key] ? 'border-red-400 bg-red-50' : 'border-gray-200'
     }`;
 
@@ -357,7 +357,7 @@ function InquiryModal({ prop, adminId, orgName, onClose }: {
                 onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
                 placeholder={`Hola, me interesa "${prop.name}"...`}
                 rows={3}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#7DD3FC]"
               />
             </div>
 
@@ -396,7 +396,7 @@ function ComparisonPanel({ properties, onClose }: {
       label: 'Foto',
       render: p => p.photos?.[0]
         ? <img src={p.photos[0]} alt={p.name} className="w-full h-28 object-cover rounded-lg" />
-        : <div className="w-full h-28 bg-emerald-50 rounded-lg flex items-center justify-center"><Building2 className="text-emerald-300" size={28} /></div>,
+        : <div className="w-full h-28 bg-[#f0f9ff] rounded-lg flex items-center justify-center"><Building2 className="text-[#7DD3FC]" size={28} /></div>,
     },
     { label: 'Nombre', render: p => <span className="font-semibold text-gray-900 text-sm">{p.name}</span> },
     { label: 'Dirección', render: p => <span className="text-sm text-gray-600">{p.address}</span> },
@@ -426,7 +426,7 @@ function ComparisonPanel({ properties, onClose }: {
       render: p => (p.amenities?.length ?? 0) > 0
         ? <div className="flex flex-wrap gap-1">
             {p.amenities!.map(a => (
-              <span key={a} className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full">{a}</span>
+              <span key={a} className="text-[10px] bg-[#f0f9ff] text-sky-700 px-1.5 py-0.5 rounded-full">{a}</span>
             ))}
           </div>
         : <span className="text-gray-300 text-sm">—</span>,
@@ -512,11 +512,11 @@ function PropertyCard({
 
   return (
     <div className={`bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-all border ${
-      isComparing ? 'border-emerald-400 ring-2 ring-emerald-300' : 'border-gray-100'
+      isComparing ? 'border-[#38bdf8] ring-2 ring-[#7DD3FC]' : 'border-gray-100'
     }`}>
       {/* Área de fotos */}
       <div
-        className="relative h-48 bg-gradient-to-br from-emerald-50 to-green-100 cursor-pointer group"
+        className="relative h-48 bg-gradient-to-br from-[#f0f9ff] to-green-100 cursor-pointer group"
         onClick={() => hasPhotos && onOpenGallery(photoIdx)}
       >
         {hasPhotos ? (
@@ -551,7 +551,7 @@ function PropertyCard({
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Building2 size={40} className="text-emerald-300" />
+            <Building2 size={40} className="text-[#7DD3FC]" />
           </div>
         )}
 
@@ -578,10 +578,10 @@ function PropertyCard({
             }}
             className={`p-1.5 rounded-full backdrop-blur-sm transition-all ${
               isComparing
-                ? 'bg-emerald-500 text-white'
+                ? 'bg-[#0369A1] text-white'
                 : compareDisabled
                   ? 'bg-white/50 text-gray-300 cursor-not-allowed'
-                  : 'bg-white/90 text-gray-500 hover:text-emerald-600'
+                  : 'bg-white/90 text-gray-500 hover:text-[#0369A1]'
             }`}
             aria-label={isComparing ? 'Quitar de comparación' : 'Agregar a comparación'}
             title={compareDisabled && !isComparing ? 'Máximo 3 propiedades' : 'Comparar'}
@@ -596,7 +596,7 @@ function PropertyCard({
         <div>
           <h3 className="font-bold text-gray-900 text-base leading-tight">{prop.name}</h3>
           <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-            <MapPin size={13} className="shrink-0 text-emerald-500" />
+            <MapPin size={13} className="shrink-0 text-[#0369A1]" />
             {prop.address}
           </p>
         </div>
@@ -619,7 +619,7 @@ function PropertyCard({
         {(prop.amenities ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {prop.amenities!.slice(0, 4).map(a => (
-              <span key={a} className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">{a}</span>
+              <span key={a} className="text-[11px] bg-[#f0f9ff] text-sky-700 px-2 py-0.5 rounded-full font-medium">{a}</span>
             ))}
             {prop.amenities!.length > 4 && (
               <span className="text-[11px] text-gray-400">+{prop.amenities!.length - 4}</span>
@@ -641,7 +641,7 @@ function PropertyCard({
         <div className="mt-auto pt-1 flex flex-col gap-2">
           <button
             onClick={onOpenInquiry}
-            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-[#7DD3FC] text-sky-700 hover:bg-[#f0f9ff] transition-colors"
           >
             <Mail size={14} />
             Consultar
@@ -659,7 +659,7 @@ function PropertyCard({
             </a>
           )}
           {!phone && (
-            <div className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
+            <div className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-sky-700 bg-[#f0f9ff] border border-[#bae6fd]">
               <Phone size={14} />
               Consultar disponibilidad
             </div>
@@ -762,7 +762,7 @@ export function PublicPropertyPage({ adminId, profile, properties }: Props) {
             href={waGeneral}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 mt-4 bg-white font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-emerald-50 transition-colors"
+            className="inline-flex items-center gap-2 mt-4 bg-white font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-[#f0f9ff] transition-colors"
             style={{ color: BRAND }}
           >
             <MessageCircle size={15} />
@@ -780,14 +780,14 @@ export function PublicPropertyPage({ adminId, profile, properties }: Props) {
             placeholder="Buscar por nombre o dirección…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#7DD3FC]"
           />
         </div>
         {types.length > 1 && (
           <select
             value={filterType}
             onChange={e => setFilterType(e.target.value)}
-            className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#7DD3FC]"
           >
             <option value="">Todos los tipos</option>
             {types.map(t => <option key={t} value={t}>{t}</option>)}
@@ -816,7 +816,7 @@ export function PublicPropertyPage({ adminId, profile, properties }: Props) {
             onClick={() => setShowMap(m => !m)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
               showMap
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                ? 'bg-[#f0f9ff] border-[#7DD3FC] text-sky-700'
                 : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
@@ -832,7 +832,7 @@ export function PublicPropertyPage({ adminId, profile, properties }: Props) {
           <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
             {geoLoading && propertiesWithCoords.length === 0 ? (
               <div className="h-[400px] bg-gray-50 flex flex-col items-center justify-center gap-3 text-gray-400">
-                <Loader2 size={28} className="animate-spin text-emerald-500" />
+                <Loader2 size={28} className="animate-spin text-[#0369A1]" />
                 <p className="text-sm">Buscando ubicaciones… {geoProgress > 0 ? `${geoProgress}%` : ''}</p>
               </div>
             ) : (
@@ -903,7 +903,7 @@ export function PublicPropertyPage({ adminId, profile, properties }: Props) {
       {/* Barra flotante de comparación */}
       {compareIds.length >= 2 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-3 duration-200">
-          <ArrowLeftRight size={17} className="text-emerald-400 shrink-0" />
+          <ArrowLeftRight size={17} className="text-[#38bdf8] shrink-0" />
           <span className="text-sm font-medium whitespace-nowrap">
             {compareIds.length} propiedades
           </span>

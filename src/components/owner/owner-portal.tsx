@@ -177,16 +177,16 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
         'bg-white border-r flex flex-col transition-colors duration-300 z-40 shrink-0',
         'fixed inset-y-0 left-0 md:static md:z-20',
         mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-        collapsed ? 'md:w-20 w-64' : 'w-64',
+        collapsed ? 'md:w-20 w-72' : 'w-72',
       )}>
         {/* Logo */}
         <div className="px-4 h-16 flex items-center border-b gap-3">
-          <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
+          <div className="h-9 w-9 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
             <Home className="h-5 w-5 text-white" />
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="text-[11px] font-black text-emerald-700 leading-none">Portal Propietario</p>
+              <p className="text-[11px] font-black text-[#0369A1] leading-none">Portal Propietario</p>
               <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                 {ownerEntry.propertyNames[0] ?? 'Mis propiedades'}
               </p>
@@ -203,11 +203,11 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
                 activeTab === item.id
-                  ? 'bg-emerald-50 text-emerald-700'
+                  ? 'bg-[#eff6ff] text-[#0369A1]'
                   : 'text-muted-foreground hover:bg-muted',
               )}
             >
-              <item.icon className={cn('h-5 w-5 shrink-0', activeTab === item.id ? 'text-emerald-600' : 'text-muted-foreground')} />
+              <item.icon className={cn('h-5 w-5 shrink-0', activeTab === item.id ? 'text-[#0369A1]' : 'text-muted-foreground')} />
               {!collapsed && <span className="truncate">{item.label}</span>}
             </button>
           ))}
@@ -242,7 +242,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-emerald-600 z-50"
+          className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-white border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-[#0369A1] z-50"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
@@ -269,7 +269,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-sm uppercase hover:bg-emerald-200 transition-colors">
+                <button className="h-9 w-9 rounded-full bg-[#dbeafe] flex items-center justify-center text-[#0369A1] font-black text-sm uppercase hover:bg-[#bfdbfe] transition-colors">
                   {ownerEntry.ownerName.charAt(0)}
                 </button>
               </DropdownMenuTrigger>
@@ -295,7 +295,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
       <BottomNav
         activeId={activeTab}
         onSelect={(id) => setActiveTab(id as OwnerTab)}
-        activeColor="text-emerald-600"
+        activeColor="text-[#0369A1]"
         items={[
           { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'    },
           { id: 'Propiedades',   icon: Building2,       label: 'Propied.'  },

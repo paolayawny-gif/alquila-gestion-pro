@@ -112,7 +112,7 @@ function OnboardingSection({ contract, property, db, toast }: OnboardingProps) {
       <div className="space-y-5">
 
         {/* ─── Banner de bienvenida ─── */}
-        <div className="relative overflow-hidden rounded-2xl bg-[#16a34a] px-7 py-8 text-white">
+        <div className="relative overflow-hidden rounded-2xl bg-[#0369A1] px-7 py-8 text-white">
           <div className="relative z-10 max-w-xl">
             <h2 className="text-2xl sm:text-3xl font-black leading-tight">
               ¡Bienvenido a tu nuevo hogar!
