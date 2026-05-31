@@ -152,8 +152,8 @@ export function DataAssistantChat() {
         aria-label="Abrir asistente IA"
       >
         <HouseMascot size={56} animate className="drop-shadow-lg group-hover:-translate-y-1 transition-transform duration-200" mood="waving" />
-        <span className="text-[10px] font-semibold text-emerald-700 bg-white/90 backdrop-blur rounded-full px-2 py-0.5 shadow -mt-1 border border-emerald-100">
-          Asistente IA
+        <span className="text-[10px] font-semibold text-[#0369A1] bg-white/90 backdrop-blur rounded-full px-2 py-0.5 shadow -mt-1 border border-[#bae6fd]">
+          AGP Help
         </span>
       </button>
 
@@ -166,15 +166,15 @@ export function DataAssistantChat() {
         style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#111827' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-emerald-600 text-white">
+        <div className="flex items-center justify-between px-4 py-2 bg-[#0369A1] text-white">
           <div className="flex items-center gap-2">
             <HouseMascot size={44} animate mood="happy" />
             <div>
-              <p className="font-semibold text-sm leading-none">Asistente IA</p>
-              <p className="text-xs text-emerald-100 mt-0.5">Solo tus datos · Gemini Flash</p>
+              <p className="font-semibold text-sm leading-none">AGP Help</p>
+              <p className="text-xs text-sky-200 mt-0.5">Solo tus datos · Gemini Flash</p>
             </div>
           </div>
-          <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-emerald-700 transition-colors">
+          <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-[#0259a0] transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -193,12 +193,12 @@ export function DataAssistantChat() {
                 </div>
               )}
               {msg.role === 'user' && (
-                <div className="max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap bg-emerald-600 text-white">
+                <div className="max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap bg-[#0369A1] text-white">
                   {msg.content}
                 </div>
               )}
               {msg.navigated && (
-                <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600 ml-8">
+                <div className="mt-1 flex items-center gap-1 text-xs text-[#0369A1] ml-8">
                   <Navigation className="h-3 w-3" />
                   Navegando a {msg.navigated}
                 </div>
@@ -211,7 +211,7 @@ export function DataAssistantChat() {
                       onClick={() => handleSend(q)}
                       disabled={loading}
                       className="text-xs rounded-full px-3 py-1 transition-colors text-left disabled:opacity-50"
-                      style={{ color: '#059669', backgroundColor: '#f0fdf4', border: '1px solid #a7f3d0' }}
+                      style={{ color: '#0369A1', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd' }}
                     >
                       {q}
                     </button>
@@ -225,7 +225,7 @@ export function DataAssistantChat() {
               <HouseMascot size={28} mood="thinking" className="flex-shrink-0 mb-0.5" />
               <div className="rounded-2xl rounded-bl-sm px-3 py-2 shadow-sm"
                 style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}>
-                <Loader2 className="h-4 w-4 text-emerald-600 animate-spin" />
+                <Loader2 className="h-4 w-4 text-[#0369A1] animate-spin" />
               </div>
             </div>
           )}
@@ -242,13 +242,13 @@ export function DataAssistantChat() {
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Preguntá o decí 'ir a redes sociales'..."
             disabled={loading}
-            className="flex-1 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+            className="flex-1 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#0369A1] disabled:opacity-50"
             style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827' }}
           />
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || loading}
-            className="p-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
+            className="p-2 bg-[#0369A1] hover:bg-[#0259a0] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
           >
             <Send className="h-4 w-4" />
           </button>
