@@ -149,24 +149,24 @@ function VisitsCalendarWidget({ userId, onNavigate }: { userId?: string; onNavig
                   key={dateStr}
                   onClick={() => onNavigate('Visitas')}
                   className={cn(
-                    'flex flex-col items-center py-0.5 rounded transition-colors hover:bg-primary/10',
-                    isToday && 'bg-primary/10',
+                    'flex flex-col items-center py-1 rounded-lg transition-all hover:bg-primary/10 hover:scale-105',
+                    isToday && 'bg-primary/15 ring-1 ring-primary/40',
+                    colors && !isToday && 'hover:ring-1 hover:ring-primary/20',
                   )}
                 >
                   <span className={cn(
-                    'text-[11px] font-medium leading-tight',
-                    isToday ? 'text-primary font-bold' : 'text-foreground',
-                    !colors && !isToday && 'text-muted-foreground',
+                    'text-[11px] leading-tight',
+                    isToday ? 'text-primary font-black' : colors ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium',
                   )}>
                     {day}
                   </span>
                   {colors ? (
-                    <div className="flex gap-0.5 mt-0.5">
-                      {colors.slice(0,3).map((c, ci) => (
-                        <div key={ci} className="h-1 w-1 rounded-full" style={{ backgroundColor: c }} />
+                    <div className="flex gap-[3px] mt-0.5">
+                      {colors.slice(0, 3).map((c, ci) => (
+                        <div key={ci} className="h-1.5 w-1.5 rounded-full shadow-sm" style={{ backgroundColor: c }} />
                       ))}
                     </div>
-                  ) : <div className="h-1" />}
+                  ) : <div className="h-1.5" />}
                 </button>
               );
             })}
@@ -202,7 +202,7 @@ function VisitsCalendarWidget({ userId, onNavigate }: { userId?: string; onNavig
         {upcoming.length === 0 && visits.length === 0 && (
           <div className="py-4 text-center text-muted-foreground opacity-50">
             <p className="text-xs">Sin visitas agendadas</p>
-            <Button variant="link" size="sm" className="text-xs text-primary font-bold p-0 h-auto mt-1"
+            <Button variant="outline" size="sm" className="text-xs text-primary border-primary/25 hover:bg-primary/5 font-semibold mt-2 gap-1"
               onClick={() => onNavigate('Visitas')}>
               + Agendar visita
             </Button>
@@ -590,7 +590,7 @@ export function SummaryView({
             <Badge className="bg-green-100 text-green-700 font-bold px-3">Efectividad: {((totalCollected / (totalProjected || 1)) * 100).toFixed(0)}%</Badge>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full">
+            <div className="h-[220px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={CASHFLOW_DATA}>
                   <defs>
@@ -727,22 +727,33 @@ export function SummaryView({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-1.5">
               {recentActivity.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4 italic">Sin actividad reciente.</p>
+                <p className="text-xs text-muted-foreground text-center py-6 italic">Sin actividad reciente.</p>
               )}
-              {recentActivity.map(event => (
-                <div key={event.id} className="flex items-start gap-3">
-                  <div className={cn("p-1.5 rounded-full shrink-0 mt-0.5", event.color)}>
-                    {event.icon}
+              {recentActivity.map(event => {
+                // Extract the border color from the event.color class (e.g. "text-green-600 bg-green-50" → green)
+                const borderColor = event.color.includes('green') ? 'border-l-green-400'
+                  : event.color.includes('red') ? 'border-l-red-400'
+                  : event.color.includes('orange') ? 'border-l-orange-400'
+                  : event.color.includes('blue') ? 'border-l-blue-400'
+                  : 'border-l-primary/40';
+                return (
+                  <div key={event.id} className={cn(
+                    "flex items-start gap-3 p-2 rounded-lg border-l-2 bg-muted/20 hover:bg-muted/40 transition-colors cursor-default",
+                    borderColor
+                  )}>
+                    <div className={cn("p-1.5 rounded-full shrink-0", event.color)}>
+                      {event.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-foreground leading-tight">{event.title}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{event.subtitle}</p>
+                    </div>
+                    <span className="text-[9px] text-muted-foreground shrink-0 mt-0.5 tabular-nums">{event.time}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-foreground leading-tight">{event.title}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{event.subtitle}</p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{event.time}</span>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
           <VisitsCalendarWidget userId={userId} onNavigate={onNavigate} />
