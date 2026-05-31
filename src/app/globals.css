@@ -119,13 +119,13 @@
     @apply bg-background text-foreground font-body;
     overflow-x: hidden;
   }
-  /* Gradiente diagonal suave en light mode — cool neutral */
+  /* Gradiente diagonal azul suave en light mode */
   html {
     background: linear-gradient(
       135deg,
-      hsl(210 40% 98%) 0%,
-      hsl(213 50% 97%) 50%,
-      hsl(220 40% 98%) 100%
+      hsl(210 60% 97%) 0%,
+      hsl(214 65% 95%) 40%,
+      hsl(220 55% 97%) 100%
     );
     background-attachment: fixed;
     min-height: 100%;
