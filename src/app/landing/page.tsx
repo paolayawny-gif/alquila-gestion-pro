@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { DemoModal } from './DemoModal';
 import {
   Building2, FileText, BrainCircuit, BarChart3,
   CreditCard, Wrench, Scale, Calendar, FileSpreadsheet,
@@ -183,7 +184,7 @@ function DashboardPreview() {
 // ── Hero ──────────────────────────────────────────────────────────────────
 const TRUST = ['AFIP / ARCA', 'BCRA — ICL', 'MercadoPago', 'Firma Digital'];
 
-function Hero() {
+function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
   return (
     <section className="relative overflow-hidden pt-12 pb-16">
       <div className="absolute inset-0 pointer-events-none" style={{
@@ -214,11 +215,12 @@ function Hero() {
                 Empezar gratis 7 días
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <a href="#producto"
+              <button
+                onClick={onOpenDemo}
                 className="inline-flex items-center gap-2 h-[52px] px-6 rounded-xl border border-border bg-card text-foreground text-[15.5px] font-semibold hover:bg-muted transition-colors">
                 <Play className="h-4 w-4 fill-current" />
                 Ver demo 2 min
-              </a>
+              </button>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-5 border-t border-border">
               <span className="eyebrow text-muted-foreground">Integrado con</span>
@@ -852,6 +854,7 @@ function Footer() {
 // ── Page ──────────────────────────────────────────────────────────────────
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -862,8 +865,9 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
       <Nav scrolled={scrolled} />
-      <Hero />
+      <Hero onOpenDemo={() => setDemoOpen(true)} />
       <Roles />
       <Features />
       <ContractShowcase />

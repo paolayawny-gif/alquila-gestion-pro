@@ -1,0 +1,89 @@
+GUION — Demo AlquilaGestión Pro (2 minutos)
+==========================================
+
+[ESCENA 1 — 0:00 a 0:15] Dashboard
+------------------------------------
+Texto en pantalla: "Tu cartera completa, en tiempo real"
+
+Narración:
+"Al entrar a AlquilaGestión Pro, tu panel muestra en tiempo real el estado de toda tu cartera.
+42 propiedades, $6.1 millones recaudados este mes, 3 inquilinos en mora.
+Y abajo, los contratos que necesitan ajuste esta semana — sin tener que buscar en ninguna hoja de cálculo."
+
+
+[ESCENA 2 — 0:15 a 0:30] Propiedades
+--------------------------------------
+Texto en pantalla: "Todo tu inventario, organizado"
+
+Narración:
+"En el módulo de propiedades, registrás cada unidad con su dirección, tipo, fotos y monto.
+El sistema te dice en un vistazo qué está alquilado, qué está disponible y cuándo vence cada contrato."
+
+
+[ESCENA 3 — 0:30 a 0:45] Contratos
+-------------------------------------
+Texto en pantalla: "Ajuste automático con datos del BCRA"
+
+Narración:
+"Cada contrato incluye ajuste automático por ICL, IPC o CER — los índices se toman directo del BCRA.
+El sistema calcula el nuevo monto, te avisa antes del vencimiento, y genera el PDF con firma digital.
+Sin fórmulas manuales, sin errores de cálculo."
+
+
+[ESCENA 4 — 0:45 a 1:00] Pagos
+---------------------------------
+Texto en pantalla: "Del vencimiento al recibo, en segundos"
+
+Narración:
+"Con un clic generás el link de pago MercadoPago para el inquilino.
+Al acreditarse, el sistema registra el cobro, actualiza el estado y genera el recibo descargable.
+Siempre sabés quién pagó, quién tiene deuda y cuánto se acumula."
+
+
+[ESCENA 5 — 1:00 a 1:15] Personas
+------------------------------------
+Texto en pantalla: "Propietarios, inquilinos y garantes, centralizados"
+
+Narración:
+"Todos los contactos de tus contratos en un solo directorio.
+Buscás por nombre, DNI o teléfono, ves sus contratos activos y su historial de pagos.
+Sin carpetas, sin papeles, sin llamadas para encontrar un dato."
+
+
+[ESCENA 6 — 1:15 a 1:30] Portal Público
+------------------------------------------
+Texto en pantalla: "Tu vidriera online propia"
+
+Narración:
+"Publicás tus propiedades disponibles en un portal con tu marca.
+Tu URL propia, tus fotos, tus precios.
+Los interesados ven las unidades disponibles y desde ahí completan la postulación online."
+
+
+[ESCENA 7 — 1:30 a 1:45] Postulación Digital
+-----------------------------------------------
+Texto en pantalla: "Postulaciones sin papeles ni traslados"
+
+Narración:
+"El interesado completa el formulario desde su celular: datos personales, ingresos, tipo de garantía.
+Adjunta recibo de sueldo, DNI y documentación del garante.
+Vos recibís todo ordenado en el panel y decidís al instante."
+
+
+[ESCENA 8 — 1:45 a 2:00] Integraciones + CTA
+-----------------------------------------------
+Texto en pantalla: "Todo conectado desde el día 1"
+
+Narración:
+"AFIP/ARCA para facturación, BCRA para los índices, MercadoPago para los cobros y firma digital con validez legal.
+Todo listo para usar, sin configuraciones complejas.
+Probá AlquilaGestión Pro 7 días gratis, sin tarjeta.
+Empezá ahora."
+
+
+==========================================
+FIN DEL GUION
+==========================================
+Duración total: 2:00 minutos
+Escenas: 8
+Duración por escena: 15 segundos

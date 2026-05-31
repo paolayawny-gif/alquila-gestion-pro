@@ -1,0 +1,135 @@
+{
+  "title": "AlquilaGestión Pro — Demo 2 min",
+  "total_duration_seconds": 120,
+  "scenes": [
+    {
+      "id": 1,
+      "key": "dashboard",
+      "title": "Panel central en tiempo real",
+      "subtitle": "Tu cartera, de un vistazo",
+      "start_time": "00:00",
+      "end_time": "00:15",
+      "duration_seconds": 15,
+      "module": "Dashboard",
+      "tags": ["Dashboard", "KPIs", "Alertas"],
+      "focus_elements": [
+        "KPI cards (propiedades, recaudación, mora)",
+        "Gráfico de ingresos vs egresos",
+        "Panel de alertas de ajustes"
+      ]
+    },
+    {
+      "id": 2,
+      "key": "propiedades",
+      "title": "Catálogo de propiedades",
+      "subtitle": "Todo tu inventario organizado",
+      "start_time": "00:15",
+      "end_time": "00:30",
+      "duration_seconds": 15,
+      "module": "Propiedades",
+      "tags": ["Propiedades", "Inventario", "Estado"],
+      "focus_elements": [
+        "Grid de tarjetas de propiedades",
+        "Badges de estado (alquilado/disponible)",
+        "Botón Nueva Propiedad"
+      ]
+    },
+    {
+      "id": 3,
+      "key": "contratos",
+      "title": "Contratos con ajuste automático",
+      "subtitle": "ICL, IPC y CER sin cálculos manuales",
+      "start_time": "00:30",
+      "end_time": "00:45",
+      "duration_seconds": 15,
+      "module": "Contratos",
+      "tags": ["Contratos", "Ajuste ICL/IPC/CER", "BCRA", "Firma digital"],
+      "focus_elements": [
+        "Tarjetas de contratos con badge de índice",
+        "Fecha de próximo ajuste automático",
+        "Botón descargar PDF / firma digital"
+      ]
+    },
+    {
+      "id": 4,
+      "key": "pagos",
+      "title": "Cobranzas con MercadoPago",
+      "subtitle": "Del vencimiento al recibo en segundos",
+      "start_time": "00:45",
+      "end_time": "01:00",
+      "duration_seconds": 15,
+      "module": "Pagos",
+      "tags": ["Pagos", "MercadoPago", "Recibos", "Mora"],
+      "focus_elements": [
+        "Tarjetas de pago con estado de color",
+        "Botón Generar Link MP",
+        "Descarga de recibo"
+      ]
+    },
+    {
+      "id": 5,
+      "key": "personas",
+      "title": "Directorio de personas",
+      "subtitle": "Propietarios, inquilinos y garantes",
+      "start_time": "01:00",
+      "end_time": "01:15",
+      "duration_seconds": 15,
+      "module": "Personas",
+      "tags": ["Propietarios", "Inquilinos", "Garantes"],
+      "focus_elements": [
+        "Listado de personas con rol y DNI",
+        "Búsqueda por nombre/DNI",
+        "Historial de contratos por persona"
+      ]
+    },
+    {
+      "id": 6,
+      "key": "portal",
+      "title": "Portal público de alquileres",
+      "subtitle": "Tu vidriera online propia",
+      "start_time": "01:15",
+      "end_time": "01:30",
+      "duration_seconds": 15,
+      "module": "Portal Público",
+      "tags": ["Portal público", "Publicación", "Branding"],
+      "focus_elements": [
+        "URL personalizada con marca propia",
+        "Listado de propiedades disponibles",
+        "Botón Me interesa → formulario"
+      ]
+    },
+    {
+      "id": 7,
+      "key": "postulacion",
+      "title": "Postulación 100% digital",
+      "subtitle": "Sin papeles, sin traslados",
+      "start_time": "01:30",
+      "end_time": "01:45",
+      "duration_seconds": 15,
+      "module": "Postulación",
+      "tags": ["Postulación digital", "Documentación", "Garantía"],
+      "focus_elements": [
+        "Formulario de datos personales e ingresos",
+        "Subida de documentación",
+        "Selector de tipo de garantía",
+        "Botón Enviar Postulación"
+      ]
+    },
+    {
+      "id": 8,
+      "key": "integraciones",
+      "title": "Integrado con todo lo que necesitás",
+      "subtitle": "AFIP, BCRA, MercadoPago, Firma Digital",
+      "start_time": "01:45",
+      "end_time": "02:00",
+      "duration_seconds": 15,
+      "module": "Integraciones",
+      "tags": ["AFIP/ARCA", "BCRA", "MercadoPago", "Firma digital"],
+      "focus_elements": [
+        "Cuadrícula de integraciones activas",
+        "CTA 7 días gratis",
+        "Botón Empezar ahora"
+      ]
+    }
+  ]
+}
