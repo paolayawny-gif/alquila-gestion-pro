@@ -102,9 +102,9 @@ function VisitsCalendarWidget({ userId, onNavigate }: { userId?: string; onNavig
             <Calendar className="h-5 w-5 text-primary" />
             Agenda de Visitas
           </CardTitle>
-          <Button variant="ghost" size="sm" className="text-xs text-primary font-bold h-auto p-0"
+          <Button variant="outline" size="sm" className="text-xs text-primary border-primary/25 hover:bg-primary/5 font-semibold h-7 px-2.5 gap-1"
             onClick={() => onNavigate('Visitas')}>
-            Ver todo →
+            Ver todo <ArrowRight className="h-3 w-3" />
           </Button>
         </div>
       </CardHeader>
@@ -445,7 +445,7 @@ export function SummaryView({
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
-        <Card className="border-none shadow-sm bg-white border-t-4 border-t-primary">
+        <Card className="border-none shadow-sm bg-card border-t-4 border-t-primary">
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-primary/10 p-2 rounded-lg text-primary">
@@ -461,23 +461,28 @@ export function SummaryView({
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white border-t-4 border-t-red-500">
+        <Card className={cn("border-none shadow-sm border-t-4 border-t-red-500", totalOverdue > 0 ? "bg-red-50/30" : "bg-card")}>
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-red-50 p-2 rounded-lg text-red-600">
                 <ShieldAlert className="h-5 w-5" />
               </div>
-              <Badge variant="outline" className="text-[10px] font-bold border-red-100 text-red-600">MOROSIDAD</Badge>
+              <Badge variant="outline" className={cn("text-[10px] font-bold", totalOverdue > 0 ? "border-red-300 bg-red-100 text-red-700" : "border-red-100 text-red-400")}>
+                {totalOverdue > 0 ? '⚠ MORA' : 'SIN MORA'}
+              </Badge>
             </div>
             <p className="text-[10px] uppercase font-black text-muted-foreground mb-1">Total en Riesgo</p>
-            <h3 className="text-2xl font-black text-red-600"><CountUp value={totalOverdue} format={(n) => formatCurrency(n)} delay={70} /></h3>
+            <h3 className={cn("text-2xl font-black", totalOverdue > 0 ? "text-red-600" : "text-green-600")}>
+              <CountUp value={totalOverdue} format={(n) => formatCurrency(n)} delay={70} />
+            </h3>
+            {totalOverdue === 0 && <p className="text-[10px] text-green-600 font-semibold mt-0.5">✓ Todos al día</p>}
             {totalOverdueUSD > 0 && (
               <p className="text-[10px] text-red-400 mt-0.5 font-bold">{formatCurrency(totalOverdueUSD, { currency: 'USD' })}</p>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white border-t-4 border-t-blue-500">
+        <Card className="border-none shadow-sm bg-card border-t-4 border-t-blue-500">
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-blue-50 p-2 rounded-lg text-blue-600">
@@ -490,7 +495,7 @@ export function SummaryView({
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white border-t-4 border-t-orange-500">
+        <Card className="border-none shadow-sm bg-card border-t-4 border-t-orange-500">
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-orange-50 p-2 rounded-lg text-orange-600">
@@ -507,7 +512,7 @@ export function SummaryView({
       {/* ── Fila de KPIs avanzados ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger-children">
         {/* Cobro en término */}
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-card">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Cobro en término</p>
             <div className="flex items-end gap-2">
@@ -524,7 +529,7 @@ export function SummaryView({
         </Card>
 
         {/* Tiempo promedio cierre tickets */}
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-card">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Tiempo cierre tickets</p>
             <div className="flex items-end gap-1">
@@ -541,7 +546,7 @@ export function SummaryView({
         </Card>
 
         {/* Score de riesgo */}
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-card">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Score de cartera</p>
             <div className="flex items-center gap-2">
@@ -557,7 +562,7 @@ export function SummaryView({
         </Card>
 
         {/* Contratos activos */}
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-card">
           <CardContent className="p-4">
             <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Contratos activos</p>
             <CountUp value={advancedKpis.activeContracts} delay={210} className="text-2xl font-black" />
@@ -658,8 +663,8 @@ export function SummaryView({
               )}
             </div>
             <div className="mt-3 flex justify-end">
-              <Button size="sm" variant="ghost" className="text-primary font-bold text-xs" onClick={() => onNavigate('Facturas')}>
-                Ver detalle de facturación <ArrowRight className="h-3 w-3 ml-1" />
+              <Button size="sm" variant="outline" className="text-primary border-primary/30 hover:bg-primary/5 font-bold text-xs gap-1.5" onClick={() => onNavigate('Facturas')}>
+                Ver detalle de facturación <ArrowRight className="h-3 w-3" />
               </Button>
             </div>
           </CardContent>
@@ -696,7 +701,7 @@ export function SummaryView({
                       <p className="text-[10px] text-muted-foreground line-clamp-1">{alert.description}</p>
                     </div>
                   </div>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-bold text-primary self-end" onClick={() => alert.linkTab && onNavigate(alert.linkTab)}>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/8 self-end rounded-md" onClick={() => alert.linkTab && onNavigate(alert.linkTab)}>
                     Gestionar →
                   </Button>
                 </div>
@@ -717,8 +722,8 @@ export function SummaryView({
                   <Activity className="h-5 w-5 text-primary" />
                   Actividad Reciente
                 </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs text-primary font-bold h-auto p-0" onClick={() => onNavigate('Reportes')}>
-                  Ver todo
+                <Button variant="outline" size="sm" className="text-xs text-primary border-primary/25 hover:bg-primary/5 font-semibold h-7 px-2.5 gap-1" onClick={() => onNavigate('Reportes')}>
+                  Ver todo <ArrowRight className="h-3 w-3" />
                 </Button>
               </div>
             </CardHeader>
@@ -746,17 +751,40 @@ export function SummaryView({
 
       {/* ── Proyección de ingresos 12 meses ── */}
       <Card className="shadow-sm border-none bg-card">
-        <CardHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Proyección de Ingresos
-            </CardTitle>
-            <CardDescription>Estimación de ingresos mensuales para los próximos 12 meses según contratos vigentes.</CardDescription>
+        <CardHeader className="border-b pb-4 mb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Proyección de Ingresos
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Estimación mensual para los próximos 12 meses según contratos vigentes.
+              </CardDescription>
+            </div>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              {(() => {
+                const activos = contracts.filter(c => c.status === 'Vigente').length;
+                const porVencer = contracts.filter(c => c.status === 'Próximo a Vencer').length;
+                return (
+                  <>
+                    {activos > 0 && (
+                      <Badge variant="outline" className="text-[10px] font-bold border-green-200 bg-green-50 text-green-700 gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
+                        {activos} vigente{activos !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                    {porVencer > 0 && (
+                      <Badge variant="outline" className="text-[10px] font-bold border-amber-200 bg-amber-50 text-amber-700 gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 inline-block" />
+                        {porVencer} por vencer
+                      </Badge>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           </div>
-          <Badge className="bg-blue-100 text-blue-700 font-bold px-3">
-            {contracts.filter(c => c.status === 'Vigente' || c.status === 'Próximo a Vencer').length} contratos activos
-          </Badge>
         </CardHeader>
         <CardContent>
           <div className="h-[260px] w-full">
