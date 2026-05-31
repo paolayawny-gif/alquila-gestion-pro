@@ -662,6 +662,45 @@ export default function AppClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties.length, contracts.length, invoices.length, tasks.length, db, user?.uid]);
 
+  // ── Command palette items (useMemo MUST be declared before any early returns) ──
+  const cmdItems = useMemo<CommandItem[]>(() => [
+    ...ADMIN_MENU.map(item => ({
+      id: `nav-${item.id}`,
+      label: item.label,
+      category: 'nav' as const,
+      onSelect: () => setActiveTab(item.id as Tab),
+    })),
+    ...(isSuperAdmin ? [{
+      id: 'nav-superadmin',
+      label: 'Super Admin',
+      category: 'nav' as const,
+      onSelect: () => setActiveTab('Super Admin' as Tab),
+    }] : []),
+    ...properties.map(p => ({
+      id: `prop-${p.id}`,
+      label: p.name ?? p.address ?? '—',
+      sublabel: p.address ?? '',
+      category: 'property' as const,
+      onSelect: () => setActiveTab('Propiedades'),
+    })),
+    ...people.map((p: any) => ({
+      id: `tenant-${p.id}`,
+      label: p.fullName ?? '—',
+      sublabel: p.email ?? '',
+      category: 'tenant' as const,
+      onSelect: () => setActiveTab('Personas'),
+    })),
+    ...contracts.map(c => ({
+      id: `contract-${c.id}`,
+      label: `${c.tenantName ?? '—'} — ${c.propertyName ?? '—'}`,
+      sublabel: c.status,
+      category: 'contract' as const,
+      onSelect: () => setActiveTab('Personas'),
+    })),
+  // setActiveTab is a stable state setter, no need to include
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [isSuperAdmin, properties, people, contracts]);
+
   if (!isMounted || isUserLoading) return null;
   // Not authenticated → render nothing while the guard effect redirects to /login.
   if (!user) return null;
@@ -840,44 +879,6 @@ export default function AppClient() {
   };
 
   const menuItems = activeRole === 'Administrador' ? ADMIN_MENU : [{ id: 'Mi Portal', icon: User, label: 'Mi Portal' }];
-
-  const cmdItems = useMemo<CommandItem[]>(() => [
-    ...ADMIN_MENU.map(item => ({
-      id: `nav-${item.id}`,
-      label: item.label,
-      category: 'nav' as const,
-      onSelect: () => setActiveTab(item.id as Tab),
-    })),
-    ...(isSuperAdmin ? [{
-      id: 'nav-superadmin',
-      label: 'Super Admin',
-      category: 'nav' as const,
-      onSelect: () => setActiveTab('Super Admin' as Tab),
-    }] : []),
-    ...properties.map(p => ({
-      id: `prop-${p.id}`,
-      label: p.name ?? p.address ?? '—',
-      sublabel: p.address ?? '',
-      category: 'property' as const,
-      onSelect: () => setActiveTab('Propiedades'),
-    })),
-    ...people.map((p: any) => ({
-      id: `tenant-${p.id}`,
-      label: p.fullName ?? '—',
-      sublabel: p.email ?? '',
-      category: 'tenant' as const,
-      onSelect: () => setActiveTab('Personas'),
-    })),
-    ...contracts.map(c => ({
-      id: `contract-${c.id}`,
-      label: `${c.tenantName ?? '—'} — ${c.propertyName ?? '—'}`,
-      sublabel: c.status,
-      category: 'contract' as const,
-      onSelect: () => setActiveTab('Personas'),
-    })),
-  // setActiveTab is a stable state setter, no need to include
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [isSuperAdmin, properties, people, contracts]);
 
   return (
     <BiometricGate userEmail={user?.email}>
