@@ -13,7 +13,7 @@ export function GET(request: NextRequest) {
         style={{
           width: size,
           height: size,
-          backgroundColor: '#1D9E75',
+          backgroundColor: '#0369A1',
           borderRadius: r,
           display: 'flex',
           alignItems: 'center',
@@ -41,13 +41,13 @@ export function GET(request: NextRequest) {
           <rect x="23" y="13" width="5" height="17" rx="1.5" fill="white" />
           <polyline
             points="8,22 15.5,16 23,12 31,7"
-            stroke="#9FE1CB"
+            stroke="#7DD3FC"
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
           />
-          <circle cx="15.5" cy="16" r="2.2" fill="#9FE1CB" />
-          <circle cx="23" cy="12" r="2.2" fill="#9FE1CB" />
+          <circle cx="15.5" cy="16" r="2.2" fill="#7DD3FC" />
+          <circle cx="23" cy="12" r="2.2" fill="#7DD3FC" />
         </svg>
       </div>
     ),

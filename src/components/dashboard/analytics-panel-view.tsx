@@ -47,7 +47,7 @@ interface AnalyticsPanelProps {
   userId?: string;
 }
 
-const ACCENT = '#1D9E75';
+const ACCENT = '#0369A1';
 const COLORS = [ACCENT, '#f97316', '#8b5cf6', '#3b82f6', '#ef4444', '#eab308'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
