@@ -37,7 +37,7 @@ function PortalCard({ prop, adminName, index }: { prop: PortalProperty; adminNam
       className="group flex flex-col overflow-hidden rounded-[20px] bg-white ring-1 ring-[#E4DECB] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-22px_rgba(12,58,42,0.4)] animate-[portalRise_0.6s_cubic-bezier(0.22,1,0.36,1)_both]"
     >
       {/* Foto */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-[#0C3A2A]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-[#023d6b]">
         {cover ? (
           <img
             src={cover}
@@ -45,23 +45,23 @@ function PortalCard({ prop, adminName, index }: { prop: PortalProperty; adminNam
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0C3A2A] to-[#15543d]">
-            <Building2 size={44} className="text-[#2BBE8E]/40" strokeWidth={1.5} />
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#023d6b] to-[#034f7a]">
+            <Building2 size={44} className="text-[#38bdf8]/40" strokeWidth={1.5} />
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
 
-        <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0C3A2A] backdrop-blur">
+        <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#023d6b] backdrop-blur">
           {prop.type}
         </span>
 
         {price ? (
-          <span className="absolute bottom-3 left-3 rounded-full bg-white px-3.5 py-1.5 text-sm font-extrabold tabular-nums text-[#0C3A2A] shadow-lg">
+          <span className="absolute bottom-3 left-3 rounded-full bg-white px-3.5 py-1.5 text-sm font-extrabold tabular-nums text-[#023d6b] shadow-lg">
             {price}
-            <span className="ml-0.5 text-[11px] font-medium text-[#5C6B62]">/mes</span>
+            <span className="ml-0.5 text-[11px] font-medium text-[#4b6584]">/mes</span>
           </span>
         ) : (
-          <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-[#5C6B62]">
+          <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-[#4b6584]">
             Precio a consultar
           </span>
         )}
@@ -70,11 +70,11 @@ function PortalCard({ prop, adminName, index }: { prop: PortalProperty; adminNam
       {/* Info */}
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div>
-          <h3 className={`${DISPLAY} text-[19px] font-semibold leading-snug text-[#14201A] transition-colors group-hover:text-[#1D9E75]`}>
+          <h3 className={`${DISPLAY} text-[19px] font-semibold leading-snug text-[#0d1f3c] transition-colors group-hover:text-[#0369A1]`}>
             {prop.name}
           </h3>
-          <p className="mt-1 flex items-center gap-1.5 text-[13px] text-[#5C6B62]">
-            <MapPin size={13} className="shrink-0 text-[#1D9E75]" />
+          <p className="mt-1 flex items-center gap-1.5 text-[13px] text-[#4b6584]">
+            <MapPin size={13} className="shrink-0 text-[#0369A1]" />
             <span className="truncate">{prop.address}</span>
           </p>
         </div>
@@ -82,22 +82,22 @@ function PortalCard({ prop, adminName, index }: { prop: PortalProperty; adminNam
         <div className="mt-auto flex items-center gap-4 border-t border-[#EFEBDD] pt-3 text-[13px] text-[#3D4A43]">
           {prop.squareMeters ? (
             <span className="flex items-center gap-1.5">
-              <Maximize2 size={14} className="text-[#9AA69E]" />
+              <Maximize2 size={14} className="text-[#94a3b8]" />
               {prop.squareMeters} m²
             </span>
           ) : null}
           {prop.rooms ? (
             <span className="flex items-center gap-1.5">
-              <BedDouble size={14} className="text-[#9AA69E]" />
+              <BedDouble size={14} className="text-[#94a3b8]" />
               {prop.rooms} amb.
             </span>
           ) : null}
-          <span className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-[#1D9E75] opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-[#0369A1] opacity-0 transition-opacity group-hover:opacity-100">
             Ver <ArrowUpRight size={14} />
           </span>
         </div>
 
-        <p className="text-[11px] uppercase tracking-[0.1em] text-[#9AA69E]">
+        <p className="text-[11px] uppercase tracking-[0.1em] text-[#94a3b8]">
           Publicado por {adminName}
         </p>
       </div>
@@ -137,14 +137,14 @@ export function PortalPage({ properties, admins }: Props) {
   };
 
   const inputCls =
-    'rounded-xl border border-[#E4DECB] bg-[#FBFAF4] px-3 py-2.5 text-sm text-[#14201A] outline-none transition-colors placeholder:text-[#9AA69E] focus:border-[#1D9E75] focus:bg-white focus:ring-2 focus:ring-[#1D9E75]/15';
+    'rounded-xl border border-[#E4DECB] bg-[#FBFAF4] px-3 py-2.5 text-sm text-[#0d1f3c] outline-none transition-colors placeholder:text-[#94a3b8] focus:border-[#0369A1] focus:bg-white focus:ring-2 focus:ring-[#0369A1]/15';
 
   return (
     <div
-      className="portal-scope min-h-screen bg-[#F4F1E8] font-[family-name:var(--font-portal-body)] text-[#14201A] antialiased"
+      className="portal-scope min-h-screen bg-[#F4F1E8] font-[family-name:var(--font-portal-body)] text-[#0d1f3c] antialiased"
     >
       {/* ───────── Hero ───────── */}
-      <header className="relative overflow-hidden bg-[#0C3A2A] text-white">
+      <header className="relative overflow-hidden bg-[#023d6b] text-white">
         {/* Resplandor */}
         <div
           className="pointer-events-none absolute -right-32 -top-40 h-[460px] w-[460px] rounded-full animate-[portalGlow_7s_ease-in-out_infinite]"
@@ -164,11 +164,11 @@ export function PortalPage({ properties, admins }: Props) {
           {/* Nav */}
           <nav className="flex items-center justify-between py-6">
             <Link href="/portal" className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1D9E75] shadow-lg shadow-[#1D9E75]/30">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0369A1] shadow-lg shadow-[#0369A1]/30">
                 <Building2 size={18} className="text-white" strokeWidth={2.2} />
               </span>
               <span className={`${DISPLAY} text-lg font-semibold tracking-tight`}>
-                AlquilaGestión <span className="text-[#2BBE8E]">Pro</span>
+                AlquilaGestión <span className="text-[#38bdf8]">Pro</span>
               </span>
             </Link>
             <Link
@@ -182,9 +182,9 @@ export function PortalPage({ properties, admins }: Props) {
           {/* Headline */}
           <div className="pb-14 pt-10 sm:pt-16">
             <p
-              className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.28em] text-[#2BBE8E] animate-[portalFade_0.8s_ease-out_both]"
+              className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.28em] text-[#38bdf8] animate-[portalFade_0.8s_ease-out_both]"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[#2BBE8E]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#38bdf8]" />
               Portal inmobiliario
             </p>
             <h1
@@ -192,7 +192,7 @@ export function PortalPage({ properties, admins }: Props) {
             >
               Encontrá el lugar
               <br />
-              donde <span className="italic text-[#2BBE8E]">querés vivir</span>.
+              donde <span className="italic text-[#38bdf8]">querés vivir</span>.
             </h1>
             <p
               className="mt-6 max-w-xl text-[15px] leading-relaxed text-white/65 animate-[portalRise_0.7s_cubic-bezier(0.22,1,0.36,1)_0.1s_both]"
@@ -205,15 +205,15 @@ export function PortalPage({ properties, admins }: Props) {
             <div
               className="mt-9 flex max-w-xl items-center gap-2 rounded-2xl bg-white p-2 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)] animate-[portalRise_0.7s_cubic-bezier(0.22,1,0.36,1)_0.2s_both]"
             >
-              <Search size={20} className="ml-3 shrink-0 text-[#9AA69E]" />
+              <Search size={20} className="ml-3 shrink-0 text-[#94a3b8]" />
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscá por barrio, ciudad o dirección…"
-                className="flex-1 bg-transparent py-2.5 text-[15px] text-[#14201A] outline-none placeholder:text-[#9AA69E]"
+                className="flex-1 bg-transparent py-2.5 text-[15px] text-[#0d1f3c] outline-none placeholder:text-[#94a3b8]"
               />
-              <span className="hidden rounded-xl bg-[#1D9E75] px-5 py-2.5 text-sm font-bold text-white sm:block">
+              <span className="hidden rounded-xl bg-[#0369A1] px-5 py-2.5 text-sm font-bold text-white sm:block">
                 Buscar
               </span>
             </div>
@@ -222,7 +222,7 @@ export function PortalPage({ properties, admins }: Props) {
             <p
               className="mt-6 flex items-center gap-2 text-[13px] text-white/55 animate-[portalFade_1s_ease-out_0.4s_both]"
             >
-              <ShieldCheck size={15} className="text-[#2BBE8E]" />
+              <ShieldCheck size={15} className="text-[#38bdf8]" />
               <strong className="font-semibold text-white/85">{properties.length}</strong>
               propiedad{properties.length !== 1 ? 'es' : ''} activa{properties.length !== 1 ? 's' : ''}
               <span className="text-white/30">·</span>
@@ -236,7 +236,7 @@ export function PortalPage({ properties, admins }: Props) {
       <div className="relative z-10 mx-auto -mt-9 max-w-6xl px-5">
         <div className="rounded-[22px] bg-white p-4 shadow-[0_18px_44px_-26px_rgba(12,58,42,0.5)] ring-1 ring-[#E4DECB]">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.14em] text-[#9AA69E]">
+            <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.14em] text-[#94a3b8]">
               <SlidersHorizontal size={14} /> Filtrar
             </span>
 
@@ -246,7 +246,7 @@ export function PortalPage({ properties, admins }: Props) {
                 <button
                   onClick={() => setFilterType('')}
                   className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
-                    !filterType ? 'bg-[#0C3A2A] text-white' : 'bg-[#F4F1E8] text-[#5C6B62] hover:bg-[#E9E4D4]'
+                    !filterType ? 'bg-[#023d6b] text-white' : 'bg-[#F4F1E8] text-[#4b6584] hover:bg-[#E9E4D4]'
                   }`}
                 >
                   Todos
@@ -256,7 +256,7 @@ export function PortalPage({ properties, admins }: Props) {
                     key={t}
                     onClick={() => setFilterType(filterType === t ? '' : t)}
                     className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
-                      filterType === t ? 'bg-[#0C3A2A] text-white' : 'bg-[#F4F1E8] text-[#5C6B62] hover:bg-[#E9E4D4]'
+                      filterType === t ? 'bg-[#023d6b] text-white' : 'bg-[#F4F1E8] text-[#4b6584] hover:bg-[#E9E4D4]'
                     }`}
                   >
                     {t}
@@ -297,17 +297,17 @@ export function PortalPage({ properties, admins }: Props) {
       <main className="mx-auto max-w-6xl px-5 pb-24 pt-10">
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <h2 className={`${DISPLAY} text-2xl font-semibold text-[#14201A]`}>
+            <h2 className={`${DISPLAY} text-2xl font-semibold text-[#0d1f3c]`}>
               {hasFilters ? 'Resultados de tu búsqueda' : 'Propiedades destacadas'}
             </h2>
-            <p className="mt-0.5 text-[13px] text-[#5C6B62]">
+            <p className="mt-0.5 text-[13px] text-[#4b6584]">
               {filtered.length} propiedad{filtered.length !== 1 ? 'es' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
             </p>
           </div>
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1.5 text-[13px] font-semibold text-[#5C6B62] transition-colors hover:text-[#1D9E75]"
+              className="flex items-center gap-1.5 text-[13px] font-semibold text-[#4b6584] transition-colors hover:text-[#0369A1]"
             >
               <X size={14} /> Limpiar filtros
             </button>
@@ -316,13 +316,13 @@ export function PortalPage({ properties, admins }: Props) {
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center rounded-[24px] border border-dashed border-[#D8D1BC] bg-white/60 py-24 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0C3A2A]/5">
-              <Building2 size={30} className="text-[#0C3A2A]/30" strokeWidth={1.5} />
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#023d6b]/5">
+              <Building2 size={30} className="text-[#023d6b]/30" strokeWidth={1.5} />
             </div>
-            <p className={`${DISPLAY} mt-5 text-xl font-semibold text-[#14201A]`}>
+            <p className={`${DISPLAY} mt-5 text-xl font-semibold text-[#0d1f3c]`}>
               No encontramos propiedades
             </p>
-            <p className="mt-1 max-w-sm text-[14px] text-[#5C6B62]">
+            <p className="mt-1 max-w-sm text-[14px] text-[#4b6584]">
               {hasFilters
                 ? 'Probá ajustar los filtros o ampliar tu búsqueda.'
                 : 'Todavía no hay publicaciones activas. Volvé pronto.'}
@@ -330,7 +330,7 @@ export function PortalPage({ properties, admins }: Props) {
             {hasFilters && (
               <button
                 onClick={clearFilters}
-                className="mt-6 rounded-full bg-[#1D9E75] px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                className="mt-6 rounded-full bg-[#0369A1] px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
               >
                 Limpiar filtros
               </button>
@@ -352,14 +352,14 @@ export function PortalPage({ properties, admins }: Props) {
 
       {/* ───────── CTA administradores ───────── */}
       <section className="mx-auto max-w-6xl px-5 pb-20">
-        <div className="relative overflow-hidden rounded-[28px] bg-[#0C3A2A] px-8 py-12 sm:px-14">
+        <div className="relative overflow-hidden rounded-[28px] bg-[#023d6b] px-8 py-12 sm:px-14">
           <div
             className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full"
             style={{ background: 'radial-gradient(circle, rgba(43,190,142,0.4) 0%, rgba(43,190,142,0) 70%)' }}
           />
           <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.24em] text-[#2BBE8E]">
+              <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.24em] text-[#38bdf8]">
                 Para inmobiliarias
               </p>
               <h3 className={`${DISPLAY} max-w-md text-[28px] font-semibold leading-tight text-white`}>
@@ -371,7 +371,7 @@ export function PortalPage({ properties, admins }: Props) {
             </div>
             <Link
               href="/login"
-              className="group flex shrink-0 items-center gap-2 rounded-full bg-[#1D9E75] px-6 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#2BBE8E]"
+              className="group flex shrink-0 items-center gap-2 rounded-full bg-[#0369A1] px-6 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#38bdf8]"
             >
               Ingresá a la app
               <ArrowUpRight size={17} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -384,14 +384,14 @@ export function PortalPage({ properties, admins }: Props) {
       <footer className="border-t border-[#E4DECB] bg-[#F4F1E8]">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-5 py-10 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0C3A2A]">
-              <Building2 size={15} className="text-[#2BBE8E]" strokeWidth={2.2} />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#023d6b]">
+              <Building2 size={15} className="text-[#38bdf8]" strokeWidth={2.2} />
             </span>
-            <span className={`${DISPLAY} text-[15px] font-semibold text-[#14201A]`}>
+            <span className={`${DISPLAY} text-[15px] font-semibold text-[#0d1f3c]`}>
               AlquilaGestión Pro
             </span>
           </div>
-          <p className="text-[12px] text-[#9AA69E]">
+          <p className="text-[12px] text-[#94a3b8]">
             Portal inmobiliario · {new Date().getFullYear()} · Hecho en Argentina
           </p>
         </div>

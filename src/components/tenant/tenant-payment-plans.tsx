@@ -186,7 +186,7 @@ export function TenantPaymentPlans({ tenantEntry }: TenantPaymentPlansProps) {
                       {plan.status === 'pendiente' && (
                         <div className="flex gap-2">
                           <Button
-                            className="flex-1 font-bold bg-green-600 hover:bg-green-700"
+                            className="flex-1 font-bold bg-[#0369A1] hover:bg-[#0259a0]"
                             onClick={() => setConfirmPlan({ plan, newStatus: 'aceptado' })}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-1.5" /> Aceptar
@@ -231,7 +231,7 @@ export function TenantPaymentPlans({ tenantEntry }: TenantPaymentPlansProps) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmPlan(null)}>Cancelar</Button>
             <Button
-              className={cn('font-bold px-8', confirmPlan?.newStatus === 'aceptado' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700')}
+              className={cn('font-bold px-8', confirmPlan?.newStatus === 'aceptado' ? 'bg-[#0369A1] hover:bg-[#0259a0]' : 'bg-red-600 hover:bg-red-700')}
               onClick={handleRespond}
             >
               Confirmar
