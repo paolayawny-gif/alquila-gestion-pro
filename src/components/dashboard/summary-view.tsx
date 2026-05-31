@@ -95,7 +95,7 @@ function VisitsCalendarWidget({ userId, onNavigate }: { userId?: string; onNavig
   [visits, today]);
 
   return (
-    <Card className="shadow-sm border-none bg-white">
+    <Card className="shadow-sm border-none bg-card">
       <CardHeader className="border-b pb-3 mb-0">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -573,7 +573,7 @@ export function SummaryView({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card className="lg:col-span-8 shadow-sm border-none bg-white">
+        <Card className="lg:col-span-8 shadow-sm border-none bg-card">
           <CardHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -606,30 +606,58 @@ export function SummaryView({
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-6 p-4 bg-primary/5 rounded-2xl flex items-center justify-between flex-wrap gap-3">
-              <div className="flex gap-4 flex-wrap">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-muted-foreground uppercase">Ya Cobrado</span>
-                  <span className="text-lg font-black text-primary">{formatCurrency(totalCollected)}</span>
-                  {totalCollectedUSD > 0 && <span className="text-[10px] font-bold text-primary/70">{formatCurrency(totalCollectedUSD, { currency: 'USD' })}</span>}
+            {/* ── KPI strip — 3 cards individuales ── */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Ya Cobrado */}
+              <div className="relative rounded-xl border border-border/60 bg-card p-4 overflow-hidden hover:shadow-md transition-shadow">
+                <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl bg-gradient-to-r from-[#0369A1] to-[#38bdf8]" />
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Ya Cobrado</span>
+                <div className="mt-1">
+                  <span className="text-xl font-black text-primary">{formatCurrency(totalCollected)}</span>
+                  {totalCollectedUSD > 0 && <span className="block text-[10px] font-bold text-primary/60 mt-0.5">{formatCurrency(totalCollectedUSD, { currency: 'USD' })}</span>}
                 </div>
-                <Separator orientation="vertical" className="h-10 mx-2" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-muted-foreground uppercase">Restante Mes</span>
-                  <span className="text-lg font-black text-foreground">{formatCurrency(totalProjected - totalCollected)}</span>
-                  {totalProjectedUSD > 0 && <span className="text-[10px] font-bold text-muted-foreground">{formatCurrency(totalProjectedUSD - totalCollectedUSD, { currency: 'USD' })}</span>}
-                </div>
-                {bcraRate && (
-                  <>
-                    <Separator orientation="vertical" className="h-10 mx-2" />
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-muted-foreground uppercase">USD Oficial BCRA</span>
-                      <span className="text-lg font-black text-foreground">{formatCurrency(bcraRate.venta)}</span>
-                      <span className="text-[9px] text-muted-foreground">compra {formatCurrency(bcraRate.compra)} · {bcraRate.fecha}</span>
-                    </div>
-                  </>
-                )}
               </div>
+
+              {/* Restante Mes */}
+              <div className="relative rounded-xl border border-border/60 bg-card p-4 overflow-hidden hover:shadow-md transition-shadow">
+                <div className={cn(
+                  "absolute top-0 left-0 right-0 h-[3px] rounded-t-xl",
+                  (totalProjected - totalCollected) > 0
+                    ? "bg-gradient-to-r from-amber-500 to-amber-300"
+                    : "bg-gradient-to-r from-emerald-500 to-emerald-300"
+                )} />
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Restante Mes</span>
+                <div className="mt-1">
+                  <span className={cn(
+                    "text-xl font-black",
+                    (totalProjected - totalCollected) > 0 ? "text-amber-600" : "text-emerald-600"
+                  )}>
+                    {formatCurrency(totalProjected - totalCollected)}
+                  </span>
+                  {totalProjectedUSD > 0 && <span className="block text-[10px] font-bold text-muted-foreground mt-0.5">{formatCurrency(totalProjectedUSD - totalCollectedUSD, { currency: 'USD' })}</span>}
+                  {(totalProjected - totalCollected) === 0 && (
+                    <span className="block text-[10px] text-emerald-600 font-semibold mt-0.5">✓ Todo cobrado</span>
+                  )}
+                </div>
+              </div>
+
+              {/* USD Oficial BCRA */}
+              {bcraRate ? (
+                <div className="relative rounded-xl border border-border/60 bg-card p-4 overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl bg-gradient-to-r from-violet-500 to-violet-300" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">USD Oficial BCRA</span>
+                  <div className="mt-1">
+                    <span className="text-xl font-black text-violet-600">{formatCurrency(bcraRate.venta)}</span>
+                    <span className="block text-[9px] text-muted-foreground mt-0.5">compra {formatCurrency(bcraRate.compra)} · {bcraRate.fecha}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative rounded-xl border border-dashed border-border/40 bg-card/50 p-4 flex items-center justify-center">
+                  <span className="text-[10px] text-muted-foreground">USD sin datos</span>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 flex justify-end">
               <Button size="sm" variant="ghost" className="text-primary font-bold text-xs" onClick={() => onNavigate('Facturas')}>
                 Ver detalle de facturación <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
@@ -638,7 +666,7 @@ export function SummaryView({
         </Card>
 
         <div className="lg:col-span-4 space-y-4">
-          <Card className="shadow-sm border-none bg-white">
+          <Card className="shadow-sm border-none bg-card">
             <CardHeader className="border-b pb-3 mb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <BellRing className="h-5 w-5 text-primary" />
@@ -682,7 +710,7 @@ export function SummaryView({
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-none bg-white">
+          <Card className="shadow-sm border-none bg-card">
             <CardHeader className="border-b pb-3 mb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -717,7 +745,7 @@ export function SummaryView({
       </div>
 
       {/* ── Proyección de ingresos 12 meses ── */}
-      <Card className="shadow-sm border-none bg-white">
+      <Card className="shadow-sm border-none bg-card">
         <CardHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -733,11 +761,16 @@ export function SummaryView({
         <CardContent>
           <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={projectionData}>
+              <AreaChart data={projectionData}>
                 <defs>
-                  <linearGradient id="projGrad" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="projLineGrad" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#0369A1" />
                     <stop offset="100%" stopColor="#7DD3FC" />
+                  </linearGradient>
+                  <linearGradient id="projAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0369A1" stopOpacity={0.18} />
+                    <stop offset="85%" stopColor="#0369A1" stopOpacity={0.02} />
+                    <stop offset="100%" stopColor="#0369A1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -748,16 +781,18 @@ export function SummaryView({
                   formatter={(v: any) => [`$ ${Number(v).toLocaleString('es-AR')}`, 'Ingreso proyectado']}
                 />
                 <ReferenceLine y={projectionData[0]?.ingreso ?? 0} stroke="#e2e8f0" strokeDasharray="4 4" />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="ingreso"
-                  stroke="url(#projGrad)"
-                  strokeWidth={3}
+                  stroke="url(#projLineGrad)"
+                  strokeWidth={2.5}
+                  fill="url(#projAreaGrad)"
+                  fillOpacity={1}
                   dot={{ r: 3, fill: '#0369A1', strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
+                  activeDot={{ r: 5, fill: '#0369A1', stroke: '#7DD3FC', strokeWidth: 2 }}
                   name="Ingreso proyectado"
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
           <p className="text-[10px] text-muted-foreground mt-2 text-center">

@@ -890,7 +890,7 @@ export default function AppClient() {
         "bg-card border-r flex flex-col transition-all duration-300 z-40 shrink-0",
         "fixed inset-y-0 left-0 md:static md:z-20",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-        isSidebarCollapsed ? "md:w-20 w-64" : "w-64",
+        isSidebarCollapsed ? "md:w-20 w-72" : "w-72",
       )}>
         {/* Logo */}
         <div className="px-4 h-16 flex items-center border-b">
@@ -946,7 +946,7 @@ export default function AppClient() {
                         </span>
                       )}
                       {!isSidebarCollapsed && item.id === 'Solicitudes' && newApplicationsCount > 0 && (
-                        <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-bold px-1">
+                        <span className="ml-auto shrink-0 min-w-[1.25rem] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
                           {newApplicationsCount}
                         </span>
                       )}
