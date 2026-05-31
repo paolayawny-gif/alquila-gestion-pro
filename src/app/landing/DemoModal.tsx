@@ -877,21 +877,32 @@ export function DemoModal({ open, onClose }: DemoModalProps) {
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [progress, setProgress] = useState(0);
+  const progressRef = useRef(0);
   const tts = useTTS();
 
+  // goTo: reset progress ref + state, jump to scene
   const goTo = useCallback((idx: number) => {
-    setCurrent(idx);
+    progressRef.current = 0;
     setProgress(0);
+    setCurrent(idx);
   }, []);
 
+  // next/prev: functional setCurrent so no stale closure on `current`
   const next = useCallback(() => {
-    if (current < SCENES.length - 1) goTo(current + 1);
-    else setPlaying(false);
-  }, [current, goTo]);
+    progressRef.current = 0;
+    setProgress(0);
+    setCurrent(c => {
+      if (c < SCENES.length - 1) return c + 1;
+      setPlaying(false);
+      return c;
+    });
+  }, []);
 
   const prev = useCallback(() => {
-    if (current > 0) goTo(current - 1);
-  }, [current, goTo]);
+    progressRef.current = 0;
+    setProgress(0);
+    setCurrent(c => Math.max(0, c - 1));
+  }, []);
 
   // Speak on scene change when TTS enabled
   useEffect(() => {
@@ -900,18 +911,30 @@ export function DemoModal({ open, onClose }: DemoModalProps) {
     }
   }, [current, tts.enabled, open]);
 
-  // Auto-advance
+  // Auto-advance — uses progressRef to avoid stale closure, never calls
+  // state setters inside another state updater.
   useEffect(() => {
     if (!open || !playing) return;
+    const TICK = 50;
+    const INCREMENT = 100 / (SCENE_DURATION * (1000 / TICK));
+
     const id = setInterval(() => {
-      setProgress(p => {
-        const next_p = p + (100 / (SCENE_DURATION * 20));
-        if (next_p >= 100) { next(); return 0; }
-        return next_p;
-      });
-    }, 50);
+      progressRef.current += INCREMENT;
+      if (progressRef.current >= 100) {
+        progressRef.current = 0;
+        setProgress(0);
+        setCurrent(c => {
+          if (c < SCENES.length - 1) return c + 1;
+          setPlaying(false);
+          return c;
+        });
+      } else {
+        setProgress(progressRef.current);
+      }
+    }, TICK);
+
     return () => clearInterval(id);
-  }, [open, playing, next]);
+  }, [open, playing]); // no depende de `next` ni de `current`
 
   // Keyboard
   useEffect(() => {
