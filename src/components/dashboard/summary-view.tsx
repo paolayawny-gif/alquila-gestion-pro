@@ -736,8 +736,8 @@ export function SummaryView({
               <LineChart data={projectionData}>
                 <defs>
                   <linearGradient id="projGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#1D9E75" />
-                    <stop offset="100%" stopColor="#3b82f6" />
+                    <stop offset="0%" stopColor="#0369A1" />
+                    <stop offset="100%" stopColor="#7DD3FC" />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -753,7 +753,7 @@ export function SummaryView({
                   dataKey="ingreso"
                   stroke="url(#projGrad)"
                   strokeWidth={3}
-                  dot={{ r: 3, fill: '#1D9E75', strokeWidth: 0 }}
+                  dot={{ r: 3, fill: '#0369A1', strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
                   name="Ingreso proyectado"
                 />

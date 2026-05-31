@@ -109,7 +109,7 @@ function BarChart({ data }: { data: ReturnType<typeof getMonthlyData> }) {
               width={barW}
               height={hHybrid}
               rx={3}
-              fill={isCurrent ? '#1D9E75' : '#6ee7b7'}
+              fill={isCurrent ? '#0369A1' : '#7DD3FC'}
             />
             {/* Label mes */}
             <text

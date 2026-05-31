@@ -53,14 +53,14 @@ function fmtARS(n: number) {
 function AppLogo({ size = 48 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="36" height="36" rx="9" fill="#1D9E75"/>
+      <rect width="36" height="36" rx="9" fill="#0369A1"/>
       <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
       <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
       <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
       <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
-      <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
-      <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
+      <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#7DD3FC" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="16" cy="17" r="2" fill="#7DD3FC"/>
+      <circle cx="23" cy="13" r="2" fill="#7DD3FC"/>
     </svg>
   );
 }
@@ -74,11 +74,11 @@ function AppWordmark({ dark = false }: { dark?: boolean }) {
         dark ? 'text-muted-foreground' : 'text-white/60',
       )}>ALQUILA</span>
       <div className="flex items-baseline gap-0">
-        <span className={cn('text-[22px] font-semibold leading-none', dark ? 'text-[#1D9E75]' : 'text-white')}>Gestión</span>
+        <span className={cn('text-[22px] font-semibold leading-none', dark ? 'text-[#0369A1]' : 'text-white')}>Gestión</span>
         <span className={cn('text-[22px] font-semibold leading-none', dark ? 'text-foreground' : 'text-white/80')}>Pro</span>
       </div>
       <div className="flex mt-1 gap-[3px]">
-        <div className={cn('h-[2.5px] w-[56px] rounded-full', dark ? 'bg-[#1D9E75]' : 'bg-white/60')}/>
+        <div className={cn('h-[2.5px] w-[56px] rounded-full', dark ? 'bg-[#0369A1]' : 'bg-white/60')}/>
         <div className={cn('h-[2.5px] w-[22px] rounded-full', dark ? 'bg-border' : 'bg-white/30')}/>
       </div>
     </div>
@@ -237,8 +237,8 @@ function LoginPageInner() {
 
   if (isUserLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#0d1f17]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1D9E75]" />
+      <div className="h-screen w-full flex items-center justify-center bg-[#071a2e]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0369A1]" />
       </div>
     );
   }
@@ -251,7 +251,7 @@ function LoginPageInner() {
 
       {/* ── Panel izquierdo — branding ───────────────────────────────────── */}
       <div
-        className="relative lg:w-[58%] flex flex-col justify-between p-10 lg:p-14 bg-[#0d1f17] overflow-hidden"
+        className="relative lg:w-[58%] flex flex-col justify-between p-10 lg:p-14 bg-[#071a2e] overflow-hidden"
         style={{ minHeight: '280px' }}
       >
         {/* Foto arquitectónica con opacidad baja */}
@@ -268,10 +268,10 @@ function LoginPageInner() {
           className="absolute inset-0 pointer-events-none"
           style={{
             background: [
-              'radial-gradient(700px 320px at 12% 8%,  hsl(142 60% 38% / 0.28), transparent 70%)',
-              'radial-gradient(480px 260px at 88% 12%, hsl(155 55% 60% / 0.12), transparent 70%)',
-              'radial-gradient(560px 380px at 18% 92%, hsl(142 55% 28% / 0.18), transparent 70%)',
-              'radial-gradient(300px 200px at 75% 80%, hsl(155 50% 40% / 0.08), transparent 70%)',
+              'radial-gradient(700px 320px at 12% 8%,  hsl(201 96% 32% / 0.28), transparent 70%)',
+              'radial-gradient(480px 260px at 88% 12%, hsl(199 89% 48% / 0.12), transparent 70%)',
+              'radial-gradient(560px 380px at 18% 92%, hsl(210 80% 24% / 0.18), transparent 70%)',
+              'radial-gradient(300px 200px at 75% 80%, hsl(201 70% 40% / 0.08), transparent 70%)',
             ].join(', '),
           }}
         />
@@ -287,8 +287,8 @@ function LoginPageInner() {
 
           {/* Eyebrow */}
           <div className="flex items-center gap-2">
-            <div className="h-px w-5 bg-[#9FE1CB]" />
-            <span className="text-[11px] font-black tracking-[0.22em] uppercase text-[#9FE1CB]">
+            <div className="h-px w-5 bg-[#7DD3FC]" />
+            <span className="text-[11px] font-black tracking-[0.22em] uppercase text-[#7DD3FC]">
               Gestión inmobiliaria argentina
             </span>
           </div>
@@ -311,7 +311,7 @@ function LoginPageInner() {
             href="#"
             className="inline-flex items-center gap-3 group w-fit"
           >
-            <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/15 group-hover:bg-[#1D9E75]/35 transition-colors duration-150">
+            <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 border border-white/15 group-hover:bg-[#0369A1]/35 transition-colors duration-150">
               <Play className="h-4 w-4 text-white fill-white ml-0.5" aria-hidden="true" />
             </span>
             <span className="text-[13.5px] font-semibold text-white/70 group-hover:text-white transition-colors duration-150">
@@ -327,7 +327,7 @@ function LoginPageInner() {
                   className="mt-0.5 flex-shrink-0 h-8 w-8 rounded-xl border border-white/10 flex items-center justify-center"
                   style={{ background: 'rgba(255,255,255,0.07)' }}
                 >
-                  <f.icon style={{ width: 15, height: 15, color: '#9FE1CB' }} />
+                  <f.icon style={{ width: 15, height: 15, color: '#7DD3FC' }} />
                 </div>
                 <div>
                   <p className="text-[13px] font-semibold text-white leading-tight">{f.title}</p>
@@ -344,7 +344,7 @@ function LoginPageInner() {
             </span>
             {TRUST_ITEMS.map(item => (
               <span key={item} className="flex items-center gap-1.5 text-[11.5px] font-medium text-white/50">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0369A1]" />
                 {item}
               </span>
             ))}
@@ -362,7 +362,7 @@ function LoginPageInner() {
                   className={cn(
                     'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-semibold tabular-nums',
                     i === 1
-                      ? 'bg-[#1D9E75]/20 border-[#1D9E75]/35 text-[#9FE1CB]'
+                      ? 'bg-[#0369A1]/20 border-[#0369A1]/35 text-[#7DD3FC]'
                       : 'bg-white/[0.05] border-white/[0.08] text-white/45',
                   )}
                 >
@@ -381,14 +381,14 @@ function LoginPageInner() {
         {/* Footer */}
         <div className="relative z-10 hidden lg:flex items-center justify-between gap-2 mt-8">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#9FE1CB]/60" />
+            <ShieldCheck className="h-4 w-4 text-[#7DD3FC]/60" />
             <span className="text-[11px] text-white/30">
               Datos encriptados · Acceso por roles · Ley 25.326
             </span>
           </div>
           <Link
             href="/landing"
-            className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-white/40 hover:text-[#9FE1CB] transition-colors duration-150 group"
+            className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-white/40 hover:text-[#7DD3FC] transition-colors duration-150 group"
           >
             Conocé más
             <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform duration-150" />
@@ -572,8 +572,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="h-screen w-full flex items-center justify-center bg-[#0d1f17]">
-          <Loader2 className="h-8 w-8 animate-spin text-[#1D9E75]" />
+        <div className="h-screen w-full flex items-center justify-center bg-[#071a2e]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#0369A1]" />
         </div>
       }
     >

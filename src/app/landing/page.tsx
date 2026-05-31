@@ -20,14 +20,14 @@ function fmtARS(n: number) {
 function AppLogo({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <rect width="36" height="36" rx="9" fill="#1D9E75"/>
+      <rect width="36" height="36" rx="9" fill="#0369A1"/>
       <polyline points="6,22 18,11 30,22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
       <rect x="9" y="22" width="5" height="7" rx="1.5" fill="white" fillOpacity="0.5"/>
       <rect x="16" y="18" width="5" height="11" rx="1.5" fill="white" fillOpacity="0.75"/>
       <rect x="23" y="14" width="5" height="15" rx="1.5" fill="white"/>
-      <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#9FE1CB" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="16" cy="17" r="2" fill="#9FE1CB"/>
-      <circle cx="23" cy="13" r="2" fill="#9FE1CB"/>
+      <polyline points="9,22 16,17 23,13 30,8" fill="none" stroke="#7DD3FC" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="16" cy="17" r="2" fill="#7DD3FC"/>
+      <circle cx="23" cy="13" r="2" fill="#7DD3FC"/>
     </svg>
   );
 }
@@ -681,8 +681,8 @@ function CTABanner() {
             style={{ background: 'radial-gradient(closest-side, hsl(155 55% 76% / 0.2), transparent 70%)', transform: 'translate(30%,-30%)' }} />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-4">
-              <div className="h-px w-4 bg-[#9FE1CB]" />
-              <span className="text-[11px] font-black tracking-[0.22em] uppercase text-[#9FE1CB]">Empezá hoy</span>
+              <div className="h-px w-4 bg-[#7DD3FC]" />
+              <span className="text-[11px] font-black tracking-[0.22em] uppercase text-[#7DD3FC]">Empezá hoy</span>
             </div>
             <h3
               className="text-[clamp(1.45rem,1.1rem+1.2vw,2rem)] font-extrabold tracking-[-0.02em] leading-[1.15] text-white mb-3"
