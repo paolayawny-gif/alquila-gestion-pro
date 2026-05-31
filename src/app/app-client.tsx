@@ -88,6 +88,7 @@ import { CommandPalette, CommandItem } from '@/components/ui/command-palette';
 import { OnboardingWizard } from '@/components/ui/onboarding-wizard';
 import { OnboardingChecklist } from '@/components/ui/onboarding-checklist';
 import { NpsSurvey } from '@/components/ui/nps-survey';
+import { SearchPlaceholder } from '@/components/ui/search-placeholder';
 
 // ── Lazy views — downloaded only on first navigation, not at startup ──────────
 const ViewLoader = () => (
@@ -1008,7 +1009,7 @@ export default function AppClient() {
             aria-label="Abrir búsqueda global"
           >
             <Search className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" aria-hidden="true" />
-            <span className="text-sm text-muted-foreground flex-1">Buscar propiedades, inquilinos...</span>
+            <SearchPlaceholder />
             <kbd className="hidden lg:flex h-5 items-center gap-0.5 rounded border bg-background/60 px-1.5 text-[10px] font-medium text-muted-foreground">
               Ctrl K
             </kbd>
