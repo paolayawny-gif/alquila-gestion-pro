@@ -342,6 +342,13 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    // Eventos de propiedad: timeline inmutable — admin escribe; propietario e inquilino leen los suyos
+    match /artifacts/{appId}/users/{userId}/propertyEvents/{eventId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create: if isOwner(userId);
+      allow update, delete: if false; // eventos son inmutables
+    }
+
     // ── Comodín por usuario: cualquier otra subcolección bajo users/{uid} ──────
     match /artifacts/{appId}/users/{userId}/{collection}/{docId} {
       allow read, write: if isOwner(userId) || isSuperAdmin();
