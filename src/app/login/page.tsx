@@ -149,7 +149,7 @@ function LoginPageInner() {
       // Firebase auth state change (from signInWithCustomToken below) triggers
       // a re-render before we finish the session fetch.
       sessionStorage.setItem('agp_biometric_unlocked', '1');
-      localStorage.setItem('agp_device_has_passkey', '1');
+      localStorage.setItem(`agp_device_has_passkey_${email}`, '1');
 
       const verRes = await fetch('/api/auth/passkey/authenticate', {
         method: 'POST',

@@ -7,7 +7,9 @@ import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 
 const SESSION_KEY = 'agp_biometric_unlocked';
-const DEVICE_PASSKEY_KEY = 'agp_device_has_passkey';
+// Namespaced by email so two different admins on the same browser
+// don't share biometric state.
+const passkeyKey = (email: string) => `agp_device_has_passkey_${email}`;
 
 interface Props {
   userEmail: string | null | undefined;
@@ -78,7 +80,7 @@ export function BiometricGate({ userEmail, children }: Props) {
       return;
     }
 
-    if (localStorage.getItem(DEVICE_PASSKEY_KEY) === '1') {
+    if (localStorage.getItem(passkeyKey(userEmail)) === '1') {
       // Auto-trigger immediately — no button required. The inFlightRef guard
       // inside runAuth ensures this only runs once even if the effect fires twice
       // (React StrictMode) or userEmail flickers.

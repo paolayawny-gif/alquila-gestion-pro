@@ -355,8 +355,8 @@ export default function AppClient() {
       });
       if (!verRes.ok) throw new Error('No se pudo registrar la biometría');
 
-      // Mark this device as biometric-capable so the gate engages on it.
-      localStorage.setItem('agp_device_has_passkey', '1');
+      // Mark this device as biometric-capable for this specific user.
+      localStorage.setItem(`agp_device_has_passkey_${user?.email}`, '1');
       toast({ title: 'Biometría activada', description: 'La próxima vez podés ingresar con huella o Face ID.' });
     } catch (err: any) {
       if (err.name === 'NotAllowedError') return; // user cancelled the prompt
@@ -486,7 +486,7 @@ export default function AppClient() {
     if (!isMounted) return;
     if (tenantEntry || ownerEntry || isSuperAdmin) return;
     if (properties.length === 0 && contracts.length === 0) {
-      const seen = localStorage.getItem('onboarding_seen_v1');
+      const seen = localStorage.getItem(`onboarding_seen_v1_${user?.uid}`);
       if (!seen) setShowOnboarding(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1108,7 +1108,7 @@ export default function AppClient() {
       <OnboardingWizard
         open={showOnboarding}
         onFinish={(goTo) => {
-          localStorage.setItem('onboarding_seen_v1', '1');
+          localStorage.setItem(`onboarding_seen_v1_${user?.uid}`, '1');
           setShowOnboarding(false);
           if (goTo) setActiveTab(goTo);
         }}
