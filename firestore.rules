@@ -71,10 +71,11 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isSuperAdmin());
     }
 
-    // Beneficios: cualquier autenticado lee; cualquier admin autenticado crea/edita
+    // Beneficios: cualquier autenticado lee; solo el autor edita/borra los suyos
     match /artifacts/{appId}/comunidadBeneficios/{docId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isSuperAdmin());
     }
 
     // Transacciones de comisión: cualquier autenticado lee/crea (filtro en cliente); solo superadmin edita
