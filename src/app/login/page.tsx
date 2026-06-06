@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken, sendEmailVerification } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -211,11 +211,31 @@ function LoginPageInner() {
         router.push('/');
       } else {
         const credential = await createUserWithEmailAndPassword(auth, email, password);
+
+        // Always send a verification email for new accounts.
+        // The server will block dashboard access until the email is verified.
+        await sendEmailVerification(credential.user);
+
         const idToken = await credential.user.getIdToken();
         const res = await fetch('/api/auth/session', {
           method: 'POST',
           headers: { Authorization: `Bearer ${idToken}` },
         });
+
+        if (res.status === 403) {
+          const body = await res.json();
+          if (body.error === 'email_not_verified') {
+            toast({
+              title: 'Verificá tu correo',
+              description: 'Te enviamos un link de verificación. Hacé click en el link del email y luego iniciá sesión.',
+            });
+            // Sign out the unverified user — they must verify before logging in
+            await auth.signOut();
+            setMode('login');
+            return;
+          }
+        }
+
         if (res.ok) {
           const { sessionId } = await res.json();
           sessionStorage.setItem('agp_session_id', sessionId);
