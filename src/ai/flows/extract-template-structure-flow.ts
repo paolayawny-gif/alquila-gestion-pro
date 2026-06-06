@@ -1,7 +1,7 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 const ExtractTemplateInputSchema = z.object({
   templateText: z.string().describe('The full text of the contract template to analyze.'),
@@ -28,11 +28,8 @@ export type ExtractTemplateResult =
   | { ok: true; data: ExtractTemplateOutput }
   | { ok: false; error: string };
 
-const extractTemplatePrompt = ai.definePrompt({
-  name: 'extractTemplateStructurePrompt',
-  input: { schema: ExtractTemplateInputSchema },
-  output: { schema: ExtractTemplateOutputSchema },
-  prompt: `You are an expert in Argentinian legal document templates.
+function buildPrompt(templateName: string, templateText: string): string {
+  return `You are an expert in Argentinian legal document templates.
 Analyze the following contract template text and:
 
 1. Extract ALL unique variable placeholders — they appear between square brackets like [VARIABLE] or [ ... ] or [Descripción del campo].
@@ -44,33 +41,36 @@ Analyze the following contract template text and:
 
 3. Keep the document structure, clauses, and legal text exactly as-is.
 
-TEMPLATE NAME: {{{templateName}}}
+Return a JSON object with exactly this structure:
+{
+  "title": string,
+  "description": string,
+  "variables": [
+    {
+      "key": string,
+      "label": string,
+      "type": "text" | "date" | "number" | "select",
+      "options": string[] (optional, only for select),
+      "hint": string (optional)
+    }
+  ],
+  "cleanedText": string
+}
+
+TEMPLATE NAME: ${templateName}
 
 TEMPLATE TEXT:
 """
-{{{templateText}}}
-"""`,
-});
-
-const extractTemplateFlow = ai.defineFlow(
-  {
-    name: 'extractTemplateStructureFlow',
-    inputSchema: ExtractTemplateInputSchema,
-    outputSchema: ExtractTemplateOutputSchema,
-  },
-  async (input) => {
-    const { output } = await extractTemplatePrompt(input);
-    if (!output) throw new Error('La IA no pudo analizar la estructura del modelo.');
-    return output;
-  }
-);
+${templateText}
+"""`;
+}
 
 export async function extractTemplateStructure(
   templateText: string,
   templateName: string
 ): Promise<ExtractTemplateResult> {
   try {
-    const data = await extractTemplateFlow({ templateText, templateName });
+    const data = await generateJSON<ExtractTemplateOutput>(buildPrompt(templateName, templateText));
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

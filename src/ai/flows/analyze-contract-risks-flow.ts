@@ -12,8 +12,8 @@
  * y perspectiva adaptable: locador | locatario | garante.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,15 +64,12 @@ export type AnalyzeContractRisksResult =
 // PROMPT
 // ─────────────────────────────────────────────────────────────────────────────
 
-const analyzeContractRisksPrompt = ai.definePrompt({
-  name: 'analyzeContractRisksPrompt',
-  input: { schema: AnalyzeContractRisksInputSchema },
-  output: { schema: AnalyzeContractRisksOutputSchema },
-  prompt: `Sos un abogado especialista en derecho inmobiliario argentino. Analizá el contrato de locación provisto y evaluá su conformidad con el marco legal argentino vigente.
+function buildPrompt(input: AnalyzeContractRisksInput): string {
+  return `Sos un abogado especialista en derecho inmobiliario argentino. Analizá el contrato de locación provisto y evaluá su conformidad con el marco legal argentino vigente.
 
-TIPO DE CONTRATO: {{{contractType}}}
-PERSPECTIVA DEL ANÁLISIS: {{{perspective}}}
-{{#if province}}PROVINCIA: {{{province}}}{{/if}}
+TIPO DE CONTRATO: ${input.contractType}
+PERSPECTIVA DEL ANÁLISIS: ${input.perspective}
+${input.province ? `PROVINCIA: ${input.province}` : ''}
 
 ${MARCO_LEGAL_ALQUILER}
 
@@ -107,35 +104,41 @@ INSTRUCCIONES DE ANÁLISIS:
 
 5. TONO: formal, jurídico, español rioplatense. Usá "voseo". Sé específico (citá artículos exactos).
 
+Devolvé un JSON con exactamente esta estructura:
+{
+  "resumenEjecutivo": string,
+  "puntajeLegal": number (0-100),
+  "hallazgos": [
+    {
+      "categoria": string,
+      "titulo": string,
+      "descripcion": string,
+      "severidad": "critico" | "importante" | "aceptable",
+      "fundamentoLegal": string,
+      "recomendacion": string,
+      "afecta": "locador" | "locatario" | "garante" | "todas"
+    }
+  ],
+  "clausulasAusentesCriticas": string[],
+  "clausulasFavorables": string[],
+  "accionesUrgentes": string[]
+}
+
 CONTRATO A ANALIZAR:
 """
-{{{contractText}}}
-"""
-`,
-});
+${input.contractText}
+"""`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FLOW
+// EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
-
-const analyzeContractRisksFlow = ai.defineFlow(
-  {
-    name: 'analyzeContractRisksFlow',
-    inputSchema: AnalyzeContractRisksInputSchema,
-    outputSchema: AnalyzeContractRisksOutputSchema,
-  },
-  async (input) => {
-    const { output } = await analyzeContractRisksPrompt(input);
-    if (!output) throw new Error('La IA no pudo analizar el contrato.');
-    return output;
-  }
-);
 
 export async function analyzeContractRisks(
   input: AnalyzeContractRisksInput
 ): Promise<AnalyzeContractRisksResult> {
   try {
-    const data = await analyzeContractRisksFlow(input);
+    const data = await generateJSON<AnalyzeContractRisksOutput>(buildPrompt(input));
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

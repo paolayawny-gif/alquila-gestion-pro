@@ -6,8 +6,8 @@
  * con validación según Ley 27.551, DNU 70/2023 y CCyCN.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSONWithMedia } from '@/ai/gemini';
 
 const ExtractContractDataInputSchema = z.object({
   documentDataUri: z
@@ -76,14 +76,11 @@ export type ExtractContractResult =
   | { ok: true; data: ExtractContractDataOutput }
   | { ok: false; error: string };
 
-const extractContractDataPrompt = ai.definePrompt({
-  name: 'extractContractDataPrompt',
-  input: { schema: ExtractContractDataInputSchema },
-  output: { schema: ExtractContractDataOutputSchema },
-  prompt: `Sos un escribano público argentino especialista en locaciones. Analizá el documento y extraé todos los datos del contrato de locación con precisión.
+function buildPrompt(): string {
+  return `Sos un escribano público argentino especialista en locaciones. Analizá el documento y extraé todos los datos del contrato de locación con precisión.
 
 INSTRUCCIONES GENERALES:
-- Todos los campos opcionales: si no encontrás el dato, dejalo en undefined (no inventes valores).
+- Todos los campos opcionales: si no encontrás el dato, omitilo (no inventes valores).
 - Fechas: SIEMPRE en formato YYYY-MM-DD.
 - Montos: SIEMPRE como número, sin símbolos ni separadores.
 - CUIT/CUIL: 11 dígitos sin guiones ni puntos.
@@ -115,26 +112,47 @@ ALERTAS LEGALES A GENERAR:
 - Si expensasExtraordinariasACargo = locatario: "Las expensas extraordinarias deben ser a cargo del locador (Ley 27.551 art. 10)"
 - Si no hay domicilios especiales de notificación: "Faltan domicilios especiales para notificaciones judiciales"
 
-DOCUMENTO:
-{{media url=documentDataUri}}`,
-});
-
-const extractContractDataFlow = ai.defineFlow(
-  {
-    name: 'extractContractDataFlow',
-    inputSchema: ExtractContractDataInputSchema,
-    outputSchema: ExtractContractDataOutputSchema,
-  },
-  async (input) => {
-    const { output } = await extractContractDataPrompt(input);
-    if (!output) throw new Error('La IA no pudo extraer datos del documento.');
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "baseRentAmount": number,
+  "currency": "ARS" | "USD",
+  "adjustmentFrequencyMonths": number,
+  "adjustmentMechanism": "ICL" | "IPC" | "CasaPropia" | "Fixed" | "CER",
+  "depositAmount": number (opcional),
+  "depositCurrency": "ARS" | "USD" (opcional),
+  "lateFeePercentage": number (opcional),
+  "tenantName": string (opcional),
+  "tenantDni": string (opcional),
+  "tenantCuit": string (opcional),
+  "ownerName": string (opcional),
+  "ownerDni": string (opcional),
+  "ownerCuit": string (opcional),
+  "guarantorName": string (opcional),
+  "guarantorDni": string (opcional),
+  "guarantorType": "fiador_solidario" | "seguro_caucion" | "aval_bancario" | "garantia_real" | "sin_garantia" (opcional),
+  "propertyAddress": string (opcional),
+  "propertyType": "vivienda" | "comercial" | "cochera" | "oficina" | "deposito" | "otro" (opcional),
+  "startDate": string (opcional, YYYY-MM-DD),
+  "endDate": string (opcional, YYYY-MM-DD),
+  "durationMonths": number (opcional),
+  "expensasOrdinariasACargo": "locatario" | "locador" | "compartido" | "no_especificado" (opcional),
+  "expensasExtraordinariasACargo": "locatario" | "locador" | "compartido" | "no_especificado" (opcional),
+  "serviciosACargo": string (opcional),
+  "inscripcionAfip": boolean (opcional),
+  "jurisdiccion": string (opcional),
+  "confidenceScore": number (0 a 1),
+  "alertasLegales": string[],
+  "summary": string,
+  "fullTranscription": string
+}`;
+}
 
 export async function extractContractData(input: ExtractContractDataInput): Promise<ExtractContractResult> {
   try {
-    const data = await extractContractDataFlow(input);
+    const data = await generateJSONWithMedia<ExtractContractDataOutput>(
+      buildPrompt(),
+      input.documentDataUri,
+    );
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

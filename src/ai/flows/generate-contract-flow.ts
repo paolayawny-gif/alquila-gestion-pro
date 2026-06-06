@@ -9,8 +9,8 @@
  * - Ley 26.307 (Registro de Contratos de Locación – AFIP)
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
 const GenerateContractInputSchema = z.object({
@@ -48,39 +48,37 @@ export type GenerateContractResult =
   | { ok: true; data: GenerateContractOutput }
   | { ok: false; error: string };
 
-const generateContractPrompt = ai.definePrompt({
-  name: 'generateContractPrompt',
-  input: { schema: GenerateContractInputSchema },
-  output: { schema: GenerateContractOutputSchema },
-  prompt: `Sos un abogado especialista en derecho inmobiliario argentino con 20 años de experiencia en redacción de contratos de locación. Redactá un contrato legal completo y profesional en español rioplatense.
-
-TIPO DE CONTRATO: {{{contractType}}}
-{{#if province}}PROVINCIA: {{{province}}}{{/if}}
-{{#if destinoInmueble}}DESTINO: {{{destinoInmueble}}}{{/if}}
-
-DATOS DE LAS PARTES:
-{{#if locador}}- Locador: {{{locador}}}{{/if}}
-{{#if locatario}}- Locatario: {{{locatario}}}{{/if}}
-{{#if fiador}}- Fiador: {{{fiador}}} (Tipo garantía: {{{tipoGarantia}}}){{/if}}
-{{#if propertyAddress}}- Inmueble: {{{propertyAddress}}}{{/if}}
-
-CONDICIONES ECONÓMICAS:
-{{#if startDate}}- Inicio: {{{startDate}}}{{/if}}
-{{#if endDate}}- Vencimiento: {{{endDate}}}{{/if}}
-{{#if duration}}- Duración: {{{duration}}}{{/if}}
-{{#if rentAmount}}- Canon mensual inicial: {{{currency}}} {{{rentAmount}}}{{/if}}
-{{#if depositAmount}}- Depósito de garantía: {{{depositAmount}}}{{/if}}
-{{#if adjustmentMechanism}}- Mecanismo de ajuste: {{{adjustmentMechanism}}}{{/if}}
-{{#if adjustmentFrequency}}- Frecuencia de ajuste: {{{adjustmentFrequency}}}{{/if}}
-{{#if lateFeePercentage}}- Interés por mora: {{{lateFeePercentage}}}% mensual{{/if}}
-
-{{#if additionalDetails}}CLÁUSULAS ESPECIALES E INSTRUCCIONES:
-{{{additionalDetails}}}{{/if}}
-
-MARCO NORMATIVO:
-${MARCO_LEGAL_ALQUILER}
-
-INSTRUCCIONES DE REDACCIÓN:
+function buildPrompt(input: GenerateContractInput): string {
+  const lines: string[] = [];
+  lines.push(`Sos un abogado especialista en derecho inmobiliario argentino con 20 años de experiencia en redacción de contratos de locación. Redactá un contrato legal completo y profesional en español rioplatense.`);
+  lines.push('');
+  lines.push(`TIPO DE CONTRATO: ${input.contractType}`);
+  if (input.province) lines.push(`PROVINCIA: ${input.province}`);
+  if (input.destinoInmueble) lines.push(`DESTINO: ${input.destinoInmueble}`);
+  lines.push('');
+  lines.push('DATOS DE LAS PARTES:');
+  if (input.locador) lines.push(`- Locador: ${input.locador}`);
+  if (input.locatario) lines.push(`- Locatario: ${input.locatario}`);
+  if (input.fiador) lines.push(`- Fiador: ${input.fiador} (Tipo garantía: ${input.tipoGarantia ?? 'no especificado'})`);
+  if (input.propertyAddress) lines.push(`- Inmueble: ${input.propertyAddress}`);
+  lines.push('');
+  lines.push('CONDICIONES ECONÓMICAS:');
+  if (input.startDate) lines.push(`- Inicio: ${input.startDate}`);
+  if (input.endDate) lines.push(`- Vencimiento: ${input.endDate}`);
+  if (input.duration) lines.push(`- Duración: ${input.duration}`);
+  if (input.rentAmount) lines.push(`- Canon mensual inicial: ${input.currency ?? ''} ${input.rentAmount}`);
+  if (input.depositAmount) lines.push(`- Depósito de garantía: ${input.depositAmount}`);
+  if (input.adjustmentMechanism) lines.push(`- Mecanismo de ajuste: ${input.adjustmentMechanism}`);
+  if (input.adjustmentFrequency) lines.push(`- Frecuencia de ajuste: ${input.adjustmentFrequency}`);
+  if (input.lateFeePercentage) lines.push(`- Interés por mora: ${input.lateFeePercentage}% mensual`);
+  if (input.additionalDetails) {
+    lines.push('');
+    lines.push(`CLÁUSULAS ESPECIALES E INSTRUCCIONES:\n${input.additionalDetails}`);
+  }
+  lines.push('');
+  lines.push(`MARCO NORMATIVO:\n${MARCO_LEGAL_ALQUILER}`);
+  lines.push('');
+  lines.push(`INSTRUCCIONES DE REDACCIÓN:
 
 1. ESTRUCTURA OBLIGATORIA DEL CONTRATO (incluir TODAS estas secciones):
    - Encabezado: lugar, fecha, identificación completa de las partes (nombre, DNI/CUIT, domicilio)
@@ -124,27 +122,22 @@ INSTRUCCIONES DE REDACCIÓN:
 6. Tono: formal, jurídico, español rioplatense con voseo en las cláusulas redaccionales.
 
 7. En "advertenciasLegales": listar cualquier dato faltante crítico o aspecto que requiera revisión por abogado antes de firmar.
-`,
-});
 
-const generateContractFlow = ai.defineFlow(
-  {
-    name: 'generateContractFlow',
-    inputSchema: GenerateContractInputSchema,
-    outputSchema: GenerateContractOutputSchema,
-  },
-  async (input) => {
-    const { output } = await generateContractPrompt(input);
-    if (!output) throw new Error('La IA no pudo generar el contrato.');
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "title": string,
+  "html": string,
+  "advertenciasLegales": string[]
+}`);
+
+  return lines.join('\n');
+}
 
 export async function generateContract(
   input: GenerateContractInput
 ): Promise<GenerateContractResult> {
   try {
-    const data = await generateContractFlow(input);
+    const data = await generateJSON<GenerateContractOutput>(buildPrompt(input));
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

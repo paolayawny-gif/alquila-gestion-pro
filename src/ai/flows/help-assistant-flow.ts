@@ -1,17 +1,10 @@
 'use server';
 /**
  * Asistente de Ayuda contextual para AlquilaGestión Pro.
- *
- * Responde preguntas del usuario sobre cómo usar la aplicación, qué hace cada
- * módulo, dónde encontrar una función o cómo resolver un caso típico de gestión
- * inmobiliaria argentina dentro del sistema.
- *
- * El flow recibe la pregunta y un "manual" del producto (catálogo de
- * funcionalidades) que se inyecta en el prompt como contexto autoritativo.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 const HelpAssistantInputSchema = z.object({
   question: z.string().describe('Pregunta del usuario sobre la aplicación.'),
@@ -33,11 +26,8 @@ export type HelpAssistantResult =
   | { ok: true; data: HelpAssistantOutput }
   | { ok: false; error: string };
 
-const helpAssistantPrompt = ai.definePrompt({
-  name: 'helpAssistantPrompt',
-  input: { schema: HelpAssistantInputSchema },
-  output: { schema: HelpAssistantOutputSchema },
-  prompt: `Sos el asistente de ayuda de "AlquilaGestión Pro", un sistema integral de administración de propiedades en alquiler en Argentina.
+function buildPrompt(input: HelpAssistantInput): string {
+  return `Sos el asistente de ayuda de "AlquilaGestión Pro", un sistema integral de administración de propiedades en alquiler en Argentina.
 
 Tu misión es ayudar al usuario a USAR la aplicación: explicarle qué hace cada módulo, en qué menú lo encuentra, qué pasos seguir para realizar una operación, y aclarar dudas sobre el funcionamiento del producto.
 
@@ -51,37 +41,27 @@ Tu misión es ayudar al usuario a USAR la aplicación: explicarle qué hace cada
 7. En "suggestedSections" devolvé los nombres EXACTOS del menú (ej: "Propiedades", "Generador Contratos", "Libro Mayor").
 8. Generá 2-3 "followUpQuestions" que el usuario podría querer hacer a continuación.
 
-{{#if currentSection}}
-### CONTEXTO ACTUAL DEL USUARIO:
-El usuario está visualizando la sección "{{{currentSection}}}" cuando hace la pregunta.
-{{/if}}
+${input.currentSection ? `### CONTEXTO ACTUAL DEL USUARIO:\nEl usuario está visualizando la sección "${input.currentSection}" cuando hace la pregunta.\n` : ''}
 
 ### MANUAL DEL PRODUCTO (única fuente de verdad):
 """
-{{{manual}}}
+${input.manual}
 """
 
 ### PREGUNTA DEL USUARIO:
-{{{question}}}
-`,
-});
+${input.question}
 
-const helpAssistantFlow = ai.defineFlow(
-  {
-    name: 'helpAssistantFlow',
-    inputSchema: HelpAssistantInputSchema,
-    outputSchema: HelpAssistantOutputSchema,
-  },
-  async (input) => {
-    const { output } = await helpAssistantPrompt(input);
-    if (!output) throw new Error('La IA no devolvió respuesta.');
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "answer": string,
+  "suggestedSections": string[] (opcional),
+  "followUpQuestions": string[] (opcional)
+}`;
+}
 
 export async function askHelpAssistant(input: HelpAssistantInput): Promise<HelpAssistantResult> {
   try {
-    const data = await helpAssistantFlow(input);
+    const data = await generateJSON<HelpAssistantOutput>(buildPrompt(input));
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

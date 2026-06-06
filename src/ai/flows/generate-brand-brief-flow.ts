@@ -1,7 +1,7 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 const InputSchema = z.object({
   brandName: z.string().describe('Nombre de la inmobiliaria.'),
@@ -23,11 +23,8 @@ const OutputSchema = z.object({
 
 export type GenerateBrandBriefOutput = z.infer<typeof OutputSchema>;
 
-const generateBrandBriefFlow = ai.defineFlow(
-  { name: 'generateBrandBriefFlow', inputSchema: InputSchema, outputSchema: OutputSchema },
-  async (input) => {
-    const { output } = await ai.generate({
-      prompt: `Sos un Estratega de Conversión Senior especializado en branding para el mercado inmobiliario argentino.
+function buildPrompt(input: GenerateBrandBriefInput): string {
+  return `Sos un Estratega de Conversión Senior especializado en branding para el mercado inmobiliario argentino.
 
 Tu tarea: crear un brief de marca conciso y accionable para "${input.brandName}", una inmobiliaria con las siguientes características:
 
@@ -50,17 +47,19 @@ Ejemplo de inicio: "Escribí como si fueras ${input.brandName}. Tu tono es..."
 También identificá:
 - 3-4 pilares de contenido temáticos (ej: "Propiedades destacadas", "Tips de alquiler", "Noticias del mercado")
 - Las palabras y frases que representan la voz de la marca
-- Lo que esta marca debe EVITAR siempre (frases genéricas, temas inapropiados, etc.)`,
-      output: { schema: OutputSchema },
-    });
+- Lo que esta marca debe EVITAR siempre (frases genéricas, temas inapropiados, etc.)
 
-    if (!output) throw new Error('El modelo no devolvió una respuesta válida.');
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "brief": string,
+  "contentPillars": string[],
+  "powerWords": string,
+  "avoidances": string
+}`;
+}
 
 export async function generateBrandBrief(
   input: GenerateBrandBriefInput
 ): Promise<GenerateBrandBriefOutput> {
-  return generateBrandBriefFlow(input);
+  return generateJSON<GenerateBrandBriefOutput>(buildPrompt(input));
 }

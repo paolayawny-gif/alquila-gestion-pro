@@ -7,8 +7,8 @@
  * cláusulas específicas o el contrato en su totalidad.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCHEMAS
@@ -69,23 +69,23 @@ export type VerifyContractConsistencyResult =
 // PROMPT
 // ─────────────────────────────────────────────────────────────────────────────
 
-const verifyContractConsistencyPrompt = ai.definePrompt({
-  name: 'verifyContractConsistencyPrompt',
-  input: { schema: VerifyContractConsistencyInputSchema },
-  output: { schema: VerifyContractConsistencyOutputSchema },
-  prompt: `Sos un escribano público argentino especialista en revisión de contratos de locación. Tu tarea es verificar la coherencia interna del siguiente contrato, detectando contradicciones, datos faltantes, ambigüedades y errores formales.
+function buildPrompt(input: VerifyContractConsistencyInput): string {
+  const extractedLines: string[] = [];
+  if (input.extractedData) {
+    const d = input.extractedData;
+    if (d.baseRentAmount != null) extractedLines.push(`- Monto base: ${d.currency ?? ''} ${d.baseRentAmount}`);
+    if (d.tenantName) extractedLines.push(`- Locatario: ${d.tenantName}`);
+    if (d.propertyAddress) extractedLines.push(`- Inmueble: ${d.propertyAddress}`);
+    if (d.startDate) extractedLines.push(`- Inicio: ${d.startDate}`);
+    if (d.endDate) extractedLines.push(`- Fin: ${d.endDate}`);
+    if (d.adjustmentMechanism) extractedLines.push(`- Índice: ${d.adjustmentMechanism} cada ${d.adjustmentFrequencyMonths ?? '?'} meses`);
+  }
 
-TIPO: {{{contractType}}}
+  return `Sos un escribano público argentino especialista en revisión de contratos de locación. Tu tarea es verificar la coherencia interna del siguiente contrato, detectando contradicciones, datos faltantes, ambigüedades y errores formales.
 
-{{#if extractedData}}
-DATOS PREVIAMENTE EXTRAÍDOS (verificar coherencia contra el texto):
-{{#if extractedData.baseRentAmount}}- Monto base: {{extractedData.currency}} {{extractedData.baseRentAmount}}{{/if}}
-{{#if extractedData.tenantName}}- Locatario: {{extractedData.tenantName}}{{/if}}
-{{#if extractedData.propertyAddress}}- Inmueble: {{extractedData.propertyAddress}}{{/if}}
-{{#if extractedData.startDate}}- Inicio: {{extractedData.startDate}}{{/if}}
-{{#if extractedData.endDate}}- Fin: {{extractedData.endDate}}{{/if}}
-{{#if extractedData.adjustmentMechanism}}- Índice: {{extractedData.adjustmentMechanism}} cada {{extractedData.adjustmentFrequencyMonths}} meses{{/if}}
-{{/if}}
+TIPO: ${input.contractType}
+
+${extractedLines.length > 0 ? `DATOS PREVIAMENTE EXTRAÍDOS (verificar coherencia contra el texto):\n${extractedLines.join('\n')}\n` : ''}
 
 ASPECTOS A VERIFICAR OBLIGATORIAMENTE:
 1. ¿El monto en letras coincide con el monto en números?
@@ -105,35 +105,44 @@ ASPECTOS A VERIFICAR OBLIGATORIAMENTE:
 
 TONO: técnico-jurídico, español rioplatense. Sé específico y citá las cláusulas exactas donde encontrés inconsistencias.
 
+Devolvé un JSON con exactamente esta estructura:
+{
+  "esCoherente": boolean,
+  "resumen": string,
+  "inconsistencias": [
+    {
+      "tipo": "contradiccion" | "dato_faltante" | "ambiguedad" | "error_formal",
+      "ubicacion": string,
+      "descripcion": string,
+      "impactoLegal": string,
+      "correccionSugerida": string,
+      "gravedad": "alta" | "media" | "baja"
+    }
+  ],
+  "datosVerificados": {
+    "montosConsistentes": boolean,
+    "fechasConsistentes": boolean,
+    "partesConsistentes": boolean,
+    "indiceConsistente": boolean
+  },
+  "recomendacionFirma": "apta_para_firma" | "revisar_antes_de_firmar" | "no_firmar"
+}
+
 CONTRATO:
 """
-{{{contractText}}}
-"""
-`,
-});
+${input.contractText}
+"""`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FLOW
+// EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
-
-const verifyContractConsistencyFlow = ai.defineFlow(
-  {
-    name: 'verifyContractConsistencyFlow',
-    inputSchema: VerifyContractConsistencyInputSchema,
-    outputSchema: VerifyContractConsistencyOutputSchema,
-  },
-  async (input) => {
-    const { output } = await verifyContractConsistencyPrompt(input);
-    if (!output) throw new Error('La IA no pudo verificar la coherencia del contrato.');
-    return output;
-  }
-);
 
 export async function verifyContractConsistency(
   input: VerifyContractConsistencyInput
 ): Promise<VerifyContractConsistencyResult> {
   try {
-    const data = await verifyContractConsistencyFlow(input);
+    const data = await generateJSON<VerifyContractConsistencyOutput>(buildPrompt(input));
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

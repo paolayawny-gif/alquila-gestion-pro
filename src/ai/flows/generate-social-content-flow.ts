@@ -1,12 +1,12 @@
 'use server';
 /**
- * @fileOverview Genkit flow — Generador de contenido para Redes Sociales.
+ * @fileOverview Generador de contenido para Redes Sociales.
  * Usa Gemini 2.5 Flash para crear posts, plantillas y stories adaptados
  * a cada red social del rubro inmobiliario.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 const InputSchema = z.object({
   topic: z.string().describe('Tema o idea principal del contenido. Ej: "Departamento en alquiler en Palermo 2 ambientes".'),
@@ -30,26 +30,20 @@ const OutputSchema = z.object({
 
 export type GenerateSocialContentOutput = z.infer<typeof OutputSchema>;
 
-const generateSocialContentFlow = ai.defineFlow(
-  {
-    name: 'generateSocialContentFlow',
-    inputSchema: InputSchema,
-    outputSchema: OutputSchema,
-  },
-  async (input) => {
-    const charLimits: Record<string, number> = {
-      'X': 280,
-      'Instagram': 2200,
-      'TikTok': 2200,
-      'Facebook': 1000,
-      'LinkedIn': 1500,
-      'YouTube': 300,
-      'WhatsApp Business': 500,
-    };
-    const charLimit = charLimits[input.network] ?? 1000;
+const CHAR_LIMITS: Record<string, number> = {
+  'X': 280,
+  'Instagram': 2200,
+  'TikTok': 2200,
+  'Facebook': 1000,
+  'LinkedIn': 1500,
+  'YouTube': 300,
+  'WhatsApp Business': 500,
+};
 
-    const { output } = await ai.generate({
-      prompt: `Sos un experto en marketing inmobiliario argentino y gestión de redes sociales.
+function buildPrompt(input: GenerateSocialContentInput): string {
+  const charLimit = CHAR_LIMITS[input.network] ?? 1000;
+
+  return `Sos un experto en marketing inmobiliario argentino y gestión de redes sociales.
 ${input.brandContext ? `BRIEF DE MARCA (aplicar en todo el contenido — voz, tono y estilo de esta inmobiliaria):\n${input.brandContext}\n\n` : ''}Generá contenido para ${input.network} con estas características:
 
 - Tema: ${input.topic}
@@ -66,17 +60,20 @@ Reglas:
 5. Para LinkedIn: tono más formal, foco en datos y valor profesional.
 6. Para X: máximo impacto en mínimas palabras.
 7. Para WhatsApp Business: mensaje cálido y directo.
-8. Los hashtags deben ser relevantes para el mercado inmobiliario argentino.`,
-      output: { schema: OutputSchema },
-    });
+8. Los hashtags deben ser relevantes para el mercado inmobiliario argentino.
 
-    if (!output) throw new Error('El modelo no devolvió una respuesta válida.');
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "mainText": string,
+  "hashtags": string,
+  "callToAction": string,
+  "emojiSuggestion": string,
+  "tip": string
+}`;
+}
 
 export async function generateSocialContent(
   input: GenerateSocialContentInput
 ): Promise<GenerateSocialContentOutput> {
-  return generateSocialContentFlow(input);
+  return generateJSON<GenerateSocialContentOutput>(buildPrompt(input));
 }

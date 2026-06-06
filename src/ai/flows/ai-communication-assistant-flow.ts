@@ -12,25 +12,25 @@
  * - Liquidaciones, recordatorios, actualizaciones de mantenimiento
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 const AiCommunicationAssistantInputSchema = z.object({
   communicationType: z
     .enum([
       'rentReminder',
       'rentOverdue',
-      'intimacionPago',          // Intimación fehaciente de pago (CCyCN art. 1222)
-      'cartaDocumentoDesalojo',  // Carta Documento previa a acción de desalojo
-      'rescisionAnticipadaLocatario', // Notificación art. 1221 CCyCN
-      'rescisionAnticipadaLocador',   // Notificación del locador al locatario
+      'intimacionPago',
+      'cartaDocumentoDesalojo',
+      'rescisionAnticipadaLocatario',
+      'rescisionAnticipadaLocador',
       'leaseRenewal',
       'leaseAdjustment',
       'ownerLiquidationReport',
       'portalInvitation',
       'maintenanceUpdate',
-      'informeMoraGarante',      // Notificación al garante de mora del locatario
-      'notificacionVencimientoProximo', // Aviso 90 días antes del vencimiento
+      'informeMoraGarante',
+      'notificacionVencimientoProximo',
       'generalMessage',
     ])
     .describe('Tipo de comunicación a redactar.'),
@@ -96,7 +96,8 @@ export type AiCommunicationAssistantOutput = z.infer<typeof AiCommunicationAssis
 export async function aiCommunicationAssistant(
   input: AiCommunicationAssistantInput
 ): Promise<AiCommunicationAssistantOutput> {
-  return aiCommunicationAssistantFlow(input);
+  const tipoInstruccion = TIPO_INSTRUCCIONES[input.communicationType] ?? TIPO_INSTRUCCIONES.generalMessage;
+  return generateJSON<AiCommunicationAssistantOutput>(buildPrompt(input, tipoInstruccion));
 }
 
 const TIPO_INSTRUCCIONES: Record<string, string> = {
@@ -134,11 +135,40 @@ const TIPO_INSTRUCCIONES: Record<string, string> = {
   generalMessage: 'Mensaje general con el contexto provisto.',
 };
 
-const aiCommunicationAssistantPrompt = ai.definePrompt({
-  name: 'aiCommunicationAssistantPrompt',
-  input: {schema: AiCommunicationAssistantInputSchema},
-  output: {schema: AiCommunicationAssistantOutputSchema},
-  prompt: `Sos un asistente experto en redacción de comunicaciones para la administradora "AlquilaGestión Pro" en Argentina.
+function buildPrompt(input: AiCommunicationAssistantInput, tipoInstruccion: string): string {
+  const recipient = input.tenantName ?? input.ownerName ?? 'Cliente';
+  const dataLines: string[] = [];
+  dataLines.push(`- Destinatario: ${recipient}`);
+  if (input.guarantorName) dataLines.push(`- Garante: ${input.guarantorName}`);
+  if (input.propertyName || input.propertyAddress) {
+    dataLines.push(`- Propiedad: ${input.propertyName ?? ''}${input.propertyAddress ? ' — ' + input.propertyAddress : ''}`);
+  }
+  if (input.currentRentAmount) dataLines.push(`- Alquiler actual: ${input.currentRentAmount}`);
+  if (input.newRentAmount) dataLines.push(`- Nuevo alquiler: ${input.newRentAmount}`);
+  if (input.adjustmentIndex) {
+    dataLines.push(`- Índice de ajuste: ${input.adjustmentIndex}${input.adjustmentPercentage ? ' (' + input.adjustmentPercentage + ')' : ''}${input.adjustmentPeriod ? ' — período ' + input.adjustmentPeriod : ''}`);
+  }
+  if (input.amountDue) dataLines.push(`- Monto adeudado: ${input.amountDue}`);
+  if (input.daysOverdue != null) dataLines.push(`- Días en mora: ${input.daysOverdue} días`);
+  if (input.lateFeeAmount) dataLines.push(`- Punitorios devengados: ${input.lateFeeAmount}`);
+  if (input.dueDate) dataLines.push(`- Fecha de vencimiento/plazo: ${input.dueDate}`);
+  if (input.currentLeaseStartDate) dataLines.push(`- Inicio de contrato: ${input.currentLeaseStartDate}`);
+  if (input.currentLeaseEndDate) dataLines.push(`- Fin de contrato: ${input.currentLeaseEndDate}`);
+  if (input.rescisionNoticeMonths != null) dataLines.push(`- Meses de preaviso: ${input.rescisionNoticeMonths}`);
+  if (input.rescisionPenaltyAmount) dataLines.push(`- Penalidad por rescisión: ${input.rescisionPenaltyAmount}`);
+  if (input.maintenanceConcept) dataLines.push(`- Concepto de mantenimiento: ${input.maintenanceConcept}`);
+  if (input.maintenanceStatus) dataLines.push(`- Estado: ${input.maintenanceStatus}`);
+  if (input.maintenanceCost) dataLines.push(`- Costo estimado/real: ${input.maintenanceCost}`);
+  if (input.reportingPeriod) dataLines.push(`- Período de liquidación: ${input.reportingPeriod}`);
+  if (input.totalIncome) dataLines.push(`- Ingresos: ${input.totalIncome}`);
+  if (input.totalExpenses) dataLines.push(`- Deducciones/gastos: ${input.totalExpenses}`);
+  if (input.netAmount) dataLines.push(`- Neto al propietario: ${input.netAmount}`);
+  if (input.legalStage) dataLines.push(`- Etapa legal: ${input.legalStage}`);
+  if (input.role) dataLines.push(`- Rol: ${input.role}`);
+  if (input.portalUrl) dataLines.push(`- URL del portal: ${input.portalUrl}`);
+  if (input.additionalContext) dataLines.push(`- Contexto adicional: ${input.additionalContext}`);
+
+  return `Sos un asistente experto en redacción de comunicaciones para la administradora "AlquilaGestión Pro" en Argentina.
 Tu misión es redactar mensajes precisos, profesionales y con respaldo legal en español rioplatense (voseo).
 
 ### REGLAS DE ESCRITURA (OBLIGATORIAS):
@@ -148,54 +178,20 @@ Tu misión es redactar mensajes precisos, profesionales y con respaldo legal en 
 4. Usá SIEMPRE los valores concretos provistos (montos, fechas, índices). Nunca dejes campos vacíos.
 5. Español rioplatense: "voseo" (vos tenés, podés, debés, etc.).
 
-### TIPO DE COMUNICACIÓN: {{{communicationType}}}
+### TIPO DE COMUNICACIÓN: ${input.communicationType}
 
 ### INSTRUCCIONES ESPECÍFICAS:
-{{tipoInstruccion}}
+${tipoInstruccion}
 
 ### DATOS DISPONIBLES:
-- Destinatario: {{#if tenantName}}{{{tenantName}}}{{else}}{{#if ownerName}}{{{ownerName}}}{{else}}Cliente{{/if}}{{/if}}
-{{#if guarantorName}}- Garante: {{{guarantorName}}}{{/if}}
-- Propiedad: {{{propertyName}}}{{#if propertyAddress}} — {{{propertyAddress}}}{{/if}}
-{{#if currentRentAmount}}- Alquiler actual: **{{{currentRentAmount}}}**{{/if}}
-{{#if newRentAmount}}- Nuevo alquiler: **{{{newRentAmount}}}**{{/if}}
-{{#if adjustmentIndex}}- Índice de ajuste: {{{adjustmentIndex}}}{{#if adjustmentPercentage}} ({{{adjustmentPercentage}}}){{/if}}{{#if adjustmentPeriod}} — período {{{adjustmentPeriod}}}{{/if}}{{/if}}
-{{#if amountDue}}- Monto adeudado: **{{{amountDue}}}**{{/if}}
-{{#if daysOverdue}}- Días en mora: **{{{daysOverdue}}} días**{{/if}}
-{{#if lateFeeAmount}}- Punitorios devengados: {{{lateFeeAmount}}}{{/if}}
-{{#if dueDate}}- Fecha de vencimiento/plazo: {{{dueDate}}}{{/if}}
-{{#if currentLeaseStartDate}}- Inicio de contrato: {{{currentLeaseStartDate}}}{{/if}}
-{{#if currentLeaseEndDate}}- Fin de contrato: {{{currentLeaseEndDate}}}{{/if}}
-{{#if rescisionNoticeMonths}}- Meses de preaviso: {{{rescisionNoticeMonths}}}{{/if}}
-{{#if rescisionPenaltyAmount}}- Penalidad por rescisión: {{{rescisionPenaltyAmount}}}{{/if}}
-{{#if maintenanceConcept}}- Concepto de mantenimiento: {{{maintenanceConcept}}}{{/if}}
-{{#if maintenanceStatus}}- Estado: {{{maintenanceStatus}}}{{/if}}
-{{#if maintenanceCost}}- Costo estimado/real: {{{maintenanceCost}}}{{/if}}
-{{#if reportingPeriod}}- Período de liquidación: {{{reportingPeriod}}}{{/if}}
-{{#if totalIncome}}- Ingresos: {{{totalIncome}}}{{/if}}
-{{#if totalExpenses}}- Deducciones/gastos: {{{totalExpenses}}}{{/if}}
-{{#if netAmount}}- Neto al propietario: **{{{netAmount}}}**{{/if}}
-{{#if legalStage}}- Etapa legal: {{{legalStage}}}{{/if}}
-{{#if role}}- Rol: {{{role}}}{{/if}}
-{{#if portalUrl}}- URL del portal: {{{portalUrl}}}{{/if}}
-{{#if additionalContext}}- Contexto adicional: {{{additionalContext}}}{{/if}}
+${dataLines.join('\n')}
 
 Redactá el mensaje completo con asunto y cuerpo. Al final indicá en "toneNote" cualquier consideración legal importante.
-`,
-});
 
-const aiCommunicationAssistantFlow = ai.defineFlow(
-  {
-    name: 'aiCommunicationAssistantFlow',
-    inputSchema: AiCommunicationAssistantInputSchema,
-    outputSchema: AiCommunicationAssistantOutputSchema,
-  },
-  async input => {
-    const tipoInstruccion = TIPO_INSTRUCCIONES[input.communicationType] ?? TIPO_INSTRUCCIONES.generalMessage;
-    const {output} = await aiCommunicationAssistantPrompt({...input, tipoInstruccion} as any);
-    if (!output) {
-      throw new Error('No se pudo generar el borrador de comunicación.');
-    }
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "subjectLine": string,
+  "draftedMessage": string,
+  "toneNote": string (opcional)
+}`;
+}

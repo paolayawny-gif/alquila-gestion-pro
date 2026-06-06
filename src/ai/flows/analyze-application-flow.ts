@@ -1,16 +1,10 @@
 'use server';
 /**
  * Flow para analizar solicitudes de alquiler con contexto argentino.
- *
- * Evalúa la viabilidad financiera y legal del postulante considerando:
- * - Situación laboral argentina (relación de dependencia, monotributo, autónomo, informal)
- * - Ratio ingreso/alquiler adaptado al mercado argentino
- * - Tipos de garantía válidos (Ley 27.551 art. 13)
- * - Situación BCRA del postulante (si está disponible)
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 const AnalyzeApplicationInputSchema = z.object({
   applicantName: z.string().describe('Nombre completo del postulante.'),
@@ -61,24 +55,25 @@ const AnalyzeApplicationOutputSchema = z.object({
 
 export type AnalyzeApplicationOutput = z.infer<typeof AnalyzeApplicationOutputSchema>;
 
-const analyzeApplicationPrompt = ai.definePrompt({
-  name: 'analyzeApplicationPrompt',
-  input: { schema: AnalyzeApplicationInputSchema },
-  output: { schema: AnalyzeApplicationOutputSchema },
-  prompt: `Sos un analista de riesgo crediticio especializado en el mercado inmobiliario argentino. Analizá la siguiente solicitud de alquiler.
+function buildPrompt(input: AnalyzeApplicationInput): string {
+  const lines: string[] = [];
+  lines.push(`Sos un analista de riesgo crediticio especializado en el mercado inmobiliario argentino. Analizá la siguiente solicitud de alquiler.`);
+  lines.push('');
+  lines.push(`POSTULANTE: ${input.applicantName}`);
+  lines.push(`TIPO DE INMUEBLE: ${input.propertyType ?? 'vivienda'}`);
+  lines.push(`ALQUILER PRETENDIDO: ${input.currency} ${input.rentAmount}`);
+  lines.push(`INGRESO NETO DECLARADO: ${input.currency} ${input.applicantIncome}`);
+  if (input.employmentType) lines.push(`SITUACIÓN LABORAL: ${input.employmentType}`);
+  if (input.monotributoCategory) lines.push(`CATEGORÍA MONOTRIBUTO: ${input.monotributoCategory}`);
+  if (input.guarantorName) {
+    lines.push(`GARANTE: ${input.guarantorName} (Tipo: ${input.guarantorType ?? 'no especificado'}${input.guarantorIncome != null ? ', Ingreso: ' + input.currency + ' ' + input.guarantorIncome : ''})`);
+  }
+  if (input.bcraSituation != null) lines.push(`SITUACIÓN BCRA: ${input.bcraSituation} (1=Normal ... 6=Irrecuperable)`);
+  if (input.hasRejectedChecks) lines.push(`CHEQUES RECHAZADOS EN BCRA: Sí`);
+  if (input.references) lines.push(`REFERENCIAS/NOTAS: ${input.references}`);
 
-POSTULANTE: {{{applicantName}}}
-TIPO DE INMUEBLE: {{#if propertyType}}{{{propertyType}}}{{else}}vivienda{{/if}}
-ALQUILER PRETENDIDO: {{{currency}}} {{{rentAmount}}}
-INGRESO NETO DECLARADO: {{{currency}}} {{{applicantIncome}}}
-{{#if employmentType}}SITUACIÓN LABORAL: {{{employmentType}}}{{/if}}
-{{#if monotributoCategory}}CATEGORÍA MONOTRIBUTO: {{{monotributoCategory}}}{{/if}}
-{{#if guarantorName}}GARANTE: {{{guarantorName}}} (Tipo: {{{guarantorType}}}{{#if guarantorIncome}}, Ingreso: {{{currency}}} {{{guarantorIncome}}}{{/if}}){{/if}}
-{{#if bcraSituation}}SITUACIÓN BCRA: {{{bcraSituation}}} (1=Normal ... 6=Irrecuperable){{/if}}
-{{#if hasRejectedChecks}}CHEQUES RECHAZADOS EN BCRA: Sí{{/if}}
-{{#if references}}REFERENCIAS/NOTAS: {{{references}}}{{/if}}
-
-CRITERIOS DE EVALUACIÓN PARA ARGENTINA:
+  lines.push('');
+  lines.push(`CRITERIOS DE EVALUACIÓN PARA ARGENTINA:
 
 1. RATIO INGRESO/ALQUILER (regla principal):
    - Ideal: alquiler ≤ 30% del ingreso neto
@@ -122,24 +117,23 @@ CRITERIOS DE EVALUACIÓN PARA ARGENTINA:
    - -20 si cheques rechazados.
 
 TONO: profesional, en español rioplatense. Sé específico con los números. Brindá recomendaciones accionables al propietario o inmobiliaria.
-`,
-});
 
-const analyzeApplicationFlow = ai.defineFlow(
-  {
-    name: 'analyzeApplicationFlow',
-    inputSchema: AnalyzeApplicationInputSchema,
-    outputSchema: AnalyzeApplicationOutputSchema,
-  },
-  async (input) => {
-    const { output } = await analyzeApplicationPrompt(input);
-    if (!output) throw new Error('El análisis falló.');
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "score": number (0-100),
+  "recommendation": "APROBADO" | "APROBADO_CON_CONDICIONES" | "REQUIERE_CODEUDOR" | "RECHAZADO",
+  "reasoning": string,
+  "riskFactors": string[],
+  "condicionesAprobacion": string[],
+  "garantiaAdecuada": boolean,
+  "alertasLegales": string[]
+}`);
+
+  return lines.join('\n');
+}
 
 export async function analyzeApplication(
   input: AnalyzeApplicationInput
 ): Promise<AnalyzeApplicationOutput> {
-  return analyzeApplicationFlow(input);
+  return generateJSON<AnalyzeApplicationOutput>(buildPrompt(input));
 }
