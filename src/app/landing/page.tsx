@@ -223,7 +223,7 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-5 border-t border-border">
-              <span className="eyebrow text-muted-foreground">Integrado con</span>
+              <span className="eyebrow text-muted-foreground w-full sm:w-auto">Integrado con</span>
               {TRUST.map(item => (
                 <span key={item} className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
