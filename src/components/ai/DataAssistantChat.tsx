@@ -152,7 +152,7 @@ export function DataAssistantChat() {
         aria-label="Abrir asistente IA"
       >
         <HouseMascot size={56} animate className="drop-shadow-lg group-hover:-translate-y-1 transition-transform duration-200" mood="waving" />
-        <span className="text-[10px] font-semibold text-[#0369A1] bg-white/90 backdrop-blur rounded-full px-2 py-0.5 shadow -mt-1 border border-[#bae6fd]">
+        <span className="text-[10px] font-semibold text-accent bg-popover/90 backdrop-blur rounded-full px-2 py-0.5 shadow -mt-1 border border-accent/20">
           AGP Help
         </span>
       </button>
@@ -160,45 +160,43 @@ export function DataAssistantChat() {
       {/* Chat panel */}
       <div
         className={cn(
-          'fixed bottom-6 right-6 z-50 flex flex-col w-[360px] max-h-[560px] rounded-2xl shadow-2xl overflow-hidden transition-all duration-200 origin-bottom-right',
+          'fixed bottom-6 right-6 z-50 flex flex-col w-[360px] max-h-[560px] rounded-2xl shadow-2xl overflow-hidden transition-all duration-200 origin-bottom-right bg-popover border text-popover-foreground',
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
         )}
-        style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#111827' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#0369A1] text-white">
+        <div className="flex items-center justify-between px-4 py-2 bg-accent text-accent-foreground">
           <div className="flex items-center gap-2">
             <HouseMascot size={44} animate mood="happy" />
             <div>
               <p className="font-semibold text-sm leading-none">AGP Help</p>
-              <p className="text-xs text-sky-200 mt-0.5">Solo tus datos · Gemini Flash</p>
+              <p className="text-xs text-accent-foreground/70 mt-0.5">Solo tus datos · Gemini Flash</p>
             </div>
           </div>
-          <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-[#0259a0] transition-colors">
+          <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-accent/80 transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0" style={{ backgroundColor: '#f9fafb' }}>
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0 bg-muted/40">
           {messages.map((msg, i) => (
             <div key={i} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
               {msg.role === 'assistant' && (
                 <div className="flex items-end gap-1.5 max-w-[90%]">
                   <HouseMascot size={28} mood="happy" className="flex-shrink-0 mb-0.5" />
-                  <div className="rounded-2xl rounded-bl-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap shadow-sm"
-                    style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#111827' }}>
+                  <div className="rounded-2xl rounded-bl-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap shadow-sm bg-popover border text-popover-foreground">
                     {msg.content}
                   </div>
                 </div>
               )}
               {msg.role === 'user' && (
-                <div className="max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap bg-[#0369A1] text-white">
+                <div className="max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap bg-accent text-accent-foreground">
                   {msg.content}
                 </div>
               )}
               {msg.navigated && (
-                <div className="mt-1 flex items-center gap-1 text-xs text-[#0369A1] ml-8">
+                <div className="mt-1 flex items-center gap-1 text-xs text-accent ml-8">
                   <Navigation className="h-3 w-3" />
                   Navegando a {msg.navigated}
                 </div>
@@ -210,8 +208,7 @@ export function DataAssistantChat() {
                       key={j}
                       onClick={() => handleSend(q)}
                       disabled={loading}
-                      className="text-xs rounded-full px-3 py-1 transition-colors text-left disabled:opacity-50"
-                      style={{ color: '#0369A1', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd' }}
+                      className="text-xs rounded-full px-3 py-1 transition-colors text-left disabled:opacity-50 text-accent bg-accent/10 border border-accent/20"
                     >
                       {q}
                     </button>
@@ -223,9 +220,8 @@ export function DataAssistantChat() {
           {loading && (
             <div className="flex items-end gap-1.5">
               <HouseMascot size={28} mood="thinking" className="flex-shrink-0 mb-0.5" />
-              <div className="rounded-2xl rounded-bl-sm px-3 py-2 shadow-sm"
-                style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}>
-                <Loader2 className="h-4 w-4 text-[#0369A1] animate-spin" />
+              <div className="rounded-2xl rounded-bl-sm px-3 py-2 shadow-sm bg-popover border">
+                <Loader2 className="h-4 w-4 text-accent animate-spin" />
               </div>
             </div>
           )}
@@ -233,7 +229,7 @@ export function DataAssistantChat() {
         </div>
 
         {/* Input */}
-        <div className="flex items-center gap-2 px-3 py-3" style={{ borderTop: '1px solid #f3f4f6', backgroundColor: '#ffffff' }}>
+        <div className="flex items-center gap-2 px-3 py-3 border-t bg-popover">
           <input
             ref={inputRef}
             type="text"
@@ -242,13 +238,12 @@ export function DataAssistantChat() {
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Preguntá o decí 'ir a redes sociales'..."
             disabled={loading}
-            className="flex-1 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#0369A1] disabled:opacity-50"
-            style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827' }}
+            className="flex-1 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-accent border border-border bg-muted/40 text-foreground disabled:opacity-50"
           />
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || loading}
-            className="p-2 bg-[#0369A1] hover:bg-[#0259a0] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
+            className="p-2 bg-accent hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed text-accent-foreground rounded-xl transition-colors"
           >
             <Send className="h-4 w-4" />
           </button>
