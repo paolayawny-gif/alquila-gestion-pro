@@ -1,14 +1,14 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for extracting structured data from service invoices (utilities).
+ * @fileOverview Flow for extracting structured data from service invoices (utilities).
  *
  * - extractInvoiceData - A function that handles the AI extraction process from utility bills.
  * - ExtractInvoiceDataInput - The input type for the extractInvoiceData function.
  * - ExtractInvoiceDataOutput - The return type for the extractInvoiceData function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { z } from 'zod';
+import { generateJSONWithMedia } from '@/ai/gemini';
 
 const ExtractInvoiceDataInputSchema = z.object({
   documentDataUri: z
@@ -30,40 +30,36 @@ const ExtractInvoiceDataOutputSchema = z.object({
 });
 export type ExtractInvoiceDataOutput = z.infer<typeof ExtractInvoiceDataOutputSchema>;
 
-export async function extractInvoiceData(
-  input: ExtractInvoiceDataInput
-): Promise<ExtractInvoiceDataOutput> {
-  return extractInvoiceDataFlow(input);
-}
-
-const extractInvoiceDataPrompt = ai.definePrompt({
-  name: 'extractInvoiceDataPrompt',
-  input: {schema: ExtractInvoiceDataInputSchema},
-  output: {schema: ExtractInvoiceDataOutputSchema},
-  prompt: `You are an expert administrative assistant for property management in Argentina.
+function buildPrompt(): string {
+  return `You are an expert administrative assistant for property management in Argentina.
 Your task is to analyze the provided service invoice (utility bill) and extract the key payment details.
 
 ### IMPORTANT: FIELD MATCHING
-- serviceType: Identify if it is Edenor/Edesur (Luz), Metrogas/Naturgy (Gas), AySA (Aguas), ABL/TGI, or Expenses.
-- amount: The TOTAL amount to pay.
+- serviceType: Identify if it is Edenor/Edesur (Luz), Metrogas/Naturgy (Gas), AySA (Aguas), ABL/TGI, Expensas, Internet, or Otros.
+- amount: The TOTAL amount to pay (as a number, no currency symbols).
 - dueDate: ALWAYS format as YYYY-MM-DD.
 - propertyReference: Look for the address or account number to identify the property.
+- confidenceScore: Your confidence in the extraction (0 to 1).
 
 The summary MUST be in SPANISH.
-Document: {{media url=documentDataUri}}`,
-});
 
-const extractInvoiceDataFlow = ai.defineFlow(
-  {
-    name: 'extractInvoiceDataFlow',
-    inputSchema: ExtractInvoiceDataInputSchema,
-    outputSchema: ExtractInvoiceDataOutputSchema,
-  },
-  async input => {
-    const {output} = await extractInvoiceDataPrompt(input);
-    if (!output) {
-      throw new Error('Failed to extract data from the service invoice.');
-    }
-    return output;
-  }
-);
+Return a JSON object with exactly this structure:
+{
+  "serviceType": "Luz" | "Gas" | "Aguas" | "TGI/ABL" | "Expensas" | "Internet" | "Otros",
+  "amount": number,
+  "dueDate": string (optional, YYYY-MM-DD),
+  "period": string (optional),
+  "propertyReference": string (optional),
+  "confidenceScore": number,
+  "summary": string
+}`;
+}
+
+export async function extractInvoiceData(
+  input: ExtractInvoiceDataInput
+): Promise<ExtractInvoiceDataOutput> {
+  return generateJSONWithMedia<ExtractInvoiceDataOutput>(
+    buildPrompt(),
+    input.documentDataUri,
+  );
+}

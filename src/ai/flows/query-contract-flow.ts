@@ -5,8 +5,8 @@
  * y referencias al marco legal argentino vigente.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
 const QueryContractInputSchema = z.object({
@@ -40,15 +40,14 @@ const PERSPECTIVA_TEXTO: Record<string, string> = {
   neutral: 'Respondé de forma neutral y equilibrada, sin tomar partido por ninguna de las partes.',
 };
 
-const queryContractPrompt = ai.definePrompt({
-  name: 'queryContractPrompt',
-  input: { schema: QueryContractInputSchema },
-  output: { schema: QueryContractOutputSchema },
-  prompt: `Sos un abogado especialista en derecho inmobiliario argentino. Respondé la pregunta del usuario sobre el contrato de locación.
+function buildPrompt(input: QueryContractInput): string {
+  const perspectivaTxt = PERSPECTIVA_TEXTO[input.perspective] ?? PERSPECTIVA_TEXTO.neutral;
 
-PERSPECTIVA: {{{perspective}}}
-INSTRUCCIÓN DE PERSPECTIVA: {{perspectivaTxt}}
-TIPO DE CONTRATO: {{{contractType}}}
+  return `Sos un abogado especialista en derecho inmobiliario argentino. Respondé la pregunta del usuario sobre el contrato de locación.
+
+PERSPECTIVA: ${input.perspective}
+INSTRUCCIÓN DE PERSPECTIVA: ${perspectivaTxt}
+TIPO DE CONTRATO: ${input.contractType}
 
 MARCO LEGAL ARGENTINO DE REFERENCIA:
 ${MARCO_LEGAL_ALQUILER}
@@ -62,36 +61,26 @@ INSTRUCCIONES:
 6. Siempre que sea posible, citá la cláusula exacta en "sourceQuote".
 7. Sé preciso y directo. No des respuestas genéricas.
 
+Devolvé un JSON con exactamente esta estructura:
+{
+  "answer": string,
+  "sourceQuote": string (opcional),
+  "fundamentoLegal": string (opcional),
+  "alertaLegal": string (opcional)
+}
+
 TRANSCRIPCIÓN DEL CONTRATO:
 """
-{{{contractTranscription}}}
+${input.contractTranscription}
 """
 
 PREGUNTA DEL USUARIO:
-{{{question}}}
-`,
-  config: {
-    version: 'gemini-2.5-flash',
-  },
-});
-
-const queryContractFlow = ai.defineFlow(
-  {
-    name: 'queryContractFlow',
-    inputSchema: QueryContractInputSchema,
-    outputSchema: QueryContractOutputSchema,
-  },
-  async (input) => {
-    const perspectivaTxt = PERSPECTIVA_TEXTO[input.perspective] ?? PERSPECTIVA_TEXTO.neutral;
-    const { output } = await queryContractPrompt({ ...input, perspectivaTxt } as any);
-    if (!output) throw new Error('La IA no devolvió respuesta.');
-    return output;
-  }
-);
+${input.question}`;
+}
 
 export async function queryContract(input: QueryContractInput): Promise<QueryContractResult> {
   try {
-    const data = await queryContractFlow(input);
+    const data = await generateJSON<QueryContractOutput>(buildPrompt(input));
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

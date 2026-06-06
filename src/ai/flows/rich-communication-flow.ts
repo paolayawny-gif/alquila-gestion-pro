@@ -10,8 +10,8 @@
  * - Post-proceso humanizador (anti-detección IA)
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 import { fetchIndexResult } from '@/services/index-service';
 import type { IndexType } from '@/services/index-service';
 
@@ -114,11 +114,11 @@ export interface IndexDataUsed {
 export interface RichCommunicationResult {
   subjectLine: string;
   draftedMessage: string;
-  channelFormattedMessage: string;  // Mensaje ya formateado para el canal
+  channelFormattedMessage: string;
   indexDataUsed?: IndexDataUsed;
   toneNote?: string;
-  moraStepLabel?: string;           // Ej: "Día 15 – Intimación Legal"
-  legalBasis?: string;              // Fundamento legal aplicable
+  moraStepLabel?: string;
+  legalBasis?: string;
 }
 
 export type RichCommunicationOutput =
@@ -223,63 +223,88 @@ const TIPO_INSTRUCCIONES: Record<string, string> = {
   generalMessage: 'Mensaje general según el contexto provisto.',
 };
 
-// ── Genkit prompt ──────────────────────────────────────────────────────────────
+// ── Prompt builder ─────────────────────────────────────────────────────────────
 
-const richCommunicationPrompt = ai.definePrompt({
-  name: 'richCommunicationPrompt',
-  prompt: `Sos un experto en redacción de comunicaciones inmobiliarias para Argentina.
+interface PromptContext {
+  input: RichCommunicationInput;
+  effectiveTone: string;
+  tipoInstruccion: string;
+  moraConfig?: { label: string; instruction: string; legalBasis: string };
+  indexEnriched: boolean;
+  indexLabel: string;
+  indexMonthlyPct: string;
+  indexAccumulatedPct: string;
+  indexPeriod: string;
+  indexSource: string;
+  indexNote: string;
+  newRentCalculated?: string;
+  currentRentAmountStr?: string;
+}
+
+function buildPrompt(ctx: PromptContext): string {
+  const { input, effectiveTone } = ctx;
+  const recipient = input.tenantName ?? input.ownerName ?? 'Cliente';
+
+  const dataLines: string[] = [];
+  dataLines.push(`- Destinatario: ${recipient}`);
+  if (input.guarantorName) dataLines.push(`- Garante: ${input.guarantorName}`);
+  if (input.propertyName || input.propertyAddress) {
+    dataLines.push(`- Propiedad: ${input.propertyName ?? ''}${input.propertyAddress ? ' — ' + input.propertyAddress : ''}`);
+  }
+  if (ctx.currentRentAmountStr) dataLines.push(`- Alquiler actual: ${ctx.currentRentAmountStr}`);
+  if (input.newRentAmount) dataLines.push(`- Nuevo alquiler: ${input.newRentAmount}`);
+
+  if (ctx.indexEnriched) {
+    dataLines.push(`\n### DATOS REALES DEL ÍNDICE (obtenidos en tiempo real):`);
+    dataLines.push(`- Índice: ${ctx.indexLabel}`);
+    dataLines.push(`- Variación mensual: ${ctx.indexMonthlyPct}%`);
+    dataLines.push(`- Variación acumulada (${input.adjustmentMonths} meses): ${ctx.indexAccumulatedPct}%`);
+    dataLines.push(`- Período de referencia: ${ctx.indexPeriod}`);
+    dataLines.push(`- Fuente: ${ctx.indexSource}`);
+    if (ctx.indexNote) dataLines.push(`- Nota: ${ctx.indexNote}`);
+    if (ctx.newRentCalculated) dataLines.push(`- Nuevo canon calculado: ${input.currency} ${ctx.newRentCalculated}`);
+    dataLines.push(`IMPORTANTE: Usá estos valores reales exactos en el mensaje. Son datos oficiales actualizados.`);
+  } else if (input.adjustmentIndex) {
+    dataLines.push(`- Índice de ajuste: ${input.adjustmentIndex}${input.adjustmentPercentage ? ' (' + input.adjustmentPercentage + ')' : ''}${input.adjustmentPeriod ? ' — período ' + input.adjustmentPeriod : ''}`);
+  }
+
+  if (input.amountDue) dataLines.push(`- Monto adeudado: ${input.amountDue}`);
+  if (input.daysOverdue != null) dataLines.push(`- Días en mora: ${input.daysOverdue} días`);
+  if (input.lateFeeAmount) dataLines.push(`- Punitorios devengados: ${input.lateFeeAmount}`);
+  if (input.dueDate) dataLines.push(`- Fecha de vencimiento/plazo: ${input.dueDate}`);
+  if (input.currentLeaseStartDate) dataLines.push(`- Inicio de contrato: ${input.currentLeaseStartDate}`);
+  if (input.currentLeaseEndDate) dataLines.push(`- Fin de contrato: ${input.currentLeaseEndDate}`);
+  if (input.rescisionNoticeMonths != null) dataLines.push(`- Meses de preaviso: ${input.rescisionNoticeMonths}`);
+  if (input.rescisionPenaltyAmount) dataLines.push(`- Penalidad por rescisión: ${input.rescisionPenaltyAmount}`);
+  if (input.maintenanceConcept) dataLines.push(`- Concepto: ${input.maintenanceConcept}`);
+  if (input.maintenanceStatus) dataLines.push(`- Estado: ${input.maintenanceStatus}`);
+  if (input.maintenanceCost) dataLines.push(`- Costo: ${input.maintenanceCost}`);
+  if (input.reportingPeriod) dataLines.push(`- Período: ${input.reportingPeriod}`);
+  if (input.totalIncome) dataLines.push(`- Ingresos: ${input.totalIncome}`);
+  if (input.totalExpenses) dataLines.push(`- Deducciones: ${input.totalExpenses}`);
+  if (input.netAmount) dataLines.push(`- Neto: ${input.netAmount}`);
+  if (input.legalStage) dataLines.push(`- Etapa legal: ${input.legalStage}`);
+  if (input.portalUrl) dataLines.push(`- URL del portal: ${input.portalUrl}`);
+  if (input.additionalContext) dataLines.push(`- Contexto adicional: ${input.additionalContext}`);
+
+  const moraSection = ctx.moraConfig
+    ? `\n### PASO DE SECUENCIA DE MORA:\n${ctx.moraConfig.label}\n${ctx.moraConfig.instruction}\nFundamento legal: ${ctx.moraConfig.legalBasis}\n`
+    : '';
+
+  return `Sos un experto en redacción de comunicaciones inmobiliarias para Argentina.
 Redactá una comunicación profesional en español rioplatense (voseo) siguiendo ESTRICTAMENTE las instrucciones de tono y canal.
 
-### TONO REQUERIDO: {{{tone}}}
-{{{toneInstruction}}}
+### TONO REQUERIDO: ${effectiveTone}
+${TONE_INSTRUCTIONS[effectiveTone] ?? TONE_INSTRUCTIONS.formal}
 
-### CANAL DE ENVÍO: {{{channel}}}
-{{{channelInstruction}}}
+### CANAL DE ENVÍO: ${input.channel}
+${CHANNEL_FORMAT_INSTRUCTIONS[input.channel] ?? CHANNEL_FORMAT_INSTRUCTIONS.email}
 
-### TIPO DE COMUNICACIÓN: {{{communicationType}}}
-INSTRUCCIONES ESPECÍFICAS: {{{tipoInstruccion}}}
-
-{{#if moraStepInstruction}}
-### PASO DE SECUENCIA DE MORA:
-{{{moraStepInstruction}}}
-{{/if}}
-
+### TIPO DE COMUNICACIÓN: ${input.communicationType}
+INSTRUCCIONES ESPECÍFICAS: ${ctx.tipoInstruccion}
+${moraSection}
 ### DATOS DISPONIBLES:
-- Destinatario: {{#if tenantName}}{{{tenantName}}}{{else}}{{#if ownerName}}{{{ownerName}}}{{else}}Cliente{{/if}}{{/if}}
-{{#if guarantorName}}- Garante: {{{guarantorName}}}{{/if}}
-- Propiedad: {{#if propertyName}}{{{propertyName}}}{{/if}}{{#if propertyAddress}} — {{{propertyAddress}}}{{/if}}
-{{#if currentRentAmountStr}}- Alquiler actual: **{{{currentRentAmountStr}}}**{{/if}}
-{{#if newRentAmount}}- Nuevo alquiler: **{{{newRentAmount}}}**{{/if}}
-{{#if indexEnriched}}
-### DATOS REALES DEL ÍNDICE (obtenidos en tiempo real):
-- Índice: {{{indexLabel}}}
-- Variación mensual: {{{indexMonthlyPct}}}%
-- Variación acumulada ({{{adjustmentMonths}}} meses): {{{indexAccumulatedPct}}}%
-- Período de referencia: {{{indexPeriod}}}
-- Fuente: {{{indexSource}}}
-{{#if indexNote}}- Nota: {{{indexNote}}}{{/if}}
-{{#if newRentCalculated}}- Nuevo canon calculado: **{{{currency}}} {{{newRentCalculated}}}**{{/if}}
-IMPORTANTE: Usá estos valores reales exactos en el mensaje. Son datos oficiales actualizados.
-{{/if}}
-{{#if adjustmentIndex}}- Índice de ajuste: {{{adjustmentIndex}}}{{#if adjustmentPercentage}} ({{{adjustmentPercentage}}}){{/if}}{{#if adjustmentPeriod}} — período {{{adjustmentPeriod}}}{{/if}}{{/if}}
-{{#if amountDue}}- Monto adeudado: **{{{amountDue}}}**{{/if}}
-{{#if daysOverdue}}- Días en mora: **{{{daysOverdue}}} días**{{/if}}
-{{#if lateFeeAmount}}- Punitorios devengados: {{{lateFeeAmount}}}{{/if}}
-{{#if dueDate}}- Fecha de vencimiento/plazo: {{{dueDate}}}{{/if}}
-{{#if currentLeaseStartDate}}- Inicio de contrato: {{{currentLeaseStartDate}}}{{/if}}
-{{#if currentLeaseEndDate}}- Fin de contrato: {{{currentLeaseEndDate}}}{{/if}}
-{{#if rescisionNoticeMonths}}- Meses de preaviso: {{{rescisionNoticeMonths}}}{{/if}}
-{{#if rescisionPenaltyAmount}}- Penalidad por rescisión: {{{rescisionPenaltyAmount}}}{{/if}}
-{{#if maintenanceConcept}}- Concepto: {{{maintenanceConcept}}}{{/if}}
-{{#if maintenanceStatus}}- Estado: {{{maintenanceStatus}}}{{/if}}
-{{#if maintenanceCost}}- Costo: {{{maintenanceCost}}}{{/if}}
-{{#if reportingPeriod}}- Período: {{{reportingPeriod}}}{{/if}}
-{{#if totalIncome}}- Ingresos: {{{totalIncome}}}{{/if}}
-{{#if totalExpenses}}- Deducciones: {{{totalExpenses}}}{{/if}}
-{{#if netAmount}}- Neto: **{{{netAmount}}}**{{/if}}
-{{#if legalStage}}- Etapa legal: {{{legalStage}}}{{/if}}
-{{#if portalUrl}}- URL del portal: {{{portalUrl}}}{{/if}}
-{{#if additionalContext}}- Contexto adicional: {{{additionalContext}}}{{/if}}
+${dataLines.join('\n')}
 
 ### RESULTADO ESPERADO (JSON):
 Devolvé un objeto con:
@@ -292,28 +317,21 @@ REGLAS FINALES:
 - Si es carta documento, numerá los párrafos.
 - Si es WhatsApp, máximo 3 párrafos y usá *asteriscos* para resaltar.
 - Español rioplatense siempre: "vos tenés", "podés", "debés", "hacé".
-`,
-});
 
-// ── Genkit flow ────────────────────────────────────────────────────────────────
-
-const richCommunicationGenkit = ai.defineFlow(
-  { name: 'richCommunicationFlow' },
-  async (enrichedInput: Record<string, unknown>) => {
-    const { output } = await richCommunicationPrompt(enrichedInput);
-    return output;
-  }
-);
+{
+  "subjectLine": string,
+  "draftedMessage": string,
+  "toneNote": string (opcional)
+}`;
+}
 
 // ── Formateador de canal post-AI ───────────────────────────────────────────────
 
 function applyChannelFormatting(message: string, channel: string): string {
   if (channel === 'whatsapp') {
-    // Convertir **texto** a *texto* (WhatsApp usa un solo asterisco)
     return message.replace(/\*\*(.+?)\*\*/g, '*$1*');
   }
   if (channel === 'sms') {
-    // Quitar negritas y recortar a 320 chars
     const clean = message.replace(/\*\*?(.+?)\*\*?/g, '$1').trim();
     return clean.length > 320 ? clean.substring(0, 317) + '...' : clean;
   }
@@ -377,15 +395,11 @@ export async function richCommunication(
       ? `${input.currency} ${input.currentRentAmount.toLocaleString('es-AR')}`
       : undefined;
 
-    const promptInput = {
-      ...input,
-      currentRentAmountStr,
-      toneInstruction: TONE_INSTRUCTIONS[effectiveTone] ?? TONE_INSTRUCTIONS.formal,
-      channelInstruction: CHANNEL_FORMAT_INSTRUCTIONS[input.channel] ?? CHANNEL_FORMAT_INSTRUCTIONS.email,
+    const ctx: PromptContext = {
+      input,
+      effectiveTone,
       tipoInstruccion: TIPO_INSTRUCCIONES[input.communicationType] ?? TIPO_INSTRUCCIONES.generalMessage,
-      moraStepInstruction: moraConfig
-        ? `${moraConfig.label}\n${moraConfig.instruction}\nFundamento legal: ${moraConfig.legalBasis}`
-        : undefined,
+      moraConfig,
       indexEnriched,
       indexLabel,
       indexMonthlyPct,
@@ -394,16 +408,14 @@ export async function richCommunication(
       indexSource,
       indexNote,
       newRentCalculated: newRentCalculated?.toLocaleString('es-AR'),
+      currentRentAmountStr,
     };
 
     // 4. Llamar al LLM
-    const output = await richCommunicationGenkit(promptInput as any);
+    const result = await generateJSON<{ subjectLine?: string; draftedMessage?: string; toneNote?: string }>(
+      buildPrompt(ctx)
+    );
 
-    if (!output || typeof output !== 'object') {
-      throw new Error('El modelo no devolvió una respuesta válida.');
-    }
-
-    const result = output as { subjectLine?: string; draftedMessage?: string; toneNote?: string };
     const drafted = result.draftedMessage ?? '';
     const channelFormatted = applyChannelFormatting(drafted, input.channel);
 

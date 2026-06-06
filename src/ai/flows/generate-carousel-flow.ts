@@ -1,7 +1,7 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 
 const InputSchema = z.object({
   topic: z.string().describe('Tema o idea del carrusel.'),
@@ -27,11 +27,8 @@ const OutputSchema = z.object({
 
 export type GenerateCarouselOutput = z.infer<typeof OutputSchema>;
 
-const generateCarouselFlow = ai.defineFlow(
-  { name: 'generateCarouselFlow', inputSchema: InputSchema, outputSchema: OutputSchema },
-  async (input) => {
-    const { output } = await ai.generate({
-      prompt: `Sos un experto en marketing inmobiliario argentino.
+function buildPrompt(input: GenerateCarouselInput): string {
+  return `Sos un experto en marketing inmobiliario argentino.
 ${input.brandContext ? `BRIEF DE MARCA (aplicar en todo el contenido — voz, tono y estilo de esta inmobiliaria):\n${input.brandContext}\n` : ''}
 Creá un carrusel de exactamente ${input.numSlides} slides para Instagram/LinkedIn sobre:
 "${input.topic}"
@@ -49,17 +46,19 @@ Reglas estrictas:
 2. Cada subtítulo: máx 20 palabras, amplía el título con un detalle concreto
 3. Lenguaje argentino natural (vos, ustedes)
 4. Coherencia temática entre todos los slides
-5. Orientado al mercado inmobiliario local`,
-      output: { schema: OutputSchema },
-    });
+5. Orientado al mercado inmobiliario local
 
-    if (!output) throw new Error('El modelo no devolvió una respuesta válida.');
-    return output;
-  }
-);
+Devolvé un JSON con exactamente esta estructura:
+{
+  "slides": [
+    { "title": string, "subtitle": string }
+  ],
+  "hashtags": string
+}`;
+}
 
 export async function generateCarousel(
   input: GenerateCarouselInput
 ): Promise<GenerateCarouselOutput> {
-  return generateCarouselFlow(input);
+  return generateJSON<GenerateCarouselOutput>(buildPrompt(input));
 }

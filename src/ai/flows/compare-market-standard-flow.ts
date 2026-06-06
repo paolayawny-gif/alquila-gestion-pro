@@ -1,18 +1,10 @@
 'use server';
 /**
  * Flow de comparación de contrato contra estándares de mercado argentino.
- *
- * Compara las condiciones pactadas contra:
- * - Los modelos de contratos incluidos en la plataforma (Ley 27.551 + DNU 70/2023)
- * - Prácticas habituales del mercado inmobiliario argentino
- * - Índices referenciales actuales (ICL, IPC, CER)
- *
- * Ayuda a detectar si una cláusula es muy favorable o muy desfavorable
- * respecto de lo que se pacta habitualmente en el mercado.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
+import { generateJSON } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER, AJUSTE } from '@/lib/argentine-law';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,16 +65,13 @@ export type CompareMarketStandardResult =
 
 const indicesRef = AJUSTE.indicesComunes.map(i => `${i.codigo} (${i.fuente})`).join(', ');
 
-const compareMarketStandardPrompt = ai.definePrompt({
-  name: 'compareMarketStandardPrompt',
-  input: { schema: CompareMarketStandardInputSchema },
-  output: { schema: CompareMarketStandardOutputSchema },
-  prompt: `Sos un asesor inmobiliario y abogado argentino con amplia experiencia en el mercado de alquileres. Analizá el contrato y comparalo contra los estándares habituales del mercado inmobiliario argentino en 2024-2025.
+function buildPrompt(input: CompareMarketStandardInput): string {
+  return `Sos un asesor inmobiliario y abogado argentino con amplia experiencia en el mercado de alquileres. Analizá el contrato y comparalo contra los estándares habituales del mercado inmobiliario argentino en 2024-2025.
 
-TIPO: {{{contractType}}}
-PERSPECTIVA: {{{perspective}}} (evaluá desde el punto de vista de esta parte)
-{{#if propertyZone}}ZONA: {{{propertyZone}}}{{/if}}
-{{#if currency}}MONEDA: {{{currency}}}{{/if}}
+TIPO: ${input.contractType}
+PERSPECTIVA: ${input.perspective} (evaluá desde el punto de vista de esta parte)
+${input.propertyZone ? `ZONA: ${input.propertyZone}` : ''}
+${input.currency ? `MONEDA: ${input.currency}` : ''}
 
 ${MARCO_LEGAL_ALQUILER}
 
@@ -113,35 +102,46 @@ COMPARAR OBLIGATORIAMENTE:
 
 TONO: profesional, directo, en español rioplatense. El objetivo es ayudar a la parte a entender si firmó/firmará un contrato equilibrado o si hay condiciones que debería haber negociado.
 
+Devolvé un JSON con exactamente esta estructura:
+{
+  "dictamenGeneral": string,
+  "puntajeEquilibrio": number (0-100),
+  "comparaciones": [
+    {
+      "campo": string,
+      "valorContrato": string,
+      "estandarMercado": string,
+      "evaluacion": "favorable" | "neutro" | "desfavorable" | "muy_favorable" | "muy_desfavorable",
+      "brecha": string,
+      "negociable": boolean
+    }
+  ],
+  "puntosNegociacion": string[],
+  "alertasEspeciales": string[],
+  "resumenPorArea": {
+    "precio": "favorable" | "neutro" | "desfavorable",
+    "plazo": "favorable" | "neutro" | "desfavorable",
+    "garantias": "favorable" | "neutro" | "desfavorable",
+    "obligaciones": "favorable" | "neutro" | "desfavorable",
+    "salida": "favorable" | "neutro" | "desfavorable"
+  }
+}
+
 CONTRATO:
 """
-{{{contractText}}}
-"""
-`,
-});
+${input.contractText}
+"""`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FLOW
+// EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
-
-const compareMarketStandardFlow = ai.defineFlow(
-  {
-    name: 'compareMarketStandardFlow',
-    inputSchema: CompareMarketStandardInputSchema,
-    outputSchema: CompareMarketStandardOutputSchema,
-  },
-  async (input) => {
-    const { output } = await compareMarketStandardPrompt(input);
-    if (!output) throw new Error('La IA no pudo comparar el contrato con el estándar de mercado.');
-    return output;
-  }
-);
 
 export async function compareMarketStandard(
   input: CompareMarketStandardInput
 ): Promise<CompareMarketStandardResult> {
   try {
-    const data = await compareMarketStandardFlow(input);
+    const data = await generateJSON<CompareMarketStandardOutput>(buildPrompt(input));
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

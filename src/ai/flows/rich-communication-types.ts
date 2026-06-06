@@ -7,7 +7,7 @@
  * estructural acá.
  */
 
-import { z } from 'genkit';
+import { z } from 'zod';
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
