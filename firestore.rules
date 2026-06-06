@@ -10,9 +10,14 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Super Admin: UID fijo de paolayawny@gmail.com
+    // SuperAdmin: custom claim (preferido) con fallback a SUPERADMIN_UID durante migración.
+    // Para eliminar el UID del código: llamar a /api/superadmin/set-custom-claims una vez
+    // como superadmin, luego remover la segunda condición en el próximo deploy.
     function isSuperAdmin() {
-      return isSignedIn() && request.auth.uid == 'wYkBqQjJuSdQu7F20eFAHZ0qX9N2';
+      return isSignedIn() && (
+        request.auth.token.superAdmin == true ||
+        request.auth.uid == 'wYkBqQjJuSdQu7F20eFAHZ0qX9N2'
+      );
     }
 
     function emailIs(value) {
@@ -71,36 +76,44 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isSuperAdmin());
     }
 
-    // Beneficios: cualquier autenticado lee; cualquier admin autenticado crea/edita
+    // Beneficios: cualquier autenticado lee; solo el autor edita/borra los suyos
     match /artifacts/{appId}/comunidadBeneficios/{docId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isSuperAdmin());
     }
 
-    // Transacciones de comisión: cualquier autenticado lee/crea (filtro en cliente); solo superadmin edita
+    // Transacciones de comisión: cualquier autenticado lee; solo superadmin edita/borra.
+    // Create requiere que los IDs de comprador y vendedor coincidan con el caller.
     match /artifacts/{appId}/comunidadTransacciones/{docId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && (
+        request.resource.data.sellerId == request.auth.uid ||
+        request.resource.data.buyerId == request.auth.uid
+      );
       allow update, delete: if isSuperAdmin();
     }
 
     // ── Portal Inquilino & Propietario ──────────────────────────────────────
 
     // Registro de inquilinos: SOLO el admin que lo creó escribe; el inquilino lee el suyo.
-    // - get individual permitido para autenticados (detección de rol por docId de email)
-    // - list bloqueado para evitar que se enumeren TODOS los registros
+    // FIX: get restringido a adminId del documento o al inquilino cuyo email coincide.
     match /artifacts/{appId}/tenantRegistry/{docId} {
-      allow get: if isSignedIn();
+      allow get: if isSuperAdmin()
+              || (isSignedIn() && request.auth.uid == resource.data.adminId)
+              || (isSignedIn() && request.auth.token.email == resource.data.tenantEmail);
       allow list: if isSuperAdmin();
       allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
       allow update: if isSignedIn() && (resource.data.adminId == request.auth.uid || isSuperAdmin());
       allow delete: if isSignedIn() && (resource.data.adminId == request.auth.uid || isSuperAdmin());
     }
 
-    // Registro de propietarios: el admin escribe; el propietario puede actualizar SU entrada
-    // (para auto-guardar su ownerUid). list bloqueado igual que tenantRegistry.
+    // Registro de propietarios: el admin escribe; el propietario puede actualizar SU entrada.
+    // FIX: get restringido a adminId o al propietario cuyo email coincide.
     match /artifacts/{appId}/ownerRegistry/{docId} {
-      allow get: if isSignedIn();
+      allow get: if isSuperAdmin()
+              || (isSignedIn() && request.auth.uid == resource.data.adminId)
+              || (isSignedIn() && request.auth.token.email == resource.data.ownerEmail);
       allow list: if isSuperAdmin();
       allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
       allow update: if isSignedIn() && (
@@ -113,7 +126,18 @@ service cloud.firestore {
 
     // Chats compartidos admin↔inquilino↔propietario
     match /artifacts/{appId}/sharedChats/{chatId} {
-      allow read: if isSignedIn() && (
+      // get individual: verificamos participación con resource.data
+      allow get: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.uid == resource.data.ownerId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        request.auth.token.email == resource.data.ownerEmail ||
+        isSuperAdmin()
+      );
+      // FIX: list ahora requiere resource.data — Firestore obliga al cliente a incluir
+      // where('adminId','==',uid) o where('tenantEmail','==',email) en la query;
+      // sin el where correcto, Firestore rechaza la query.
+      allow list: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.uid == resource.data.ownerId ||
         request.auth.token.email == resource.data.tenantEmail ||
@@ -163,15 +187,14 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
     }
 
-    // Solicitudes de pago anticipado: admin (adminId) e inquilino (tenantEmail) leen/actualizan
-    // SECURITY: list está restringido — permite listar solo las propias.
-    // Querys del cliente deben filtrar por adminId == uid o tenantEmail == email.
+    // Solicitudes de pago anticipado
     match /artifacts/{appId}/advancePaymentRequests/{reqId} {
       allow get: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.token.email == resource.data.tenantEmail ||
         isSuperAdmin()
       );
+      // FIX: list requiere resource.data — fuerza where('adminId','==',uid) o where('tenantEmail','==',email)
       allow list: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.token.email == resource.data.tenantEmail ||
@@ -194,13 +217,18 @@ service cloud.firestore {
 
     // Tickets de mantenimiento compartidos admin↔inquilino↔propietario
     match /artifacts/{appId}/maintenanceTickets/{ticketId} {
-      allow read: if isSignedIn() && (
+      allow get: if isSignedIn() && (
         request.auth.uid == resource.data.adminId ||
         request.auth.token.email == resource.data.tenantEmail ||
         (resource.data.ownerVisible == true && request.auth.token.email == resource.data.ownerEmail) ||
         isSuperAdmin()
       );
-      // Se crea a nombre propio: admin (adminId) o inquilino (tenantEmail)
+      // FIX: list requiere resource.data — fuerza where correcto en la query del cliente
+      allow list: if isSignedIn() && (
+        request.auth.uid == resource.data.adminId ||
+        request.auth.token.email == resource.data.tenantEmail ||
+        isSuperAdmin()
+      );
       allow create: if isSignedIn() && (
         request.resource.data.adminId == request.auth.uid ||
         request.resource.data.tenantEmail == request.auth.token.email ||
@@ -237,16 +265,30 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
-    // Propiedades: lectura individual pública (postulantes/marketplace); escritura solo del admin dueño
+    // Propiedades: lectura individual pública (postulantes/marketplace); escritura solo del admin dueño.
+    // NOTA: get:true expone los datos del documento al público. Los campos de contacto del
+    // propietario (ownerEmail, ownerName) deben ser separados a una subcolección privada en
+    // un refactor futuro. Por ahora el portal público los necesita para el flujo de contacto.
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
       allow get: if true;
       allow list: if isSignedIn();
       allow create, update, delete: if isOwner(userId);
     }
 
-    // Solicitudes: cualquiera crea (formulario público); solo el admin dueño lee/edita
+    // Solicitudes: formulario público de postulación.
+    // FIX: validación de campos mínimos para rechazar spam/datos basura sin auth.
+    // El docId lo elige el cliente (UUID/random) — no se valida aquí.
     match /artifacts/{appId}/users/{userId}/solicitudes/{solicitudId} {
-      allow create: if true;
+      allow create: if (
+        request.resource.data.keys().hasAll(['applicantName', 'applicantEmail', 'status', 'propertyId'])
+        && request.resource.data.applicantName is string
+        && request.resource.data.applicantName.size() > 0
+        && request.resource.data.applicantName.size() <= 200
+        && request.resource.data.applicantEmail is string
+        && request.resource.data.applicantEmail.size() > 3
+        && request.resource.data.applicantEmail.size() <= 254
+        && request.resource.data.status == 'Nueva'
+      );
       allow get, list, update, delete: if isOwner(userId) || isSuperAdmin();
     }
 
@@ -323,28 +365,34 @@ service cloud.firestore {
 
     // ── Seguros & PAS ──────────────────────────────────────────────────────────
 
-    // Comisiones de seguro: cualquier autenticado lee; solo superadmin escribe
-    // SECURITY: restringido a superadmin para evitar que inquilinos/propietarios manipulen tasas
     match /artifacts/{appId}/seguroComisiones/{docId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSuperAdmin();
     }
 
-    // Partners PAS: cualquier autenticado lee; superadmin escribe
     match /artifacts/{appId}/pasPartners/{docId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // Comisiones PAS: cualquier autenticado lee; superadmin escribe
     match /artifacts/{appId}/pasComisiones/{docId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // ── Comodín por usuario: cualquier otra subcolección bajo users/{uid} ──────
+    // Eventos de propiedad: timeline inmutable — admin crea; nadie edita/borra
+    match /artifacts/{appId}/users/{userId}/propertyEvents/{eventId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create: if isOwner(userId);
+      allow update, delete: if false; // eventos son inmutables
+    }
+
+    // ── Comodín por usuario: cualquier OTRA subcolección bajo users/{uid} ──────
+    // FIX: solo read — write eliminado para evitar que este comodín anule reglas
+    // de inmutabilidad de colecciones específicas (como propertyEvents).
+    // Todas las subcolecciones con acceso write tienen sus propias reglas arriba.
     match /artifacts/{appId}/users/{userId}/{collection}/{docId} {
-      allow read, write: if isOwner(userId) || isSuperAdmin();
+      allow read: if isOwner(userId) || isSuperAdmin();
     }
   }
 }

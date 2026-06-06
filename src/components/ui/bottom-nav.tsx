@@ -18,7 +18,7 @@ interface BottomNavProps {
 
 export function BottomNav({ items, activeId, onSelect, activeColor = 'text-primary' }: BottomNavProps) {
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t z-50 bottom-nav-safe">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-popover dark:bg-card border-t z-50 bottom-nav-safe">
       <div className="flex items-stretch h-14">
         {items.map(item => (
           <button
@@ -30,7 +30,7 @@ export function BottomNav({ items, activeId, onSelect, activeColor = 'text-prima
             )}
           >
             <item.icon className="h-5 w-5 shrink-0" />
-            <span className="text-[9px] font-semibold leading-none tracking-tight">{item.label}</span>
+            <span className="text-[10px] font-semibold leading-none tracking-tight">{item.label}</span>
           </button>
         ))}
       </div>

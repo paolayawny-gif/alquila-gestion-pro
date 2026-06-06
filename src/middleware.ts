@@ -13,8 +13,11 @@ const PUBLIC_PATHS = [
   '/api/billing/webhook',
   '/api/portal/billing/webhook', // MercadoPago notifica sin sesión
   '/api/signature',       // firmantes externos no autenticados
+  '/api/icon',            // iconos PWA generados dinámicamente
   '/_next',
   '/favicon.ico',
+  '/manifest.json',       // PWA manifest — debe ser público o el browser recibe HTML
+  '/sw.js',               // service worker — también debe ser público
 ];
 
 function isPublicPath(pathname: string): boolean {

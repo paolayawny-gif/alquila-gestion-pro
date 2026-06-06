@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
 import nodemailer from 'nodemailer';
 import { emailWelcomeAdmin } from '@/lib/email-templates';
+import { APP_ID } from '@/lib/constants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const APP_ID = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
-
 export async function POST(req: NextRequest) {
-  try {
-    const { orgId, callerEmail } = await req.json() as { orgId: string; callerEmail?: string };
+  // Verify Firebase ID token and require superadmin UID — body fields are not trusted.
+  const auth = await requireFirebaseAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  if (!isSuperAdminUid(auth.userId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
-    if (callerEmail !== SUPER_ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+  try {
+    const { orgId } = await req.json() as { orgId: string };
     if (!orgId) {
       return NextResponse.json({ error: 'orgId required' }, { status: 400 });
     }

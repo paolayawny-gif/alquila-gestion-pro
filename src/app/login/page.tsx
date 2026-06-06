@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken, sendEmailVerification } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
@@ -144,6 +144,13 @@ function LoginPageInner() {
 
       const authResponse = await startAuthentication(options);
 
+      // Mark session as biometric-verified BEFORE any subsequent awaits.
+      // This prevents BiometricGate from briefly showing as locked if the
+      // Firebase auth state change (from signInWithCustomToken below) triggers
+      // a re-render before we finish the session fetch.
+      sessionStorage.setItem('agp_biometric_unlocked', '1');
+      localStorage.setItem(`agp_device_has_passkey_${email}`, '1');
+
       const verRes = await fetch('/api/auth/passkey/authenticate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,15 +172,14 @@ function LoginPageInner() {
         const { sessionId } = await sesRes.json();
         sessionStorage.setItem('agp_session_id', sessionId);
       }
-      // Identity already verified by this biometric login — skip the
-      // BiometricGate prompt on the dashboard for this session.
-      sessionStorage.setItem('agp_biometric_unlocked', '1');
-      // This device can do biometrics for this account — let the gate engage here.
-      localStorage.setItem('agp_device_has_passkey', '1');
       toast({ title: 'Bienvenido', description: 'Sesión iniciada con biometría.' });
       router.push('/');
     } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
+      // If we pre-set agp_biometric_unlocked but then auth failed, roll it back
+      // so BiometricGate doesn't treat this session as verified.
+      sessionStorage.removeItem('agp_biometric_unlocked');
+      // User dismissed the OS dialog or a concurrent call was aborted — not an error.
+      if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
         toast({ title: 'Error de autenticación', description: err.message, variant: 'destructive' });
       }
     } finally {
@@ -205,11 +211,31 @@ function LoginPageInner() {
         router.push('/');
       } else {
         const credential = await createUserWithEmailAndPassword(auth, email, password);
+
+        // Always send a verification email for new accounts.
+        // The server will block dashboard access until the email is verified.
+        await sendEmailVerification(credential.user);
+
         const idToken = await credential.user.getIdToken();
         const res = await fetch('/api/auth/session', {
           method: 'POST',
           headers: { Authorization: `Bearer ${idToken}` },
         });
+
+        if (res.status === 403) {
+          const body = await res.json();
+          if (body.error === 'email_not_verified') {
+            toast({
+              title: 'Verificá tu correo',
+              description: 'Te enviamos un link de verificación. Hacé click en el link del email y luego iniciá sesión.',
+            });
+            // Sign out the unverified user — they must verify before logging in
+            await auth.signOut();
+            setMode('login');
+            return;
+          }
+        }
+
         if (res.ok) {
           const { sessionId } = await res.json();
           sessionStorage.setItem('agp_session_id', sessionId);

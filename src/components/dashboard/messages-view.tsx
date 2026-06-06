@@ -19,7 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Contract, Property, Person } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, increment } from 'firebase/firestore';
+import { collection, query, orderBy, where, doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { writePropertyEvent } from '@/lib/property-events';
 import { useToast } from '@/hooks/use-toast';
@@ -180,17 +180,17 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // ── Firestore: lista de chats (shared collection, filtered by adminId) ──
+  // ── Firestore: lista de chats — filtrado por adminId en la query ──
   const chatsQ = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(
       collection(db, 'artifacts', APP_ID, 'sharedChats'),
+      where('adminId', '==', userId),
       orderBy('lastMessageAt', 'desc'),
     );
   }, [db, userId]);
   const { data: chatsAllRaw } = useCollection<Chat>(chatsQ);
-  // Filter client-side: only chats owned by this admin
-  const chatsRaw = (chatsAllRaw ?? []).filter((c: any) => c.adminId === userId || c.ownerId === userId);
+  const chatsRaw = chatsAllRaw ?? [];
 
   // ── Firestore: mensajes del chat seleccionado ──
   const messagesQ = useMemoFirebase(() => {

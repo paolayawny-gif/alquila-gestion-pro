@@ -1,7 +1,7 @@
 import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { requireFirebaseAuth, createSession, logout } from '@/lib/auth';
+import { requireFirebaseAuth, createSession, logout, isSuperAdminUid } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 /**
@@ -14,10 +14,29 @@ export async function POST(req: NextRequest) {
   const auth = await requireFirebaseAuth(req);
   if (auth instanceof NextResponse) return auth;
 
+  const db = getAdminDb();
+
+  // Gate: new accounts (no prior Firestore doc) must have a verified email before
+  // receiving a session cookie. This prevents anonymous spam registrations from
+  // accessing the dashboard. Existing accounts are never blocked here.
+  // The superadmin is always exempt regardless of email verification state.
+  if (!isSuperAdminUid(auth.userId)) {
+    const userRef = db
+      .collection('artifacts').doc(APP_ID)
+      .collection('users').doc(auth.userId);
+    const existingDoc = await userRef.get();
+
+    if (!existingDoc.exists && !auth.emailVerified) {
+      return NextResponse.json(
+        { error: 'email_not_verified' },
+        { status: 403 },
+      );
+    }
+  }
+
   const sessionId = randomUUID();
 
   // Store the current sessionId where the client SDK can read it (same path as app data)
-  const db = getAdminDb();
   await db
     .collection('artifacts').doc(APP_ID)
     .collection('users').doc(auth.userId)
