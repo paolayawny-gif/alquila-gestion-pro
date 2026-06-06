@@ -303,6 +303,10 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const [showMpToken, setShowMpToken] = useState(false);
   const [showMpSecret, setShowMpSecret] = useState(false);
 
+  // — Custom claims state —
+  const [claimsLoading, setClaimsLoading] = useState(false);
+  const [claimsResult, setClaimsResult] = useState('');
+
   // — Load organizations —
   const orgsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -639,6 +643,20 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
     toast({ title: `Usuario ${newStatus}`, description: orgUser.email });
   };
 
+  const handleSetClaims = async () => {
+    setClaimsLoading(true);
+    setClaimsResult('');
+    try {
+      const res = await authedFetch('/api/superadmin/set-custom-claims', { method: 'POST' });
+      const data = await res.json();
+      setClaimsResult(data.ok ? '✅ Claim activado. Cerrá sesión y volvé a entrar para que tome efecto.' : (data.error || 'Error desconocido'));
+    } catch {
+      setClaimsResult('❌ Error al activar el claim');
+    } finally {
+      setClaimsLoading(false);
+    }
+  };
+
   const handleSaveMpConfig = () => {
     if (!db) return;
     setIsSavingMpConfig(true);
@@ -839,6 +857,37 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
                 : <CheckCircle2 className="h-4 w-4" />}
               Guardar credenciales
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Seguridad — Custom Claims ── */}
+      {mainView === 'config' && (
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" /> Seguridad — Custom Claim Superadmin
+            </CardTitle>
+            <CardDescription className="text-xs leading-relaxed">
+              Establece el claim <code className="font-mono bg-muted px-1 rounded">superAdmin: true</code> en tu cuenta Firebase.
+              Solo necesita hacerse una vez. Después las reglas de Firestore dejarán de depender del UID hardcodeado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={handleSetClaims}
+              disabled={claimsLoading}
+              variant="outline"
+              className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            >
+              {claimsLoading
+                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                : <ShieldCheck className="h-4 w-4" />}
+              Activar Custom Claim
+            </Button>
+            {claimsResult && (
+              <p className="text-xs mt-3 text-muted-foreground">{claimsResult}</p>
+            )}
           </CardContent>
         </Card>
       )}
