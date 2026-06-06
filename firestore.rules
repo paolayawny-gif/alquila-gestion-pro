@@ -10,14 +10,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // SuperAdmin: custom claim (preferido) con fallback a SUPERADMIN_UID durante migración.
-    // Para eliminar el UID del código: llamar a /api/superadmin/set-custom-claims una vez
-    // como superadmin, luego remover la segunda condición en el próximo deploy.
     function isSuperAdmin() {
-      return isSignedIn() && (
-        request.auth.token.superAdmin == true ||
-        request.auth.uid == 'wYkBqQjJuSdQu7F20eFAHZ0qX9N2'
-      );
+      return isSignedIn() && request.auth.token.superAdmin == true;
     }
 
     function emailIs(value) {
