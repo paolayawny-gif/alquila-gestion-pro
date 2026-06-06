@@ -426,12 +426,6 @@ function LoginPageInner() {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-card">
         <div className="w-full max-w-[400px]">
 
-          {/* Logo mobile */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <AppLogo size={36} />
-            <AppWordmark dark />
-          </div>
-
           {/* Encabezado del form */}
           <div className="mb-8">
             <h1 className="text-2xl font-black text-foreground">
@@ -463,7 +457,7 @@ function LoginPageInner() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <Label htmlFor="email" className="text-xs font-semibold text-muted-foreground">
                 Correo electrónico
               </Label>
               <div className="relative">
@@ -483,7 +477,7 @@ function LoginPageInner() {
             {/* Password */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Label htmlFor="password" className="text-xs font-semibold text-muted-foreground">
                   Contraseña
                 </Label>
                 {mode === 'login' && (
