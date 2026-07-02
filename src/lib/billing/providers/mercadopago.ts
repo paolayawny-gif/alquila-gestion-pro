@@ -17,6 +17,7 @@ import type {
   CheckoutResult,
   ProviderEvent,
 } from '../types';
+import { WebhookSignatureError } from '../types';
 import type { BillingTier } from '../tiers';
 import { getTierPriceARS } from '../tiers';
 
@@ -194,21 +195,23 @@ export const mercadopagoProvider: BillingProvider = {
       const requestId = headers?.['x-request-id'] ?? '';
       const tsMatch = sig.match(/ts=([^,]+)/);
       const v1Match = sig.match(/v1=([^,]+)/);
-      if (tsMatch && v1Match) {
-        const ts = tsMatch[1];
-        const received = v1Match[1];
-        const dataId = body?.data?.id ?? body?.id ?? '';
-        const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
-        const { createHmac, timingSafeEqual } = await import('crypto');
-        const expected = createHmac('sha256', secret).update(manifest).digest('hex');
-        const expectedBuf = Buffer.from(expected, 'hex');
-        const receivedBuf = Buffer.from(received, 'hex');
-        const valid = expectedBuf.length === receivedBuf.length &&
-          timingSafeEqual(expectedBuf, receivedBuf);
-        if (!valid) {
-          console.warn('[mercadopago] Firma de webhook inválida');
-          return null;
-        }
+      // Si el secret está configurado, la firma es obligatoria.
+      // Rechazar cualquier request que no traiga x-signature con ts y v1.
+      if (!tsMatch || !v1Match) {
+        throw new WebhookSignatureError('[mercadopago] Webhook sin firma válida — rechazado');
+      }
+      const ts = tsMatch[1];
+      const received = v1Match[1];
+      const dataId = body?.data?.id ?? body?.id ?? '';
+      const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+      const { createHmac, timingSafeEqual } = await import('crypto');
+      const expected = createHmac('sha256', secret).update(manifest).digest('hex');
+      const expectedBuf = Buffer.from(expected, 'hex');
+      const receivedBuf = Buffer.from(received, 'hex');
+      const valid = expectedBuf.length === receivedBuf.length &&
+        timingSafeEqual(expectedBuf, receivedBuf);
+      if (!valid) {
+        throw new WebhookSignatureError('[mercadopago] Firma de webhook inválida — rechazado');
       }
     }
 

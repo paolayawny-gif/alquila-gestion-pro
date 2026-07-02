@@ -4,6 +4,14 @@
  * (MercadoPago, Stripe, Lemon Squeezy, Paddle, etc).
  */
 
+/** Lanzada cuando la firma HMAC del webhook es inválida o está ausente. */
+export class WebhookSignatureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WebhookSignatureError';
+  }
+}
+
 import type { BillingTier } from './tiers';
 
 export type BillingStatus =

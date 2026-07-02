@@ -3,6 +3,7 @@
 import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -1519,13 +1520,14 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             </DialogHeader>
             <div
               className="prose prose-sm max-w-none border rounded-lg p-6 bg-white text-foreground font-serif text-justify leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: viewDocContract.generatedDocumentHtml! }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewDocContract.generatedDocumentHtml!) }}
             />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => {
                 const win = window.open('', '_blank');
                 if (!win) return;
-                win.document.write(`<html><head><title>${viewDocContract.tenantName}</title><style>body{font-family:'Times New Roman',serif;font-size:11pt;line-height:1.8;margin:2.5cm;text-align:justify}h2{font-size:12pt;font-weight:bold;text-align:center;text-transform:uppercase;margin:1.5em 0 0.5em}p{margin:0.4em 0}mark{background:none;font-weight:bold}</style></head><body>${viewDocContract.generatedDocumentHtml}</body></html>`);
+                const safeHtml = DOMPurify.sanitize(viewDocContract.generatedDocumentHtml!);
+                win.document.write(`<html><head><title>${viewDocContract.tenantName}</title><style>body{font-family:'Times New Roman',serif;font-size:11pt;line-height:1.8;margin:2.5cm;text-align:justify}h2{font-size:12pt;font-weight:bold;text-align:center;text-transform:uppercase;margin:1.5em 0 0.5em}p{margin:0.4em 0}mark{background:none;font-weight:bold}</style></head><body>${safeHtml}</body></html>`);
                 win.document.close();
                 win.print();
               }}>

@@ -39,16 +39,14 @@ export async function middleware(req: NextRequest) {
 
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
-    // Sin JWT_SECRET no podemos verificar sesiones.
-    // En desarrollo: dejamos pasar (Firebase client auth actúa de segunda capa).
-    // En producción: jamás debería ocurrir — forzamos logout para evitar acceso sin verificar.
-    if (process.env.NODE_ENV === 'production') {
-      const loginUrl = new URL('/login', req.url);
-      const res = NextResponse.redirect(loginUrl);
-      res.cookies.delete('session');
-      return res;
-    }
-    return NextResponse.next();
+    // Sin JWT_SECRET no podemos verificar sesiones — redirigir siempre a /login.
+    // auth.ts genera un secret efímero aleatorio en dev, así que las cookies emitidas
+    // en esa misma instancia siguen funcionando. Lo que no se permite es dejar pasar
+    // cookies no verificables independientemente del entorno.
+    const loginUrl = new URL('/login', req.url);
+    const res = NextResponse.redirect(loginUrl);
+    res.cookies.delete('session');
+    return res;
   }
 
   try {

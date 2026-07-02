@@ -6,6 +6,7 @@ import {
   markEventProcessed,
   updateBillingState,
 } from '@/lib/billing/state';
+import { WebhookSignatureError } from '@/lib/billing/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -102,6 +103,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, processed: event.type });
   } catch (err: any) {
+    // Firma inválida o ausente → 400 inmediato (no reintentar).
+    if (err instanceof WebhookSignatureError) {
+      console.warn('[billing/webhook] Rechazado por firma:', err.message);
+      return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 400 });
+    }
     console.error('[billing/webhook]', err);
     // Devolver 200 igual para que MP no reintente infinitamente eventos rotos.
     return NextResponse.json({ ok: false, error: err.message ?? 'Error' }, { status: 200 });
