@@ -16,13 +16,14 @@ import { Separator } from '@/components/ui/separator';
 import {
   ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, Info,
   Scale, Loader2, RefreshCw, ChevronDown, ChevronRight,
-  FileSearch, GitCompareArrows, ClipboardCheck
+  FileSearch, GitCompareArrows, ClipboardCheck, Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { analyzeContractRisks, type AnalyzeContractRisksOutput, type RiskFinding } from '@/ai/flows/analyze-contract-risks-flow';
 import { verifyContractConsistency, type VerifyContractConsistencyOutput } from '@/ai/flows/verify-contract-consistency-flow';
 import { compareMarketStandard, type CompareMarketStandardOutput } from '@/ai/flows/compare-market-standard-flow';
 import { useToast } from '@/hooks/use-toast';
+import { useAIConfig } from '@/hooks/use-ai-config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -42,6 +43,7 @@ interface ContractRiskPanelProps {
     endDate?: string;
   };
   className?: string;
+  userId?: string;
 }
 
 type Perspective = 'neutral' | 'locador' | 'locatario' | 'garante';
@@ -150,11 +152,14 @@ export function ContractRiskPanel({
   contractType = 'vivienda',
   extractedData,
   className,
+  userId,
 }: ContractRiskPanelProps) {
   const { toast } = useToast();
+  const { apiKey: proApiKey } = useAIConfig(userId);
 
   const [perspective, setPerspective] = useState<Perspective>('neutral');
   const [activeTab, setActiveTab] = useState('riesgo');
+  const [isPro, setIsPro] = useState(false);
 
   const [riskLoading, setRiskLoading] = useState(false);
   const [consistencyLoading, setConsistencyLoading] = useState(false);
@@ -164,9 +169,11 @@ export function ContractRiskPanel({
   const [consistencyData, setConsistencyData] = useState<VerifyContractConsistencyOutput | null>(null);
   const [marketData, setMarketData] = useState<CompareMarketStandardOutput | null>(null);
 
+  const aiOptions = isPro && proApiKey ? { apiKey: proApiKey, modelName: 'gemini-2.5-pro' } : undefined;
+
   async function runRiskAnalysis() {
     setRiskLoading(true);
-    const result = await analyzeContractRisks({ contractText, contractType, perspective });
+    const result = await analyzeContractRisks({ contractText, contractType, perspective }, aiOptions);
     setRiskLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
     setRiskData(result.data);
@@ -174,7 +181,7 @@ export function ContractRiskPanel({
 
   async function runConsistencyCheck() {
     setConsistencyLoading(true);
-    const result = await verifyContractConsistency({ contractText, contractType, extractedData });
+    const result = await verifyContractConsistency({ contractText, contractType, extractedData }, aiOptions);
     setConsistencyLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
     setConsistencyData(result.data);
@@ -188,7 +195,7 @@ export function ContractRiskPanel({
       perspective: perspective === 'neutral' ? 'locatario' : (perspective as 'locador' | 'locatario' | 'garante'),
       currency: extractedData?.currency as 'ARS' | 'USD' | undefined,
       extractedRentAmount: extractedData?.baseRentAmount,
-    });
+    }, aiOptions);
     setMarketLoading(false);
     if (!result.ok) { toast({ title: 'Error', description: result.error, variant: 'destructive' }); return; }
     setMarketData(result.data);
@@ -211,6 +218,22 @@ export function ContractRiskPanel({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => proApiKey && setIsPro(v => !v)}
+              disabled={!proApiKey}
+              title={proApiKey ? 'Usa tu propia key de Gemini con el modelo Pro (más preciso)' : 'Cargá tu API key de Gemini en Configuración para desbloquear el modelo Pro'}
+              className={cn(
+                'h-8 px-2.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors',
+                isPro && proApiKey
+                  ? 'bg-violet-600 border-violet-600 text-white'
+                  : proApiKey
+                  ? 'border-violet-300 text-violet-600 hover:bg-violet-50'
+                  : 'border-muted text-muted-foreground/50 cursor-not-allowed'
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Pro
+            </button>
             <Select value={perspective} onValueChange={v => setPerspective(v as Perspective)}>
               <SelectTrigger className="h-8 text-xs w-36">
                 <SelectValue placeholder="Perspectiva" />

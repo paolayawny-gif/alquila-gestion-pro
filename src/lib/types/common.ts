@@ -30,3 +30,9 @@ export interface BankDetails {
   cbu: string;
   alias: string;
 }
+
+export interface AIConfig {
+  /** API key propia de Gemini del admin, para desbloquear el modelo Pro en el análisis legal. */
+  geminiApiKey?: string;
+  updatedAt?: string;
+}
