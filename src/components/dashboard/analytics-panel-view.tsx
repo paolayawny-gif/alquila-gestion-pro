@@ -310,22 +310,27 @@ function ImpactoTab({ properties, contracts, invoices, tasks, legalCases, assets
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" /> Gastos</span>
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-gray-300 inline-block" /> Proyectado</span>
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={cashFlowData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
-                <Tooltip formatter={(v: number) => fmtM(v)} />
-                <Bar dataKey="ingresos" fill={ACCENT} radius={[3, 3, 0, 0]}
-                  fillOpacity={1}
-                  label={false}>
-                  {cashFlowData.map((e, i) => (
-                    <Cell key={i} fill={e.projected ? '#a7f3d0' : ACCENT} />
-                  ))}
-                </Bar>
-                <Bar dataKey="gastos" fill="#fca5a5" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div
+              role="img"
+              aria-label={`Gráfico de flujo de caja, últimos 6 meses más proyección. ${cashFlowData.map((e: any) => `${e.mes}: ingresos ${fmtM(e.ingresos)}, gastos ${fmtM(e.gastos)}${e.projected ? ' (proyectado)' : ''}`).join('. ')}.`}
+            >
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={cashFlowData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+                  <Tooltip formatter={(v: number) => fmtM(v)} />
+                  <Bar dataKey="ingresos" fill={ACCENT} radius={[3, 3, 0, 0]}
+                    fillOpacity={1}
+                    label={false}>
+                    {cashFlowData.map((e, i) => (
+                      <Cell key={i} fill={e.projected ? '#a7f3d0' : ACCENT} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="gastos" fill="#fca5a5" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -640,9 +645,9 @@ function NormativaTab({ properties, contracts, tasks, userId }: Pick<AnalyticsPa
                   <DialogHeader><DialogTitle>Nuevo Fondo de Reserva</DialogTitle></DialogHeader>
                   <div className="space-y-3 pt-2">
                     <div>
-                      <Label className="text-xs text-muted-foreground">Propiedad</Label>
+                      <Label id="fondo-property-label" className="text-xs text-muted-foreground">Propiedad</Label>
                       <Select value={fondoForm.propertyId || '__none__'} onValueChange={v => setFondoForm({ ...fondoForm, propertyId: v === '__none__' ? '' : v })}>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                        <SelectTrigger aria-labelledby="fondo-property-label"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">General (todas)</SelectItem>
                           {properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -650,9 +655,9 @@ function NormativaTab({ properties, contracts, tasks, userId }: Pick<AnalyticsPa
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Categoría</Label>
+                      <Label id="fondo-category-label" className="text-xs text-muted-foreground">Categoría</Label>
                       <Select value={fondoForm.category} onValueChange={v => setFondoForm({ ...fondoForm, category: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger aria-labelledby="fondo-category-label"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {['Estructural','Ascensores','Impermeabilización','Fachada','Instalaciones','Otro'].map(c => (
                             <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -662,21 +667,21 @@ function NormativaTab({ properties, contracts, tasks, userId }: Pick<AnalyticsPa
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs text-muted-foreground">Meta ($)</Label>
-                        <Input type="number" value={fondoForm.targetAmount || ''} onChange={e => setFondoForm({ ...fondoForm, targetAmount: Number(e.target.value) })} />
+                        <Label htmlFor="fondo-target-amount" className="text-xs text-muted-foreground">Meta ($)</Label>
+                        <Input id="fondo-target-amount" type="number" value={fondoForm.targetAmount || ''} onChange={e => setFondoForm({ ...fondoForm, targetAmount: Number(e.target.value) })} />
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Acumulado ($)</Label>
-                        <Input type="number" value={fondoForm.currentAmount || ''} onChange={e => setFondoForm({ ...fondoForm, currentAmount: Number(e.target.value) })} />
+                        <Label htmlFor="fondo-current-amount" className="text-xs text-muted-foreground">Acumulado ($)</Label>
+                        <Input id="fondo-current-amount" type="number" value={fondoForm.currentAmount || ''} onChange={e => setFondoForm({ ...fondoForm, currentAmount: Number(e.target.value) })} />
                       </div>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Año objetivo</Label>
-                      <Input type="number" placeholder="2025" value={fondoForm.targetYear || ''} onChange={e => setFondoForm({ ...fondoForm, targetYear: Number(e.target.value) })} />
+                      <Label htmlFor="fondo-target-year" className="text-xs text-muted-foreground">Año objetivo</Label>
+                      <Input id="fondo-target-year" type="number" placeholder="2025" value={fondoForm.targetYear || ''} onChange={e => setFondoForm({ ...fondoForm, targetYear: Number(e.target.value) })} />
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Notas</Label>
-                      <Input placeholder="Descripción…" value={fondoForm.notes || ''} onChange={e => setFondoForm({ ...fondoForm, notes: e.target.value })} />
+                      <Label htmlFor="fondo-notes" className="text-xs text-muted-foreground">Notas</Label>
+                      <Input id="fondo-notes" placeholder="Descripción…" value={fondoForm.notes || ''} onChange={e => setFondoForm({ ...fondoForm, notes: e.target.value })} />
                     </div>
                   </div>
                   <DialogFooter className="pt-2">

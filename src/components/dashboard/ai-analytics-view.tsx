@@ -203,7 +203,11 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
             </DropdownMenu>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="h-[280px] w-full">
+            <div
+              className="h-[280px] w-full"
+              role="img"
+              aria-label={`Gráfico de barras: flujo de caja proyectado vs. real por mes. ${cashFlowData.map(r => `${r.name}: proyectado $${Math.round(r.projected).toLocaleString('es-AR')}${r.real != null ? `, real $${Math.round(r.real).toLocaleString('es-AR')}` : ''}`).join('. ')}.`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={cashFlowData} barSize={22}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

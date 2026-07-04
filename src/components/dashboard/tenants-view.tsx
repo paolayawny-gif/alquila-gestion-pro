@@ -782,9 +782,9 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <TabsContent value="general" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Unidad / Propiedad</Label>
+                  <Label id="contract-property-label">Unidad / Propiedad</Label>
                   <Select value={contractFormData.propertyId} onValueChange={(v) => setContractFormData({...contractFormData, propertyId: v})}>
-                    <SelectTrigger><SelectValue placeholder="Propiedad..." /></SelectTrigger>
+                    <SelectTrigger aria-labelledby="contract-property-label"><SelectValue placeholder="Propiedad..." /></SelectTrigger>
                     <SelectContent>{properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                   {provinceRules && (
@@ -858,12 +858,12 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
             <TabsContent value="economic" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Monto Base Alquiler</Label><CurrencyInput value={contractFormData.baseRentAmount || 0} onChange={v => setContractFormData({...contractFormData, baseRentAmount: v, currentRentAmount: v})} placeholder="Ej: 150.000" /></div>
-                <div className="space-y-2"><Label>Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS — Pesos</SelectItem><SelectItem value="USD">USD — Dólares</SelectItem><SelectItem value="UVA">UVA — Unidad de Valor Adquisitivo</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label id="contract-currency-label">Moneda</Label><Select value={contractFormData.currency} onValueChange={(v: any) => setContractFormData({...contractFormData, currency: v})}><SelectTrigger aria-labelledby="contract-currency-label"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ARS">ARS — Pesos</SelectItem><SelectItem value="USD">USD — Dólares</SelectItem><SelectItem value="UVA">UVA — Unidad de Valor Adquisitivo</SelectItem></SelectContent></Select></div>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2"><Label>Mecanismo de Ajuste</Label><Select value={contractFormData.adjustmentMechanism} onValueChange={(v: any) => setContractFormData({...contractFormData, adjustmentMechanism: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CER">CER (BCRA - Diario)</SelectItem><SelectItem value="ICL">ICL (Alquileres)</SelectItem><SelectItem value="IPC">IPC (Inflación)</SelectItem><SelectItem value="Fixed">Monto Fijo</SelectItem></SelectContent></Select></div>
-                <div className="space-y-2"><Label>Mora Diaria (%)</Label><Input type="number" step="0.1" value={contractFormData.lateFeePercentage} onChange={e => setContractFormData({...contractFormData, lateFeePercentage: parseFloat(e.target.value) || 0})} /></div>
-                <div className="space-y-2"><Label>Frecuencia (Meses)</Label><Input type="number" value={contractFormData.adjustmentFrequencyMonths} onChange={e => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})} /></div>
+                <div className="space-y-2"><Label id="contract-adjustment-mechanism-label">Mecanismo de Ajuste</Label><Select value={contractFormData.adjustmentMechanism} onValueChange={(v: any) => setContractFormData({...contractFormData, adjustmentMechanism: v})}><SelectTrigger aria-labelledby="contract-adjustment-mechanism-label"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CER">CER (BCRA - Diario)</SelectItem><SelectItem value="ICL">ICL (Alquileres)</SelectItem><SelectItem value="IPC">IPC (Inflación)</SelectItem><SelectItem value="Fixed">Monto Fijo</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label htmlFor="contract-late-fee">Mora Diaria (%)</Label><Input id="contract-late-fee" type="number" step="0.1" value={contractFormData.lateFeePercentage} onChange={e => setContractFormData({...contractFormData, lateFeePercentage: parseFloat(e.target.value) || 0})} /></div>
+                <div className="space-y-2"><Label htmlFor="contract-adjustment-frequency">Frecuencia (Meses)</Label><Input id="contract-adjustment-frequency" type="number" value={contractFormData.adjustmentFrequencyMonths} onChange={e => setContractFormData({...contractFormData, adjustmentFrequencyMonths: parseInt(e.target.value) || 4})} /></div>
               </div>
             </TabsContent>
             <TabsContent value="documents" className="pt-4 space-y-4">
@@ -939,37 +939,45 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
-              <Label>Nombre Completo *</Label>
+              <Label htmlFor="person-fullname">Nombre Completo *</Label>
               <Input
+                id="person-fullname"
                 placeholder="Ej: Juan Pérez"
+                required
+                aria-required="true"
+                aria-invalid={!!personErrors.fullName}
+                aria-describedby={personErrors.fullName ? 'person-fullname-error' : undefined}
                 value={personFormData.fullName}
                 onChange={e => { setPersonFormData({...personFormData, fullName: e.target.value}); if (personErrors.fullName) setPersonErrors(p => ({ ...p, fullName: undefined })); }}
                 className={personErrors.fullName ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
-              {personErrors.fullName && <p className="text-xs text-destructive">{personErrors.fullName}</p>}
+              {personErrors.fullName && <p id="person-fullname-error" role="alert" className="text-xs text-destructive">{personErrors.fullName}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>CUIT / DNI</Label>
-                <Input 
-                  placeholder="20-XXXXXXXX-0" 
-                  value={personFormData.taxId} 
-                  onChange={e => setPersonFormData({...personFormData, taxId: e.target.value})} 
+                <Label htmlFor="person-taxid">CUIT / DNI</Label>
+                <Input
+                  id="person-taxid"
+                  placeholder="20-XXXXXXXX-0"
+                  value={personFormData.taxId}
+                  onChange={e => setPersonFormData({...personFormData, taxId: e.target.value})}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Rol</Label>
+                <Label id="person-role-label">Rol</Label>
                 <SelectWithOther
                   value={personFormData.type ?? ''}
                   onValueChange={(v: any) => setPersonFormData({...personFormData, type: v})}
                   options={['Inquilino','Propietario','Garante','Proveedor']}
                   otherPlaceholder="Ej: Avalista, Empresa, Representante..."
+                  ariaLabelledby="person-role-label"
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Email</Label>
+              <Label htmlFor="person-email">Email</Label>
               <Input
+                id="person-email"
                 type="email"
                 placeholder="correo@ejemplo.com"
                 value={personFormData.email}
@@ -979,11 +987,12 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               {personErrors.email && <p className="text-xs text-destructive">{personErrors.email}</p>}
             </div>
             <div className="space-y-2">
-              <Label>Teléfono</Label>
-              <Input 
-                placeholder="+54 9 ..." 
-                value={personFormData.phone} 
-                onChange={e => setPersonFormData({...personFormData, phone: e.target.value})} 
+              <Label htmlFor="person-phone">Teléfono</Label>
+              <Input
+                id="person-phone"
+                placeholder="+54 9 ..."
+                value={personFormData.phone}
+                onChange={e => setPersonFormData({...personFormData, phone: e.target.value})}
               />
             </div>
           </div>

@@ -635,11 +635,11 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                         {/* Locador */}
                         {people.some(p => p.type === 'Propietario') && template?.variables.some(v => v.autoFill === 'owner_name') && (
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                            <Label id="contract-locador-label" className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
                               🏠 Locador (Propietario)
                             </Label>
                             <Select value={selectedLocadorId} onValueChange={handleSelectLocador}>
-                              <SelectTrigger className="h-8 text-xs bg-white">
+                              <SelectTrigger aria-labelledby="contract-locador-label" className="h-8 text-xs bg-white">
                                 <SelectValue placeholder="Elegir propietario…" />
                               </SelectTrigger>
                               <SelectContent>
@@ -656,11 +656,11 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                         {/* Locatario */}
                         {people.some(p => p.type === 'Inquilino') && template?.variables.some(v => v.autoFill === 'tenant_name') && (
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                            <Label id="contract-locatario-label" className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
                               🔑 Locatario (Inquilino)
                             </Label>
                             <Select value={selectedLocatarioId} onValueChange={handleSelectLocatario}>
-                              <SelectTrigger className="h-8 text-xs bg-white">
+                              <SelectTrigger aria-labelledby="contract-locatario-label" className="h-8 text-xs bg-white">
                                 <SelectValue placeholder="Elegir inquilino…" />
                               </SelectTrigger>
                               <SelectContent>
@@ -677,11 +677,11 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                         {/* Fiador */}
                         {people.some(p => p.type === 'Garante') && template?.variables.some(v => v.autoFill === 'guarantor_name') && (
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                            <Label id="contract-fiador-label" className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
                               🛡️ Fiador (Garante)
                             </Label>
                             <Select value={selectedFiadorId} onValueChange={handleSelectFiador}>
-                              <SelectTrigger className="h-8 text-xs bg-white">
+                              <SelectTrigger aria-labelledby="contract-fiador-label" className="h-8 text-xs bg-white">
                                 <SelectValue placeholder="Elegir garante…" />
                               </SelectTrigger>
                               <SelectContent>

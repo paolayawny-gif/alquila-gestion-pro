@@ -561,7 +561,11 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
             <CardTitle className="text-base font-black">Análisis de Rendimiento</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px]">
+            <div
+              className="h-[200px]"
+              role="img"
+              aria-label={`Análisis de rendimiento por período. ${performanceData.map((p: any) => `${p.name}: cobrado $${Math.round(p.cobrado).toLocaleString('es-AR')}, por cobrar $${Math.round(p.porCobrar).toLocaleString('es-AR')}, gastos $${Math.round(p.gastos).toLocaleString('es-AR')}`).join('. ')}.`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={performanceData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -589,7 +593,11 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
             <PieChartIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex gap-6 items-center">
-            <div className="relative w-28 h-28 shrink-0">
+            <div
+              className="relative w-28 h-28 shrink-0"
+              role="img"
+              aria-label={`Ocupación: ${occupancyRate}% ocupado, ${100 - occupancyRate}% vacante.`}
+            >
               <PieChart width={112} height={112}>
                 <Pie data={vacancyPieData} cx={52} cy={52} innerRadius={32} outerRadius={50}
                   startAngle={90} endAngle={-270} paddingAngle={2} dataKey="value">

@@ -600,8 +600,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {/* Fila 1: Nombre + Dirección */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Nombre / Referencia *</Label>
+                  <Label htmlFor="property-name">Nombre / Referencia *</Label>
                   <Input
+                    id="property-name"
                     placeholder="Ej: Las Heras 4B"
                     value={formData.name || ''}
                     onChange={e => { setFormData({ ...formData, name: e.target.value }); if (formErrors.name) setFormErrors(p => ({ ...p, name: undefined })); }}
@@ -610,8 +611,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                   {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Dirección *</Label>
+                  <Label htmlFor="property-address">Dirección *</Label>
                   <AddressAutocomplete
+                    id="property-address"
                     placeholder="Calle y número"
                     value={formData.address || ''}
                     onChange={val => { setFormData({ ...formData, address: val }); if (formErrors.address) setFormErrors(p => ({ ...p, address: undefined })); }}
@@ -623,27 +625,29 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {/* Fila 2: Tipo + Uso + Estado */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Tipo</Label>
+                  <Label id="property-type-label">Tipo</Label>
                   <SelectWithOther
                     value={formData.type ?? ''}
                     onValueChange={v => setFormData({ ...formData, type: v as any })}
                     options={['Departamento','Casa','Local','Cochera','Oficina','Depósito','Terreno']}
                     otherPlaceholder="Ej: Galpón, Penthouse..."
+                    ariaLabelledby="property-type-label"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Uso</Label>
+                  <Label id="property-usage-label">Uso</Label>
                   <SelectWithOther
                     value={formData.usage ?? ''}
                     onValueChange={v => setFormData({ ...formData, usage: v as any })}
                     options={['Vivienda','Comercial','Profesional','Industrial']}
                     otherPlaceholder="Ej: Mixto, Uso especial..."
+                    ariaLabelledby="property-usage-label"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Estado</Label>
+                  <Label id="property-status-label">Estado</Label>
                   <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v as any })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-labelledby="property-status-label"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {['Disponible','Reservada','Alquilada','En Mantenimiento'].map(s => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -656,8 +660,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {/* Fila 3: m² + habitaciones */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Superficie (m²)</Label>
+                  <Label htmlFor="property-square-meters">Superficie (m²)</Label>
                   <Input
+                    id="property-square-meters"
                     type="number"
                     placeholder="0"
                     value={formData.squareMeters || ''}
@@ -665,8 +670,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Habitaciones</Label>
+                  <Label htmlFor="property-rooms">Habitaciones</Label>
                   <Input
+                    id="property-rooms"
                     type="number"
                     placeholder="0"
                     value={formData.rooms || ''}
@@ -720,30 +726,33 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {(formData.owners || []).map((owner, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-muted/20 rounded-lg">
                   <div className="md:col-span-4 space-y-1">
-                    <Label className="text-[10px]">Nombre</Label>
-                    <Input 
-                      value={owner.name} 
-                      onChange={(e) => updateOwner(index, 'name', e.target.value)} 
-                      placeholder="Nombre Completo" 
-                      className="h-8" 
+                    <Label className="text-[10px]" htmlFor={`owner-name-${index}`}>Nombre</Label>
+                    <Input
+                      id={`owner-name-${index}`}
+                      value={owner.name}
+                      onChange={(e) => updateOwner(index, 'name', e.target.value)}
+                      placeholder="Nombre Completo"
+                      className="h-8"
                     />
                   </div>
                   <div className="md:col-span-5 space-y-1">
-                    <Label className="text-[10px]">Email Acceso</Label>
-                    <Input 
-                      value={owner.email} 
-                      onChange={(e) => updateOwner(index, 'email', e.target.value)} 
-                      placeholder="ejemplo@correo.com" 
-                      className="h-8" 
+                    <Label className="text-[10px]" htmlFor={`owner-email-${index}`}>Email Acceso</Label>
+                    <Input
+                      id={`owner-email-${index}`}
+                      value={owner.email}
+                      onChange={(e) => updateOwner(index, 'email', e.target.value)}
+                      placeholder="ejemplo@correo.com"
+                      className="h-8"
                     />
                   </div>
                   <div className="md:col-span-2 space-y-1">
-                    <Label className="text-[10px]">% Part.</Label>
-                    <Input 
-                      type="number" 
-                      value={owner.percentage} 
-                      onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value) || 0)} 
-                      className="h-8" 
+                    <Label className="text-[10px]" htmlFor={`owner-percentage-${index}`}>% Part.</Label>
+                    <Input
+                      id={`owner-percentage-${index}`}
+                      type="number"
+                      value={owner.percentage}
+                      onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value) || 0)}
+                      className="h-8"
                     />
                   </div>
                   <div className="md:col-span-1 flex justify-center">
@@ -812,8 +821,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                 {(formData.manuals || []).map((m, i) => (
                   <div key={i} className="grid grid-cols-12 gap-2 items-center p-3 bg-muted/20 rounded-lg">
                     <div className="col-span-4 space-y-1">
-                      <Label className="text-[10px]">Nombre</Label>
+                      <Label className="text-[10px]" htmlFor={`manual-name-${i}`}>Nombre</Label>
                       <Input
+                        id={`manual-name-${i}`}
                         className="h-8 text-xs"
                         placeholder="Ej: Refrigerador Smart"
                         value={m.name}
@@ -825,8 +835,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                       />
                     </div>
                     <div className="col-span-3 space-y-1">
-                      <Label className="text-[10px]">Tamaño / tipo</Label>
+                      <Label className="text-[10px]" htmlFor={`manual-size-${i}`}>Tamaño / tipo</Label>
                       <Input
+                        id={`manual-size-${i}`}
                         className="h-8 text-xs"
                         placeholder="PDF · 2.4 MB"
                         value={m.sizeLabel}
@@ -838,8 +849,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                       />
                     </div>
                     <div className="col-span-4 space-y-1">
-                      <Label className="text-[10px]">URL del archivo</Label>
+                      <Label className="text-[10px]" htmlFor={`manual-url-${i}`}>URL del archivo</Label>
                       <Input
+                        id={`manual-url-${i}`}
                         className="h-8 text-xs"
                         placeholder="https://..."
                         value={m.url || ''}
@@ -1099,8 +1111,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                 {/* Inputs de búsqueda */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-muted-foreground">Ciudad</label>
+                    <label className="text-xs font-bold text-muted-foreground" htmlFor="market-city">Ciudad</label>
                     <Input
+                      id="market-city"
                       placeholder="Ej: Buenos Aires"
                       value={marketCity}
                       onChange={e => setMarketCity(e.target.value)}
@@ -1108,8 +1121,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-muted-foreground">Barrio / Zona (opcional)</label>
+                    <label className="text-xs font-bold text-muted-foreground" htmlFor="market-neighborhood">Barrio / Zona (opcional)</label>
                     <Input
+                      id="market-neighborhood"
                       placeholder="Ej: Palermo"
                       value={marketNeigh}
                       onChange={e => setMarketNeigh(e.target.value)}

@@ -183,7 +183,8 @@ function VisitsCalendarWidget({ userId, onNavigate }: { userId?: string; onNavig
                 onClick={() => onNavigate('Visitas')}
                 className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors text-left"
               >
-                <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: v.eventTypeColor }} />
+                <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: v.eventTypeColor }} title={v.eventTypeName} />
+                {v.eventTypeName && <span className="sr-only">{v.eventTypeName}</span>}
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold text-foreground truncate">{v.visitorName}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{v.propertyName}</p>

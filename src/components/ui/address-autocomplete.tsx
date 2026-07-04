@@ -21,6 +21,7 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
 }
 
 function titleCase(str: string): string {
@@ -46,6 +47,7 @@ export function AddressAutocomplete({
   placeholder = 'Calle y número',
   className,
   disabled,
+  id,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<GeorefDireccion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -114,6 +116,7 @@ export function AddressAutocomplete({
       <div className="relative">
         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
+          id={id}
           placeholder={placeholder}
           value={value}
           onChange={handleInputChange}

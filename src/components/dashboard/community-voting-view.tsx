@@ -916,9 +916,9 @@ function ProposalFormDialog({ open, onClose, properties, defaultPropertyId, init
           {/* Propiedad */}
           {!defaultPropertyId && (
             <div className="space-y-1.5">
-              <Label>Edificio / Consorcio</Label>
+              <Label id="voting-property-label">Edificio / Consorcio</Label>
               <Select value={propertyId} onValueChange={setPropertyId}>
-                <SelectTrigger><SelectValue placeholder="Seleccioná propiedad..." /></SelectTrigger>
+                <SelectTrigger aria-labelledby="voting-property-label"><SelectValue placeholder="Seleccioná propiedad..." /></SelectTrigger>
                 <SelectContent>
                   {properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
@@ -928,14 +928,14 @@ function ProposalFormDialog({ open, onClose, properties, defaultPropertyId, init
 
           {/* Título */}
           <div className="space-y-1.5">
-            <Label>Título de la propuesta</Label>
-            <Input placeholder="Ej: Instalación de Paneles Solares" value={title} onChange={e => setTitle(e.target.value)} />
+            <Label htmlFor="voting-title">Título de la propuesta</Label>
+            <Input id="voting-title" placeholder="Ej: Instalación de Paneles Solares" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
 
           {/* Descripción */}
           <div className="space-y-1.5">
-            <Label>Descripción</Label>
-            <Textarea placeholder="Describí la propuesta en detalle..."
+            <Label htmlFor="voting-description">Descripción</Label>
+            <Textarea id="voting-description" placeholder="Describí la propuesta en detalle..."
               value={description} onChange={e => setDescription(e.target.value)}
               rows={3} className="resize-none" />
           </div>
@@ -943,9 +943,9 @@ function ProposalFormDialog({ open, onClose, properties, defaultPropertyId, init
           {/* Categoría + Fecha */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Categoría</Label>
+              <Label id="voting-category-label">Categoría</Label>
               <Select value={iconType} onValueChange={v => setIconType(v as ProposalIconType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-labelledby="voting-category-label"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="solar">⚡ Energía / Solar</SelectItem>
                   <SelectItem value="gym">🏋️ Gimnasio / Deporte</SelectItem>
@@ -957,22 +957,22 @@ function ProposalFormDialog({ open, onClose, properties, defaultPropertyId, init
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Fecha de cierre</Label>
-              <Input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} />
+              <Label htmlFor="voting-deadline">Fecha de cierre</Label>
+              <Input id="voting-deadline" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} />
             </div>
           </div>
 
           {/* Quórum + Restricción */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Quórum requerido (%)</Label>
-              <Input type="number" min={1} max={100}
+              <Label htmlFor="voting-quorum">Quórum requerido (%)</Label>
+              <Input id="voting-quorum" type="number" min={1} max={100}
                 value={quorumRequired} onChange={e => setQuorumRequired(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>¿Quién puede votar?</Label>
+              <Label id="voting-restriction-label">¿Quién puede votar?</Label>
               <Select value={restriction} onValueChange={v => setRestriction(v as VoterRestriction)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-labelledby="voting-restriction-label"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">🔓 Todos</SelectItem>
                   <SelectItem value="solo_inquilinos">👥 Solo inquilinos</SelectItem>

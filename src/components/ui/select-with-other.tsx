@@ -13,6 +13,10 @@ interface SelectWithOtherProps {
   placeholder?: string;
   otherPlaceholder?: string;
   disabled?: boolean;
+  /** id del <Label> asociado — se pasa al trigger como aria-labelledby */
+  ariaLabelledby?: string;
+  /** id para el input "Otro" cuando el Label debe apuntar directamente a él */
+  otherInputId?: string;
 }
 
 /**
@@ -27,6 +31,8 @@ export function SelectWithOther({
   placeholder = "Seleccioná",
   otherPlaceholder = "Especificá...",
   disabled,
+  ariaLabelledby,
+  otherInputId,
 }: SelectWithOtherProps) {
   const isCustom = value !== "" && !options.includes(value);
   const selectVal = isCustom ? OTRO : value;
@@ -42,7 +48,7 @@ export function SelectWithOther({
   return (
     <div className="space-y-2">
       <Select value={selectVal} onValueChange={handleSelect} disabled={disabled}>
-        <SelectTrigger>
+        <SelectTrigger aria-labelledby={ariaLabelledby}>
           <SelectValue placeholder={placeholder}>
             {isCustom ? value : undefined}
           </SelectValue>
@@ -56,8 +62,10 @@ export function SelectWithOther({
       </Select>
       {(selectVal === OTRO || isCustom) && (
         <Input
+          id={otherInputId}
           autoFocus={!isCustom}
           placeholder={otherPlaceholder}
+          aria-label={!otherInputId ? otherPlaceholder : undefined}
           value={isCustom ? value : ""}
           onChange={e => onValueChange(e.target.value)}
         />
