@@ -9,6 +9,7 @@ import {
   Home, User, ArrowRight, Play, Check, Plus,
   ShieldCheck, LayoutDashboard, TrendingUp,
   AlertTriangle, DollarSign, Globe,
+  Users, Store, Vote, Warehouse, Anchor, Link2, Crown,
 } from 'lucide-react';
 import { BILLING_TIERS, TRIAL_TIER } from '@/lib/billing/tiers';
 import { cn } from '@/lib/utils';
@@ -181,6 +182,29 @@ function DashboardPreview() {
   );
 }
 
+// ── Adjustment reminder (floating) ───────────────────────────────────────
+function AdjustmentReminder() {
+  return (
+    <div
+      className="hidden lg:block absolute -bottom-7 -left-8 w-[236px] bg-card border border-border rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-700"
+      style={{ boxShadow: 'var(--shadow-lg)' }}
+    >
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="w-2 h-2 rounded-full bg-[hsl(var(--status-pending-fg))] animate-pulse flex-shrink-0" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Recordatorio de ajuste</span>
+      </div>
+      <p className="text-[13.5px] font-bold leading-tight mb-0.5">Bulnes 1150 · PB</p>
+      <p className="text-[12px] text-muted-foreground mb-3">Vence en 12 días</p>
+      <div className="flex items-center justify-between">
+        <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-[hsl(var(--status-pending-bg))] text-[hsl(var(--status-pending-fg))]">
+          ICL · BCRA
+        </span>
+        <span className="text-[11px] font-mono tabular text-muted-foreground">12 días</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Hero ──────────────────────────────────────────────────────────────────
 const TRUST = ['AFIP / ARCA', 'BCRA — ICL', 'MercadoPago', 'Firma Digital'];
 
@@ -232,8 +256,9 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
               ))}
             </div>
           </div>
-          <div className="hidden lg:block">
+          <div className="hidden lg:block relative">
             <DashboardPreview />
+            <AdjustmentReminder />
           </div>
         </div>
       </div>
@@ -354,6 +379,48 @@ function Features() {
               </span>
               <h4 className="text-[16px] font-bold tracking-[-0.01em] mb-1.5">{title}</h4>
               <p className="text-[13.5px] text-muted-foreground leading-[1.55]">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Extras (comunidad y más) ──────────────────────────────────────────────
+const EXTRAS = [
+  { Icon: Users,     title: 'Cartelera y comunidad', desc: 'Avisos oficiales, posteos entre vecinos y moderación para el administrador.' },
+  { Icon: Store,     title: 'Marketplace vecinal',   desc: 'Compra-venta entre inquilinos y propietarios de un mismo edificio, con comisión trazable.' },
+  { Icon: Vote,      title: 'Votaciones del consorcio', desc: 'Propuestas con quórum, plazo de cierre y restricción de quién puede votar.' },
+  { Icon: ShieldCheck, title: 'Seguros y comisiones', desc: 'Gestión de pólizas junto a productores asesores, con comisión calculada por contrato.' },
+  { Icon: Warehouse, title: 'Monetización de espacios', desc: 'Cocheras, depósitos o carteleras digitales ociosas, convertidas en ingreso adicional.' },
+  { Icon: Link2,     title: 'Portal público',        desc: 'Vidriera de propiedades disponibles, con consulta directa para el interesado.' },
+  { Icon: Anchor,    title: 'Notarización blockchain', desc: 'Ancla el hash del contrato firmado en Polygon, como prueba adicional de fecha cierta.' },
+  { Icon: Crown,     title: 'Panel Super Admin',     desc: 'Vista de plataforma completa para quien administra la operación de punta a punta.' },
+];
+
+function Extras() {
+  return (
+    <section className="py-20 bg-card border-y border-border">
+      <div className="max-w-6xl mx-auto px-7">
+        <div className="mb-14">
+          <Eyebrow>Más allá del contrato</Eyebrow>
+          <h2 className="text-[clamp(1.7rem,1.2rem+1.4vw,2.4rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-foreground mb-3"
+            style={{ textWrap: 'balance' } as React.CSSProperties}>
+            Lo que pasa entre vecinos, también se gestiona.
+          </h2>
+          <p className="text-[16.5px] text-muted-foreground leading-[1.6] max-w-[56ch]">
+            Módulos pensados para consorcios y complejos con vida propia — no solo cobranza.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {EXTRAS.map(({ Icon, title, desc }) => (
+            <div key={title} className="bg-background border border-border rounded-xl p-5 hover:border-primary/25 transition-colors">
+              <span className="inline-flex w-8 h-8 rounded-[9px] items-center justify-center bg-secondary text-primary mb-3">
+                <Icon className="h-4 w-4" />
+              </span>
+              <h4 className="text-[14px] font-bold tracking-[-0.01em] mb-1 leading-snug">{title}</h4>
+              <p className="text-[12.5px] text-muted-foreground leading-[1.5]">{desc}</p>
             </div>
           ))}
         </div>
@@ -870,6 +937,7 @@ export default function LandingPage() {
       <Hero onOpenDemo={() => setDemoOpen(true)} />
       <Roles />
       <Features />
+      <Extras />
       <ContractShowcase />
       <HowItWorks />
       <Pricing />
