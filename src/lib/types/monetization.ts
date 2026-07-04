@@ -136,6 +136,8 @@ export interface SocialPost {
   createdAt: string;
   updatedAt: string;
   scheduledAt?: string;   // YYYY-MM-DD — fecha programada de publicación
+  remindMe?: boolean;     // default true — recordar (alerta + email) el día de la publicación
+  reminderSentAt?: string; // ISO — evita reenviar el recordatorio si el cron corre más de una vez
 }
 
 export type BrandSpecialty = 'Residencial' | 'Comercial' | 'Vacacional' | 'Mixta' | 'Oficinas';

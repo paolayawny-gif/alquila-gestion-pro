@@ -23,11 +23,12 @@ import {
   AreaChart as AreaChartIcon,
   BarChart3,
   ShieldAlert,
-  Activity
+  Activity,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { AppAlert, Property, Contract, Invoice, RentalApplication, MaintenanceTask } from '@/lib/types';
+import { AppAlert, Property, Contract, Invoice, RentalApplication, MaintenanceTask, SocialPost } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/format';
@@ -222,6 +223,7 @@ interface SummaryViewProps {
   invoices: Invoice[];
   applications: RentalApplication[];
   tasks: MaintenanceTask[];
+  socialPosts?: SocialPost[];
   userId?: string;
 }
 
@@ -232,6 +234,7 @@ export function SummaryView({
   invoices = [],
   applications = [],
   tasks = [],
+  socialPosts = [],
   userId,
 }: SummaryViewProps) {
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
@@ -304,8 +307,26 @@ export function SummaryView({
       });
     }
 
+    const todayStr = fmtDate(new Date());
+    const postsToday = socialPosts.filter(p =>
+      p.scheduledAt === todayStr && p.status !== 'Publicado' && p.remindMe !== false
+    );
+    if (postsToday.length > 0) {
+      const first = postsToday[0];
+      newAlerts.push({
+        id: 'content_reminder',
+        title: postsToday.length === 1 ? 'Tenés un post programado para hoy' : `Tenés ${postsToday.length} posts programados para hoy`,
+        description: postsToday.length === 1
+          ? `"${first.title}" sale en ${first.targetNetworks[0] ?? 'redes'} hoy. Tocá para revisarlo y publicarlo.`
+          : `Incluye "${first.title}" y ${postsToday.length - 1} más. Tocá para revisarlos.`,
+        severity: 'medium',
+        linkTab: 'Redes Sociales',
+        type: 'content_reminder',
+      });
+    }
+
     setAlerts(newAlerts);
-  }, [invoices, contracts, tasks]);
+  }, [invoices, contracts, tasks, socialPosts]);
 
   const recentActivity = useMemo(() => {
     const events: { id: string; icon: React.ReactNode; title: string; subtitle: string; time: string; color: string }[] = [];
@@ -701,6 +722,7 @@ export function SummaryView({
                     )}>
                       {alert.type === 'maintenance' ? <Wrench className="h-3.5 w-3.5" /> :
                        alert.type === 'contract' ? <Calendar className="h-3.5 w-3.5" /> :
+                       alert.type === 'content_reminder' ? <Send className="h-3.5 w-3.5" /> :
                        <AlertTriangle className="h-3.5 w-3.5" />}
                     </div>
                     <div>

@@ -1,6 +1,6 @@
 import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import {
@@ -9,6 +9,7 @@ import {
   emailRentAdjustmentOwner,
   emailContractExpiry,
   emailMora,
+  emailContentReminder,
 } from '@/lib/email-templates';
 import { WA_TEMPLATES } from '@/lib/whatsapp';
 import { sendWhatsAppText, toE164AR } from '@/lib/whatsapp-sender';
@@ -24,6 +25,7 @@ type Results = {
   adjustmentNotifications: number;
   moraAlerts: number;
   pendingNotifications: number;
+  contentReminders: number;
   errors: number;
 };
 
@@ -76,6 +78,7 @@ async function processAdmin(
     adjustmentNotifications: 0,
     moraAlerts: 0,
     pendingNotifications: 0,
+    contentReminders: 0,
     errors: 0,
   };
 
@@ -85,6 +88,7 @@ async function processAdmin(
   let waPhoneId: string | undefined;
   let waToken: string | undefined;
   let adminName = 'Tu administrador';
+  let adminEmail: string | undefined;
 
   try {
     const profileSnap = await usersRef.doc(adminId).collection('config').doc('profile').get();
@@ -104,6 +108,10 @@ async function processAdmin(
       if (u && p) transporter = buildTransporter(u, p);
     }
   } catch { /* continue without custom SMTP */ }
+
+  try {
+    adminEmail = (await getAdminAuth().getUser(adminId)).email ?? undefined;
+  } catch { /* sin email de cuenta, se omite el recordatorio de contenido */ }
 
   // ── 1. Facturas próximas a vencer ─────────────────────────────────────────
   try {
@@ -337,7 +345,42 @@ async function processAdmin(
     } catch { r.errors++; }
   }
 
-  // ── 5. Procesar cola pendingNotifications ─────────────────────────────────
+  // ── 5. Recordatorio de contenido programado para hoy ──────────────────────
+  if (adminEmail) {
+    try {
+      const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+      const postsSnap = await usersRef
+        .doc(adminId).collection('socialPosts')
+        .where('scheduledAt', '==', todayStr)
+        .get();
+
+      const duePosts = postsSnap.docs.filter(d => {
+        const p = d.data() as any;
+        return p.status !== 'Publicado' && p.remindMe !== false && !p.reminderSentAt;
+      });
+
+      if (duePosts.length > 0) {
+        try {
+          await sendEmail(
+            transporter,
+            adminEmail,
+            duePosts.length === 1 ? 'Tenés un post programado para hoy' : `Tenés ${duePosts.length} posts programados para hoy`,
+            emailContentReminder({
+              adminName,
+              posts: duePosts.map(d => {
+                const p = d.data() as any;
+                return { title: p.title, network: (p.targetNetworks ?? [])[0] ?? 'Redes' };
+              }),
+            }),
+          );
+          await Promise.all(duePosts.map(d => d.ref.update({ reminderSentAt: now.toISOString() })));
+          r.contentReminders += duePosts.length;
+        } catch { r.errors++; }
+      }
+    } catch { r.errors++; }
+  }
+
+  // ── 6. Procesar cola pendingNotifications ─────────────────────────────────
   try {
     const notifSnap = await usersRef
       .doc(adminId).collection('pendingNotifications')
@@ -418,6 +461,7 @@ export async function GET(req: NextRequest) {
     adjustmentNotifications: 0,
     moraAlerts: 0,
     pendingNotifications: 0,
+    contentReminders: 0,
     errors: 0,
   };
 
@@ -435,6 +479,7 @@ export async function GET(req: NextRequest) {
         totals.adjustmentNotifications += r.adjustmentNotifications;
         totals.moraAlerts            += r.moraAlerts;
         totals.pendingNotifications  += r.pendingNotifications;
+        totals.contentReminders      += r.contentReminders;
         totals.errors                += r.errors;
       } else {
         totals.errors++;
