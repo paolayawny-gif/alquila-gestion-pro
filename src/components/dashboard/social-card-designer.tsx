@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
   Sparkles, Download, Loader2, Image as ImageIcon,
-  LayoutTemplate, Palette,
+  LayoutTemplate, Palette, ImagePlus,
 } from 'lucide-react';
 import { generateSocialContent } from '@/ai/flows/generate-social-content-flow';
 
@@ -21,6 +21,7 @@ export type CardStyle = 'gradient' | 'solid' | 'dark' | 'minimal';
 export type CardFormat = 'Cuadrado' | 'Historia' | 'Paisaje';
 
 export const ACCENT_COLORS = [
+  { label: 'Ocean Blue (marca)', value: '#0369A1' },
   { label: 'Violeta', value: '#7c3aed' },
   { label: 'Rosa', value: '#db2777' },
   { label: 'Naranja', value: '#ea580c' },
@@ -227,6 +228,7 @@ interface SocialCardDesignerProps {
 export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCardDesignerProps) {
   const { toast } = useToast();
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [format, setFormat] = useState<CardFormat>('Cuadrado');
   const [style, setStyle] = useState<CardStyle>('gradient');
@@ -236,6 +238,19 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
   const [headline, setHeadline] = useState('');
   const [subtext, setSubtext] = useState('');
   const [brandTag, setBrandTag] = useState('');
+  const [bgImage, setBgImage] = useState<string | undefined>(undefined);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Solo imágenes', variant: 'destructive' }); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setBgImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const [aiTopic, setAiTopic] = useState('');
   const [aiTone, setAiTone] = useState<'profesional' | 'cercano' | 'urgente' | 'inspiracional' | 'informativo'>('profesional');
@@ -371,6 +386,35 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
                   onChange={e => setBrandTag(e.target.value)}
                 />
               </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Foto de fondo (opcional)</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  {bgImage ? 'Cambiar foto' : 'Agregar foto de fondo'}
+                </Button>
+                {bgImage && (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg mt-1.5">
+                    <img src={bgImage} alt="" className="h-10 w-14 object-cover rounded flex-shrink-0" />
+                    <p className="flex-1 text-[10px] text-muted-foreground">Se usa como fondo de la tarjeta.</p>
+                    <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive" onClick={() => setBgImage(undefined)}>
+                      Quitar
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -499,6 +543,7 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
               headline={headline}
               subtext={subtext}
               brandTag={brandTag}
+              bgImage={bgImage}
               previewRef={previewRef}
             />
           </div>

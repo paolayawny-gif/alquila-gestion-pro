@@ -183,6 +183,24 @@ export function emailMora(p: {
   `, `Enviado por ${p.adminName ?? 'tu administrador'} a través de AlquilaGestión Pro. El no pago puede derivar en acciones legales.`);
 }
 
+export function emailContentReminder(p: {
+  adminName?: string;
+  posts: { title: string; network: string }[];
+}) {
+  const rows = p.posts.map(post => kv(post.network, post.title));
+  return shell(`
+    <p style="color:${BRAND_DARK};margin:0 0 6px;font-size:15px;">Hola${p.adminName ? ` <strong>${p.adminName}</strong>` : ''},</p>
+    <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.6;">
+      ${p.posts.length === 1 ? 'Tenés una publicación programada para hoy' : `Tenés ${p.posts.length} publicaciones programadas para hoy`}
+      en el Calendario de Contenido de AlquilaGestión Pro.
+    </p>
+    ${table(...rows)}
+    <p style="color:#475569;font-size:13px;margin:16px 0 0;">
+      Entrá a Redes Sociales → Calendario para revisar el diseño y publicarlo.
+    </p>
+  `, 'Recordatorio automático de AlquilaGestión Pro. Podés desactivarlo por publicación desde el editor de contenido.');
+}
+
 export function emailServiceRequest(p: {
   clientName: string;
   serviceName: string;

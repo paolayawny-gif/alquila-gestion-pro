@@ -850,7 +850,7 @@ export default function AppClient() {
               onNavigate={(tab) => setActiveTab(tab as Tab)}
             />
           )}
-          <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} userId={user?.uid} />
+          <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} socialPosts={socialPosts} userId={user?.uid} />
         </>
       );
       case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} liquidations={liquidations} legalCases={legalCases} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} onOpenContract={() => setActiveTab('Personas' as Tab)} />;
@@ -887,7 +887,7 @@ export default function AppClient() {
       case 'Configuración': return <AdminSettingsView userId={user?.uid} />;
       case 'Ayuda': return <HelpView onNavigate={(tab) => setActiveTab(tab as Tab)} currentSection={activeTab} />;
       case 'Ajustes Alquiler': return <PendingAdjustmentsView adjustments={rentAdjustments} onApprove={approveAdjustment} onReject={rejectAdjustment} onNotify={notifyAdjustment} />;
-      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
+      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} socialPosts={socialPosts} />;
     }
   };
 
