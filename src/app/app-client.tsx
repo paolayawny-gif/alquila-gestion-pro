@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { authedFetch } from '@/lib/authed-fetch';
 import { BottomNav } from '@/components/ui/bottom-nav';
 import dynamic from 'next/dynamic';
 import { NotificationBell } from '@/components/ui/notification-bell';
@@ -296,6 +297,16 @@ export default function AppClient() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // El trial de 7 días solo arranca a contar cuando existe el documento de billing.
+  // Antes, ese documento solo se creaba si el admin entraba a Configuración y
+  // clickeaba un botón — la gran mayoría nunca lo hacía y quedaba con acceso
+  // gratis indefinido. Lo inicializamos acá, la primera vez que cargan el panel
+  // como Administrador real (no superadmin, no tenant, no owner invitado).
+  useEffect(() => {
+    if (!user?.uid || isSuperAdmin || tenantEntry || ownerEntry) return;
+    authedFetch(`/api/billing/status?adminId=${user.uid}`).catch(() => {});
+  }, [user?.uid, isSuperAdmin, tenantEntry, ownerEntry]);
 
   // Detect built-in biometric support (Touch ID / Face ID / Windows Hello)
   useEffect(() => {
