@@ -737,14 +737,17 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
               {/* Input de mensaje */}
               <div className="border-t p-3 flex items-center gap-2 shrink-0 bg-white">
                 <button
-                  className="h-9 w-9 rounded-xl bg-muted/40 hover:bg-muted flex items-center justify-center shrink-0 transition-colors text-muted-foreground"
+                  className="h-9 w-9 rounded-xl bg-muted/40 flex items-center justify-center shrink-0 text-muted-foreground/40 cursor-not-allowed"
                   title="Adjuntar archivo (próximamente)"
+                  aria-disabled="true"
+                  disabled
                   type="button"
                 >
                   <Paperclip className="h-4 w-4" />
                 </button>
                 <Input
                   placeholder="Escribe un mensaje..."
+                  aria-label="Escribe un mensaje"
                   value={messageText}
                   onChange={e => setMessageText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}

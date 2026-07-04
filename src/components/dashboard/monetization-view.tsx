@@ -300,10 +300,10 @@ export function MonetizationView({ assets, properties, userId, userEmail }: Mone
                 {recommendation && canWrite && (
                   <Button
                     className="bg-accent text-white gap-2"
-                    onClick={() => toast({ title: 'Plan de mejora', description: recommendation.body })}
+                    onClick={() => toast({ title: 'Recomendación IA', description: recommendation.body })}
                   >
                     <TrendingUp className="h-4 w-4" />
-                    Ejecutar Plan de Mejora
+                    Ver recomendación completa
                   </Button>
                 )}
               </div>
@@ -539,13 +539,6 @@ export function MonetizationView({ assets, properties, userId, userEmail }: Mone
                 </p>
               )}
               <div className="flex gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  className="gap-2 text-sm"
-                  onClick={() => toast({ title: 'Informe detallado', description: 'Próximamente disponible' })}
-                >
-                  <BarChart3 className="h-4 w-4" /> Ver Informe Detallado
-                </Button>
                 {canWrite && (
                   <Button
                     className="bg-accent text-white gap-2 text-sm"

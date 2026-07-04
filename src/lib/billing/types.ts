@@ -1,7 +1,7 @@
 /**
  * Tipos compartidos para la capa de billing.
- * Esta interfaz la deben implementar todos los proveedores
- * (MercadoPago, Stripe, Lemon Squeezy, Paddle, etc).
+ * Único proveedor implementado: MercadoPago. La interfaz queda pensada
+ * para agregar otro proveedor el día que haga falta (ver BillingProvider más abajo).
  */
 
 import type { BillingTier } from './tiers';
@@ -14,7 +14,7 @@ export type BillingStatus =
   | 'paused'          // Pausada por el proveedor (varios fallos)
   | 'cancelled';      // Cancelada por usuario o admin
 
-export type ProviderName = 'mercadopago' | 'stripe' | 'lemonsqueezy' | 'paddle';
+export type ProviderName = 'mercadopago';
 
 /**
  * Estado persistido en Firestore: artifacts/{APP_ID}/users/{adminId}/config/billing
@@ -53,8 +53,8 @@ export interface ProviderEvent {
 
 /**
  * Interfaz que todo proveedor debe implementar.
- * Para agregar Stripe, Lemon Squeezy, Paddle, etc → solo crear un archivo nuevo
- * con esta forma y registrarlo en index.ts.
+ * Para agregar un segundo proveedor → crear un archivo nuevo con esta forma,
+ * sumarlo a ProviderName y registrarlo en index.ts.
  */
 export interface BillingProvider {
   name: ProviderName;

@@ -198,7 +198,7 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
           <div>
             <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card text-[11.5px] font-semibold text-muted-foreground mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              Ajuste por ICL automático con datos del BCRA
+              Registrá ajustes por ICL con seguimiento de vencimientos
             </span>
             <h1
               className="text-[clamp(2.1rem,1.4rem+2.4vw,3.5rem)] font-extrabold tracking-[-0.025em] leading-[1.06] text-foreground mb-5"
@@ -207,7 +207,7 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
               La plataforma completa para gestionar tu cartera de alquileres
             </h1>
             <p className="text-[17px] leading-[1.6] text-muted-foreground mb-7 max-w-[52ch]">
-              Desde el contrato hasta la liquidación — todo en un solo lugar. Ajustes por ICL, IPC y CER al día, facturación AFIP integrada, firma digital y un asistente que se ocupa de los cálculos.
+              Desde el contrato hasta la liquidación — todo en un solo lugar. Registrá ajustes por ICL, IPC y CER, con recordatorios de vencimiento, facturación AFIP integrada, firma digital y un asistente que te ayuda con los cálculos.
             </p>
             <div className="flex flex-wrap gap-3 mb-7">
               <Link href="/login"
@@ -321,14 +321,14 @@ function Roles() {
 // ── Features ──────────────────────────────────────────────────────────────
 const FEATURES = [
   { Icon: FileText,      title: 'Generador de contratos',    desc: 'Plantillas locales con cláusulas ICL/IPC/CER, garantías y ajustes. Genera el PDF listo para firmar.' },
-  { Icon: TrendingUp,    title: 'Ajustes automáticos',       desc: 'Conexión directa al BCRA: el índice del mes se aplica al contrato y notifica a las partes el día exacto.' },
+  { Icon: TrendingUp,    title: 'Ajustes por índice',        desc: 'Registrá el ajuste ICL, IPC o CER de cada contrato y notificá a las partes el día exacto — con recordatorio de vencimiento.' },
   { Icon: CreditCard,    title: 'Cobranzas y MercadoPago',   desc: 'Link de pago automático con vencimiento, recordatorios y conciliación.' },
   { Icon: BarChart3,     title: 'Centro de liquidaciones',   desc: 'Reparto automático al propietario, descuentos de comisión, expensas e impuestos en un solo cierre.' },
   { Icon: Scale,         title: 'Casos legales',             desc: 'Cargá la mora, generá la intimación y seguí los pasos con tu mediador. Documentos versionados.' },
   { Icon: Wrench,        title: 'Mantenimiento',             desc: 'Tickets con foto, presupuesto, aprobación del propietario y red de proveedores propios.' },
   { Icon: BrainCircuit,  title: 'Asistente IA',             desc: 'Pregúntale a tu cartera. Resume morosos, sugiere ajustes y redacta intimaciones — siempre con cita.' },
   { Icon: Calendar,      title: 'Próximos vencimientos',    desc: 'Mirá de un vistazo qué contratos vencen, qué ajustes vienen y qué expensas se aprueban este mes.' },
-  { Icon: FileSpreadsheet, title: 'Reportes y AFIP',        desc: 'Exportá libro de IVA, facturación electrónica y reportes para tu contador en un click.' },
+  { Icon: FileSpreadsheet, title: 'Reportes y AFIP',        desc: 'Facturación electrónica AFIP y exportá tus liquidaciones e informes en PDF/Excel para tu contador.' },
 ];
 
 function Features() {
@@ -416,7 +416,7 @@ function ContractShowcase() {
                 { k: 'Inicio', v: '01 jul 2024' },
                 { k: 'Plazo', v: '36 meses' },
                 { k: 'Índice de ajuste', v: 'ICL (BCRA)' },
-                { k: 'Próximo ajuste', v: 'Automático', up: true },
+                { k: 'Próximo ajuste', v: 'Con aviso', up: true },
                 { k: 'Garantía', v: 'Seguro de caución' },
               ].map(({ k, v, up }) => (
                 <div key={k} className="grid grid-cols-[1fr_auto] gap-2 py-2 border-b border-dashed border-border last:border-0">
@@ -492,7 +492,7 @@ function HowItWorks() {
 // ── Pricing ───────────────────────────────────────────────────────────────
 const PLAN_FEATURES = [
   'Generador de contratos + plantillas',
-  'Ajustes ICL/IPC/CER automáticos',
+  'Registro de ajustes ICL/IPC/CER',
   'Cobranzas con MercadoPago',
   'Portal propietario e inquilino',
   'Centro de liquidaciones',
@@ -607,7 +607,7 @@ function Pricing() {
 const FAQS = [
   {
     q: '¿Cómo se aplica el ajuste por ICL?',
-    a: 'Tomamos el índice publicado por el BCRA el día que corresponde según el contrato (3, 6 o 12 meses). Calculamos el nuevo canon, generamos la notificación al locatario y el período empieza con el valor actualizado. Si alguna de las partes pide ver el detalle, mostramos la fórmula paso a paso.',
+    a: 'El sistema calcula la fecha del próximo ajuste según el contrato (3, 6 o 12 meses) y te avisa cuando se acerca. Vos cargás el índice ICL/IPC/CER publicado por el BCRA o INDEC y el nuevo canon; nosotros generamos la notificación al locatario y dejamos el detalle registrado en el historial del contrato.',
   },
   {
     q: '¿Funciona si todavía no facturo electrónicamente?',
