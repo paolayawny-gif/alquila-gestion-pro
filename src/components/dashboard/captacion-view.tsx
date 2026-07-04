@@ -337,6 +337,13 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
               </p>
             )}
 
+            {/* Sin resultados */}
+            {!isSearching && searchResults.length === 0 && !searchError && !setupHint && ciudad && (
+              <p className="text-xs text-muted-foreground text-center py-3 italic">
+                Sin resultados para "{ciudad}". El motor de búsqueda puede estar configurado para buscar solo en sitios específicos — verificá la configuración en programmablesearchengine.google.com.
+              </p>
+            )}
+
             {/* Resultados */}
             {searchResults.length > 0 && (
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
