@@ -3,7 +3,6 @@ import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebase-admin";
-import { SUPERADMIN_UID } from "@/lib/constants";
 
 // Resolved lazily so a missing JWT_SECRET only fails when a session is
 // actually signed/verified at runtime — not at module import time (which
@@ -40,6 +39,7 @@ export type FirebaseSessionPayload = {
   userId: string;       // Firebase UID
   email?: string;       // Email del token verificado
   emailVerified?: boolean;
+  superAdmin: boolean;  // Custom claim `superAdmin` del token — única fuente de verdad
 };
 
 export async function encrypt(payload: any) {
@@ -110,6 +110,7 @@ export async function requireFirebaseAuth(
       userId: decoded.uid,
       email: decoded.email,
       emailVerified: decoded.email_verified,
+      superAdmin: decoded.superAdmin === true,
     };
   } catch (err) {
     return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
@@ -129,12 +130,13 @@ export async function requireSessionForAdmin(
   if (!adminId) {
     return NextResponse.json({ error: "Falta adminId" }, { status: 400 });
   }
-  if (auth.userId !== adminId && auth.userId !== SUPERADMIN_UID) {
+  if (auth.userId !== adminId && !auth.superAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return auth;
 }
 
-export function isSuperAdminUid(uid: string | undefined): boolean {
-  return !!uid && uid === SUPERADMIN_UID;
+/** Único mecanismo de superadmin: el custom claim `superAdmin` seteado vía /api/superadmin/set-custom-claims. */
+export function isSuperAdmin(session: Pick<FirebaseSessionPayload, "superAdmin">): boolean {
+  return session.superAdmin === true;
 }

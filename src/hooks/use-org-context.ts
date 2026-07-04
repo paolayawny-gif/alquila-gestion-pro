@@ -1,5 +1,5 @@
 'use client'
-import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';;
+import { APP_ID } from '@/lib/constants';
 
 import { useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
@@ -35,15 +35,13 @@ export interface OrgMembership {
 
 /**
  * Detecta si el usuario logueado es:
- * - Super Admin (paolayawny@gmail.com)
+ * - Super Admin (custom claim `superAdmin` en el ID token)
  * - Miembro de una organización (con su rol)
  * - Usuario independiente (no pertenece a ninguna org)
  */
 export function useOrgContext(): OrgMembership {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, isSuperAdmin } = useUser();
   const db = useFirestore();
-
-  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
   // Cargar todos los org_users (el usuario solo puede leer su propio registro por regla Firestore)
   const orgUsersQuery = useMemoFirebase(() => {

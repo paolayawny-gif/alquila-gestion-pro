@@ -1,4 +1,4 @@
-import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -213,9 +213,8 @@ function PostCard({ post, userId, onLike, onReply, onDelete, canDelete, isModera
 export function CommunityMarketplaceView({ people, properties, userId, userEmail, userName }: CommunityMarketplaceViewProps) {
   const { toast }     = useToast();
   const db            = useFirestore();
-  const { user }      = useUser();
+  const { user, isSuperAdmin } = useUser();
   const { canWrite }  = useOrgPermissions();
-  const isSuperAdmin  = (user?.email ?? userEmail) === SUPER_ADMIN_EMAIL;
 
   const uid       = user?.uid ?? userId ?? '';
   const uName     = user?.displayName ?? userName ?? 'Usuario';
@@ -816,13 +815,13 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 space-y-1.5">
-                  <Label>Título *</Label>
-                  <Input placeholder="Ej: Silla ergonómica casi nueva" value={itemForm.title} onChange={e => setItemForm(f => ({ ...f, title: e.target.value }))} />
+                  <Label htmlFor="item-titulo">Título *</Label>
+                  <Input id="item-titulo" placeholder="Ej: Silla ergonómica casi nueva" value={itemForm.title} onChange={e => setItemForm(f => ({ ...f, title: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Categoría</Label>
+                  <Label id="item-categoria">Categoría</Label>
                   <Select value={itemForm.category} onValueChange={v => setItemForm(f => ({ ...f, category: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-labelledby="item-categoria"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {['Muebles','Electrónica','Ropa','Deportes','Otros'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
@@ -836,13 +835,13 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                 </div>
                 {!itemForm.isExchange && (
                   <div className="col-span-2 space-y-1.5">
-                    <Label>Precio ($)</Label>
-                    <Input type="number" placeholder="Ej: 45000" value={itemForm.price} onChange={e => setItemForm(f => ({ ...f, price: e.target.value }))} />
+                    <Label htmlFor="item-precio">Precio ($)</Label>
+                    <Input id="item-precio" type="number" placeholder="Ej: 45000" value={itemForm.price} onChange={e => setItemForm(f => ({ ...f, price: e.target.value }))} />
                   </div>
                 )}
                 <div className="col-span-2 space-y-1.5">
-                  <Label>Descripción</Label>
-                  <Textarea placeholder="Estado, características, motivo de venta…" className="min-h-[70px]" value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} />
+                  <Label htmlFor="item-descripcion">Descripción</Label>
+                  <Textarea id="item-descripcion" placeholder="Estado, características, motivo de venta…" className="min-h-[70px]" value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -870,34 +869,34 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 space-y-1.5">
-                  <Label>Título *</Label>
-                  <Input placeholder={eventoForm.type === 'roomie' ? 'Ej: Busco compañero de depto' : 'Ej: Asado de Integración'} value={eventoForm.title} onChange={e => setEventoForm(f => ({ ...f, title: e.target.value }))} />
+                  <Label htmlFor="evento-titulo">Título *</Label>
+                  <Input id="evento-titulo" placeholder={eventoForm.type === 'roomie' ? 'Ej: Busco compañero de depto' : 'Ej: Asado de Integración'} value={eventoForm.title} onChange={e => setEventoForm(f => ({ ...f, title: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Fecha *</Label>
-                  <Input type="date" value={eventoForm.date} onChange={e => setEventoForm(f => ({ ...f, date: e.target.value }))} />
+                  <Label htmlFor="evento-fecha">Fecha *</Label>
+                  <Input id="evento-fecha" type="date" value={eventoForm.date} onChange={e => setEventoForm(f => ({ ...f, date: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Horario</Label>
-                  <Input type="time" value={eventoForm.time} onChange={e => setEventoForm(f => ({ ...f, time: e.target.value }))} />
+                  <Label htmlFor="evento-horario">Horario</Label>
+                  <Input id="evento-horario" type="time" value={eventoForm.time} onChange={e => setEventoForm(f => ({ ...f, time: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Lugar</Label>
-                  <Input placeholder="Ej: Terraza, Sala B" value={eventoForm.location} onChange={e => setEventoForm(f => ({ ...f, location: e.target.value }))} />
+                  <Label htmlFor="evento-lugar">Lugar</Label>
+                  <Input id="evento-lugar" placeholder="Ej: Terraza, Sala B" value={eventoForm.location} onChange={e => setEventoForm(f => ({ ...f, location: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Tag</Label>
-                  <Input placeholder="TERRAZA, ONLINE…" value={eventoForm.tag} onChange={e => setEventoForm(f => ({ ...f, tag: e.target.value }))} />
+                  <Label htmlFor="evento-tag">Tag</Label>
+                  <Input id="evento-tag" placeholder="TERRAZA, ONLINE…" value={eventoForm.tag} onChange={e => setEventoForm(f => ({ ...f, tag: e.target.value }))} />
                 </div>
                 {eventoForm.type === 'roomie' && (
                   <div className="col-span-2 space-y-1.5">
-                    <Label>Presupuesto mensual ($)</Label>
-                    <Input type="number" placeholder="0" value={eventoForm.roomieBudget} onChange={e => setEventoForm(f => ({ ...f, roomieBudget: e.target.value }))} />
+                    <Label htmlFor="evento-presupuesto">Presupuesto mensual ($)</Label>
+                    <Input id="evento-presupuesto" type="number" placeholder="0" value={eventoForm.roomieBudget} onChange={e => setEventoForm(f => ({ ...f, roomieBudget: e.target.value }))} />
                   </div>
                 )}
                 <div className="col-span-2 space-y-1.5">
-                  <Label>Descripción</Label>
-                  <Textarea placeholder="Detalles del evento o lo que buscás en un roomie…" className="min-h-[70px]" value={eventoForm.description} onChange={e => setEventoForm(f => ({ ...f, description: e.target.value }))} />
+                  <Label htmlFor="evento-descripcion">Descripción</Label>
+                  <Textarea id="evento-descripcion" placeholder="Detalles del evento o lo que buscás en un roomie…" className="min-h-[70px]" value={eventoForm.description} onChange={e => setEventoForm(f => ({ ...f, description: e.target.value }))} />
                 </div>
               </div>
             </div>
@@ -908,17 +907,17 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 space-y-1.5">
-                  <Label>Nombre del Comercio *</Label>
-                  <Input placeholder="Ej: Café del Parque" value={benefForm.businessName} onChange={e => setBenefForm(f => ({ ...f, businessName: e.target.value }))} />
+                  <Label htmlFor="comercio-nombre">Nombre del Comercio *</Label>
+                  <Input id="comercio-nombre" placeholder="Ej: Café del Parque" value={benefForm.businessName} onChange={e => setBenefForm(f => ({ ...f, businessName: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Distancia / Dirección</Label>
-                  <Input placeholder="A 2 cuadras del edificio" value={benefForm.distance} onChange={e => setBenefForm(f => ({ ...f, distance: e.target.value }))} />
+                  <Label htmlFor="comercio-distancia">Distancia / Dirección</Label>
+                  <Input id="comercio-distancia" placeholder="A 2 cuadras del edificio" value={benefForm.distance} onChange={e => setBenefForm(f => ({ ...f, distance: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Ícono</Label>
+                  <Label id="comercio-icono">Ícono</Label>
                   <Select value={benefForm.iconType} onValueChange={v => setBenefForm(f => ({ ...f, iconType: v as Benefit['iconType'] }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-labelledby="comercio-icono"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="coffee">☕ Café</SelectItem>
                       <SelectItem value="laundry">👕 Lavandería</SelectItem>
@@ -929,16 +928,16 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Texto de descuento *</Label>
-                  <Input placeholder="Ej: 15% OFF  /  2×1" value={benefForm.discountText} onChange={e => setBenefForm(f => ({ ...f, discountText: e.target.value }))} />
+                  <Label htmlFor="comercio-descuento">Texto de descuento *</Label>
+                  <Input id="comercio-descuento" placeholder="Ej: 15% OFF  /  2×1" value={benefForm.discountText} onChange={e => setBenefForm(f => ({ ...f, discountText: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Código promocional</Label>
-                  <Input placeholder="Ej: ALQ15" value={benefForm.promoCode} onChange={e => setBenefForm(f => ({ ...f, promoCode: e.target.value }))} />
+                  <Label htmlFor="comercio-codigo">Código promocional</Label>
+                  <Input id="comercio-codigo" placeholder="Ej: ALQ15" value={benefForm.promoCode} onChange={e => setBenefForm(f => ({ ...f, promoCode: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Etiqueta</Label>
-                  <Input placeholder="Ej: Martes, Solo hoy" value={benefForm.promoLabel} onChange={e => setBenefForm(f => ({ ...f, promoLabel: e.target.value }))} />
+                  <Label htmlFor="comercio-etiqueta">Etiqueta</Label>
+                  <Input id="comercio-etiqueta" placeholder="Ej: Martes, Solo hoy" value={benefForm.promoLabel} onChange={e => setBenefForm(f => ({ ...f, promoLabel: e.target.value }))} />
                 </div>
               </div>
             </div>
@@ -975,8 +974,8 @@ export function CommunityMarketplaceView({ people, properties, userId, userEmail
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label>Monto final de la venta ($)</Label>
-                <Input type="number" value={saleConfirmAmt} onChange={e => setSaleConfirmAmt(e.target.value)} placeholder="0" />
+                <Label htmlFor="venta-monto-final">Monto final de la venta ($)</Label>
+                <Input id="venta-monto-final" type="number" value={saleConfirmAmt} onChange={e => setSaleConfirmAmt(e.target.value)} placeholder="0" />
               </div>
               {parseFloat(saleConfirmAmt) > 0 && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5 text-sm">

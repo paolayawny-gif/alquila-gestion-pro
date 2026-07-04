@@ -20,6 +20,7 @@ interface UserAuthState {
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
+  isSuperAdmin: boolean; // Derived from the `superAdmin` custom claim on the ID token — única fuente de verdad
 }
 
 // Combined state for the Firebase context
@@ -32,6 +33,7 @@ export interface FirebaseContextState {
   user: User | null;
   isUserLoading: boolean; // True during initial auth check
   userError: Error | null; // Error from auth listener
+  isSuperAdmin: boolean;
 }
 
 // Return type for useFirebase()
@@ -42,6 +44,7 @@ export interface FirebaseServicesAndUser {
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
+  isSuperAdmin: boolean;
 }
 
 // Return type for useUser() - specific to user auth state
@@ -49,6 +52,7 @@ export interface UserHookResult { // Renamed from UserAuthHookResult for consist
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
+  isSuperAdmin: boolean;
 }
 
 // React Context
@@ -67,25 +71,44 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     user: null,
     isUserLoading: true, // Start loading until first auth event
     userError: null,
+    isSuperAdmin: false,
   });
 
   // Effect to subscribe to Firebase auth state changes
   useEffect(() => {
     if (!auth) { // If no Auth service instance, cannot determine user state
-      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
+      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided."), isSuperAdmin: false });
       return;
     }
 
-    setUserAuthState({ user: null, isUserLoading: true, userError: null }); // Reset on auth instance change
+    setUserAuthState({ user: null, isUserLoading: true, userError: null, isSuperAdmin: false }); // Reset on auth instance change
 
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => { // Auth state determined
-        setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
+        if (!firebaseUser) {
+          setUserAuthState({ user: null, isUserLoading: false, userError: null, isSuperAdmin: false });
+          return;
+        }
+        // Custom claims (e.g. `superAdmin`) live on the ID token, not the User object —
+        // must be read via getIdTokenResult() rather than derived from email/uid.
+        firebaseUser.getIdTokenResult()
+          .then((tokenResult) => {
+            setUserAuthState({
+              user: firebaseUser,
+              isUserLoading: false,
+              userError: null,
+              isSuperAdmin: tokenResult.claims.superAdmin === true,
+            });
+          })
+          .catch((error) => {
+            console.error("FirebaseProvider: getIdTokenResult error:", error);
+            setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null, isSuperAdmin: false });
+          });
       },
       (error) => { // Auth listener error
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
-        setUserAuthState({ user: null, isUserLoading: false, userError: error });
+        setUserAuthState({ user: null, isUserLoading: false, userError: error, isSuperAdmin: false });
       }
     );
     return () => unsubscribe(); // Cleanup
@@ -134,6 +157,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       user: userAuthState.user,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
+      isSuperAdmin: userAuthState.isSuperAdmin,
     };
   }, [firebaseApp, firestore, auth, userAuthState]);
 
@@ -167,6 +191,7 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     user: context.user,
     isUserLoading: context.isUserLoading,
     userError: context.userError,
+    isSuperAdmin: context.isSuperAdmin,
   };
 };
 
@@ -211,6 +236,6 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
  * @returns {UserHookResult} Object with user, isUserLoading, userError.
  */
 export const useUser = (): UserHookResult => { // Renamed from useAuthUser
-  const { user, isUserLoading, userError } = useFirebase(); // Leverages the main hook
-  return { user, isUserLoading, userError };
+  const { user, isUserLoading, userError, isSuperAdmin } = useFirebase(); // Leverages the main hook
+  return { user, isUserLoading, userError, isSuperAdmin };
 };

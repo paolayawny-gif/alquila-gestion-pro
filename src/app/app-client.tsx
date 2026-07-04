@@ -1,5 +1,5 @@
 "use client";
-import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { APP_ID } from '@/lib/constants';
 import { AppLogo } from '@/components/ui/app-logo';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -81,6 +81,7 @@ import { usePlan } from '@/hooks/use-plan';
 import { BillingBlockedScreen } from '@/components/billing/billing-blocked-screen';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -226,17 +227,17 @@ export default function AppClient() {
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useFocusTrap(mobileMenuOpen, () => setMobileMenuOpen(false));
   const [isMounted, setIsMounted] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
   
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, isSuperAdmin } = useUser();
   const auth = useAuth();
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
   const orgCtx = useOrgContext();
   const plan = usePlan(user?.uid);
 
@@ -887,8 +888,14 @@ export default function AppClient() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileMenuOpen(false)} />
       )}
-      <aside className={cn(
-        "bg-card border-r flex flex-col transition-all duration-300 z-40 shrink-0",
+      <aside
+        ref={mobileMenuOpen ? (mobileMenuRef as React.RefObject<HTMLElement>) : undefined}
+        role={mobileMenuOpen ? 'dialog' : undefined}
+        aria-modal={mobileMenuOpen ? true : undefined}
+        aria-label={mobileMenuOpen ? 'Menú de navegación' : undefined}
+        tabIndex={-1}
+        className={cn(
+        "bg-card border-r flex flex-col transition-all duration-300 z-40 shrink-0 outline-none",
         "fixed inset-y-0 left-0 md:static md:z-20",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         isSidebarCollapsed ? "md:w-20 w-72" : "w-72",
@@ -970,8 +977,11 @@ export default function AppClient() {
         <div className="p-4 border-t space-y-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-accent bg-accent/8 hover:bg-accent/15 transition-colors", isSidebarCollapsed && "justify-center")}>
-                <ArrowLeftRight className="h-5 w-5" />
+              <button
+                className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-accent bg-accent/8 hover:bg-accent/15 transition-colors", isSidebarCollapsed && "justify-center")}
+                aria-label={isSidebarCollapsed ? `Cambiar rol, actual: ${activeRole}` : undefined}
+              >
+                <ArrowLeftRight className="h-5 w-5" aria-hidden="true" />
                 {!isSidebarCollapsed && <span className="truncate">Cambiar Rol: {activeRole}</span>}
               </button>
             </DropdownMenuTrigger>
@@ -994,14 +1004,22 @@ export default function AppClient() {
             {!isSidebarCollapsed && <span>Cerrar Sesión</span>}
            </button>
         </div>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-card border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50">
-          {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-card border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50"
+          aria-label={isSidebarCollapsed ? 'Expandir barra lateral' : 'Contraer barra lateral'}
+        >
+          {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" aria-hidden="true" /> : <ChevronLeft className="h-3 w-3" aria-hidden="true" />}
         </button>
       </aside>
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
         <header className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-card/80 backdrop-blur-md sticky top-0 z-10 gap-3">
-          <button className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0" onClick={() => setMobileMenuOpen(true)}>
-            <Menu className="h-5 w-5 text-muted-foreground" />
+          <button
+            className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Abrir menú de navegación"
+          >
+            <Menu className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
           <button
             onClick={() => setCmdOpen(true)}
@@ -1048,7 +1066,10 @@ export default function AppClient() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase hover:bg-primary/30 transition-colors">
+                <button
+                  className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase hover:bg-primary/30 transition-colors"
+                  aria-label={`Menú de cuenta de ${user?.email ?? activeRole}`}
+                >
                   {activeRole[0]}{activeRole[1]}
                 </button>
               </DropdownMenuTrigger>

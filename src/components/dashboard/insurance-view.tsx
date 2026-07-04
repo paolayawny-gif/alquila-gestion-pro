@@ -1,4 +1,4 @@
-import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -249,9 +249,8 @@ const EMPTY_QUOTE = {
 export function InsuranceView({ properties, userId }: InsuranceViewProps) {
   const { toast }   = useToast();
   const db          = useFirestore();
-  const { user }    = useUser();
+  const { user, isSuperAdmin } = useUser();
   const { canWrite, canDelete } = useOrgPermissions();
-  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
   // ── Policy dialog state ──
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
