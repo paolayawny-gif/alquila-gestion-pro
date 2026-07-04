@@ -19,6 +19,7 @@ import { generateSocialContent } from '@/ai/flows/generate-social-content-flow';
 
 export type CardStyle = 'gradient' | 'solid' | 'dark' | 'minimal';
 export type CardFormat = 'Cuadrado' | 'Historia' | 'Paisaje';
+export type CardLayout = 'inferior' | 'centrado' | 'superior';
 
 export const ACCENT_COLORS = [
   { label: 'Ocean Blue (marca)', value: '#0369A1' },
@@ -70,9 +71,11 @@ export function getCardBackground(style: CardStyle, accent: string, darkBg: stri
 export interface CardPreviewProps {
   format: CardFormat;
   style: CardStyle;
+  layout?: CardLayout;
   accent: string;
   darkBg: string;
   textColor: string;
+  eyebrow?: string;
   headline: string;
   subtext: string;
   brandTag: string;
@@ -81,16 +84,20 @@ export interface CardPreviewProps {
 }
 
 export function CardPreview({
-  format, style, accent, darkBg, textColor,
-  headline, subtext, brandTag, bgImage, previewRef,
+  format, style, layout = 'inferior', accent, darkBg, textColor,
+  eyebrow, headline, subtext, brandTag, bgImage, previewRef,
 }: CardPreviewProps) {
   const { w, h } = PREVIEW_DIMS[format];
   const bg = bgImage ? `url(${bgImage}) center/cover no-repeat` : getCardBackground(style, accent, darkBg);
   const isMinimal = !bgImage && style === 'minimal';
   const effectiveTextColor = bgImage ? '#ffffff' : (isMinimal ? undefined : textColor);
+  const bodyColor = isMinimal ? '#0f172a' : (effectiveTextColor ?? textColor);
   const headlineSize = format === 'Historia'
     ? (headline.length > 40 ? '1.05rem' : '1.3rem')
     : (headline.length > 40 ? '1rem' : '1.2rem');
+
+  const justify = layout === 'centrado' ? 'center' : layout === 'superior' ? 'flex-start' : 'flex-end';
+  const textAlign = layout === 'centrado' ? 'center' : 'left';
 
   return (
     <div
@@ -104,55 +111,96 @@ export function CardPreview({
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-end',
-        padding: 24,
+        justifyContent: justify,
+        alignItems: layout === 'centrado' ? 'center' : 'stretch',
+        padding: 26,
         boxSizing: 'border-box',
         border: isMinimal ? '1.5px solid #e5e7eb' : 'none',
         flexShrink: 0,
+        fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
       }}
     >
       {/* Dark gradient overlay when using a background image */}
       {bgImage && (
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 100%)',
-        }} />
-      )}
-      {/* Decorative circle for color styles */}
-      {!isMinimal && !bgImage && (
-        <div style={{
-          position: 'absolute', top: -40, right: -40,
-          width: 180, height: 180, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.08)',
-        }} />
-      )}
-      {/* Bottom gradient overlay for minimal */}
-      {isMinimal && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: `linear-gradient(180deg, transparent 40%, ${accent}18 100%)`,
+          background: layout === 'superior'
+            ? 'linear-gradient(0deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.6) 45%)'
+            : 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 100%)',
         }} />
       )}
 
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      {/* Decorative layered shapes for color styles (not minimal, not bg image) */}
+      {!isMinimal && !bgImage && (
+        <>
+          <div style={{
+            position: 'absolute', top: -60, right: -50,
+            width: 220, height: 220, borderRadius: '50%',
+            background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.16), rgba(255,255,255,0.02) 70%)',
+          }} />
+          <div style={{
+            position: 'absolute', bottom: -70, left: -40,
+            width: 160, height: 160, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.10)',
+          }} />
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 14px)',
+          }} />
+        </>
+      )}
+
+      {/* Corner-frame accent for minimal style */}
+      {isMinimal && (
+        <>
+          <div style={{
+            position: 'absolute', top: 0, left: 0,
+            width: 40, height: 4, background: accent, borderRadius: '0 0 4px 0',
+          }} />
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: `linear-gradient(180deg, transparent 40%, ${accent}18 100%)`,
+          }} />
+        </>
+      )}
+
+      <div style={{ position: 'relative', zIndex: 1, textAlign, width: '100%' }}>
+        {eyebrow && (
+          <div style={{
+            display: 'inline-block',
+            fontSize: '0.58rem',
+            fontWeight: 800,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: isMinimal ? accent : bodyColor,
+            opacity: isMinimal ? 1 : 0.85,
+            marginBottom: 6,
+          }}>
+            {eyebrow}
+          </div>
+        )}
         {headline && (
           <div style={{
-            color: isMinimal ? '#0f172a' : (effectiveTextColor ?? textColor),
+            color: bodyColor,
             fontSize: headlineSize,
             fontWeight: 900,
-            lineHeight: 1.2,
+            lineHeight: 1.18,
             marginBottom: subtext ? 8 : 0,
             letterSpacing: '-0.02em',
+            textWrap: 'balance' as any,
           }}>
             {headline}
           </div>
         )}
         {subtext && (
           <div style={{
-            color: isMinimal ? '#475569' : `${effectiveTextColor ?? textColor}cc`,
+            color: isMinimal ? '#475569' : `${bodyColor}cc`,
             fontSize: '0.72rem',
-            lineHeight: 1.4,
+            lineHeight: 1.45,
             marginBottom: brandTag ? 12 : 0,
+            maxWidth: layout === 'centrado' ? '85%' : undefined,
+            marginLeft: layout === 'centrado' ? 'auto' : undefined,
+            marginRight: layout === 'centrado' ? 'auto' : undefined,
           }}>
             {subtext}
           </div>
@@ -161,7 +209,7 @@ export function CardPreview({
           <div style={{
             display: 'inline-block',
             background: isMinimal ? accent : 'rgba(255,255,255,0.18)',
-            color: isMinimal ? '#fff' : (effectiveTextColor ?? textColor),
+            color: isMinimal ? '#fff' : bodyColor,
             fontSize: '0.6rem',
             fontWeight: 700,
             padding: '3px 10px',
@@ -232,9 +280,11 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
 
   const [format, setFormat] = useState<CardFormat>('Cuadrado');
   const [style, setStyle] = useState<CardStyle>('gradient');
+  const [layout, setLayout] = useState<CardLayout>('inferior');
   const [accent, setAccent] = useState(ACCENT_COLORS[0].value);
   const [darkBg, setDarkBg] = useState(DARK_BG_COLORS[0].value);
   const [textColor, setTextColor] = useState(CARD_TEXT_COLORS[0].value);
+  const [eyebrow, setEyebrow] = useState('');
   const [headline, setHeadline] = useState('');
   const [subtext, setSubtext] = useState('');
   const [brandTag, setBrandTag] = useState('');
@@ -359,6 +409,15 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Categoría (opcional)</Label>
+                <Input
+                  placeholder="Ej: NOVEDAD, TIP, PROMO"
+                  value={eyebrow}
+                  onChange={e => setEyebrow(e.target.value)}
+                  maxLength={24}
+                />
+              </div>
+              <div className="space-y-1">
                 <Label className="text-[10px] uppercase font-black text-muted-foreground">Titular principal</Label>
                 <Textarea
                   rows={2}
@@ -467,6 +526,25 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
                 </div>
               </div>
 
+              {/* Layout */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Composición del texto</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['inferior', 'centrado', 'superior'] as CardLayout[]).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setLayout(l)}
+                      className={cn(
+                        'text-xs font-semibold py-2 px-1 rounded-lg border transition-colors capitalize',
+                        layout === l ? 'border-primary bg-primary/10 text-primary' : 'border-muted text-muted-foreground hover:border-primary/40'
+                      )}
+                    >
+                      {l === 'inferior' ? 'Abajo' : l === 'centrado' ? 'Centrado' : 'Arriba'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Accent color */}
               <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase font-black text-muted-foreground">Color de acento</Label>
@@ -537,9 +615,11 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
             <CardPreview
               format={format}
               style={style}
+              layout={layout}
               accent={accent}
               darkBg={darkBg}
               textColor={textColor}
+              eyebrow={eyebrow}
               headline={headline}
               subtext={subtext}
               brandTag={brandTag}

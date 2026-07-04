@@ -13,7 +13,7 @@ import {
   ChevronLeft, ChevronRight, GalleryHorizontal, ImagePlus,
 } from 'lucide-react';
 import {
-  CardPreview, CardFormat, CardStyle,
+  CardPreview, CardFormat, CardStyle, CardLayout,
   ACCENT_COLORS, DARK_BG_COLORS, CARD_TEXT_COLORS,
   PREVIEW_DIMS, EXPORT_DIMS, exportCardToPng,
 } from './social-card-designer';
@@ -78,6 +78,7 @@ export function SocialCarousel({
   // Design
   const [format, setFormat] = useState<CardFormat>('Cuadrado');
   const [style, setStyle] = useState<CardStyle>('gradient');
+  const [layout, setLayout] = useState<CardLayout>('inferior');
   const [accent, setAccent] = useState(ACCENT_COLORS[0].value);
   const [darkBg, setDarkBg] = useState(DARK_BG_COLORS[0].value);
   const [textColor, setTextColor] = useState(CARD_TEXT_COLORS[0].value);
@@ -373,6 +374,17 @@ export function SocialCarousel({
                 </div>
               </div>
               <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Composición del texto</Label>
+                <Select value={layout} onValueChange={v => setLayout(v as CardLayout)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inferior">Abajo</SelectItem>
+                    <SelectItem value="centrado">Centrado</SelectItem>
+                    <SelectItem value="superior">Arriba</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase font-black text-muted-foreground">Color de acento</Label>
                 <div className="flex gap-2 flex-wrap">
                   {ACCENT_COLORS.map(c => (
@@ -418,6 +430,7 @@ export function SocialCarousel({
             <CardPreview
               format={format}
               style={style}
+              layout={layout}
               accent={accent}
               darkBg={darkBg}
               textColor={textColor}
