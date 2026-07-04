@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/format';
 import { CountUp } from '@/components/ui/count-up';
+import { useChartColors } from '@/lib/chart-colors';
 import {
   AreaChart,
   Area,
@@ -235,6 +236,7 @@ export function SummaryView({
 }: SummaryViewProps) {
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
   const [bcraRate, setBcraRate] = useState<{ compra: number; venta: number; fecha: string } | null>(null);
+  const chartColors = useChartColors();
 
   useEffect(() => {
     fetch('/api/bcra/cotizacion')
@@ -591,24 +593,28 @@ export function SummaryView({
             <Badge className="bg-green-100 text-green-700 font-bold px-3">Efectividad: {((totalCollected / (totalProjected || 1)) * 100).toFixed(0)}%</Badge>
           </CardHeader>
           <CardContent>
-            <div className="h-[220px] w-full">
+            <div
+              className="h-[220px] w-full"
+              role="img"
+              aria-label={`Salud del flujo de caja, cobranza semanal vs. proyección. ${CASHFLOW_DATA.map(d => `${d.name}: cobrado ${formatCurrency(d.cobrado)} de ${formatCurrency(d.proyectado)} proyectado`).join('. ')}.`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={CASHFLOW_DATA}>
                   <defs>
                     <linearGradient id="colorCobrado" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                      <stop offset="5%" stopColor={chartColors.income} stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor={chartColors.income} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                  <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                  <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: chartColors.axis }} />
+                  <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: chartColors.axis }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: `1px solid ${chartColors.tooltipBorder}`, background: chartColors.tooltipBg, boxShadow: `0 4px 12px ${chartColors.tooltipShadow}` }}
                     formatter={(v: any) => [`$ ${v.toLocaleString()}`, "Monto"]}
                   />
-                  <Area type="monotone" dataKey="proyectado" stroke="#cbd5e1" fill="transparent" strokeDasharray="5 5" name="Esperado" />
-                  <Area type="monotone" dataKey="cobrado" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorCobrado)" name="Cobrado Real" />
+                  <Area type="monotone" dataKey="proyectado" stroke={chartColors.projected} fill="transparent" strokeDasharray="5 5" name="Esperado" />
+                  <Area type="monotone" dataKey="cobrado" stroke={chartColors.income} strokeWidth={3} fillOpacity={1} fill="url(#colorCobrado)" name="Cobrado Real" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -799,28 +805,32 @@ export function SummaryView({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[260px] w-full">
+          <div
+            className="h-[260px] w-full"
+            role="img"
+            aria-label={`Proyección de ingresos a 12 meses según contratos vigentes. ${projectionData.map(d => `${d.name}: ${formatCurrency(d.ingreso)}`).join('. ')}.`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={projectionData}>
                 <defs>
                   <linearGradient id="projLineGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#0369A1" />
-                    <stop offset="100%" stopColor="#7DD3FC" />
+                    <stop offset="0%" stopColor={chartColors.income} />
+                    <stop offset="100%" stopColor={chartColors.incomeSoft} />
                   </linearGradient>
                   <linearGradient id="projAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0369A1" stopOpacity={0.18} />
-                    <stop offset="85%" stopColor="#0369A1" stopOpacity={0.02} />
-                    <stop offset="100%" stopColor="#0369A1" stopOpacity={0} />
+                    <stop offset="0%" stopColor={chartColors.income} stopOpacity={0.18} />
+                    <stop offset="85%" stopColor={chartColors.income} stopOpacity={0.02} />
+                    <stop offset="100%" stopColor={chartColors.income} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: chartColors.axis }} />
+                <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: chartColors.axis }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  contentStyle={{ borderRadius: '8px', border: `1px solid ${chartColors.tooltipBorder}`, background: chartColors.tooltipBg, boxShadow: `0 4px 12px ${chartColors.tooltipShadow}` }}
                   formatter={(v: any) => [`$ ${Number(v).toLocaleString('es-AR')}`, 'Ingreso proyectado']}
                 />
-                <ReferenceLine y={projectionData[0]?.ingreso ?? 0} stroke="#e2e8f0" strokeDasharray="4 4" />
+                <ReferenceLine y={projectionData[0]?.ingreso ?? 0} stroke={chartColors.projectedSoft} strokeDasharray="4 4" />
                 <Area
                   type="monotone"
                   dataKey="ingreso"
@@ -828,8 +838,8 @@ export function SummaryView({
                   strokeWidth={2.5}
                   fill="url(#projAreaGrad)"
                   fillOpacity={1}
-                  dot={{ r: 3, fill: '#0369A1', strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: '#0369A1', stroke: '#7DD3FC', strokeWidth: 2 }}
+                  dot={{ r: 3, fill: chartColors.income, strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: chartColors.income, stroke: chartColors.incomeSoft, strokeWidth: 2 }}
                   name="Ingreso proyectado"
                 />
               </AreaChart>

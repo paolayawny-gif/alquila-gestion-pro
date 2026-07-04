@@ -32,6 +32,7 @@ import { calculateRentAdjustment, type RentAdjustmentResult } from '@/ai/flows/c
 import { sendEmail } from '@/services/email-service';
 import { formatCurrency } from '@/lib/format';
 import { FiscalPanel } from '@/components/ui/fiscal-panel';
+import { useChartColors } from '@/lib/chart-colors';
 
 
 interface FinancialLedgerViewProps {
@@ -46,6 +47,7 @@ const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 
 export function FinancialLedgerView({ properties, invoices, contracts, userId }: FinancialLedgerViewProps) {
   const { toast } = useToast();
+  const chartColors = useChartColors();
   const db = useFirestore();
   const { canWrite } = useOrgPermissions();
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -568,18 +570,18 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
             >
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} />
-                  <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }}
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: chartColors.axis }} />
+                  <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: chartColors.axis }}
                     tickFormatter={v => `$${v / 1000}k`} />
                   <Tooltip
-                    contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '11px' }}
+                    contentStyle={{ borderRadius: '10px', border: `1px solid ${chartColors.tooltipBorder}`, background: chartColors.tooltipBg, boxShadow: `0 8px 24px ${chartColors.tooltipShadow}`, fontSize: '11px' }}
                     formatter={(v: any, n: string) => [`$${Number(v).toLocaleString('es-AR')}`, n === 'cobrado' ? 'Cobrado' : n === 'porCobrar' ? 'Por cobrar' : n === 'gastos' ? 'Gastos' : 'Neto']}
                   />
-                  <Bar dataKey="cobrado"   fill="#16a34a" opacity={0.85} radius={[4, 4, 0, 0]} barSize={14} />
-                  <Bar dataKey="porCobrar" fill="#fbbf24" opacity={0.6}  radius={[4, 4, 0, 0]} barSize={14} />
-                  <Bar dataKey="gastos"    fill="#fecaca" radius={[4, 4, 0, 0]} barSize={14} />
-                  <Line type="monotone" dataKey="tendencia" stroke="#16a34a" strokeWidth={2}
+                  <Bar dataKey="cobrado"   fill={chartColors.positive} opacity={0.85} radius={[4, 4, 0, 0]} barSize={14} />
+                  <Bar dataKey="porCobrar" fill={chartColors.pending} opacity={0.6}  radius={[4, 4, 0, 0]} barSize={14} />
+                  <Bar dataKey="gastos"    fill={chartColors.expenseSoft} radius={[4, 4, 0, 0]} barSize={14} />
+                  <Line type="monotone" dataKey="tendencia" stroke={chartColors.positive} strokeWidth={2}
                     strokeDasharray="5 3" dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -598,13 +600,15 @@ export function FinancialLedgerView({ properties, invoices, contracts, userId }:
               role="img"
               aria-label={`Ocupación: ${occupancyRate}% ocupado, ${100 - occupancyRate}% vacante.`}
             >
-              <PieChart width={112} height={112}>
-                <Pie data={vacancyPieData} cx={52} cy={52} innerRadius={32} outerRadius={50}
-                  startAngle={90} endAngle={-270} paddingAngle={2} dataKey="value">
-                  <Cell fill="#16a34a" />
-                  <Cell fill="#f1f5f9" />
-                </Pie>
-              </PieChart>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={vacancyPieData} cx="50%" cy="50%" innerRadius={32} outerRadius={50}
+                    startAngle={90} endAngle={-270} paddingAngle={2} dataKey="value">
+                    <Cell fill={chartColors.positive} />
+                    <Cell fill={chartColors.grid} />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-xl font-black">{occupancyRate}%</span>
                 <span className="text-[9px] text-muted-foreground uppercase font-bold">OCUPADO</span>

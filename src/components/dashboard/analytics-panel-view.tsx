@@ -25,6 +25,7 @@ import {
   Scale, Download, Share2, Edit2, Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useChartColors } from '@/lib/chart-colors';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
@@ -226,6 +227,7 @@ function ImpactoTab({ properties, contracts, invoices, tasks, legalCases, assets
   );
 
   const { toast } = useToast();
+  const chartColors = useChartColors();
 
   return (
     <div className="space-y-5">
@@ -316,18 +318,18 @@ function ImpactoTab({ properties, contracts, invoices, tasks, legalCases, assets
             >
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={cashFlowData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
-                  <Tooltip formatter={(v: number) => fmtM(v)} />
-                  <Bar dataKey="ingresos" fill={ACCENT} radius={[3, 3, 0, 0]}
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 10, fill: chartColors.axis }} />
+                  <YAxis tick={{ fontSize: 10, fill: chartColors.axis }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+                  <Tooltip formatter={(v: number) => fmtM(v)} contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, boxShadow: `0 4px 12px ${chartColors.tooltipShadow}` }} />
+                  <Bar dataKey="ingresos" fill={chartColors.income} radius={[3, 3, 0, 0]}
                     fillOpacity={1}
                     label={false}>
                     {cashFlowData.map((e, i) => (
-                      <Cell key={i} fill={e.projected ? '#a7f3d0' : ACCENT} />
+                      <Cell key={i} fill={e.projected ? chartColors.incomeSoft : chartColors.income} />
                     ))}
                   </Bar>
-                  <Bar dataKey="gastos" fill="#fca5a5" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="gastos" fill={chartColors.expenseSoft} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -778,6 +780,7 @@ function NormativaTab({ properties, contracts, tasks, userId }: Pick<AnalyticsPa
 // ═══════════════════════════════════════════════════════════════════════════════
 function PlusvaliaTab({ properties, tasks, userId }: Pick<AnalyticsPanelProps, 'properties' | 'tasks' | 'userId'>) {
   const { toast } = useToast();
+  const chartColors = useChartColors();
   const db = useFirestore();
   const { canWrite } = useOrgPermissions();
   const [selectedPropId, setSelectedPropId] = useState<string>(properties[0]?.id ?? '');
@@ -1027,20 +1030,25 @@ function PlusvaliaTab({ properties, tasks, userId }: Pick<AnalyticsPanelProps, '
                     </div>
                   ))}
                 </div>
-                <ResponsiveContainer width="100%" height={100}>
-                  <AreaChart data={projData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="projGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={ACCENT} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={ACCENT} stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="year" tick={{ fontSize: 9 }} tickFormatter={v => `A${v}`} />
-                    <YAxis hide />
-                    <Tooltip formatter={(v: number) => fmtM(v)} labelFormatter={l => `Año ${l}`} />
-                    <Area type="monotone" dataKey="value" stroke={ACCENT} fill="url(#projGrad)" strokeWidth={2} dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div
+                  role="img"
+                  aria-label={`Proyección de valor a 10 años con crecimiento del ${growthRate}% anual. ${projData.map(p => `Año ${p.year}: ${fmtM(p.value)}`).join('. ')}.`}
+                >
+                  <ResponsiveContainer width="100%" height={100}>
+                    <AreaChart data={projData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="projGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={chartColors.income} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={chartColors.income} stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="year" tick={{ fontSize: 9, fill: chartColors.axis }} tickFormatter={v => `A${v}`} />
+                      <YAxis hide />
+                      <Tooltip formatter={(v: number) => fmtM(v)} labelFormatter={l => `Año ${l}`} contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, boxShadow: `0 4px 12px ${chartColors.tooltipShadow}` }} />
+                      <Area type="monotone" dataKey="value" stroke={chartColors.income} fill="url(#projGrad)" strokeWidth={2} dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
                 <p className="text-[9px] text-muted-foreground mt-1 text-center">
                   Cálculo basado en crecimiento compuesto del {growthRate}% anual aplicado al valor actual.
                 </p>

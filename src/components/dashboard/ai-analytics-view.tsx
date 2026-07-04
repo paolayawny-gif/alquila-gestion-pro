@@ -38,6 +38,7 @@ import {
 } from 'recharts';
 import { Property, Contract, Invoice, MaintenanceTask } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useChartColors } from '@/lib/chart-colors';
 
 interface AIAnalyticsViewProps {
   properties: Property[];
@@ -51,6 +52,7 @@ const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', '
 export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAnalyticsViewProps) {
   const currentMonth = new Date().getMonth();
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
+  const chartColors = useChartColors();
 
   // Cash flow projection: past months real from invoices + future projected
   const cashFlowData = useMemo(() => {
@@ -210,15 +212,15 @@ export function AIAnalyticsView({ properties, contracts, invoices, tasks }: AIAn
             >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={cashFlowData} barSize={22}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} />
-                  <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} tickFormatter={v => `$${Math.round(v / 1000)}k`} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: chartColors.axis }} />
+                  <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: chartColors.axis }} tickFormatter={v => `$${Math.round(v / 1000)}k`} />
                   <Tooltip
-                    contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                    contentStyle={{ borderRadius: '10px', border: `1px solid ${chartColors.tooltipBorder}`, background: chartColors.tooltipBg, boxShadow: `0 8px 24px ${chartColors.tooltipShadow}`, fontSize: '12px' }}
                     formatter={(value: any, name: string) => [`$ ${Number(value).toLocaleString('es-AR')}`, name === 'real' ? 'Real' : 'Proyectado']}
                   />
-                  <Bar dataKey="projected" fill="#e2e8f0" radius={[4, 4, 0, 0]} name="Proyectado" />
-                  <Bar dataKey="real" fill="#16a34a" radius={[4, 4, 0, 0]} name="Real"
+                  <Bar dataKey="projected" fill={chartColors.projectedSoft} radius={[4, 4, 0, 0]} name="Proyectado" />
+                  <Bar dataKey="real" fill={chartColors.positive} radius={[4, 4, 0, 0]} name="Real"
                     label={false}
                   />
                 </BarChart>
