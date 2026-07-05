@@ -83,7 +83,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
-  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [mainTab, setMainTab] = useState<'tasks' | 'tickets' | 'providers'>('tasks');
 
@@ -365,7 +365,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
             ? `$ ${selectedTask.estimatedCost.toLocaleString('es-AR')} (Estimado)`
             : "Pendiente de presupuesto",
         additionalContext: selectedTask.description
-      }, { apiKey: aiApiKey });
+      }, { apiKey: aiApiKey, provider: aiProvider });
       setDraft(res);
     } catch (e) {
       toast({ title: "Error IA", description: "No se pudo redactar el informe.", variant: "destructive" });

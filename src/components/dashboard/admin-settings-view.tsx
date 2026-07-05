@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { useAIConfig } from '@/hooks/use-ai-config';
+import { AI_PROVIDERS, type AIProvider } from '@/ai/providers/types';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
 import type {
   AdminService, AdminPaymentConfig, ServiceCategory, ServiceClientTarget,
@@ -212,14 +213,20 @@ function WhatsAppCard({ userId }: { userId?: string }) {
 function AIProCard({ userId }: { userId?: string }) {
   const db = useFirestore();
   const { toast } = useToast();
-  const { apiKey: savedKey, loading } = useAIConfig(userId);
+  const { apiKey: savedKey, provider: savedProvider, loading } = useAIConfig(userId);
   const [keyInput, setKeyInput] = useState('');
+  const [providerInput, setProviderInput] = useState<AIProvider>('gemini');
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!loading) setKeyInput(savedKey ?? '');
-  }, [loading, savedKey]);
+    if (!loading) {
+      setKeyInput(savedKey ?? '');
+      setProviderInput(savedProvider);
+    }
+  }, [loading, savedKey, savedProvider]);
+
+  const providerMeta = AI_PROVIDERS.find(p => p.value === providerInput) ?? AI_PROVIDERS[0];
 
   const handleSave = async () => {
     if (!db || !userId) return;
@@ -228,20 +235,20 @@ function AIProCard({ userId }: { userId?: string }) {
       if (keyInput.trim()) {
         const validation = await authedFetch('/api/ai/validate-key', {
           method: 'POST',
-          body: JSON.stringify({ apiKey: keyInput.trim() }),
+          body: JSON.stringify({ apiKey: keyInput.trim(), provider: providerInput }),
         }).then(r => r.json());
         if (!validation.valid) {
-          toast({ title: 'Key inválida', description: validation.error || 'No se pudo validar la key con Google.', variant: 'destructive' });
+          toast({ title: 'Key inválida', description: validation.error || 'No se pudo validar la key.', variant: 'destructive' });
           setSaving(false);
           return;
         }
       }
       await setDoc(
         doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'aiConfig'),
-        { geminiApiKey: keyInput.trim(), updatedAt: new Date().toISOString() },
+        { provider: providerInput, apiKey: keyInput.trim(), geminiApiKey: '', updatedAt: new Date().toISOString() },
         { merge: true },
       );
-      toast({ title: 'Guardado', description: keyInput.trim() ? 'Key de Gemini validada y guardada — el modo Pro ya está disponible.' : 'Key eliminada.' });
+      toast({ title: 'Guardado', description: keyInput.trim() ? `Key de ${providerMeta.label} validada y guardada.` : 'Key eliminada.' });
     } catch {
       toast({ title: 'Error', description: 'No se pudo guardar la key.', variant: 'destructive' });
     }
@@ -255,10 +262,10 @@ function AIProCard({ userId }: { userId?: string }) {
     try {
       await setDoc(
         doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'aiConfig'),
-        { geminiApiKey: '', updatedAt: new Date().toISOString() },
+        { apiKey: '', geminiApiKey: '', updatedAt: new Date().toISOString() },
         { merge: true },
       );
-      toast({ title: 'Key eliminada', description: 'Volviste al modelo estándar.' });
+      toast({ title: 'Key eliminada', description: 'Las funciones de IA quedan deshabilitadas hasta que cargues una nueva.' });
     } catch {
       toast({ title: 'Error', description: 'No se pudo quitar la key.', variant: 'destructive' });
     }
@@ -274,7 +281,7 @@ function AIProCard({ userId }: { userId?: string }) {
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base font-black">Tu API key de Gemini</CardTitle>
+              <CardTitle className="text-base font-black">Tu API key de IA</CardTitle>
               {!loading && savedKey ? (
                 <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Activa</Badge>
               ) : (
@@ -283,21 +290,34 @@ function AIProCard({ userId }: { userId?: string }) {
             </div>
             <CardDescription className="text-xs mt-0.5">
               Todas las funciones de Inteligencia Artificial (asistente de chat, análisis legal de
-              contratos, generador de redes sociales, etc.) necesitan tu propia API key de Google
-              Gemini — es gratuita y no se comparte con otros administradores, así el costo de uso
-              es siempre tuyo, nunca de AlquilaGestión Pro.
+              contratos, generador de redes sociales, etc.) necesitan tu propia API key — elegí el
+              proveedor que prefieras. Es gratuita y no se comparte con otros administradores, así
+              el costo de uso es siempre tuyo, nunca de AlquilaGestión Pro.
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="gemini-key" className="text-xs font-bold">API key de Gemini</Label>
+          <Label className="text-xs font-bold">Proveedor de IA</Label>
+          <Select value={providerInput} onValueChange={v => setProviderInput(v as AIProvider)}>
+            <SelectTrigger className="text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AI_PROVIDERS.map(p => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ai-key" className="text-xs font-bold">API key de {providerMeta.label}</Label>
           <div className="relative">
             <Input
-              id="gemini-key"
+              id="ai-key"
               type={showKey ? 'text' : 'password'}
-              placeholder="AIza..."
+              placeholder={providerMeta.keyHint}
               value={keyInput}
               onChange={e => setKeyInput(e.target.value)}
               className="text-sm pr-9 font-mono"
@@ -312,12 +332,12 @@ function AIProCard({ userId }: { userId?: string }) {
             </button>
           </div>
           <a
-            href="https://aistudio.google.com/apikey"
+            href={providerMeta.keyUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
           >
-            <ExternalLink className="h-3 w-3" /> Conseguir una key gratis en Google AI Studio
+            <ExternalLink className="h-3 w-3" /> Conseguir una key gratis en {providerMeta.label}
           </a>
         </div>
         <div className="flex gap-2">

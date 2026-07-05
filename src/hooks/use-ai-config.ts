@@ -5,10 +5,13 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { APP_ID } from '@/lib/constants';
 import type { AIConfig } from '@/lib/types';
+import type { AIProvider } from '@/ai/providers/types';
 
 interface UseAIConfigResult {
-  /** API key de Gemini del admin, o null si no cargó ninguna. */
+  /** API key del admin para su proveedor elegido, o null si no cargó ninguna. */
   apiKey: string | null;
+  /** Proveedor elegido (gemini por default, incluso en configs viejas que solo tenían geminiApiKey). */
+  provider: AIProvider;
   loading: boolean;
 }
 
@@ -16,6 +19,7 @@ interface UseAIConfigResult {
 export function useAIConfig(userId?: string): UseAIConfigResult {
   const db = useFirestore();
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [provider, setProvider] = useState<AIProvider>('gemini');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,12 +30,15 @@ export function useAIConfig(userId?: string): UseAIConfigResult {
       .then(snap => {
         if (cancelled) return;
         const data = snap.exists() ? (snap.data() as AIConfig) : null;
-        setApiKey(data?.geminiApiKey?.trim() || null);
+        // Configuraciones viejas solo tenían geminiApiKey (sin provider) — se
+        // interpretan como Gemini para no perder la key ya cargada.
+        setApiKey(data?.apiKey?.trim() || data?.geminiApiKey?.trim() || null);
+        setProvider((data?.provider as AIProvider) ?? 'gemini');
       })
-      .catch(() => { if (!cancelled) setApiKey(null); })
+      .catch(() => { if (!cancelled) { setApiKey(null); setProvider('gemini'); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [db, userId]);
 
-  return { apiKey, loading };
+  return { apiKey, provider, loading };
 }

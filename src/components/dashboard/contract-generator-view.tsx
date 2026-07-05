@@ -116,7 +116,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const { user } = useUser();
   const { canWrite, canDelete } = useOrgPermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { apiKey: aiApiKey, loading: aiKeyLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiKeyLoading } = useAIConfig(userId);
 
   // ── Load custom templates from Firestore ──
   const plantillasQuery = useMemoFirebase(() => {
@@ -313,7 +313,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
         depositAmount: formattedDeposit,
         adjustmentMechanism: (aiAdjustment && aiAdjustment !== '__none__') ? aiAdjustment : undefined,
         additionalDetails: aiDetails || undefined,
-      }, { apiKey: aiApiKey ?? undefined });
+      }, { apiKey: aiApiKey ?? undefined, provider: aiProvider });
 
       if (!result.ok) {
         toast({ title: 'Error de IA', description: result.error, variant: 'destructive' });
@@ -480,7 +480,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
 
       toast({ title: 'Analizando con IA…', description: 'La IA está identificando las variables y la estructura.' });
 
-      const result = await extractTemplateStructure(text.slice(0, 15000), newModelName.trim(), { apiKey: aiApiKey ?? undefined });
+      const result = await extractTemplateStructure(text.slice(0, 15000), newModelName.trim(), { apiKey: aiApiKey ?? undefined, provider: aiProvider });
 
       if (!result.ok) {
         toast({ title: 'Error de IA', description: result.error, variant: 'destructive' });

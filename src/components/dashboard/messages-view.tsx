@@ -149,7 +149,7 @@ const QUICK_TEMPLATES: { label: string; icon: React.ReactNode; type: RichCommuni
 export function MessagesView({ contracts, properties, people, userId }: MessagesViewProps) {
   const db = useFirestore();
   const { toast } = useToast();
-  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messageText,    setMessageText]    = useState('');
@@ -326,7 +326,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     };
 
     try {
-      const result = await richCommunication(input, { apiKey: aiApiKey });
+      const result = await richCommunication(input, { apiKey: aiApiKey, provider: aiProvider });
       if (!result.ok) {
         toast({ title: 'Error al generar mensaje', description: result.error, variant: 'destructive' });
         return;

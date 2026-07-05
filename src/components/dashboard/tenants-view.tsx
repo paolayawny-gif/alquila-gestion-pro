@@ -136,7 +136,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const { canWrite, canDelete } = useOrgPermissions();
   const { toast } = useToast();
   const db = useFirestore();
-  const { apiKey: aiApiKey, loading: aiKeyLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiKeyLoading } = useAIConfig(userId);
   const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal' | 'owners'>('owners');
   const [selectedDetailContract, setSelectedDetailContract] = useState<Contract | null>(null);
   const [peopleSearch, setPeopleSearch] = useState('');
@@ -331,7 +331,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       question: qaQuestion,
       perspective: 'neutral',
       contractType: 'vivienda',
-    }, { apiKey: aiApiKey ?? undefined });
+    }, { apiKey: aiApiKey ?? undefined, provider: aiProvider });
     setIsAsking(false);
     if (!result.ok) {
       toast({ title: "Error del asistente", description: result.error, variant: "destructive" });
@@ -347,7 +347,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       return;
     }
     setIsExtracting(true);
-    const result = await extractContractData({ documentDataUri: url }, { apiKey: aiApiKey ?? undefined });
+    const result = await extractContractData({ documentDataUri: url }, { apiKey: aiApiKey ?? undefined, provider: aiProvider });
     setIsExtracting(false);
     if (!result.ok) {
       toast({ title: "Error al analizar", description: result.error, variant: "destructive" });

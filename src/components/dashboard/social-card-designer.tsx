@@ -278,7 +278,7 @@ interface SocialCardDesignerProps {
 
 export function SocialCardDesigner({ userId, canWrite = true, brandContext }: SocialCardDesignerProps) {
   const { toast } = useToast();
-  const { apiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey, provider, loading: aiConfigLoading } = useAIConfig(userId);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -324,7 +324,7 @@ export function SocialCardDesigner({ userId, canWrite = true, brandContext }: So
         contentType: 'post',
         tone: aiTone,
         brandContext,
-      }, { apiKey: apiKey ?? undefined });
+      }, { apiKey: apiKey ?? undefined, provider });
       // Use first sentence of mainText as headline, rest as subtext
       const sentences = r.mainText.split(/(?<=[.!?])\s+/);
       setHeadline(sentences[0]?.slice(0, 80) ?? aiTopic);

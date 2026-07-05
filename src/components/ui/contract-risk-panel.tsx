@@ -156,18 +156,21 @@ export function ContractRiskPanel({
   userId,
 }: ContractRiskPanelProps) {
   const { toast } = useToast();
-  const { apiKey: proApiKey } = useAIConfig(userId);
+  const { apiKey: proApiKey, provider } = useAIConfig(userId);
+  const isGemini = provider === 'gemini';
 
   const [perspective, setPerspective] = useState<Perspective>('neutral');
   const [activeTab, setActiveTab] = useState('riesgo');
+  // El toggle "Pro" (modelo más preciso) solo existe para Gemini — los demás
+  // proveedores usan un único modelo fijo por diseño, no hay variante a elegir.
   // Arranca en Pro apenas hay una key guardada — antes siempre arrancaba en
   // false y el admin tenía que volver a activarlo en cada sesión.
-  const [isPro, setIsPro] = useState(!!proApiKey);
+  const [isPro, setIsPro] = useState(!!proApiKey && isGemini);
   const [userToggledPro, setUserToggledPro] = useState(false);
 
   useEffect(() => {
-    if (proApiKey && !userToggledPro) setIsPro(true);
-  }, [proApiKey, userToggledPro]);
+    if (proApiKey && isGemini && !userToggledPro) setIsPro(true);
+  }, [proApiKey, isGemini, userToggledPro]);
 
   const [riskLoading, setRiskLoading] = useState(false);
   const [consistencyLoading, setConsistencyLoading] = useState(false);
@@ -178,9 +181,12 @@ export function ContractRiskPanel({
   const [marketData, setMarketData] = useState<CompareMarketStandardOutput | null>(null);
 
   // Sin key propia no hay análisis posible — no existe una key compartida de
-  // respaldo (ver src/ai/gemini.ts). "Pro" acá solo elige el modelo, no si se
-  // usa o no la key: la key siempre se usa en cuanto está cargada.
-  const aiOptions = proApiKey ? { apiKey: proApiKey, modelName: isPro ? 'gemini-2.5-pro' : 'gemini-2.5-flash' } : undefined;
+  // respaldo (ver src/ai/gemini.ts). "Pro" acá solo elige el modelo de
+  // Gemini, no si se usa o no la key: la key siempre se usa en cuanto está
+  // cargada, sea cual sea el proveedor.
+  const aiOptions = proApiKey
+    ? { apiKey: proApiKey, provider, modelName: isGemini && isPro ? 'gemini-2.5-pro' : undefined }
+    : undefined;
 
   async function runRiskAnalysis() {
     if (!proApiKey) return;
@@ -232,22 +238,24 @@ export function ContractRiskPanel({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => { if (proApiKey) { setIsPro(v => !v); setUserToggledPro(true); } }}
-              disabled={!proApiKey}
-              title={proApiKey ? (isPro ? 'Usando el modelo Pro — click para volver al modelo Flash (más rápido)' : 'Usar el modelo Pro (más preciso, mismo costo de tu key)') : 'Cargá tu API key de Gemini en Configuración para usar el análisis'}
-              className={cn(
-                'h-8 px-2.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors',
-                isPro && proApiKey
-                  ? 'bg-violet-600 border-violet-600 text-white'
-                  : proApiKey
-                  ? 'border-violet-300 text-violet-600 hover:bg-violet-50'
-                  : 'border-muted text-muted-foreground/50 cursor-not-allowed'
-              )}
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Pro
-            </button>
+            {isGemini && (
+              <button
+                type="button"
+                onClick={() => { if (proApiKey) { setIsPro(v => !v); setUserToggledPro(true); } }}
+                disabled={!proApiKey}
+                title={proApiKey ? (isPro ? 'Usando el modelo Pro — click para volver al modelo Flash (más rápido)' : 'Usar el modelo Pro (más preciso, mismo costo de tu key)') : 'Cargá tu API key de Gemini en Configuración para usar el análisis'}
+                className={cn(
+                  'h-8 px-2.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors',
+                  isPro && proApiKey
+                    ? 'bg-violet-600 border-violet-600 text-white'
+                    : proApiKey
+                    ? 'border-violet-300 text-violet-600 hover:bg-violet-50'
+                    : 'border-muted text-muted-foreground/50 cursor-not-allowed'
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Pro
+              </button>
+            )}
             <Select value={perspective} onValueChange={v => setPerspective(v as Perspective)}>
               <SelectTrigger className="h-8 text-xs w-36">
                 <SelectValue placeholder="Perspectiva" />
