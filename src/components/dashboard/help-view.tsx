@@ -21,6 +21,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { askHelpAssistant, HelpAssistantOutput } from '@/ai/flows/help-assistant-flow';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 // ────────────────────────────────────────────────────────────────────────────
 // TIPOS
@@ -504,10 +506,12 @@ interface HelpViewProps {
   onNavigate?: (tab: string) => void;
   currentSection?: string;
   portalRole?: PortalRole;
+  userId?: string;
 }
 
-export function HelpView({ onNavigate, currentSection, portalRole = 'admin' }: HelpViewProps) {
+export function HelpView({ onNavigate, currentSection, portalRole = 'admin', userId }: HelpViewProps) {
   const { toast } = useToast();
+  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
 
   const sections = portalRole === 'inquilino' ? TENANT_SECTIONS
                  : portalRole === 'propietario' ? OWNER_SECTIONS
@@ -569,13 +573,13 @@ export function HelpView({ onNavigate, currentSection, portalRole = 'admin' }: H
 
   const handleAsk = async (questionOverride?: string) => {
     const q = (questionOverride ?? chatInput).trim();
-    if (!q || asking) return;
+    if (!q || asking || !aiApiKey) return;
     setChatInput('');
     setChat(prev => [...prev, { role: 'user', content: q }]);
     setAsking(true);
     try {
       const context = `Portal: ${portalLabel}${currentSection ? ` | Sección actual: ${currentSection}` : ''}`;
-      const res = await askHelpAssistant({ question: q, manual: manualText, currentSection: context });
+      const res = await askHelpAssistant({ question: q, manual: manualText, currentSection: context }, { apiKey: aiApiKey });
       if (res.ok) {
         setChat(prev => [...prev, { role: 'assistant', content: res.data.answer, meta: res.data }]);
       } else {
@@ -781,6 +785,12 @@ export function HelpView({ onNavigate, currentSection, portalRole = 'admin' }: H
               </CardDescription>
             </CardHeader>
 
+            {!aiConfigLoading && !aiApiKey ? (
+              <CardContent className="flex-1 flex items-center pt-4">
+                <AIKeyRequiredNotice feature="el asistente de ayuda con IA" className="w-full" />
+              </CardContent>
+            ) : (
+            <>
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-4">
                 {chat.length === 0 && (
@@ -869,6 +879,8 @@ export function HelpView({ onNavigate, currentSection, portalRole = 'admin' }: H
                 Las respuestas se basan en las funciones de tu portal.
               </p>
             </CardContent>
+            </>
+            )}
           </Card>
         </div>
       </div>

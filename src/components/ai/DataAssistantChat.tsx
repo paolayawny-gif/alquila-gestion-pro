@@ -6,6 +6,8 @@ import { useUser } from '@/firebase';
 import { authedFetch } from '@/lib/authed-fetch';
 import { cn } from '@/lib/utils';
 import { HouseMascot } from '@/components/ai/HouseMascot';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -64,11 +66,11 @@ function detectNavOnly(q: string): { tab: string; label: string } | null {
 
 export function DataAssistantChat() {
   const { user } = useUser();
+  const { apiKey, loading: keyLoading } = useAIConfig(user?.uid);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [usingOwnKey, setUsingOwnKey] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -117,8 +119,13 @@ export function DataAssistantChat() {
         body: JSON.stringify({ adminId: user!.uid, question: q }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Error del servidor');
-      setUsingOwnKey(!!data.usingOwnKey);
+      if (!res.ok) {
+        if (data.error === 'MISSING_API_KEY') {
+          setMessages(prev => [...prev, { role: 'assistant', content: data.message ?? 'Cargá tu API key de Gemini en Configuración para usar el asistente.' }]);
+          return;
+        }
+        throw new Error(data.error ?? 'Error del servidor');
+      }
 
       // Si la IA sugiere navegar, hacerlo
       if (data.navigateTo) {
@@ -172,9 +179,7 @@ export function DataAssistantChat() {
             <HouseMascot size={44} animate mood="happy" />
             <div>
               <p className="font-semibold text-sm leading-none">AGP Help</p>
-              <p className="text-xs text-accent-foreground/70 mt-0.5">
-                Solo tus datos · {usingOwnKey ? 'tu clave Gemini' : 'Gemini Flash compartido'}
-              </p>
+              <p className="text-xs text-accent-foreground/70 mt-0.5">Solo tus datos · tu clave Gemini</p>
             </div>
           </div>
           <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-accent/80 transition-colors">
@@ -184,6 +189,10 @@ export function DataAssistantChat() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0 bg-muted/40">
+          {!keyLoading && !apiKey ? (
+            <AIKeyRequiredNotice feature="el asistente AGP Help" />
+          ) : (
+          <>
           {messages.map((msg, i) => (
             <div key={i} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
               {msg.role === 'assistant' && (
@@ -230,6 +239,8 @@ export function DataAssistantChat() {
             </div>
           )}
           <div ref={bottomRef} />
+          </>
+          )}
         </div>
 
         {/* Input */}
@@ -241,12 +252,12 @@ export function DataAssistantChat() {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Preguntá o decí 'ir a redes sociales'..."
-            disabled={loading}
+            disabled={loading || !apiKey}
             className="flex-1 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-accent border border-border bg-muted/40 text-foreground disabled:opacity-50"
           />
           <button
             onClick={() => handleSend()}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || !apiKey}
             className="p-2 bg-accent hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed text-accent-foreground rounded-xl transition-colors"
           >
             <Send className="h-4 w-4" />

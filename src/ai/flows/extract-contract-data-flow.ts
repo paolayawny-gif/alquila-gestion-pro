@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSONWithMedia } from '@/ai/gemini';
+import { generateJSONWithMedia, type AIOptions } from '@/ai/gemini';
 
 const ExtractContractDataInputSchema = z.object({
   documentDataUri: z
@@ -147,11 +147,12 @@ Devolvé un JSON con exactamente esta estructura:
 }`;
 }
 
-export async function extractContractData(input: ExtractContractDataInput): Promise<ExtractContractResult> {
+export async function extractContractData(input: ExtractContractDataInput, aiOptions?: AIOptions): Promise<ExtractContractResult> {
   try {
     const data = await generateJSONWithMedia<ExtractContractDataOutput>(
       buildPrompt(),
       input.documentDataUri,
+      aiOptions,
     );
     return { ok: true, data };
   } catch (err: any) {

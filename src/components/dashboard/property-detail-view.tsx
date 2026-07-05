@@ -166,6 +166,7 @@ export function PropertyDetailView({
                   </DialogTitle>
                 </DialogHeader>
                 <SocialCarousel
+                  userId={userId}
                   initialSlides={
                     property.photos && property.photos.length > 0
                       ? property.photos.slice(0, 10).map((url, i) => ({

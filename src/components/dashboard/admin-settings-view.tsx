@@ -274,15 +274,18 @@ function AIProCard({ userId }: { userId?: string }) {
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base font-black">Análisis IA Pro</CardTitle>
-              {!loading && savedKey && (
-                <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Activo</Badge>
+              <CardTitle className="text-base font-black">Tu API key de Gemini</CardTitle>
+              {!loading && savedKey ? (
+                <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Activa</Badge>
+              ) : (
+                <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">Falta cargarla</Badge>
               )}
             </div>
             <CardDescription className="text-xs mt-0.5">
-              Cargá tu propia API key de Google Gemini para desbloquear el modelo Pro
-              en el análisis legal de contratos, y para que el asistente de chat (AGP Help)
-              corra con tu propia clave y costo de uso en vez de la compartida.
+              Todas las funciones de Inteligencia Artificial (asistente de chat, análisis legal de
+              contratos, generador de redes sociales, etc.) necesitan tu propia API key de Google
+              Gemini — es gratuita y no se comparte con otros administradores, así el costo de uso
+              es siempre tuyo, nunca de AlquilaGestión Pro.
             </CardDescription>
           </div>
         </div>

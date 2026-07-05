@@ -160,7 +160,7 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
       case 'Marketplace':   return <OwnerMarketplace          ownerEntry={ownerEntry} />;
       case 'Servicios':     return <OwnerServices             ownerEntry={ownerEntry} />;
       case 'Mensajes':      return <OwnerMessages             ownerEntry={ownerEntry} />;
-      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as OwnerTab)} currentSection={activeTab} portalRole="propietario" />;
+      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as OwnerTab)} currentSection={activeTab} portalRole="propietario" userId={ownerEntry.adminId} />;
       default:              return <OwnerHome                 ownerEntry={ownerEntry} onNavigate={setActiveTab} />;
     }
   };

@@ -138,7 +138,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
       case 'Comunidad':     return <TenantCommunity    tenantEntry={tenantEntry} />;
       case 'Marketplace':   return <TenantMarketplace  tenantEntry={tenantEntry} />;
       case 'Seguros':       return <TenantInsurance    tenantEntry={tenantEntry} />;
-      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as TenantTab)} currentSection={activeTab} portalRole="inquilino" />;
+      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as TenantTab)} currentSection={activeTab} portalRole="inquilino" userId={tenantEntry.adminId} />;
       default:              return <TenantHome         tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
     }
   };

@@ -13,7 +13,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 const AiCommunicationAssistantInputSchema = z.object({
   communicationType: z
@@ -94,10 +94,11 @@ const AiCommunicationAssistantOutputSchema = z.object({
 export type AiCommunicationAssistantOutput = z.infer<typeof AiCommunicationAssistantOutputSchema>;
 
 export async function aiCommunicationAssistant(
-  input: AiCommunicationAssistantInput
+  input: AiCommunicationAssistantInput,
+  aiOptions?: AIOptions,
 ): Promise<AiCommunicationAssistantOutput> {
   const tipoInstruccion = TIPO_INSTRUCCIONES[input.communicationType] ?? TIPO_INSTRUCCIONES.generalMessage;
-  return generateJSON<AiCommunicationAssistantOutput>(buildPrompt(input, tipoInstruccion));
+  return generateJSON<AiCommunicationAssistantOutput>(buildPrompt(input, tipoInstruccion), aiOptions);
 }
 
 const TIPO_INSTRUCCIONES: Record<string, string> = {

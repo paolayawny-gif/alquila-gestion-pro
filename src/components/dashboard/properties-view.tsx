@@ -40,6 +40,8 @@ import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/f
 import { sendEmail } from '@/services/email-service';
 import { PropertyTimeline } from '@/components/ui/property-timeline';
 import { normalizeAddress } from '@/lib/format';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 interface PropertiesViewProps {
   properties: Property[];
@@ -61,6 +63,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
+  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
 
   // Cuento dependencias de cada propiedad para bloquear deletes peligrosos.
   // Los contratos llegan por props desde app-client — no hace falta re-suscribir.
@@ -271,8 +274,14 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
     setInvitingOwner({ name: owner.name, email: owner.email });
     setIsInviteDialogOpen(true);
     setInvitationDraft(null);
+
+    if (!aiApiKey) {
+      // Sin key propia no se puede redactar — el diálogo va a mostrar el aviso
+      // de AIKeyRequiredNotice en lugar del loader/borrador.
+      return;
+    }
+
     setIsDraftingInvite(true);
-    
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const draft = await aiCommunicationAssistant({
@@ -281,7 +290,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
         role: 'Propietario',
         portalUrl: origin,
         additionalContext: `Le invitamos a ver el rendimiento de su propiedad. Debe registrarse con este email: ${owner.email}`
-      });
+      }, { apiKey: aiApiKey });
       setInvitationDraft(draft);
     } catch (e) {
       toast({ title: "Error", description: "No se pudo redactar la invitación.", variant: "destructive" });
@@ -930,7 +939,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
           </DialogHeader>
           
           <div className="py-6 space-y-4">
-            {isDraftingInvite ? (
+            {!aiConfigLoading && !aiApiKey ? (
+              <AIKeyRequiredNotice feature="la redacción de invitaciones al propietario" />
+            ) : isDraftingInvite ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-muted-foreground">Redactando invitación para el Propietario...</p>

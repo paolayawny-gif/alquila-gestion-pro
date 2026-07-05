@@ -1,20 +1,27 @@
 import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
 
-const envApiKey =
-  process.env.GEMINI_API_KEY ||
-  process.env.GOOGLE_API_KEY ||
-  process.env.GOOGLE_GENAI_API_KEY ||
-  '';
-
-const defaultClient = new GoogleGenerativeAI(envApiKey);
 const customClients = new Map<string, GoogleGenerativeAI>();
 
+/**
+ * Cada admin trae su propia API key de Gemini — no existe una key compartida
+ * de la plataforma. El costo de cada llamada lo paga quien la usa, nunca
+ * AlquilaGestión Pro. Si no hay key, esto lanza en vez de caer a un cliente
+ * compartido en silencio.
+ */
+export class MissingApiKeyError extends Error {
+  constructor() {
+    super('MISSING_API_KEY');
+    this.name = 'MissingApiKeyError';
+  }
+}
+
 function getClient(apiKey?: string): GoogleGenerativeAI {
-  if (!apiKey) return defaultClient;
-  let client = customClients.get(apiKey);
+  const key = apiKey?.trim();
+  if (!key) throw new MissingApiKeyError();
+  let client = customClients.get(key);
   if (!client) {
-    client = new GoogleGenerativeAI(apiKey);
-    customClients.set(apiKey, client);
+    client = new GoogleGenerativeAI(key);
+    customClients.set(key, client);
   }
   return client;
 }
@@ -22,7 +29,7 @@ function getClient(apiKey?: string): GoogleGenerativeAI {
 export interface AIOptions {
   /** Modelo a usar. Default: 'gemini-2.5-flash'. */
   modelName?: string;
-  /** API key propia del admin (ej. para desbloquear un modelo Pro). Si no se pasa, usa la key compartida de la plataforma. */
+  /** API key de Gemini del admin. Obligatoria — no hay key compartida de respaldo. */
   apiKey?: string;
 }
 

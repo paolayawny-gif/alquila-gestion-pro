@@ -24,6 +24,7 @@ import { verifyContractConsistency, type VerifyContractConsistencyOutput } from 
 import { compareMarketStandard, type CompareMarketStandardOutput } from '@/ai/flows/compare-market-standard-flow';
 import { useToast } from '@/hooks/use-toast';
 import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -176,9 +177,13 @@ export function ContractRiskPanel({
   const [consistencyData, setConsistencyData] = useState<VerifyContractConsistencyOutput | null>(null);
   const [marketData, setMarketData] = useState<CompareMarketStandardOutput | null>(null);
 
-  const aiOptions = isPro && proApiKey ? { apiKey: proApiKey, modelName: 'gemini-2.5-pro' } : undefined;
+  // Sin key propia no hay análisis posible — no existe una key compartida de
+  // respaldo (ver src/ai/gemini.ts). "Pro" acá solo elige el modelo, no si se
+  // usa o no la key: la key siempre se usa en cuanto está cargada.
+  const aiOptions = proApiKey ? { apiKey: proApiKey, modelName: isPro ? 'gemini-2.5-pro' : 'gemini-2.5-flash' } : undefined;
 
   async function runRiskAnalysis() {
+    if (!proApiKey) return;
     setRiskLoading(true);
     const result = await analyzeContractRisks({ contractText, contractType, perspective }, aiOptions);
     setRiskLoading(false);
@@ -187,6 +192,7 @@ export function ContractRiskPanel({
   }
 
   async function runConsistencyCheck() {
+    if (!proApiKey) return;
     setConsistencyLoading(true);
     const result = await verifyContractConsistency({ contractText, contractType, extractedData }, aiOptions);
     setConsistencyLoading(false);
@@ -195,6 +201,7 @@ export function ContractRiskPanel({
   }
 
   async function runMarketComparison() {
+    if (!proApiKey) return;
     setMarketLoading(true);
     const result = await compareMarketStandard({
       contractText,
@@ -229,7 +236,7 @@ export function ContractRiskPanel({
               type="button"
               onClick={() => { if (proApiKey) { setIsPro(v => !v); setUserToggledPro(true); } }}
               disabled={!proApiKey}
-              title={proApiKey ? (isPro ? 'Usando tu clave y el modelo Pro — click para volver al modelo compartido' : 'Usa tu propia key de Gemini con el modelo Pro (más preciso)') : 'Cargá tu API key de Gemini en Configuración para desbloquear el modelo Pro'}
+              title={proApiKey ? (isPro ? 'Usando el modelo Pro — click para volver al modelo Flash (más rápido)' : 'Usar el modelo Pro (más preciso, mismo costo de tu key)') : 'Cargá tu API key de Gemini en Configuración para usar el análisis'}
               className={cn(
                 'h-8 px-2.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors',
                 isPro && proApiKey
@@ -257,6 +264,9 @@ export function ContractRiskPanel({
       </CardHeader>
 
       <CardContent className="pt-4">
+        {!proApiKey ? (
+          <AIKeyRequiredNotice feature="el análisis legal de contratos" />
+        ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-3 w-full mb-4">
             <TabsTrigger value="riesgo" className="text-xs gap-1">
@@ -566,6 +576,7 @@ export function ContractRiskPanel({
             )}
           </TabsContent>
         </Tabs>
+        )}
       </CardContent>
     </Card>
   );

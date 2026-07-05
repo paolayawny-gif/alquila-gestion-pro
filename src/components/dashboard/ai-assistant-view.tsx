@@ -11,6 +11,8 @@ import { Loader2, Copy, Send, Sparkles, MessageSquareCode, Zap, ArrowRight } fro
 import { aiCommunicationAssistant, AiCommunicationAssistantInput, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { sendEmail } from '@/services/email-service';
 import { useToast } from '@/hooks/use-toast';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 // ── Intent routing ────────────────────────────────────────────────────────────
 
@@ -32,8 +34,13 @@ function parseIntent(text: string): { type: AiCommunicationAssistantInput['commu
   return null;
 }
 
-export function AIAssistantView() {
+interface AIAssistantViewProps {
+  userId?: string;
+}
+
+export function AIAssistantView({ userId }: AIAssistantViewProps) {
   const { toast } = useToast();
+  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
   const [loading, setLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState('');
@@ -48,9 +55,13 @@ export function AIAssistantView() {
 
   const handleGenerate = async () => {
     if (!input.communicationType) return;
+    if (!aiApiKey) {
+      toast({ title: "Falta tu API key de Gemini", description: "Cargá tu propia key en Configuración para usar el asistente de IA.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      const output = await aiCommunicationAssistant(input as AiCommunicationAssistantInput);
+      const output = await aiCommunicationAssistant(input as AiCommunicationAssistantInput, { apiKey: aiApiKey });
       setResult(output);
     } catch (error) {
       toast({
@@ -209,14 +220,18 @@ export function AIAssistantView() {
             />
           </div>
 
-          <Button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="w-full bg-primary hover:bg-primary/90 text-white mt-4"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            {result ? "Regenerar Mensaje" : "Redactar Mensaje"}
-          </Button>
+          {!aiConfigLoading && !aiApiKey ? (
+            <AIKeyRequiredNotice feature="el asistente de redacción de comunicaciones" className="mt-4" />
+          ) : (
+            <Button
+              onClick={handleGenerate}
+              disabled={loading}
+              className="w-full bg-primary hover:bg-primary/90 text-white mt-4"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {result ? "Regenerar Mensaje" : "Redactar Mensaje"}
+            </Button>
+          )}
         </CardContent>
       </Card>
 

@@ -25,6 +25,8 @@ import { writePropertyEvent } from '@/lib/property-events';
 import { useToast } from '@/hooks/use-toast';
 import { richCommunication, fetchIndexTicker } from '@/ai/flows/rich-communication-flow';
 import type { RichCommunicationInput, IndexTicker } from '@/ai/flows/rich-communication-types';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 
 // ── Tipos ──────────────────────────────────────────────
@@ -147,6 +149,7 @@ const QUICK_TEMPLATES: { label: string; icon: React.ReactNode; type: RichCommuni
 export function MessagesView({ contracts, properties, people, userId }: MessagesViewProps) {
   const db = useFirestore();
   const { toast } = useToast();
+  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messageText,    setMessageText]    = useState('');
@@ -287,6 +290,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
 
   // ── Redactar con IA ──
   const handleAiDraft = async (template?: typeof QUICK_TEMPLATES[number]) => {
+    if (!aiApiKey) return;
     setAiLoading(true);
     setAiDraftResult('');
     setAiSubject('');
@@ -322,7 +326,7 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
     };
 
     try {
-      const result = await richCommunication(input);
+      const result = await richCommunication(input, { apiKey: aiApiKey });
       if (!result.ok) {
         toast({ title: 'Error al generar mensaje', description: result.error, variant: 'destructive' });
         return;
@@ -827,6 +831,10 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                 <p className="font-black text-sm">Redactar con IA</p>
               </div>
 
+              {!aiConfigLoading && !aiApiKey ? (
+                <AIKeyRequiredNotice feature="el redactor de mensajes con IA" />
+              ) : (
+              <>
               {/* Plantillas rápidas */}
               <div className="space-y-1.5">
                 <p className="text-[9px] uppercase font-black text-muted-foreground/70 tracking-wider">Plantillas rápidas</p>
@@ -998,6 +1006,8 @@ export function MessagesView({ contracts, properties, people, userId }: Messages
                     </button>
                   ))}
                 </div>
+              )}
+              </>
               )}
             </div>
 
