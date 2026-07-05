@@ -5,7 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { APP_ID } from '@/lib/constants';
 import type { AIConfig } from '@/lib/types';
-import type { AIProvider } from '@/ai/providers';
+import type { AIProvider } from '@/ai/providers/types';
 
 interface UseAIConfigResult {
   /** API key del admin para su proveedor elegido, o null si no cargó ninguna. */

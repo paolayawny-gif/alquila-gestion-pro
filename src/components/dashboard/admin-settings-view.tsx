@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
 import { useAIConfig } from '@/hooks/use-ai-config';
-import { AI_PROVIDERS, type AIProvider } from '@/ai/providers';
+import { AI_PROVIDERS, type AIProvider } from '@/ai/providers/types';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
 import type {
   AdminService, AdminPaymentConfig, ServiceCategory, ServiceClientTarget,
