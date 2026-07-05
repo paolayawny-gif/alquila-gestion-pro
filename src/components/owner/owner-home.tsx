@@ -156,7 +156,7 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
           <Building2 className="h-3.5 w-3.5" />
-          Portal Propietario · {ownerEntry.propertyNames.length} propiedad{ownerEntry.propertyNames.length !== 1 ? 'es' : ''}
+          Portal Propietario · {(ownerEntry.propertyNames ?? []).length} propiedad{(ownerEntry.propertyNames ?? []).length !== 1 ? 'es' : ''}
         </p>
       </div>
 
@@ -386,7 +386,7 @@ export function OwnerHome({ ownerEntry, onNavigate }: OwnerHomeProps) {
             <p className="text-xs text-green-700">Consultá cualquier duda sobre tu propiedad</p>
           </div>
           <a
-            href={`https://wa.me/${adminWhatsApp.replace(/[\s\-\(\)\+]/g, '')}?text=${encodeURIComponent(`Hola, soy ${ownerEntry.ownerName}, propietario de ${ownerEntry.propertyNames[0] ?? 'la propiedad'}. Quería consultarle sobre...`)}`}
+            href={`https://wa.me/${adminWhatsApp.replace(/[\s\-\(\)\+]/g, '')}?text=${encodeURIComponent(`Hola, soy ${ownerEntry.ownerName}, propietario de ${(ownerEntry.propertyNames ?? [])[0] ?? 'la propiedad'}. Quería consultarle sobre...`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs font-black text-green-800 underline shrink-0"
