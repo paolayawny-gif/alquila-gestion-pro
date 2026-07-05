@@ -149,7 +149,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
   const db = useFirestore();
   const storage = useStorage();
   const { canWrite, canDelete } = useOrgPermissions();
-  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
   const arcaInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   
@@ -735,7 +735,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
         tenantName: inv.tenantName,
         propertyName: inv.propertyName,
         additionalContext: `Se remite el comprobante fiscal formal por ${inv.period} (${formatCurrency(inv.totalAmount, { currency: inv.currency ?? 'ARS' })}). El mismo ya se encuentra disponible en su portal.`
-      }, { apiKey: aiApiKey });
+      }, { apiKey: aiApiKey, provider: aiProvider });
 
       const tenant = people?.find(p => p.fullName === inv.tenantName);
       if (tenant?.email) {
@@ -816,7 +816,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
         amountDue: `${contract.currency} ${manualCharge.amount.toLocaleString('es-AR')}`,
         dueDate: manualCharge.dueDate,
         additionalContext: `Se ha registrado un nuevo cargo en tu cuenta: ${manualCharge.type}${manualCharge.description ? ` — ${manualCharge.description}` : ''} por ${contract.currency} ${manualCharge.amount.toLocaleString('es-AR')}. Vencimiento: ${manualCharge.dueDate}. El detalle ya está disponible en tu portal.`,
-      }, { apiKey: aiApiKey }).then(draft =>
+      }, { apiKey: aiApiKey, provider: aiProvider }).then(draft =>
         sendEmail({
           to: contract.tenantEmail!,
           subject: draft.subjectLine,

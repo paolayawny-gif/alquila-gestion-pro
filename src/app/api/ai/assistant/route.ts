@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionForAdmin } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { apiError } from '@/lib/api-error';
+import { generateText } from '@/ai/gemini';
+import type { AIProvider } from '@/ai/providers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -95,18 +97,19 @@ export async function POST(req: NextRequest) {
       db.doc(`${base}/config/aiConfig`).get(),
     ]);
 
-    // Cada admin usa su propia key de Gemini — no hay key compartida de
-    // respaldo, así el costo de cada consulta lo paga quien la hace.
-    const ownApiKey: string | undefined = aiConfigSnap.exists ? aiConfigSnap.data()?.geminiApiKey?.trim() : undefined;
+    // Cada admin usa su propia key — de Gemini, ChatGPT, Claude o DeepSeek,
+    // a elección. No hay key compartida de respaldo, así el costo de cada
+    // consulta lo paga quien la hace.
+    const aiConfig = aiConfigSnap.exists ? aiConfigSnap.data() : undefined;
+    const apiKey: string | undefined = aiConfig?.apiKey?.trim() || aiConfig?.geminiApiKey?.trim();
+    const provider: AIProvider = (aiConfig?.provider as AIProvider) ?? 'gemini';
 
-    if (!ownApiKey) {
+    if (!apiKey) {
       return NextResponse.json(
-        { error: 'MISSING_API_KEY', message: 'Cargá tu API key de Gemini en Configuración para usar el asistente.' },
+        { error: 'MISSING_API_KEY', message: 'Cargá tu API key de IA en Configuración para usar el asistente.' },
         { status: 422 },
       );
     }
-    const apiKey = ownApiKey;
-    const usingOwnKey = true;
 
     const properties = propsSnap.docs.map(d => {
       const p = d.data();
@@ -149,28 +152,13 @@ ${maintenance}
 === PREGUNTA ===
 ${question}`;
 
-    // Llamada directa a la API REST de Gemini Flash — sin SDK, sin Genkit, sin Vertex
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 512 },
-        }),
-      }
-    );
-
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('[ai/assistant] Gemini error:', errText);
-      return NextResponse.json({ error: `Error de Gemini: ${geminiRes.status}` }, { status: 502 });
+    let rawText: string;
+    try {
+      rawText = await generateText(SYSTEM_PROMPT, userMessage, { apiKey, provider });
+    } catch (e: any) {
+      console.error(`[ai/assistant] ${provider} error:`, e);
+      return NextResponse.json({ error: `Error del proveedor de IA (${provider}): ${e?.message ?? 'desconocido'}` }, { status: 502 });
     }
-
-    const geminiData = await geminiRes.json();
-    const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
     // Extraer followUps del bloque FOLLOWUPS:[...] que pidió el system prompt
     let answer = rawText;
@@ -184,7 +172,7 @@ ${question}`;
       answer = rawText.replace(/FOLLOWUPS:\[([^\]]*)\]/, '').trim();
     }
 
-    return NextResponse.json({ ok: true, answer, followUpQuestions, usingOwnKey });
+    return NextResponse.json({ ok: true, answer, followUpQuestions, usingOwnKey: true });
   } catch (e: any) {
     console.error('[ai/assistant] error:', e);
     return NextResponse.json({ error: apiError(e) }, { status: 500 });

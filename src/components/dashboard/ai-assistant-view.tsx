@@ -40,7 +40,7 @@ interface AIAssistantViewProps {
 
 export function AIAssistantView({ userId }: AIAssistantViewProps) {
   const { toast } = useToast();
-  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
   const [loading, setLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState('');
@@ -61,7 +61,7 @@ export function AIAssistantView({ userId }: AIAssistantViewProps) {
     }
     setLoading(true);
     try {
-      const output = await aiCommunicationAssistant(input as AiCommunicationAssistantInput, { apiKey: aiApiKey });
+      const output = await aiCommunicationAssistant(input as AiCommunicationAssistantInput, { apiKey: aiApiKey, provider: aiProvider });
       setResult(output);
     } catch (error) {
       toast({

@@ -57,7 +57,7 @@ export function SocialBrandProfileView({
 }: SocialBrandProfileViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
-  const { apiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey, provider, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [brandName, setBrandName] = useState(profile?.brandName ?? '');
   const [zone, setZone] = useState(profile?.zone ?? '');
@@ -87,7 +87,7 @@ export function SocialBrandProfileView({
       const result = await generateBrandBrief({
         brandName, zone, specialty, audience, usp,
         samplePosts: samplePosts.trim() || undefined,
-      }, { apiKey: apiKey ?? undefined });
+      }, { apiKey: apiKey ?? undefined, provider });
       setBrief(result.brief);
       setPillars(result.contentPillars);
       setPowerWords(result.powerWords);

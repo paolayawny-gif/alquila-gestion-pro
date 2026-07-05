@@ -118,7 +118,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   const { canWrite } = useOrgPermissions();
 
   const { whatsappNumber } = useAdminWhatsApp(userId);
-  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [selectedContractId, setSelectedContractId] = useState<string>(contracts[0]?.id ?? '');
   const [showNotifDialog, setShowNotifDialog] = useState(false);
@@ -240,7 +240,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
         currency: (contract?.currency ?? 'ARS') as 'ARS' | 'USD',
         adjustmentMonths: contract?.adjustmentFrequencyMonths ?? 3,
         autoEnrichIndex: false,
-      }, { apiKey: aiApiKey });
+      }, { apiKey: aiApiKey, provider: aiProvider });
       if (res.ok) setNotifDraft(res.data.channelFormattedMessage);
     } catch { /* best-effort */ }
     setNotifDraftLoading(false);

@@ -63,7 +63,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
-  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
 
   // Cuento dependencias de cada propiedad para bloquear deletes peligrosos.
   // Los contratos llegan por props desde app-client — no hace falta re-suscribir.
@@ -290,7 +290,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
         role: 'Propietario',
         portalUrl: origin,
         additionalContext: `Le invitamos a ver el rendimiento de su propiedad. Debe registrarse con este email: ${owner.email}`
-      }, { apiKey: aiApiKey });
+      }, { apiKey: aiApiKey, provider: aiProvider });
       setInvitationDraft(draft);
     } catch (e) {
       toast({ title: "Error", description: "No se pudo redactar la invitación.", variant: "destructive" });

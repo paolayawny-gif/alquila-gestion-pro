@@ -511,7 +511,7 @@ interface HelpViewProps {
 
 export function HelpView({ onNavigate, currentSection, portalRole = 'admin', userId }: HelpViewProps) {
   const { toast } = useToast();
-  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
 
   const sections = portalRole === 'inquilino' ? TENANT_SECTIONS
                  : portalRole === 'propietario' ? OWNER_SECTIONS
@@ -579,7 +579,7 @@ export function HelpView({ onNavigate, currentSection, portalRole = 'admin', use
     setAsking(true);
     try {
       const context = `Portal: ${portalLabel}${currentSection ? ` | Sección actual: ${currentSection}` : ''}`;
-      const res = await askHelpAssistant({ question: q, manual: manualText, currentSection: context }, { apiKey: aiApiKey });
+      const res = await askHelpAssistant({ question: q, manual: manualText, currentSection: context }, { apiKey: aiApiKey, provider: aiProvider });
       if (res.ok) {
         setChat(prev => [...prev, { role: 'assistant', content: res.data.answer, meta: res.data }]);
       } else {

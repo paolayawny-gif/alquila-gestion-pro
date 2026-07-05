@@ -32,7 +32,11 @@ export interface BankDetails {
 }
 
 export interface AIConfig {
-  /** API key propia de Gemini del admin, para desbloquear el modelo Pro en el análisis legal. */
+  /** Proveedor de IA elegido por el admin (Gemini, ChatGPT, Claude o DeepSeek). */
+  provider?: 'gemini' | 'openai' | 'anthropic' | 'deepseek';
+  /** API key propia del admin para el proveedor elegido. */
+  apiKey?: string;
+  /** @deprecated campo viejo, solo Gemini — se sigue leyendo para no romper configuraciones ya guardadas. */
   geminiApiKey?: string;
   updatedAt?: string;
 }

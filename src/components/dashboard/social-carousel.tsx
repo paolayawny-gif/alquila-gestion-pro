@@ -56,7 +56,7 @@ export function SocialCarousel({
   initialSlides, initialTopic = '', initialContext = '', initialBrandTag = '',
 }: SocialCarouselProps) {
   const { toast } = useToast();
-  const { apiKey, loading: aiConfigLoading } = useAIConfig(userId);
+  const { apiKey, provider, loading: aiConfigLoading } = useAIConfig(userId);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -126,7 +126,7 @@ export function SocialCarousel({
         tone: aiTone,
         context: aiContext.trim() || undefined,
         brandContext,
-      }, { apiKey: apiKey ?? undefined });
+      }, { apiKey: apiKey ?? undefined, provider });
       setSlides(r.slides.map((s, i) => ({
         title: s.title,
         subtitle: s.subtitle,
