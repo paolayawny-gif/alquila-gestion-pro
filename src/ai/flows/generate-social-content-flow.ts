@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 const InputSchema = z.object({
   topic: z.string().describe('Tema o idea principal del contenido. Ej: "Departamento en alquiler en Palermo 2 ambientes".'),
@@ -73,7 +73,8 @@ Devolvé un JSON con exactamente esta estructura:
 }
 
 export async function generateSocialContent(
-  input: GenerateSocialContentInput
+  input: GenerateSocialContentInput,
+  aiOptions?: AIOptions,
 ): Promise<GenerateSocialContentOutput> {
-  return generateJSON<GenerateSocialContentOutput>(buildPrompt(input));
+  return generateJSON<GenerateSocialContentOutput>(buildPrompt(input), aiOptions);
 }

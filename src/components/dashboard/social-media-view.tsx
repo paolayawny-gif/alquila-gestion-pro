@@ -739,12 +739,12 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
 
           {/* ── Tarjeta ── */}
           <TabsContent value="Tarjeta" className="mt-0">
-            <SocialCardDesigner canWrite={canWrite} brandContext={brandContext} />
+            <SocialCardDesigner userId={userId} canWrite={canWrite} brandContext={brandContext} />
           </TabsContent>
 
           {/* ── Carrusel ── */}
           <TabsContent value="Carrusel" className="mt-0">
-            <SocialCarousel canWrite={canWrite} brandContext={brandContext} />
+            <SocialCarousel userId={userId} canWrite={canWrite} brandContext={brandContext} />
           </TabsContent>
 
           {/* ── Perfil de marca ── */}

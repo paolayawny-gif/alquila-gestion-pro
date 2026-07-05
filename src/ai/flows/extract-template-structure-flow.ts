@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 const ExtractTemplateInputSchema = z.object({
   templateText: z.string().describe('The full text of the contract template to analyze.'),
@@ -67,15 +67,16 @@ ${templateText}
 
 export async function extractTemplateStructure(
   templateText: string,
-  templateName: string
+  templateName: string,
+  aiOptions?: AIOptions,
 ): Promise<ExtractTemplateResult> {
   try {
-    const data = await generateJSON<ExtractTemplateOutput>(buildPrompt(templateName, templateText));
+    const data = await generateJSON<ExtractTemplateOutput>(buildPrompt(templateName, templateText), aiOptions);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';
-    if (msg.includes('API key') || msg.includes('GEMINI')) {
-      return { ok: false, error: 'La clave API de IA no está configurada (GEMINI_API_KEY en Vercel).' };
+    if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
+      return { ok: false, error: 'La clave API de IA no está configurada. Contactá al administrador.' };
     }
     return { ok: false, error: msg || 'No se pudo analizar el modelo.' };
   }

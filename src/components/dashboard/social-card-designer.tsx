@@ -14,6 +14,8 @@ import {
   LayoutTemplate, Palette, ImagePlus,
 } from 'lucide-react';
 import { generateSocialContent } from '@/ai/flows/generate-social-content-flow';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 // ── Types & constants ─────────────────────────────────────────────────────────
 
@@ -269,12 +271,14 @@ const TONE_OPTIONS = [
 ] as const;
 
 interface SocialCardDesignerProps {
+  userId?: string;
   canWrite?: boolean;
   brandContext?: string;
 }
 
-export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCardDesignerProps) {
+export function SocialCardDesigner({ userId, canWrite = true, brandContext }: SocialCardDesignerProps) {
   const { toast } = useToast();
+  const { apiKey, loading: aiConfigLoading } = useAIConfig(userId);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -320,7 +324,7 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
         contentType: 'post',
         tone: aiTone,
         brandContext,
-      });
+      }, { apiKey: apiKey ?? undefined });
       // Use first sentence of mainText as headline, rest as subtext
       const sentences = r.mainText.split(/(?<=[.!?])\s+/);
       setHeadline(sentences[0]?.slice(0, 80) ?? aiTopic);
@@ -388,15 +392,19 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
                   </Select>
                 </div>
               </div>
-              <Button
-                className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                onClick={handleGenerate}
-                disabled={isGenerating || !canWrite}
-              >
-                {isGenerating
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
-                  : <><Sparkles className="h-4 w-4" /> Generar texto</>}
-              </Button>
+              {!aiConfigLoading && !apiKey ? (
+                <AIKeyRequiredNotice feature="la generación de texto con IA" />
+              ) : (
+                <Button
+                  className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !canWrite}
+                >
+                  {isGenerating
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
+                    : <><Sparkles className="h-4 w-4" /> Generar texto</>}
+                </Button>
+              )}
             </CardContent>
           </Card>
 

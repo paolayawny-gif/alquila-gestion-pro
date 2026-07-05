@@ -64,6 +64,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SelectWithOther } from '@/components/ui/select-with-other';
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
 import { doc, collection, query, where } from 'firebase/firestore';
@@ -134,6 +136,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
   const { canWrite, canDelete } = useOrgPermissions();
   const { toast } = useToast();
   const db = useFirestore();
+  const { apiKey: aiApiKey, loading: aiKeyLoading } = useAIConfig(userId);
   const [activeTab, setActiveTab] = useState<'contracts' | 'people' | 'portal' | 'owners'>('owners');
   const [selectedDetailContract, setSelectedDetailContract] = useState<Contract | null>(null);
   const [peopleSearch, setPeopleSearch] = useState('');
@@ -328,7 +331,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       question: qaQuestion,
       perspective: 'neutral',
       contractType: 'vivienda',
-    });
+    }, { apiKey: aiApiKey ?? undefined });
     setIsAsking(false);
     if (!result.ok) {
       toast({ title: "Error del asistente", description: result.error, variant: "destructive" });
@@ -344,7 +347,7 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
       return;
     }
     setIsExtracting(true);
-    const result = await extractContractData({ documentDataUri: url });
+    const result = await extractContractData({ documentDataUri: url }, { apiKey: aiApiKey ?? undefined });
     setIsExtracting(false);
     if (!result.ok) {
       toast({ title: "Error al analizar", description: result.error, variant: "destructive" });
@@ -898,16 +901,20 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
 
               {/* Botón de análisis con IA (para imágenes o PDFs escaneados) */}
               {(contractFormData.documents as any)?.mainContractUrl && (
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 font-bold border-primary/30 text-primary hover:bg-primary/5"
-                  onClick={handleExtractContract}
-                  disabled={isExtracting}
-                >
-                  {isExtracting
-                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Analizando con IA (OCR)...</>
-                    : <><Sparkles className="h-4 w-4" /> Analizar con IA (para imágenes / PDF escaneado)</>}
-                </Button>
+                !aiKeyLoading && !aiApiKey ? (
+                  <AIKeyRequiredNotice feature="la extracción de datos del contrato" />
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 font-bold border-primary/30 text-primary hover:bg-primary/5"
+                    onClick={handleExtractContract}
+                    disabled={isExtracting}
+                  >
+                    {isExtracting
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Analizando con IA (OCR)...</>
+                      : <><Sparkles className="h-4 w-4" /> Analizar con IA (para imágenes / PDF escaneado)</>}
+                  </Button>
+                )
               )}
 
               <div className="space-y-1">
@@ -1040,26 +1047,30 @@ export function TenantsView({ people, userId, contracts, properties, indexRecord
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label className="text-xs font-black uppercase text-muted-foreground">Tu pregunta al contrato</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Ej: ¿Quién paga el impuesto inmobiliario? ¿Cuál es la multa por rescisión?"
-                  value={qaQuestion}
-                  onChange={e => setQAQuestion(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAskContract()}
-                  className="h-12"
-                  disabled={!selectedQAContract?.fullTranscription}
-                />
-                <Button
-                  onClick={handleAskContract}
-                  disabled={isAsking || !qaQuestion || !selectedQAContract?.fullTranscription}
-                  className="bg-primary h-12 px-6"
-                >
-                  {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircleQuestion className="h-4 w-4" />}
-                </Button>
+            {!aiKeyLoading && !aiApiKey ? (
+              <AIKeyRequiredNotice feature="la consulta de contratos" />
+            ) : (
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase text-muted-foreground">Tu pregunta al contrato</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ej: ¿Quién paga el impuesto inmobiliario? ¿Cuál es la multa por rescisión?"
+                    value={qaQuestion}
+                    onChange={e => setQAQuestion(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAskContract()}
+                    className="h-12"
+                    disabled={!selectedQAContract?.fullTranscription}
+                  />
+                  <Button
+                    onClick={handleAskContract}
+                    disabled={isAsking || !qaQuestion || !selectedQAContract?.fullTranscription}
+                    className="bg-primary h-12 px-6"
+                  >
+                    {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircleQuestion className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
             {qaAnswer && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl space-y-3">

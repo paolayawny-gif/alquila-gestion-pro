@@ -18,6 +18,8 @@ import {
   PREVIEW_DIMS, EXPORT_DIMS, exportCardToPng,
 } from './social-card-designer';
 import { generateCarousel } from '@/ai/flows/generate-carousel-flow';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 interface Slide {
   title: string;
@@ -40,6 +42,7 @@ const DEFAULT_SLIDES: Slide[] = [
 ];
 
 interface SocialCarouselProps {
+  userId?: string;
   canWrite?: boolean;
   brandContext?: string;
   initialSlides?: Slide[];
@@ -49,10 +52,11 @@ interface SocialCarouselProps {
 }
 
 export function SocialCarousel({
-  canWrite = true, brandContext,
+  userId, canWrite = true, brandContext,
   initialSlides, initialTopic = '', initialContext = '', initialBrandTag = '',
 }: SocialCarouselProps) {
   const { toast } = useToast();
+  const { apiKey, loading: aiConfigLoading } = useAIConfig(userId);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -122,7 +126,7 @@ export function SocialCarousel({
         tone: aiTone,
         context: aiContext.trim() || undefined,
         brandContext,
-      });
+      }, { apiKey: apiKey ?? undefined });
       setSlides(r.slides.map((s, i) => ({
         title: s.title,
         subtitle: s.subtitle,
@@ -220,15 +224,19 @@ export function SocialCarousel({
                   </Select>
                 </div>
               </div>
-              <Button
-                className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                onClick={handleGenerate}
-                disabled={isGenerating || !canWrite}
-              >
-                {isGenerating
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
-                  : <><GalleryHorizontal className="h-4 w-4" /> Generar carrusel</>}
-              </Button>
+              {!aiConfigLoading && !apiKey ? (
+                <AIKeyRequiredNotice feature="la generación de carruseles" />
+              ) : (
+                <Button
+                  className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !canWrite}
+                >
+                  {isGenerating
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
+                    : <><GalleryHorizontal className="h-4 w-4" /> Generar carrusel</>}
+                </Button>
+              )}
             </CardContent>
           </Card>
 

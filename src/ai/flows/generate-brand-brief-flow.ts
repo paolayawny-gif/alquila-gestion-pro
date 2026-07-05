@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 const InputSchema = z.object({
   brandName: z.string().describe('Nombre de la inmobiliaria.'),
@@ -59,7 +59,8 @@ Devolvé un JSON con exactamente esta estructura:
 }
 
 export async function generateBrandBrief(
-  input: GenerateBrandBriefInput
+  input: GenerateBrandBriefInput,
+  aiOptions?: AIOptions,
 ): Promise<GenerateBrandBriefOutput> {
-  return generateJSON<GenerateBrandBriefOutput>(buildPrompt(input));
+  return generateJSON<GenerateBrandBriefOutput>(buildPrompt(input), aiOptions);
 }

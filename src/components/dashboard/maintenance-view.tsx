@@ -67,6 +67,8 @@ import { sendEmail } from '@/services/email-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { TenantTicketsAdminView } from './tenant-tickets-admin-view';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 interface MaintenanceViewProps {
   tasks: MaintenanceTask[];
@@ -81,6 +83,7 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
+  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [mainTab, setMainTab] = useState<'tasks' | 'tickets' | 'providers'>('tasks');
 
@@ -340,25 +343,29 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
 
   const handleDraftNotification = async () => {
     if (!selectedTask) return;
+    if (!aiApiKey) {
+      toast({ title: "Falta tu API key de Gemini", description: "Cargá tu propia key en Configuración para usar el asistente de IA.", variant: "destructive" });
+      return;
+    }
     setIsDrafting(true);
     setDraft(null);
     try {
       const property = properties.find(p => p.id === selectedTask.propertyId);
       const ownerName = property?.owners?.[0]?.name || 'Propietario';
-      
+
       const res = await aiCommunicationAssistant({
         communicationType: 'maintenanceUpdate',
         ownerName: ownerName,
         propertyName: selectedTask.propertyName,
         maintenanceConcept: selectedTask.concept,
         maintenanceStatus: selectedTask.status,
-        maintenanceCost: selectedTask.actualCost > 0 
-          ? `$ ${selectedTask.actualCost.toLocaleString('es-AR')} (Final)` 
-          : selectedTask.estimatedCost > 0 
+        maintenanceCost: selectedTask.actualCost > 0
+          ? `$ ${selectedTask.actualCost.toLocaleString('es-AR')} (Final)`
+          : selectedTask.estimatedCost > 0
             ? `$ ${selectedTask.estimatedCost.toLocaleString('es-AR')} (Estimado)`
             : "Pendiente de presupuesto",
         additionalContext: selectedTask.description
-      });
+      }, { apiKey: aiApiKey });
       setDraft(res);
     } catch (e) {
       toast({ title: "Error IA", description: "No se pudo redactar el informe.", variant: "destructive" });
@@ -998,7 +1005,9 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
                         <CardDescription className="text-[10px]">Utilice la IA para notificar al dueño sobre la reparación y solicitar su aprobación si corresponde.</CardDescription>
                       </CardHeader>
                       <CardContent className="pt-6 space-y-4">
-                        {!draft && !isDrafting ? (
+                        {!aiConfigLoading && !aiApiKey ? (
+                          <AIKeyRequiredNotice feature="la redacción de informes al propietario" />
+                        ) : !draft && !isDrafting ? (
                           <div className="text-center py-4 space-y-4">
                             <p className="text-xs text-muted-foreground italic leading-relaxed">Se redactará un mensaje profesional informando el presupuesto y justificando la mejora del inmueble.</p>
                             <Button className="w-full bg-primary text-white font-bold h-11 gap-2" onClick={handleDraftNotification}>

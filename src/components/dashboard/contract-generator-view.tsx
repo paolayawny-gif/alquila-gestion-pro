@@ -32,6 +32,8 @@ import { extractTemplateStructure } from '@/ai/flows/extract-template-structure-
 import { generateContract } from '@/ai/flows/generate-contract-flow';
 import { extractTextFromPdfDataUri, isPdfDataUri } from '@/lib/pdf-extract';
 import { ContractRiskPanel } from '@/components/ui/contract-risk-panel';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 
 interface ContractGeneratorViewProps {
@@ -114,6 +116,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   const { user } = useUser();
   const { canWrite, canDelete } = useOrgPermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { apiKey: aiApiKey, loading: aiKeyLoading } = useAIConfig(userId);
 
   // ── Load custom templates from Firestore ──
   const plantillasQuery = useMemoFirebase(() => {
@@ -310,7 +313,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
         depositAmount: formattedDeposit,
         adjustmentMechanism: (aiAdjustment && aiAdjustment !== '__none__') ? aiAdjustment : undefined,
         additionalDetails: aiDetails || undefined,
-      });
+      }, { apiKey: aiApiKey ?? undefined });
 
       if (!result.ok) {
         toast({ title: 'Error de IA', description: result.error, variant: 'destructive' });
@@ -477,7 +480,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
 
       toast({ title: 'Analizando con IA…', description: 'La IA está identificando las variables y la estructura.' });
 
-      const result = await extractTemplateStructure(text.slice(0, 15000), newModelName.trim());
+      const result = await extractTemplateStructure(text.slice(0, 15000), newModelName.trim(), { apiKey: aiApiKey ?? undefined });
 
       if (!result.ok) {
         toast({ title: 'Error de IA', description: result.error, variant: 'destructive' });
@@ -868,10 +871,12 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
               <div className="flex items-center gap-2 flex-wrap">
                 <Input className="font-bold text-sm h-9 flex-1 min-w-[180px]" value={editorTitle}
                   onChange={e => setEditorTitle(e.target.value)} placeholder="Título del contrato…" />
-                <Button size="sm" className="gap-1.5 font-black h-9 bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 shadow-md shrink-0"
-                  onClick={() => setShowAiDialog(true)}>
-                  <Wand2 className="h-3.5 w-3.5" /> Generar con IA
-                </Button>
+                {!aiKeyLoading && !aiApiKey ? null : (
+                  <Button size="sm" className="gap-1.5 font-black h-9 bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 shadow-md shrink-0"
+                    onClick={() => setShowAiDialog(true)}>
+                    <Wand2 className="h-3.5 w-3.5" /> Generar con IA
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" className="gap-1.5 font-bold h-9 shrink-0" onClick={handleCopyText}>
                   <Copy className="h-3.5 w-3.5" /> Copiar
                 </Button>
@@ -889,6 +894,9 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                   </>
                 )}
               </div>
+              {!aiKeyLoading && !aiApiKey && (
+                <AIKeyRequiredNotice feature="la generación del contrato con IA" />
+              )}
               <RichTextEditor
                 content={editorContent}
                 onChange={setEditorContent}
@@ -925,32 +933,38 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">Nombre del modelo</Label>
-                  <Input className="h-9 text-sm" placeholder="Ej: Contrato de Alquiler Comercial 2025…"
-                    value={newModelName} onChange={e => setNewModelName(e.target.value)} />
-                </div>
-                <div
-                  className="border-2 border-dashed border-border rounded-xl p-8 text-center space-y-3 hover:border-primary/40 transition-colors cursor-pointer"
-                  onClick={() => newModelName.trim() && fileInputRef.current?.click()}
-                >
-                  {isAnalyzing ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-                      <p className="text-sm font-bold text-primary">Analizando con IA…</p>
-                      <p className="text-xs text-muted-foreground">Extrayendo variables y estructura del modelo</p>
+                {!aiKeyLoading && !aiApiKey ? (
+                  <AIKeyRequiredNotice feature="la extracción de la plantilla" />
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold">Nombre del modelo</Label>
+                      <Input className="h-9 text-sm" placeholder="Ej: Contrato de Alquiler Comercial 2025…"
+                        value={newModelName} onChange={e => setNewModelName(e.target.value)} />
                     </div>
-                  ) : (
-                    <>
-                      <Sparkles className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
-                      <p className="text-sm font-bold text-foreground">Arrastrá o hacé clic para subir</p>
-                      <p className="text-xs text-muted-foreground">.docx · .pdf · .txt</p>
-                      {!newModelName.trim() && <p className="text-xs text-amber-600 font-bold">Primero escribí el nombre del modelo arriba</p>}
-                    </>
-                  )}
-                </div>
-                <input ref={fileInputRef} type="file" accept=".docx,.pdf,.txt" className="hidden"
-                  onChange={handleModelFileUpload} />
+                    <div
+                      className="border-2 border-dashed border-border rounded-xl p-8 text-center space-y-3 hover:border-primary/40 transition-colors cursor-pointer"
+                      onClick={() => newModelName.trim() && fileInputRef.current?.click()}
+                    >
+                      {isAnalyzing ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                          <p className="text-sm font-bold text-primary">Analizando con IA…</p>
+                          <p className="text-xs text-muted-foreground">Extrayendo variables y estructura del modelo</p>
+                        </div>
+                      ) : (
+                        <>
+                          <Sparkles className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
+                          <p className="text-sm font-bold text-foreground">Arrastrá o hacé clic para subir</p>
+                          <p className="text-xs text-muted-foreground">.docx · .pdf · .txt</p>
+                          {!newModelName.trim() && <p className="text-xs text-amber-600 font-bold">Primero escribí el nombre del modelo arriba</p>}
+                        </>
+                      )}
+                    </div>
+                    <input ref={fileInputRef} type="file" accept=".docx,.pdf,.txt" className="hidden"
+                      onChange={handleModelFileUpload} />
+                  </>
+                )}
               </CardContent>
             </Card>
 

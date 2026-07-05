@@ -31,6 +31,8 @@ import { AdvancePaymentPanel } from '@/components/dashboard/advance-payment-pane
 import { WhatsAppButton } from '@/components/ui/whatsapp-button';
 import { WA_TEMPLATES } from '@/lib/whatsapp';
 import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 
 interface SmartContractsViewProps {
@@ -116,6 +118,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   const { canWrite } = useOrgPermissions();
 
   const { whatsappNumber } = useAdminWhatsApp(userId);
+  const { apiKey: aiApiKey, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [selectedContractId, setSelectedContractId] = useState<string>(contracts[0]?.id ?? '');
   const [showNotifDialog, setShowNotifDialog] = useState(false);
@@ -221,6 +224,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   };
 
   const handleGenerateNotif = async (line: BatchAdjustmentLine) => {
+    if (!aiApiKey) return;
     setNotifLine(line);
     setNotifDraft('');
     setNotifDraftLoading(true);
@@ -236,7 +240,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
         currency: (contract?.currency ?? 'ARS') as 'ARS' | 'USD',
         adjustmentMonths: contract?.adjustmentFrequencyMonths ?? 3,
         autoEnrichIndex: false,
-      });
+      }, { apiKey: aiApiKey });
       if (res.ok) setNotifDraft(res.data.channelFormattedMessage);
     } catch { /* best-effort */ }
     setNotifDraftLoading(false);
@@ -869,6 +873,8 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                           size="sm"
                           className="h-7 text-[10px] font-bold gap-1 px-2"
                           onClick={() => handleGenerateNotif(line)}
+                          disabled={!aiConfigLoading && !aiApiKey}
+                          title={!aiConfigLoading && !aiApiKey ? 'Cargá tu API key de Gemini en Configuración para redactar el aviso con IA' : undefined}
                         >
                           <FileText className="h-3 w-3" /> Aviso
                         </Button>

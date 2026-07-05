@@ -83,8 +83,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sharedApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
-
     // Traer datos del admin desde Firestore
     const db = getAdminDb();
     const base = `artifacts/${APP_ID}/users/${adminId}`;
@@ -97,16 +95,18 @@ export async function POST(req: NextRequest) {
       db.doc(`${base}/config/aiConfig`).get(),
     ]);
 
-    // Si el admin cargó su propia key de Gemini (misma que desbloquea el modo
-    // Pro en Análisis Legal), se usa acá también — antes el asistente de chat
-    // siempre corría con la key compartida sin que nada lo indicara.
-    const ownApiKey: string | undefined = aiConfigSnap.exists ? aiConfigSnap.data()?.geminiApiKey : undefined;
-    const apiKey = ownApiKey?.trim() || sharedApiKey;
-    const usingOwnKey = !!ownApiKey?.trim();
+    // Cada admin usa su propia key de Gemini — no hay key compartida de
+    // respaldo, así el costo de cada consulta lo paga quien la hace.
+    const ownApiKey: string | undefined = aiConfigSnap.exists ? aiConfigSnap.data()?.geminiApiKey?.trim() : undefined;
 
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY no configurada en Vercel.' }, { status: 500 });
+    if (!ownApiKey) {
+      return NextResponse.json(
+        { error: 'MISSING_API_KEY', message: 'Cargá tu API key de Gemini en Configuración para usar el asistente.' },
+        { status: 422 },
+      );
     }
+    const apiKey = ownApiKey;
+    const usingOwnKey = true;
 
     const properties = propsSnap.docs.map(d => {
       const p = d.data();

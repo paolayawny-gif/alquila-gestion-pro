@@ -912,10 +912,10 @@ export default function AppClient() {
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
       case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases} assets={monetizableAssets} userId={user?.uid} />;
       case 'Análisis IA': return <AIAnalyticsView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
-      case 'Asistente IA': return <AIAssistantView />;
+      case 'Asistente IA': return <AIAssistantView userId={user?.uid} />;
       case 'Super Admin': return <SuperAdminView userId={user?.uid} userEmail={user?.email ?? ''} />;
       case 'Configuración': return <AdminSettingsView userId={user?.uid} />;
-      case 'Ayuda': return <HelpView onNavigate={(tab) => setActiveTab(tab as Tab)} currentSection={activeTab} />;
+      case 'Ayuda': return <HelpView onNavigate={(tab) => setActiveTab(tab as Tab)} currentSection={activeTab} userId={user?.uid} />;
       case 'Ajustes Alquiler': return <PendingAdjustmentsView adjustments={rentAdjustments} onApprove={approveAdjustment} onReject={rejectAdjustment} onNotify={notifyAdjustment} />;
       default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} socialPosts={socialPosts} />;
     }
