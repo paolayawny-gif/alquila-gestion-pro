@@ -5,7 +5,7 @@
  * basados en Ley 27.551, DNU 70/2023 y CCyCN argentino.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -159,7 +159,14 @@ export function ContractRiskPanel({
 
   const [perspective, setPerspective] = useState<Perspective>('neutral');
   const [activeTab, setActiveTab] = useState('riesgo');
-  const [isPro, setIsPro] = useState(false);
+  // Arranca en Pro apenas hay una key guardada — antes siempre arrancaba en
+  // false y el admin tenía que volver a activarlo en cada sesión.
+  const [isPro, setIsPro] = useState(!!proApiKey);
+  const [userToggledPro, setUserToggledPro] = useState(false);
+
+  useEffect(() => {
+    if (proApiKey && !userToggledPro) setIsPro(true);
+  }, [proApiKey, userToggledPro]);
 
   const [riskLoading, setRiskLoading] = useState(false);
   const [consistencyLoading, setConsistencyLoading] = useState(false);
@@ -220,9 +227,9 @@ export function ContractRiskPanel({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => proApiKey && setIsPro(v => !v)}
+              onClick={() => { if (proApiKey) { setIsPro(v => !v); setUserToggledPro(true); } }}
               disabled={!proApiKey}
-              title={proApiKey ? 'Usa tu propia key de Gemini con el modelo Pro (más preciso)' : 'Cargá tu API key de Gemini en Configuración para desbloquear el modelo Pro'}
+              title={proApiKey ? (isPro ? 'Usando tu clave y el modelo Pro — click para volver al modelo compartido' : 'Usa tu propia key de Gemini con el modelo Pro (más preciso)') : 'Cargá tu API key de Gemini en Configuración para desbloquear el modelo Pro'}
               className={cn(
                 'h-8 px-2.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors',
                 isPro && proApiKey

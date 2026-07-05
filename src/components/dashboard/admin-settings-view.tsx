@@ -225,12 +225,23 @@ function AIProCard({ userId }: { userId?: string }) {
     if (!db || !userId) return;
     setSaving(true);
     try {
+      if (keyInput.trim()) {
+        const validation = await authedFetch('/api/ai/validate-key', {
+          method: 'POST',
+          body: JSON.stringify({ apiKey: keyInput.trim() }),
+        }).then(r => r.json());
+        if (!validation.valid) {
+          toast({ title: 'Key inválida', description: validation.error || 'No se pudo validar la key con Google.', variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+      }
       await setDoc(
         doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'aiConfig'),
         { geminiApiKey: keyInput.trim(), updatedAt: new Date().toISOString() },
         { merge: true },
       );
-      toast({ title: 'Guardado', description: keyInput.trim() ? 'Key de Gemini guardada — el modo Pro ya está disponible.' : 'Key eliminada.' });
+      toast({ title: 'Guardado', description: keyInput.trim() ? 'Key de Gemini validada y guardada — el modo Pro ya está disponible.' : 'Key eliminada.' });
     } catch {
       toast({ title: 'Error', description: 'No se pudo guardar la key.', variant: 'destructive' });
     }
@@ -270,7 +281,8 @@ function AIProCard({ userId }: { userId?: string }) {
             </div>
             <CardDescription className="text-xs mt-0.5">
               Cargá tu propia API key de Google Gemini para desbloquear el modelo Pro
-              en el análisis legal de contratos (más preciso, tu propio costo de uso).
+              en el análisis legal de contratos, y para que el asistente de chat (AGP Help)
+              corra con tu propia clave y costo de uso en vez de la compartida.
             </CardDescription>
           </div>
         </div>

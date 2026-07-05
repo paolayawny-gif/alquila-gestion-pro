@@ -83,21 +83,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY no configurada en Vercel.' }, { status: 500 });
-    }
+    const sharedApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
 
     // Traer datos del admin desde Firestore
     const db = getAdminDb();
     const base = `artifacts/${APP_ID}/users/${adminId}`;
 
-    const [propsSnap, contSnap, inqSnap, maintSnap] = await Promise.all([
+    const [propsSnap, contSnap, inqSnap, maintSnap, aiConfigSnap] = await Promise.all([
       db.collection(`${base}/propiedades`).get(),
       db.collection(`${base}/contratos`).get(),
       db.collection(`${base}/inquilinos`).get(),
       db.collection(`${base}/mantenimiento`).limit(20).get(),
+      db.doc(`${base}/config/aiConfig`).get(),
     ]);
+
+    // Si el admin cargó su propia key de Gemini (misma que desbloquea el modo
+    // Pro en Análisis Legal), se usa acá también — antes el asistente de chat
+    // siempre corría con la key compartida sin que nada lo indicara.
+    const ownApiKey: string | undefined = aiConfigSnap.exists ? aiConfigSnap.data()?.geminiApiKey : undefined;
+    const apiKey = ownApiKey?.trim() || sharedApiKey;
+    const usingOwnKey = !!ownApiKey?.trim();
+
+    if (!apiKey) {
+      return NextResponse.json({ error: 'GEMINI_API_KEY no configurada en Vercel.' }, { status: 500 });
+    }
 
     const properties = propsSnap.docs.map(d => {
       const p = d.data();
@@ -175,7 +184,7 @@ ${question}`;
       answer = rawText.replace(/FOLLOWUPS:\[([^\]]*)\]/, '').trim();
     }
 
-    return NextResponse.json({ ok: true, answer, followUpQuestions });
+    return NextResponse.json({ ok: true, answer, followUpQuestions, usingOwnKey });
   } catch (e: any) {
     console.error('[ai/assistant] error:', e);
     return NextResponse.json({ error: apiError(e) }, { status: 500 });
