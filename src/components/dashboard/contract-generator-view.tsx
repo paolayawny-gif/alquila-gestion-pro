@@ -239,7 +239,18 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
   };
 
   // ── Plantillas: download docx ──
+  const [pendingPartialDownload, setPendingPartialDownload] = useState(false);
+
+  const handleDownloadClick = () => {
+    if (filledCount < totalCount) {
+      setPendingPartialDownload(true);
+      return;
+    }
+    handleDownload();
+  };
+
   const handleDownload = async () => {
+    setPendingPartialDownload(false);
     setIsGenerating(true);
     try {
       const today = new Date();
@@ -252,8 +263,16 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
       if (!vars['Mes']) vars['Mes'] = MESES[today.getMonth()];
       if (!vars['Año']) vars['Año'] = String(today.getFullYear());
       const slug = fieldValues['NOMBRE COMPLETO DEL LOCATARIO']?.split(' ')[0] ?? 'Contrato';
-      await fillAndDownloadDocx(template.filename, vars, `${template.label} - ${slug} ${today.getFullYear()}.docx`);
-      toast({ title: 'Descarga iniciada ✓', description: 'Abrí el archivo con Word o Google Docs.' });
+      const { leftoverPlaceholders } = await fillAndDownloadDocx(template.filename, vars, `${template.label} - ${slug} ${today.getFullYear()}.docx`);
+      if (leftoverPlaceholders.length > 0) {
+        toast({
+          title: '⚠ Revisá el documento antes de firmarlo',
+          description: `Estos campos no se pudieron reemplazar y quedaron con el texto original: ${leftoverPlaceholders.join(', ')}`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Descarga iniciada ✓', description: 'Abrí el archivo con Word o Google Docs.' });
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message ?? 'No se pudo generar el documento.', variant: 'destructive' });
     } finally {
@@ -752,12 +771,27 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                       <p className="text-xs font-bold">Descargar como Word (.docx)</p>
                       <p className="text-[11px] text-muted-foreground">Abrís con Word o Google Docs, imprimís y firmás.</p>
                     </div>
-                    <Button className="gap-2 font-black px-6 shrink-0" onClick={handleDownload} disabled={isGenerating || filledCount === 0}>
+                    <Button className="gap-2 font-black px-6 shrink-0" onClick={handleDownloadClick} disabled={isGenerating || filledCount === 0}>
                       {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</> : <><Download className="h-4 w-4" /> Descargar</>}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
+
+              <Dialog open={pendingPartialDownload} onOpenChange={setPendingPartialDownload}>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Faltan campos por completar</DialogTitle>
+                    <DialogDescription>
+                      Completaste {filledCount} de {totalCount} campos. Los que falten van a quedar como guiones (___________) en el documento — no es apto para firmar así.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setPendingPartialDownload(false)}>Volver a completar</Button>
+                    <Button variant="destructive" onClick={handleDownload}>Descargar de todos modos</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </TabsContent>

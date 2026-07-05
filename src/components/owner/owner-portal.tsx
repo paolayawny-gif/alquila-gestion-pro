@@ -297,11 +297,12 @@ export function OwnerPortal({ ownerEntry, onSwitchToAdmin }: OwnerPortalProps) {
         onSelect={(id) => setActiveTab(id as OwnerTab)}
         activeColor="text-[#0369A1]"
         items={[
-          { id: 'Inicio',        icon: LayoutDashboard, label: 'Inicio'    },
-          { id: 'Propiedades',   icon: Building2,       label: 'Propied.'  },
-          { id: 'Liquidaciones', icon: Calculator,      label: 'Liquid.'   },
-          { id: 'Facturas',      icon: FileText,        label: 'Facturas'  },
-          { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'  },
+          { id: 'Inicio',         icon: LayoutDashboard, label: 'Inicio'    },
+          { id: 'Aprobaciones',   icon: Wrench,          label: 'Aprobar'   },
+          { id: 'Facturación AFIP', icon: Receipt,       label: 'AFIP'      },
+          { id: 'Liquidaciones',  icon: Calculator,      label: 'Liquid.'   },
+          { id: 'Mensajes',       icon: MessageSquare,   label: 'Mensajes'  },
+          { id: 'Propiedades',    icon: Building2,       label: 'Propied.'  },
         ]}
       />
     </div>

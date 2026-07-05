@@ -16,7 +16,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking-updates';
+import { Schemas } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Property } from '@/lib/types';
 import { MaintenanceTicket } from '@/components/tenant/tenant-maintenance';
@@ -126,6 +127,41 @@ export function TenantTicketsAdminView({ userId, properties }: TenantTicketsAdmi
     });
     setNotifying(false);
     setSelected(prev => prev ? { ...prev, ...update } : null);
+  };
+
+  // ── Convert a tenant ticket into a tracked admin task ────────────────────
+  // Antes no existía ningún camino entre estos dos sistemas — el admin tenía
+  // que releer y volver a tipear todo a mano en la otra pestaña.
+  const [converting, setConverting] = useState(false);
+  const handleConvertToTask = async () => {
+    if (!selected || !db || !userId) return;
+    setConverting(true);
+    const priorityMap: Record<string, 'Baja' | 'Media' | 'Alta' | 'Urgente'> = {
+      'Urgente': 'Urgente', 'Normal': 'Media', 'Baja': 'Baja',
+    };
+    const taskId = Math.random().toString(36).substr(2, 9);
+    const now = new Date().toISOString();
+    const taskRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'mantenimiento', taskId);
+    setDocumentSafe(taskRef, Schemas.MaintenanceCreate, {
+      propertyId: selected.propertyId,
+      propertyName: selected.propertyName,
+      concept: selected.title,
+      description: `${selected.description}\n\n(Reclamo de ${selected.tenantName}, categoría ${selected.category})`,
+      priority: priorityMap[selected.priority] ?? 'Media',
+      status: 'Pendiente',
+      estimatedCost: 0,
+      actualCost: 0,
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: false });
+
+    const ticketRef = doc(db, 'artifacts', APP_ID, 'maintenanceTickets', selected.id);
+    const update: Partial<MaintenanceTicket> = { convertedToTaskId: taskId, updatedAt: now };
+    setDocumentNonBlocking(ticketRef, update, { merge: true });
+
+    toast({ title: '✅ Convertido en tarea', description: 'Ya la podés gestionar desde Tareas Internas.' });
+    setSelected(prev => prev ? { ...prev, ...update } : null);
+    setConverting(false);
   };
 
   const openTickets    = allTickets.filter(t => t.status === 'Abierto').length;
@@ -363,6 +399,35 @@ export function TenantTicketsAdminView({ userId, properties }: TenantTicketsAdmi
                   </div>
                 );
               })()}
+
+              {/* Convert to tracked task */}
+              <div className={cn(
+                'p-3 rounded-xl border flex items-center justify-between gap-3',
+                selected.convertedToTaskId ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200',
+              )}>
+                <div>
+                  <p className="text-xs font-black">
+                    {selected.convertedToTaskId ? '✅ Convertido en tarea' : 'Convertir en tarea de mantenimiento'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {selected.convertedToTaskId
+                      ? 'Ya la podés ver y costear en "Tareas Internas".'
+                      : 'Crea una tarea en Tareas Internas con presupuesto, proveedor y aprobación del propietario.'}
+                  </p>
+                </div>
+                {!selected.convertedToTaskId && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs font-bold shrink-0"
+                    onClick={handleConvertToTask}
+                    disabled={converting}
+                  >
+                    {converting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wrench className="h-3.5 w-3.5" />}
+                    Convertir
+                  </Button>
+                )}
+              </div>
 
               {/* Status update */}
               <div className="space-y-1.5">

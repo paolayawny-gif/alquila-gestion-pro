@@ -131,7 +131,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
     switch (activeTab) {
       case 'Inicio':        return <TenantHome         tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
       case 'Recibos':       return <TenantInvoices     tenantEntry={tenantEntry} />;
-      case 'Pagos':         return <TenantPaymentPlans tenantEntry={tenantEntry} />;
+      case 'Pagos':         return <TenantPaymentPlans tenantEntry={tenantEntry} onGoToRecibos={() => setActiveTab('Recibos')} />;
       case 'Mensajes':      return <TenantMessages     tenantEntry={tenantEntry} />;
       case 'Mantenimiento': return <TenantMaintenance  tenantEntry={tenantEntry} />;
       case 'Espacios':      return <TenantSpaces       tenantEntry={tenantEntry} />;
@@ -272,7 +272,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
           { id: 'Recibos',       icon: FileText,        label: 'Recibos'   },
           { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'  },
           { id: 'Mantenimiento', icon: Wrench,          label: 'Reparac.'  },
-          { id: 'Seguros',       icon: Shield,          label: 'Seguros'   },
+          { id: 'Ayuda',         icon: HelpCircle,      label: 'Ayuda'     },
         ]}
       />
     </div>

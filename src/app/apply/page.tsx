@@ -27,11 +27,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc, collection } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Property, RentalApplication, DocumentInfo } from '@/lib/types';
+import { sendEmail, buildApplicationReceivedEmail } from '@/services/email-service';
 
 
 function ApplyPageContent() {
@@ -46,6 +48,7 @@ function ApplyPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submittedId, setSubmittedId] = useState('');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -176,8 +179,20 @@ function ApplyPageContent() {
       };
 
       await addDocumentNonBlocking(solicitudesRef, application);
+      setSubmittedId(solicitudId);
       setIsSuccess(true);
       toast({ title: "Solicitud Enviada", description: "El administrador revisará tu perfil a la brevedad." });
+
+      if (formData.email) {
+        const { type, street } = property ? formatPropertyLabel(property) : { type: '', street: '' };
+        const propertyLabel = property ? `${type} en ${street}` : 'tu consulta';
+        const html = await buildApplicationReceivedEmail({
+          applicantName: formData.name,
+          propertyLabel,
+          solicitudId,
+        });
+        sendEmail({ to: formData.email, subject: 'Recibimos tu postulación', html }).catch(() => {});
+      }
     } catch (e) {
       toast({ title: "Error", description: "No se pudo enviar la solicitud.", variant: "destructive" });
     } finally {
@@ -202,6 +217,11 @@ function ApplyPageContent() {
             <CardTitle>Enlace Inválido</CardTitle>
             <CardDescription>Este link de postulación no es correcto o ha expirado.</CardDescription>
           </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full gap-2">
+              <Link href="/portal">Buscar propiedades disponibles</Link>
+            </Button>
+          </CardContent>
         </Card>
       </div>
     );
@@ -222,6 +242,12 @@ function ApplyPageContent() {
             })() : 'Tu solicitud fue enviada con éxito.'}
             {' '}El equipo de administración se pondrá en contacto contigo pronto.
           </CardDescription>
+          {submittedId && (
+            <div className="bg-muted/40 rounded-lg py-2 px-3 inline-block">
+              <p className="text-[10px] uppercase text-muted-foreground font-bold">Número de referencia</p>
+              <p className="text-sm font-mono font-bold">{submittedId}</p>
+            </div>
+          )}
           <Button variant="outline" className="w-full" onClick={() => window.close()}>Cerrar ventana</Button>
         </Card>
       </div>

@@ -22,6 +22,7 @@ import {
   Eye,
   Loader2,
   Sheet,
+  RotateCcw,
 } from 'lucide-react';
 import { exportToPDF, exportToExcel } from '@/lib/export-utils';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -291,6 +292,17 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
     deleteDocumentNonBlocking(docRef);
   };
 
+  const handleTogglePaid = (l: Liquidation) => {
+    if (!userId || !db) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'liquidaciones', l.id);
+    const nextStatus = l.status === 'Pagada' ? 'Pendiente' : 'Pagada';
+    setDocumentSafe(docRef, Schemas.LiquidationPatch, { status: nextStatus }, { merge: true });
+    toast({
+      title: nextStatus === 'Pagada' ? 'Liquidación marcada como pagada' : 'Liquidación revertida a pendiente',
+      description: `${l.ownerName} • ${l.propertyName} • ${l.period}`,
+    });
+  };
+
   const handleDownloadPdf = async (l: Liquidation) => {
     setPdfLoading(true);
     try {
@@ -555,6 +567,21 @@ export function LiquidationsView({ liquidations, userId, properties, people, con
                     ><Mail className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600" title="Vista previa del informe" onClick={() => setPreviewLiq(l)}><Eye className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Descargar Informe PDF" onClick={() => handleDownloadPdf(l)}><Download className="h-4 w-4" /></Button>
+                    {canWrite && (
+                      l.status === 'Pagada' ? (
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                          title="Revertir a pendiente"
+                          onClick={() => handleTogglePaid(l)}
+                        ><RotateCcw className="h-4 w-4" /></Button>
+                      ) : (
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8 text-green-600"
+                          title="Marcar como pagada"
+                          onClick={() => handleTogglePaid(l)}
+                        ><CheckCircle2 className="h-4 w-4" /></Button>
+                      )
+                    )}
                     {canDelete && (
                       <ConfirmDeleteButton
                         trigger={<Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>}

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -20,12 +19,13 @@ import { Schemas } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
 import { Invoice } from '@/lib/types';
+import { FileUpload } from '@/components/ui/file-upload';
 
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   'Pendiente':               { label: 'Pendiente',         color: 'bg-amber-50 text-amber-700 border-amber-200',    icon: Clock        },
   'Vencido':                 { label: 'Vencido',           color: 'bg-red-50 text-red-700 border-red-200',          icon: AlertTriangle },
-  'Pago Informado':          { label: 'Pago Informado',    color: 'bg-blue-50 text-blue-700 border-blue-200',       icon: Send         },
+  'Pago Informado':          { label: 'Informado — pendiente de confirmación', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Send },
   'Pagado':                  { label: 'Pagado',            color: 'bg-green-50 text-green-700 border-green-200',    icon: CheckCircle2 },
   'Anulado':                 { label: 'Anulado',           color: 'bg-gray-50 text-gray-500 border-gray-200',       icon: FileText     },
   'Esperando Factura ARCA':  { label: 'Esperando ARCA',    color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Clock        },
@@ -74,7 +74,7 @@ export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
   const informed = invoices.filter(i => i.status === 'Pago Informado').length;
 
   const handleInformPay = async () => {
-    if (!payDialog || !db) return;
+    if (!payDialog || !db || !receiptUrl.trim()) return;
     setSaving(true);
     const ref = doc(db, 'artifacts', APP_ID, 'users', tenantEntry.adminId, 'facturas', payDialog.id);
     setDocumentSafe(ref, Schemas.InvoicePatch, {
@@ -310,15 +310,16 @@ export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Link al comprobante (opcional)</Label>
-              <Input
-                type="url"
-                placeholder="Pegá el link de tu transferencia (Google Fotos, Drive, etc.)"
+              <Label>Comprobante de transferencia</Label>
+              <FileUpload
                 value={receiptUrl}
-                onChange={e => setReceiptUrl(e.target.value)}
+                onChange={setReceiptUrl}
+                storagePath={`recibos/${tenantEntry.adminId}/${payDialog?.id ?? 'general'}`}
+                accept="image/*,.pdf"
+                label="Subir foto o PDF del comprobante"
               />
               <p className="text-[10px] text-muted-foreground">
-                Podés subir la foto a Google Fotos o Drive y pegar el link aquí.
+                Es obligatorio para que la administración pueda verificar tu pago.
               </p>
             </div>
             <div className="space-y-1.5">
@@ -333,7 +334,7 @@ export function TenantInvoices({ tenantEntry }: TenantInvoicesProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayDialog(null)}>Cancelar</Button>
-            <Button className="font-bold px-8 bg-primary" onClick={handleInformPay} disabled={saving}>
+            <Button className="font-bold px-8 bg-primary" onClick={handleInformPay} disabled={saving || !receiptUrl.trim()}>
               <Send className="h-4 w-4 mr-2" /> Informar pago
             </Button>
           </DialogFooter>

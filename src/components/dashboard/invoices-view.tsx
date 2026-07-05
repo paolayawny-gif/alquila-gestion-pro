@@ -178,8 +178,11 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
     });
   }, []);
 
+  const [confirmBulkPaid, setConfirmBulkPaid] = useState(false);
+
   const handleBulkMarkPaid = async () => {
     if (!userId || !db || selectedIds.size === 0) return;
+    setConfirmBulkPaid(false);
     setBulkProcessing(true);
     const now = new Date().toLocaleDateString('es-AR');
     for (const id of selectedIds) {
@@ -1059,6 +1062,24 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
       </div>
       </div>
 
+      <Dialog open={confirmBulkPaid} onOpenChange={setConfirmBulkPaid}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Marcar como pagadas?</DialogTitle>
+            <DialogDescription>
+              Vas a marcar {selectedIds.size} factura{selectedIds.size !== 1 ? 's' : ''} como pagada{selectedIds.size !== 1 ? 's' : ''}. Esta acción no se puede deshacer en lote.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmBulkPaid(false)}>Cancelar</Button>
+            <Button className="bg-primary font-bold" onClick={handleBulkMarkPaid} disabled={bulkProcessing}>
+              {bulkProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Floating bulk-action bar ─────────────────────────────────────────── */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-2xl shadow-xl border border-border/10">
@@ -1068,7 +1089,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
             size="sm"
             variant="ghost"
             className="text-background hover:bg-background/20 gap-1.5 text-xs font-bold h-7"
-            onClick={handleBulkMarkPaid}
+            onClick={() => setConfirmBulkPaid(true)}
             disabled={bulkProcessing}
           >
             {bulkProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
