@@ -853,7 +853,7 @@ function Footer() {
             </p>
             <div className="flex items-center gap-1.5 mt-3">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[11.5px] text-muted-foreground">Ley 25.326 · Datos en Argentina</span>
+              <a href="/privacidad" className="text-[11.5px] text-muted-foreground hover:text-primary transition-colors">Ley 25.326 · Datos en Argentina</a>
             </div>
             <div className="flex items-center gap-1.5 mt-1.5">
               <Globe className="h-3.5 w-3.5 text-primary" />
@@ -877,9 +877,9 @@ function Footer() {
           <div>
             <h5 className="eyebrow text-muted-foreground mb-4">Legal</h5>
             <ul className="grid gap-2.5">
-              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Términos y condiciones</a></li>
-              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de privacidad</a></li>
-              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de cancelación</a></li>
+              <li><a href="/terminos" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Términos y condiciones</a></li>
+              <li><a href="/privacidad" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de privacidad</a></li>
+              <li><a href="/politica-cancelacion" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de cancelación</a></li>
               <li>
                 <a
                   href="mailto:arrepentimiento@alquilagestion.pro?subject=Solicitud%20de%20arrepentimiento%20—%20Ley%2024.240&body=Nombre%3A%0AEmail%20de%20la%20cuenta%3A%0AFecha%20de%20contrataci%C3%B3n%3A"
@@ -901,9 +901,9 @@ function Footer() {
             <span>·</span>
             <span>Ley 24.240</span>
             <span>·</span>
-            <a href="#" className="hover:text-primary transition-colors">Términos</a>
+            <a href="/terminos" className="hover:text-primary transition-colors">Términos</a>
             <span>·</span>
-            <a href="#" className="hover:text-primary transition-colors">Privacidad</a>
+            <a href="/privacidad" className="hover:text-primary transition-colors">Privacidad</a>
             <span>·</span>
             <a
               href="mailto:arrepentimiento@alquilagestion.pro?subject=Solicitud%20de%20arrepentimiento%20—%20Ley%2024.240&body=Nombre%3A%0AEmail%20de%20la%20cuenta%3A%0AFecha%20de%20contrataci%C3%B3n%3A"

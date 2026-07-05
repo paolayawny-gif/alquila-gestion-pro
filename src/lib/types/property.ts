@@ -111,6 +111,8 @@ export interface RentalApplication {
   status: ApplicationStatus;
   submittedAt: string;
   ownerId: string;
+  consentGiven?: boolean;   // autorización para tratamiento de datos (Ley 25.326)
+  consentAt?: string;       // ISO timestamp de la autorización
   adminNotes?: string;
   aiAnalysis?: {
     score: number;
