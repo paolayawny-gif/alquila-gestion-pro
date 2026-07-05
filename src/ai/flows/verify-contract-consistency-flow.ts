@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCHEMAS
@@ -139,10 +139,11 @@ ${input.contractText}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function verifyContractConsistency(
-  input: VerifyContractConsistencyInput
+  input: VerifyContractConsistencyInput,
+  aiOptions?: AIOptions,
 ): Promise<VerifyContractConsistencyResult> {
   try {
-    const data = await generateJSON<VerifyContractConsistencyOutput>(buildPrompt(input));
+    const data = await generateJSON<VerifyContractConsistencyOutput>(buildPrompt(input), aiOptions);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

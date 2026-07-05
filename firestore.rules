@@ -259,12 +259,17 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
-    // Propiedades: lectura individual pública (postulantes/marketplace); escritura solo del admin dueño.
-    // NOTA: get:true expone los datos del documento al público. Los campos de contacto del
-    // propietario (ownerEmail, ownerName) deben ser separados a una subcolección privada en
-    // un refactor futuro. Por ahora el portal público los necesita para el flujo de contacto.
+    // Propiedades: el portal público y el formulario de postulación ya NO leen este
+    // documento directo desde el cliente — pasan por Admin SDK server-side
+    // (src/app/p/[adminId]/page.tsx, src/app/portal/**, src/app/api/public/property)
+    // que redacta contacto del propietario (ver src/lib/redact-public-property.ts)
+    // antes de servir el dato. Firestore rules no filtran por campo, así que el
+    // acceso directo del cliente queda restringido a usuarios autenticados.
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
-      allow get: if true;
+      // Inquilinos y propietarios leen la propiedad de su contrato por ID
+      // (tenant-home.tsx, tenant-insurance.tsx, owner-home.tsx) — cualquier
+      // usuario autenticado puede alcanzar. Ya no hay lectura anónima.
+      allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create, update, delete: if isOwner(userId);
     }

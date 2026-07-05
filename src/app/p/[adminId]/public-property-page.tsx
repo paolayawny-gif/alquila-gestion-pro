@@ -235,6 +235,7 @@ interface InquiryFormState {
   email: string;
   phone: string;
   message: string;
+  consent: boolean;
 }
 
 function InquiryModal({ prop, adminId, orgName, onClose }: {
@@ -243,15 +244,16 @@ function InquiryModal({ prop, adminId, orgName, onClose }: {
   orgName: string;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<InquiryFormState>({ name: '', email: '', phone: '', message: '' });
+  const [form, setForm] = useState<InquiryFormState>({ name: '', email: '', phone: '', message: '', consent: false });
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errors, setErrors] = useState<Partial<InquiryFormState>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof InquiryFormState, string>>>({});
 
   const validate = () => {
-    const e: Partial<InquiryFormState> = {};
+    const e: Partial<Record<keyof InquiryFormState, string>> = {};
     if (!form.name.trim()) e.name = 'Tu nombre es requerido';
     if (!form.email.trim() && !form.phone.trim()) e.email = 'Ingresá tu email o teléfono';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
+    if (!form.consent) e.consent = 'Necesitamos tu autorización para continuar';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -359,6 +361,24 @@ function InquiryModal({ prop, adminId, orgName, onClose }: {
                 rows={3}
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#7DD3FC]"
               />
+            </div>
+
+            <div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.consent}
+                  onChange={e => setForm(f => ({ ...f, consent: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-[#7DD3FC] focus:ring-[#7DD3FC]"
+                />
+                <span className="text-xs text-gray-500 leading-snug">
+                  Autorizo el tratamiento de mis datos para que {orgName} me contacte, conforme a la{' '}
+                  <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700">
+                    Política de Privacidad
+                  </a>.
+                </span>
+              </label>
+              {errors.consent && <p className="text-xs text-red-500 mt-1">{errors.consent}</p>}
             </div>
 
             {status === 'error' && (

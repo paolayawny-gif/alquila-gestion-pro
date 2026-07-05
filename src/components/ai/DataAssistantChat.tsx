@@ -68,6 +68,7 @@ export function DataAssistantChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [usingOwnKey, setUsingOwnKey] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -117,6 +118,7 @@ export function DataAssistantChat() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error del servidor');
+      setUsingOwnKey(!!data.usingOwnKey);
 
       // Si la IA sugiere navegar, hacerlo
       if (data.navigateTo) {
@@ -170,7 +172,9 @@ export function DataAssistantChat() {
             <HouseMascot size={44} animate mood="happy" />
             <div>
               <p className="font-semibold text-sm leading-none">AGP Help</p>
-              <p className="text-xs text-accent-foreground/70 mt-0.5">Solo tus datos · Gemini Flash</p>
+              <p className="text-xs text-accent-foreground/70 mt-0.5">
+                Solo tus datos · {usingOwnKey ? 'tu clave Gemini' : 'Gemini Flash compartido'}
+              </p>
             </div>
           </div>
           <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-accent/80 transition-colors">

@@ -902,6 +902,7 @@ export function ContractGeneratorView({ properties, people, contracts, userId }:
                   contractText={editorContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}
                   contractType={lastGeneratedContractType}
                   className="mt-4"
+                  userId={userId}
                 />
               )}
             </div>

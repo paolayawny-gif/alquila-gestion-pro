@@ -668,6 +668,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                     startDate: contract.startDate,
                     endDate: contract.endDate,
                   }}
+                  userId={userId}
                 />
               )}
 

@@ -409,7 +409,8 @@ function LoginPageInner() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-[#7DD3FC]/60" />
             <span className="text-[11px] text-white/30">
-              Datos encriptados · Acceso por roles · Ley 25.326
+              Datos encriptados · Acceso por roles ·{' '}
+              <Link href="/privacidad" className="hover:text-[#7DD3FC] transition-colors">Ley 25.326</Link>
             </span>
           </div>
           <Link

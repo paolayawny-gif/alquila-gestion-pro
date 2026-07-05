@@ -29,7 +29,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useFirestore } from '@/firebase';
-import { doc, getDoc, collection } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Property, RentalApplication, DocumentInfo } from '@/lib/types';
@@ -59,7 +59,8 @@ function ApplyPageContent() {
     guarantorName: '',
     guarantorType: 'Sin garante',
     guarantorIncome: '',
-    references: ''
+    references: '',
+    consent: false
   });
 
   const formatTaxId = (value: string) => {
@@ -86,15 +87,18 @@ function ApplyPageContent() {
 
   useEffect(() => {
     async function loadProperty() {
-      if (!db || !adminId || !propertyId) {
+      if (!adminId || !propertyId) {
         setIsLoading(false);
         return;
       }
       try {
-        const propRef = doc(db, 'artifacts', APP_ID, 'users', adminId, 'propiedades', propertyId);
-        const snap = await getDoc(propRef);
-        if (snap.exists()) {
-          setProperty(snap.data() as Property);
+        // Vía API server-side (no lectura directa de Firestore desde el cliente):
+        // el documento de propiedad puede traer contacto del propietario, que la
+        // API redacta antes de responder. Ver src/lib/redact-public-property.ts.
+        const res = await fetch(`/api/public/property?adminId=${encodeURIComponent(adminId)}&propertyId=${encodeURIComponent(propertyId)}`);
+        if (res.ok) {
+          const { property } = await res.json();
+          setProperty(property as Property);
         }
       } catch (e) {
         console.error("Error loading property", e);
@@ -103,7 +107,7 @@ function ApplyPageContent() {
       }
     }
     loadProperty();
-  }, [db, adminId, propertyId]);
+  }, [adminId, propertyId]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
     const file = e.target.files?.[0];
@@ -152,6 +156,15 @@ function ApplyPageContent() {
       return;
     }
 
+    if (!formData.consent) {
+      toast({
+        title: "Falta tu autorización",
+        description: "Necesitamos que autorices el tratamiento de tus datos para poder evaluar tu postulación.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const solicitudId = Math.random().toString(36).substr(2, 9);
@@ -175,7 +188,9 @@ function ApplyPageContent() {
         documents: documents,
         status: 'Nueva',
         submittedAt: new Date().toLocaleDateString('es-AR'),
-        ownerId: adminId
+        ownerId: adminId,
+        consentGiven: true,
+        consentAt: new Date().toISOString()
       };
 
       await addDocumentNonBlocking(solicitudesRef, application);
@@ -474,11 +489,26 @@ function ApplyPageContent() {
                 />
               </div>
             </CardContent>
-            <CardFooter>
-              <Button 
-                type="submit" 
+            <CardFooter className="flex-col items-stretch gap-4">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.consent}
+                  onChange={e => setFormData({ ...formData, consent: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-xs text-muted-foreground leading-snug">
+                  Autorizo a la administración a tratar mis datos personales (incluyendo situación crediticia ante el
+                  BCRA e ingresos declarados) para evaluar esta postulación, conforme a la{' '}
+                  <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                    Política de Privacidad
+                  </a>.
+                </span>
+              </label>
+              <Button
+                type="submit"
                 className="w-full bg-primary hover:bg-primary/90 text-white h-12 text-lg font-bold gap-2"
-                disabled={isSubmitting || uploadingFiles}
+                disabled={isSubmitting || uploadingFiles || !formData.consent}
               >
                 {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 Enviar Postulación

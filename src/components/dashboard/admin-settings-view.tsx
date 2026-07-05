@@ -34,6 +34,7 @@ import {
   LogOut, Info, Globe, Copy, Lock, Gift, Sparkles, Building2,
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
+import { useAIConfig } from '@/hooks/use-ai-config';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
 import type {
   AdminService, AdminPaymentConfig, ServiceCategory, ServiceClientTarget,
@@ -87,6 +88,7 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
           <PortalPlusCard userId={userId} />
           <WhatsAppCard userId={userId} />
           <WhatsAppApiCard userId={userId} />
+          <AIProCard userId={userId} />
           <BillingCard userId={userId} />
           <BajaCard userId={userId} />
         </TabsContent>
@@ -200,6 +202,133 @@ function WhatsAppCard({ userId }: { userId?: string }) {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Análisis IA Pro Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AIProCard({ userId }: { userId?: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const { apiKey: savedKey, loading } = useAIConfig(userId);
+  const [keyInput, setKeyInput] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!loading) setKeyInput(savedKey ?? '');
+  }, [loading, savedKey]);
+
+  const handleSave = async () => {
+    if (!db || !userId) return;
+    setSaving(true);
+    try {
+      if (keyInput.trim()) {
+        const validation = await authedFetch('/api/ai/validate-key', {
+          method: 'POST',
+          body: JSON.stringify({ apiKey: keyInput.trim() }),
+        }).then(r => r.json());
+        if (!validation.valid) {
+          toast({ title: 'Key inválida', description: validation.error || 'No se pudo validar la key con Google.', variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+      }
+      await setDoc(
+        doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'aiConfig'),
+        { geminiApiKey: keyInput.trim(), updatedAt: new Date().toISOString() },
+        { merge: true },
+      );
+      toast({ title: 'Guardado', description: keyInput.trim() ? 'Key de Gemini validada y guardada — el modo Pro ya está disponible.' : 'Key eliminada.' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar la key.', variant: 'destructive' });
+    }
+    setSaving(false);
+  };
+
+  const handleRemove = async () => {
+    setKeyInput('');
+    if (!db || !userId) return;
+    setSaving(true);
+    try {
+      await setDoc(
+        doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'aiConfig'),
+        { geminiApiKey: '', updatedAt: new Date().toISOString() },
+        { merge: true },
+      );
+      toast({ title: 'Key eliminada', description: 'Volviste al modelo estándar.' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo quitar la key.', variant: 'destructive' });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-violet-100">
+            <Sparkles className="h-5 w-5 text-violet-600" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-black">Análisis IA Pro</CardTitle>
+              {!loading && savedKey && (
+                <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Activo</Badge>
+              )}
+            </div>
+            <CardDescription className="text-xs mt-0.5">
+              Cargá tu propia API key de Google Gemini para desbloquear el modelo Pro
+              en el análisis legal de contratos, y para que el asistente de chat (AGP Help)
+              corra con tu propia clave y costo de uso en vez de la compartida.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="gemini-key" className="text-xs font-bold">API key de Gemini</Label>
+          <div className="relative">
+            <Input
+              id="gemini-key"
+              type={showKey ? 'text' : 'password'}
+              placeholder="AIza..."
+              value={keyInput}
+              onChange={e => setKeyInput(e.target.value)}
+              className="text-sm pr-9 font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(v => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={showKey ? 'Ocultar key' : 'Mostrar key'}
+            >
+              {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          <a
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+          >
+            <ExternalLink className="h-3 w-3" /> Conseguir una key gratis en Google AI Studio
+          </a>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={saving || loading || !keyInput.trim()} className="gap-2 font-bold">
+            {saving ? 'Guardando...' : 'Guardar'}
+          </Button>
+          {!loading && savedKey && (
+            <Button variant="outline" onClick={handleRemove} disabled={saving} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5">
+              <Trash2 className="h-3.5 w-3.5" /> Quitar
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
