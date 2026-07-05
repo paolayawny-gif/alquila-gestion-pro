@@ -12,16 +12,28 @@ export interface DocxVariables {
 }
 
 /**
+ * Placeholders remaining as literal `[ALGO_ASI]` tokens after replacement.
+ * Only catches tokens that survived intact — a placeholder split across XML
+ * text runs by Word won't match this pattern and can't be detected this way,
+ * so this is a best-effort safety net, not a full guarantee.
+ */
+function findLeftoverPlaceholders(content: string): string[] {
+  const matches = content.match(/\[[A-ZÁÉÍÓÚÑ0-9 _/.,-]{2,80}?\]/g) ?? [];
+  return Array.from(new Set(matches));
+}
+
+/**
  * Fetch a template from /templates/, fill variables, and trigger a browser download.
  * @param templateFilename  The filename inside /public/templates/  (e.g. "Modelo Contrato Locación de Vivienda (1).docx")
  * @param variables         Map of placeholder text → replacement value
  * @param outputFilename    Suggested filename for the download
+ * @returns                 Placeholders that could not be confirmed as replaced (empty if none detected)
  */
 export async function fillAndDownloadDocx(
   templateFilename: string,
   variables: DocxVariables,
   outputFilename: string
-): Promise<void> {
+): Promise<{ leftoverPlaceholders: string[] }> {
   // 1. Fetch the template
   const res = await fetch(`/templates/${encodeURIComponent(templateFilename)}`);
   if (!res.ok) throw new Error(`No se pudo cargar la plantilla "${templateFilename}"`);
@@ -32,6 +44,7 @@ export async function fillAndDownloadDocx(
 
   // 3. Replace in document.xml (main body)
   const filesToPatch = ['word/document.xml', 'word/header1.xml', 'word/footer1.xml'];
+  const leftoverSet = new Set<string>();
   for (const xmlPath of filesToPatch) {
     const file = zip.file(xmlPath);
     if (!file) continue;
@@ -44,6 +57,7 @@ export async function fillAndDownloadDocx(
       content = replaceAll(content, placeholder, value || '___________');
     }
 
+    findLeftoverPlaceholders(content).forEach(p => leftoverSet.add(p));
     zip.file(xmlPath, content);
   }
 
@@ -59,6 +73,8 @@ export async function fillAndDownloadDocx(
   a.download = outputFilename;
   a.click();
   URL.revokeObjectURL(url);
+
+  return { leftoverPlaceholders: Array.from(leftoverSet) };
 }
 
 function replaceAll(str: string, find: string, replace: string): string {

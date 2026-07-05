@@ -1,5 +1,6 @@
 "use client";
 import { APP_ID } from '@/lib/constants';
+import { sendEmail, buildPortalAccessEmail } from '@/services/email-service';
 import { AppLogo } from '@/components/ui/app-logo';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -505,21 +506,36 @@ export default function AppClient() {
   }, [isMounted, properties.length, contracts.length]);
 
   // ── Sync tenant emails to registry whenever contracts change ──────────────
+  // La primera vez que aparece un email de inquilino se le manda un mail real
+  // avisándole que ya tiene acceso a su portal (antes esto era 100% silencioso).
   useEffect(() => {
     if (!db || !user?.uid || !contracts.length) return;
-    contracts.forEach(contract => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    contracts.forEach(async contract => {
       if (!contract.tenantEmail) return;
-      const docId = contract.tenantEmail.toLowerCase().replace(/[@.+]/g, '_');
+      const email = contract.tenantEmail.toLowerCase();
+      const docId = email.replace(/[@.+]/g, '_');
       const ref   = doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId);
       const entry: TenantRegistryEntry = {
-        tenantEmail:  contract.tenantEmail.toLowerCase(),
+        tenantEmail:  email,
         tenantName:   contract.tenantName  ?? '',
         adminId:      user.uid,
         propertyId:   contract.propertyId,
         propertyName: contract.propertyName ?? '',
         contractId:   contract.id,
       };
+      const existing = await getDoc(ref);
       setDocumentNonBlocking(ref, entry, { merge: true });
+      if (!existing.exists()) {
+        const html = await buildPortalAccessEmail({
+          recipientName: contract.tenantName ?? '',
+          role: 'Inquilino',
+          propertyName: contract.propertyName ?? 'tu propiedad',
+          loginUrl: `${origin}/login`,
+          recipientEmail: email,
+        });
+        sendEmail({ to: email, subject: 'Ya tenés acceso a tu portal de inquilino', html }).catch(() => {});
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts.length, db, user?.uid]);
@@ -585,8 +601,11 @@ export default function AppClient() {
   }, [contracts.length, indexRecords.length, db, user?.uid]);
 
   // ── Sync property owners to ownerRegistry whenever properties change ──────
+  // Igual que con inquilinos: la primera vez que se crea el registro de un
+  // propietario, se le manda un mail real avisándole que ya tiene acceso.
   useEffect(() => {
     if (!db || !user?.uid || !properties.length) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     // Build a map: email → { propertyIds[], propertyNames[], ownerName }
     const ownerMap = new Map<string, { name: string; ids: string[]; names: string[] }>();
     properties.forEach(prop => {
@@ -601,7 +620,7 @@ export default function AppClient() {
         }
       });
     });
-    ownerMap.forEach((data, email) => {
+    ownerMap.forEach(async (data, email) => {
       const docId = email.replace(/[@.+]/g, '_');
       const ref   = doc(db, 'artifacts', APP_ID, 'ownerRegistry', docId);
       const entry: OwnerRegistryEntry = {
@@ -611,7 +630,18 @@ export default function AppClient() {
         propertyIds:  data.ids,
         propertyNames: data.names,
       };
+      const existing = await getDoc(ref);
       setDocumentNonBlocking(ref, entry, { merge: true });
+      if (!existing.exists()) {
+        const html = await buildPortalAccessEmail({
+          recipientName: data.name,
+          role: 'Propietario',
+          propertyName: data.names[0] ?? 'tu propiedad',
+          loginUrl: `${origin}/login`,
+          recipientEmail: email,
+        });
+        sendEmail({ to: email, subject: 'Ya tenés acceso a tu portal de propietario', html }).catch(() => {});
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties.length, db, user?.uid]);

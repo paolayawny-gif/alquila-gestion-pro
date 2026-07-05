@@ -254,8 +254,9 @@ export function ContractSignModal({
       <div className="space-y-5">
         {/* Legal disclaimer */}
         <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-primary/30 pl-3">
-          Al firmar este documento confirmás haber leído y aceptado los términos del contrato. Esta firma
-          electrónica tiene validez legal conforme a la Ley 25.506 de Firma Digital de la República Argentina.
+          Al firmar este documento confirmás haber leído y aceptado los términos del contrato. Esta es una
+          firma electrónica simple (Ley 25.506, art. 288 CCyCN) — queda registrado el hash del documento, tu IP
+          y la fecha/hora como prueba de autenticidad.
         </p>
 
         {/* Acceptance checkbox */}

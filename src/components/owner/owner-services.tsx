@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { authedFetch } from '@/lib/authed-fetch';
+import { FileUpload } from '@/components/ui/file-upload';
 import {
   collection, getDocs, addDoc, doc, getDoc, updateDoc, query, where,
 } from 'firebase/firestore';
@@ -83,8 +84,9 @@ export function OwnerServices({ ownerEntry }: OwnerServicesProps) {
 
   // Payment dialog
   const [payingRequest, setPayingRequest] = useState<ServiceRequest | null>(null);
-  const [comprobanteFile, setComprobanteFile] = useState<File | null>(null);
+  const [comprobanteUrl, setComprobanteUrl] = useState('');
   const [uploadingComp, setUploadingComp] = useState(false);
+  const [payingWithMp, setPayingWithMp] = useState(false);
 
   const adminId = ownerEntry.adminId;
   const clientEmail = ownerEntry.ownerEmail;
@@ -167,15 +169,14 @@ export function OwnerServices({ ownerEntry }: OwnerServicesProps) {
   };
 
   const handleComprobanteUpload = async () => {
-    if (!db || !payingRequest || !comprobanteFile || !adminId) return;
+    if (!db || !payingRequest || !comprobanteUrl || !adminId) return;
     setUploadingComp(true);
     try {
-      // Store file name as reference (actual upload via Firebase Storage would go here)
       const now = new Date().toISOString();
       const update = {
-        'archivos.comprobanteName': comprobanteFile.name,
+        'archivos.comprobanteUrl': comprobanteUrl,
         'pago.metodo': 'transferencia',
-        'pago.comprobanteName': comprobanteFile.name,
+        'pago.comprobanteUrl': comprobanteUrl,
         estado: 'en_proceso' as const,
         updatedAt: now,
       };
@@ -186,17 +187,38 @@ export function OwnerServices({ ownerEntry }: OwnerServicesProps) {
       setMyRequests(prev =>
         prev.map(r =>
           r.id === payingRequest.id
-            ? { ...r, estado: 'en_proceso', archivos: { ...r.archivos, comprobanteName: comprobanteFile.name }, updatedAt: now }
+            ? { ...r, estado: 'en_proceso', archivos: { ...r.archivos, comprobanteUrl }, updatedAt: now }
             : r,
         ),
       );
       toast({ title: 'Comprobante enviado', description: 'La administración verificará el pago y procesará el servicio.' });
       setPayingRequest(null);
-      setComprobanteFile(null);
+      setComprobanteUrl('');
     } catch {
       toast({ title: 'Error', description: 'No se pudo enviar el comprobante.', variant: 'destructive' });
     }
     setUploadingComp(false);
+  };
+
+  const handleMercadoPagoPayment = async () => {
+    if (!payingRequest || !adminId) return;
+    setPayingWithMp(true);
+    try {
+      const res = await authedFetch('/api/services/payment', {
+        method: 'POST',
+        body: JSON.stringify({ adminId, requestId: payingRequest.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.initUrl) {
+        toast({ title: 'No se pudo iniciar el pago', description: data.error || 'Intentá de nuevo en unos minutos.', variant: 'destructive' });
+        return;
+      }
+      window.location.href = data.initUrl;
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo conectar con MercadoPago.', variant: 'destructive' });
+    } finally {
+      setPayingWithMp(false);
+    }
   };
 
   if (loading) {
@@ -247,7 +269,7 @@ export function OwnerServices({ ownerEntry }: OwnerServicesProps) {
                       size="sm"
                       variant="outline"
                       className="text-xs h-7 shrink-0 font-bold border-amber-300 text-amber-700 hover:bg-amber-50"
-                      onClick={() => { setPayingRequest(r); setComprobanteFile(null); }}
+                      onClick={() => { setPayingRequest(r); setComprobanteUrl(''); }}
                     >
                       Pagar
                     </Button>
@@ -516,11 +538,20 @@ export function OwnerServices({ ownerEntry }: OwnerServicesProps) {
               {paymentConfig.mercadopago?.active && (
                 <div className="space-y-1">
                   <p className="text-xs font-bold">O pagá con MercadoPago</p>
-                  <Button variant="outline" className="w-full gap-2 font-bold text-xs border-[#00BCFF] text-[#009ECC]">
-                    <div className="w-4 h-4 rounded-full bg-[#00BCFF] flex items-center justify-center">
-                      <span className="text-white text-[8px] font-black">MP</span>
-                    </div>
-                    Pagar con MercadoPago
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 font-bold text-xs border-[#00BCFF] text-[#009ECC]"
+                    onClick={handleMercadoPagoPayment}
+                    disabled={payingWithMp}
+                  >
+                    {payingWithMp ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full bg-[#00BCFF] flex items-center justify-center">
+                        <span className="text-white text-[8px] font-black">MP</span>
+                      </div>
+                    )}
+                    {payingWithMp ? 'Redirigiendo...' : 'Pagar con MercadoPago'}
                   </Button>
                 </div>
               )}
@@ -529,17 +560,13 @@ export function OwnerServices({ ownerEntry }: OwnerServicesProps) {
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold">Subir comprobante de transferencia</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={e => setComprobanteFile(e.target.files?.[0] ?? null)}
-                    className="text-xs"
-                  />
-                </div>
-                {comprobanteFile && (
-                  <p className="text-[11px] text-muted-foreground">{comprobanteFile.name}</p>
-                )}
+                <FileUpload
+                  value={comprobanteUrl}
+                  onChange={setComprobanteUrl}
+                  storagePath={`comprobantes/${adminId}/${payingRequest.id}`}
+                  accept="image/*,.pdf"
+                  label="Subir comprobante (foto o PDF)"
+                />
               </div>
             </div>
           )}
@@ -549,7 +576,7 @@ export function OwnerServices({ ownerEntry }: OwnerServicesProps) {
             </Button>
             <Button
               onClick={handleComprobanteUpload}
-              disabled={!comprobanteFile || uploadingComp}
+              disabled={!comprobanteUrl || uploadingComp}
               className="font-bold gap-2"
             >
               {uploadingComp ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Upload className="h-4 w-4" />Enviar comprobante</>}

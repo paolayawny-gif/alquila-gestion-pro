@@ -5,7 +5,7 @@ import { APP_ID } from '@/lib/constants';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink, Share2, Copy, Link2, CheckCheck } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink, Share2, Copy, Link2, CheckCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyManual, Contract, Invoice, MaintenanceTask, RentalApplication, Liquidation, LegalCase, ReserveFund } from '@/lib/types';
@@ -37,6 +37,7 @@ import { doc, collection, query, where } from 'firebase/firestore';
 import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Schemas } from '@/lib/schemas';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
+import { sendEmail } from '@/services/email-service';
 import { PropertyTimeline } from '@/components/ui/property-timeline';
 import { normalizeAddress } from '@/lib/format';
 
@@ -91,6 +92,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
   const [invitingOwner, setInvitingOwner] = useState<{name: string, email: string} | null>(null);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   const [shareProperty, setShareProperty] = useState<Property | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -288,9 +290,30 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
     }
   };
 
-  const handleSendOwnerInvitation = () => {
-    toast({ title: "Invitación Enviada", description: `Acceso enviado a ${invitingOwner?.email}` });
-    setIsInviteDialogOpen(false);
+  const handleSendOwnerInvitation = async () => {
+    if (!invitingOwner?.email || !invitationDraft) return;
+    setIsSendingInvite(true);
+    try {
+      const result = await sendEmail({
+        to: invitingOwner.email,
+        subject: invitationDraft.subjectLine,
+        html: `<div style="white-space:pre-wrap;text-align:left;">${invitationDraft.draftedMessage.replace(/\n/g, '<br/>')}</div>`,
+      });
+      if (!result.success) {
+        toast({ title: "No se pudo enviar", description: result.error || "Falló el envío del email. Reintentá en unos minutos.", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Invitación Enviada",
+        description: result.simulated
+          ? `Sin credenciales de email configuradas: la invitación quedó simulada, no llegó a ${invitingOwner.email}.`
+          : `Acceso enviado a ${invitingOwner.email}`,
+        variant: result.simulated ? "destructive" : undefined,
+      });
+      setIsInviteDialogOpen(false);
+    } finally {
+      setIsSendingInvite(false);
+    }
   };
 
   const addOwner = () => {
@@ -378,7 +401,6 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Total de Propiedades</p>
               <p className="text-2xl font-black">{totalProperties}</p>
-              {totalProperties > 0 && <p className="text-[10px] text-green-600 font-bold flex items-center gap-0.5"><TrendingUp className="h-3 w-3" /> +2 este mes</p>}
             </div>
           </CardContent>
         </Card>
@@ -390,7 +412,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Tasa de Ocupación</p>
               <p className="text-2xl font-black">{occupancyRate}%</p>
-              <p className="text-[10px] text-muted-foreground">{occupancyRate >= 90 ? '95% Objetivo cumplido' : `${occupiedCount} de ${totalProperties} ocupadas`}</p>
+              <p className="text-[10px] text-muted-foreground">{occupiedCount} de {totalProperties} ocupadas</p>
             </div>
           </CardContent>
         </Card>
@@ -928,12 +950,13 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancelar</Button>
-            <Button 
-              className="bg-primary text-white gap-2 font-bold px-8" 
+            <Button
+              className="bg-primary text-white gap-2 font-bold px-8"
               onClick={handleSendOwnerInvitation}
-              disabled={isDraftingInvite || !invitationDraft}
+              disabled={isDraftingInvite || !invitationDraft || isSendingInvite}
             >
-              <Send className="h-4 w-4" /> Enviar Invitación
+              {isSendingInvite ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {isSendingInvite ? 'Enviando...' : 'Enviar Invitación'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,7 +2,8 @@ import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminAuth } from "@/lib/firebase-admin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { APP_ID } from "@/lib/constants";
 
 // Resolved lazily so a missing JWT_SECRET only fails when a session is
 // actually signed/verified at runtime — not at module import time (which
@@ -134,6 +135,36 @@ export async function requireSessionForAdmin(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return auth;
+}
+
+/**
+ * Como requireSessionForAdmin, pero también deja pasar a un propietario cuyo
+ * email figura en el ownerRegistry de ese adminId (ej: para que un propietario
+ * pueda pagar un servicio publicado por su administración).
+ */
+export async function requireSessionForAdminOrOwner(
+  req: NextRequest,
+  adminId: string | undefined | null,
+): Promise<FirebaseSessionPayload | NextResponse> {
+  const auth = await requireFirebaseAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  if (!adminId) {
+    return NextResponse.json({ error: "Falta adminId" }, { status: 400 });
+  }
+  if (auth.userId === adminId || auth.superAdmin) {
+    return auth;
+  }
+  if (auth.email) {
+    const docId = auth.email.toLowerCase().replace(/[@.+]/g, "_");
+    const ownerDoc = await getAdminDb()
+      .collection("artifacts").doc(APP_ID)
+      .collection("ownerRegistry").doc(docId)
+      .get();
+    if (ownerDoc.exists && ownerDoc.data()?.adminId === adminId) {
+      return auth;
+    }
+  }
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
 /** Único mecanismo de superadmin: el custom claim `superAdmin` seteado vía /api/superadmin/set-custom-claims. */

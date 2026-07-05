@@ -55,7 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
-import { doc, getDoc, collection, query as fsQuery, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query as fsQuery, orderBy, where } from 'firebase/firestore';
 import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Schemas } from '@/lib/schemas';
 import { createNotification } from '@/lib/notifications';
@@ -83,6 +83,19 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
   const { canWrite, canDelete } = useOrgPermissions();
 
   const [mainTab, setMainTab] = useState<'tasks' | 'tickets' | 'providers'>('tasks');
+
+  // Contador de reclamos de inquilinos abiertos — antes esta pestaña no mostraba
+  // ningún indicador y era fácil no enterarse de reclamos nuevos.
+  const openTicketsQ = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return fsQuery(
+      collection(db, 'artifacts', APP_ID, 'maintenanceTickets'),
+      where('adminId', '==', userId),
+      where('status', '==', 'Abierto'),
+    );
+  }, [db, userId]);
+  const { data: openTicketsRaw } = useCollection(openTicketsQ);
+  const openTicketsCount = openTicketsRaw?.length ?? 0;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'inprogress' | 'resolved'>('all');
   const [isNewClaimOpen, setIsNewClaimOpen] = useState(false);
@@ -426,6 +439,11 @@ export function MaintenanceView({ tasks, userId, properties, people, contracts =
           )}
         >
           <ClipboardList className="h-4 w-4" /> Reclamos de Inquilinos
+          {openTicketsCount > 0 && (
+            <span className="ml-0.5 text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-black">
+              {openTicketsCount}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setMainTab('providers')}

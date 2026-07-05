@@ -29,6 +29,7 @@ import { fmtMoney as fmt } from '@/lib/format';
 
 interface TenantPaymentPlansProps {
   tenantEntry: TenantRegistryEntry;
+  onGoToRecibos?: () => void;
 }
 
 interface PlanWithCase extends PaymentPlan {
@@ -36,7 +37,7 @@ interface PlanWithCase extends PaymentPlan {
   propertyName: string;
 }
 
-export function TenantPaymentPlans({ tenantEntry }: TenantPaymentPlansProps) {
+export function TenantPaymentPlans({ tenantEntry, onGoToRecibos }: TenantPaymentPlansProps) {
   const db = useFirestore();
   const { toast } = useToast();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -90,6 +91,17 @@ export function TenantPaymentPlans({ tenantEntry }: TenantPaymentPlansProps) {
         <p className="text-sm text-muted-foreground mt-0.5">
           Propuestas de la administración para regularizar deudas pendientes.
         </p>
+      </div>
+
+      <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-xs text-blue-800">
+          ¿Buscás informar el pago de tu alquiler del mes? Eso se hace desde <strong>Recibos</strong>, no acá.
+        </p>
+        {onGoToRecibos && (
+          <Button size="sm" variant="outline" className="text-xs h-7 font-bold border-blue-300 text-blue-700 hover:bg-blue-100 shrink-0" onClick={onGoToRecibos}>
+            Ir a Recibos
+          </Button>
+        )}
       </div>
 
       {pendingPlans > 0 && (

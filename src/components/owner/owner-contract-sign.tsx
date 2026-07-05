@@ -110,7 +110,7 @@ export function OwnerContractSign({ contract, adminId, ownerEntry }: OwnerContra
                       Tu contrato requiere tu firma como propietario
                     </p>
                     <p className="text-xs text-amber-700 leading-snug">
-                      Revisá los términos y firmá digitalmente. Tiene validez legal conforme a la Ley 25.506.
+                      Revisá los términos y firmá electrónicamente. Es una firma electrónica simple con validez legal (Ley 25.506, art. 288 CCyCN).
                     </p>
                   </div>
                 </div>
