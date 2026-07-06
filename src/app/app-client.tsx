@@ -1,5 +1,6 @@
 "use client";
-import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { APP_ID } from '@/lib/constants';
+import { sendEmail, buildPortalAccessEmail } from '@/services/email-service';
 import { AppLogo } from '@/components/ui/app-logo';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -48,6 +49,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { authedFetch } from '@/lib/authed-fetch';
 import { BottomNav } from '@/components/ui/bottom-nav';
 import dynamic from 'next/dynamic';
 import { NotificationBell } from '@/components/ui/notification-bell';
@@ -81,6 +83,7 @@ import { usePlan } from '@/hooks/use-plan';
 import { BillingBlockedScreen } from '@/components/billing/billing-blocked-screen';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { useOrgContext } from '@/hooks/use-org-context';
 import { OrgPermissionsProvider } from '@/contexts/org-permissions-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -226,17 +229,17 @@ export default function AppClient() {
   const [activeTab, setActiveTab] = useState<Tab>('Resumen');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useFocusTrap(mobileMenuOpen, () => setMobileMenuOpen(false));
   const [isMounted, setIsMounted] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
   
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, isSuperAdmin } = useUser();
   const auth = useAuth();
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
   const orgCtx = useOrgContext();
   const plan = usePlan(user?.uid);
 
@@ -295,6 +298,16 @@ export default function AppClient() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // El trial de 7 días solo arranca a contar cuando existe el documento de billing.
+  // Antes, ese documento solo se creaba si el admin entraba a Configuración y
+  // clickeaba un botón — la gran mayoría nunca lo hacía y quedaba con acceso
+  // gratis indefinido. Lo inicializamos acá, la primera vez que cargan el panel
+  // como Administrador real (no superadmin, no tenant, no owner invitado).
+  useEffect(() => {
+    if (!user?.uid || isSuperAdmin || tenantEntry || ownerEntry) return;
+    authedFetch(`/api/billing/status?adminId=${user.uid}`).catch(() => {});
+  }, [user?.uid, isSuperAdmin, tenantEntry, ownerEntry]);
 
   // Detect built-in biometric support (Touch ID / Face ID / Windows Hello)
   useEffect(() => {
@@ -493,21 +506,36 @@ export default function AppClient() {
   }, [isMounted, properties.length, contracts.length]);
 
   // ── Sync tenant emails to registry whenever contracts change ──────────────
+  // La primera vez que aparece un email de inquilino se le manda un mail real
+  // avisándole que ya tiene acceso a su portal (antes esto era 100% silencioso).
   useEffect(() => {
     if (!db || !user?.uid || !contracts.length) return;
-    contracts.forEach(contract => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    contracts.forEach(async contract => {
       if (!contract.tenantEmail) return;
-      const docId = contract.tenantEmail.toLowerCase().replace(/[@.+]/g, '_');
+      const email = contract.tenantEmail.toLowerCase();
+      const docId = email.replace(/[@.+]/g, '_');
       const ref   = doc(db, 'artifacts', APP_ID, 'tenantRegistry', docId);
       const entry: TenantRegistryEntry = {
-        tenantEmail:  contract.tenantEmail.toLowerCase(),
+        tenantEmail:  email,
         tenantName:   contract.tenantName  ?? '',
         adminId:      user.uid,
         propertyId:   contract.propertyId,
         propertyName: contract.propertyName ?? '',
         contractId:   contract.id,
       };
+      const existing = await getDoc(ref);
       setDocumentNonBlocking(ref, entry, { merge: true });
+      if (!existing.exists()) {
+        const html = await buildPortalAccessEmail({
+          recipientName: contract.tenantName ?? '',
+          role: 'Inquilino',
+          propertyName: contract.propertyName ?? 'tu propiedad',
+          loginUrl: `${origin}/login`,
+          recipientEmail: email,
+        });
+        sendEmail({ to: email, subject: 'Ya tenés acceso a tu portal de inquilino', html }).catch(() => {});
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts.length, db, user?.uid]);
@@ -573,8 +601,11 @@ export default function AppClient() {
   }, [contracts.length, indexRecords.length, db, user?.uid]);
 
   // ── Sync property owners to ownerRegistry whenever properties change ──────
+  // Igual que con inquilinos: la primera vez que se crea el registro de un
+  // propietario, se le manda un mail real avisándole que ya tiene acceso.
   useEffect(() => {
     if (!db || !user?.uid || !properties.length) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     // Build a map: email → { propertyIds[], propertyNames[], ownerName }
     const ownerMap = new Map<string, { name: string; ids: string[]; names: string[] }>();
     properties.forEach(prop => {
@@ -589,7 +620,7 @@ export default function AppClient() {
         }
       });
     });
-    ownerMap.forEach((data, email) => {
+    ownerMap.forEach(async (data, email) => {
       const docId = email.replace(/[@.+]/g, '_');
       const ref   = doc(db, 'artifacts', APP_ID, 'ownerRegistry', docId);
       const entry: OwnerRegistryEntry = {
@@ -599,7 +630,18 @@ export default function AppClient() {
         propertyIds:  data.ids,
         propertyNames: data.names,
       };
+      const existing = await getDoc(ref);
       setDocumentNonBlocking(ref, entry, { merge: true });
+      if (!existing.exists()) {
+        const html = await buildPortalAccessEmail({
+          recipientName: data.name,
+          role: 'Propietario',
+          propertyName: data.names[0] ?? 'tu propiedad',
+          loginUrl: `${origin}/login`,
+          recipientEmail: email,
+        });
+        sendEmail({ to: email, subject: 'Ya tenés acceso a tu portal de propietario', html }).catch(() => {});
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties.length, db, user?.uid]);
@@ -838,7 +880,7 @@ export default function AppClient() {
               onNavigate={(tab) => setActiveTab(tab as Tab)}
             />
           )}
-          <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} userId={user?.uid} />
+          <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} socialPosts={socialPosts} userId={user?.uid} />
         </>
       );
       case 'Propiedades': return <PropertiesView properties={properties} userId={user?.uid} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} liquidations={liquidations} legalCases={legalCases} deepLinkPropertyId={deepLinkPropertyId} onDeepLinkConsumed={() => setDeepLinkPropertyId(null)} onOpenContract={() => setActiveTab('Personas' as Tab)} />;
@@ -870,12 +912,12 @@ export default function AppClient() {
       case 'Índices': return <IndexRecordsView records={indexRecords} userId={user?.uid} />;
       case 'Reportes': return <AnalyticsPanelView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} legalCases={legalCases} assets={monetizableAssets} userId={user?.uid} />;
       case 'Análisis IA': return <AIAnalyticsView properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} />;
-      case 'Asistente IA': return <AIAssistantView />;
+      case 'Asistente IA': return <AIAssistantView userId={user?.uid} />;
       case 'Super Admin': return <SuperAdminView userId={user?.uid} userEmail={user?.email ?? ''} />;
       case 'Configuración': return <AdminSettingsView userId={user?.uid} />;
-      case 'Ayuda': return <HelpView onNavigate={(tab) => setActiveTab(tab as Tab)} currentSection={activeTab} />;
+      case 'Ayuda': return <HelpView onNavigate={(tab) => setActiveTab(tab as Tab)} currentSection={activeTab} userId={user?.uid} />;
       case 'Ajustes Alquiler': return <PendingAdjustmentsView adjustments={rentAdjustments} onApprove={approveAdjustment} onReject={rejectAdjustment} onNotify={notifyAdjustment} />;
-      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} />;
+      default: return <SummaryView onNavigate={(tab) => setActiveTab(tab as Tab)} properties={properties} contracts={contracts} invoices={invoices} tasks={tasks} applications={applications} socialPosts={socialPosts} />;
     }
   };
 
@@ -887,8 +929,14 @@ export default function AppClient() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileMenuOpen(false)} />
       )}
-      <aside className={cn(
-        "bg-card border-r flex flex-col transition-all duration-300 z-40 shrink-0",
+      <aside
+        ref={mobileMenuOpen ? (mobileMenuRef as React.RefObject<HTMLElement>) : undefined}
+        role={mobileMenuOpen ? 'dialog' : undefined}
+        aria-modal={mobileMenuOpen ? true : undefined}
+        aria-label={mobileMenuOpen ? 'Menú de navegación' : undefined}
+        tabIndex={-1}
+        className={cn(
+        "bg-card border-r flex flex-col transition-all duration-300 z-40 shrink-0 outline-none",
         "fixed inset-y-0 left-0 md:static md:z-20",
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         isSidebarCollapsed ? "md:w-20 w-72" : "w-72",
@@ -970,8 +1018,11 @@ export default function AppClient() {
         <div className="p-4 border-t space-y-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-accent bg-accent/8 hover:bg-accent/15 transition-colors", isSidebarCollapsed && "justify-center")}>
-                <ArrowLeftRight className="h-5 w-5" />
+              <button
+                className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-accent bg-accent/8 hover:bg-accent/15 transition-colors", isSidebarCollapsed && "justify-center")}
+                aria-label={isSidebarCollapsed ? `Cambiar rol, actual: ${activeRole}` : undefined}
+              >
+                <ArrowLeftRight className="h-5 w-5" aria-hidden="true" />
                 {!isSidebarCollapsed && <span className="truncate">Cambiar Rol: {activeRole}</span>}
               </button>
             </DropdownMenuTrigger>
@@ -994,14 +1045,22 @@ export default function AppClient() {
             {!isSidebarCollapsed && <span>Cerrar Sesión</span>}
            </button>
         </div>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-card border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50">
-          {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="hidden md:flex absolute -right-3 top-20 h-6 w-6 bg-card border rounded-full items-center justify-center shadow-sm text-muted-foreground hover:text-primary z-50"
+          aria-label={isSidebarCollapsed ? 'Expandir barra lateral' : 'Contraer barra lateral'}
+        >
+          {isSidebarCollapsed ? <ChevronRight className="h-3 w-3" aria-hidden="true" /> : <ChevronLeft className="h-3 w-3" aria-hidden="true" />}
         </button>
       </aside>
       <main className="flex-1 overflow-y-auto bg-background/50 relative">
         <header className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-card/80 backdrop-blur-md sticky top-0 z-10 gap-3">
-          <button className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0" onClick={() => setMobileMenuOpen(true)}>
-            <Menu className="h-5 w-5 text-muted-foreground" />
+          <button
+            className="md:hidden h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center shrink-0"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Abrir menú de navegación"
+          >
+            <Menu className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
           <button
             onClick={() => setCmdOpen(true)}
@@ -1048,7 +1107,10 @@ export default function AppClient() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase hover:bg-primary/30 transition-colors">
+                <button
+                  className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm uppercase hover:bg-primary/30 transition-colors"
+                  aria-label={`Menú de cuenta de ${user?.email ?? activeRole}`}
+                >
                   {activeRole[0]}{activeRole[1]}
                 </button>
               </DropdownMenuTrigger>

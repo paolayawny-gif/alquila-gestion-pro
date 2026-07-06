@@ -19,6 +19,7 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
+import { useChartColors } from '@/lib/chart-colors';
 
 
 // ── Tipos ──────────────────────────────────────────────
@@ -75,6 +76,7 @@ const SEASON_BG: Record<Season['seasonType'], string> = {
 
 // ── Gráfico de barras SVG ──────────────────────────────
 function BarChart({ data }: { data: ReturnType<typeof getMonthlyData> }) {
+  const chartColors = useChartColors();
   const maxVal = Math.max(...data.flatMap(d => [d.traditional, d.hybrid]));
   const barW = 14;
   const gap = 4;
@@ -100,7 +102,7 @@ function BarChart({ data }: { data: ReturnType<typeof getMonthlyData> }) {
               width={barW}
               height={hTrad}
               rx={3}
-              fill={isCurrent ? '#94a3b8' : '#cbd5e1'}
+              fill={isCurrent ? chartColors.projected : chartColors.neutral}
             />
             {/* Barra híbrida */}
             <rect
@@ -109,7 +111,7 @@ function BarChart({ data }: { data: ReturnType<typeof getMonthlyData> }) {
               width={barW}
               height={hHybrid}
               rx={3}
-              fill={isCurrent ? '#0369A1' : '#7DD3FC'}
+              fill={isCurrent ? chartColors.income : chartColors.incomeSoft}
             />
             {/* Label mes */}
             <text
@@ -117,7 +119,7 @@ function BarChart({ data }: { data: ReturnType<typeof getMonthlyData> }) {
               y={chartH + paddingB - 4}
               textAnchor="middle"
               fontSize="8"
-              fill="#94a3b8"
+              fill={chartColors.axis}
               fontFamily="sans-serif"
             >
               {d.month}
@@ -435,7 +437,11 @@ export function HybridRentalsView({ properties, contracts, userId }: HybridRenta
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-slate-300 inline-block" /> Tradicional</span>
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-300 inline-block" /> Híbrido</span>
             </div>
-            <div className="h-36">
+            <div
+              className="h-36"
+              role="img"
+              aria-label={`Comparación de ingresos mensuales: alquiler tradicional vs. modelo híbrido. ${monthlyData.map(d => `${d.month}: tradicional $${Math.round(d.traditional).toLocaleString('es-AR')}, híbrido $${Math.round(d.hybrid).toLocaleString('es-AR')}`).join('. ')}.`}
+            >
               <BarChart data={monthlyData} />
             </div>
           </div>

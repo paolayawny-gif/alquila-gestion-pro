@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { requireFirebaseAuth, isSuperAdmin } from '@/lib/auth';
 import { getAdminAuth } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireFirebaseAuth(req);
   if (auth instanceof NextResponse) return auth;
 
-  if (!isSuperAdminUid(auth.userId)) {
+  if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

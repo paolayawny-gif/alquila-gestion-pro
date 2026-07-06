@@ -62,6 +62,8 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 interface ApplicationsViewProps {
   applications: RentalApplication[];
@@ -75,6 +77,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
   
   const [selectedApp, setSelectedApp] = useState<RentalApplication | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -127,6 +130,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
   };
 
   const handleAnalyzeWithAI = async (app: RentalApplication) => {
+    if (!aiApiKey) return;
     setIsAnalyzing(true);
     try {
       // Derive rent: use the linked property's advertised rent from admin notes/references
@@ -141,7 +145,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
           app.references,
           app.guarantorName ? `Garante: ${app.guarantorName} (${app.guarantorType ?? 'Sin especificar'})` : '',
         ].filter(Boolean).join(' | '),
-      });
+      }, { apiKey: aiApiKey, provider: aiProvider });
 
       if (userId && db) {
         const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
@@ -163,7 +167,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
 
   const handleBatchAnalyze = async () => {
     const unscored = applications.filter(a => !a.aiAnalysis);
-    if (!unscored.length || !userId || !db) return;
+    if (!unscored.length || !userId || !db || !aiApiKey) return;
     setBatchAnalyzing(true);
     setBatchProgress(0);
     for (let i = 0; i < unscored.length; i++) {
@@ -178,7 +182,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
             app.references,
             app.guarantorName ? `Garante: ${app.guarantorName} (${app.guarantorType ?? ''})` : '',
           ].filter(Boolean).join(' | '),
-        });
+        }, { apiKey: aiApiKey, provider: aiProvider });
         const docRef = doc(db, 'artifacts', APP_ID, 'users', userId, 'solicitudes', app.id);
         setDocumentNonBlocking(docRef, { status: 'En análisis', aiAnalysis: result }, { merge: true });
       } catch { /* continue */ }
@@ -524,7 +528,11 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
             const medals   = ['🥇', '🥈', '🥉'];
             return (
               <>
-                {unscored.length > 0 && (
+                {unscored.length > 0 && !aiConfigLoading && !aiApiKey && (
+                  <AIKeyRequiredNotice feature="el análisis masivo de solicitudes con IA" />
+                )}
+
+                {unscored.length > 0 && (aiConfigLoading || aiApiKey) && (
                   <div className="flex items-center gap-3 p-4 rounded-2xl bg-primary/5 border border-primary/20">
                     <Sparkles className="h-5 w-5 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -545,7 +553,7 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                     <Button
                       size="sm"
                       className="gap-1.5 font-bold shrink-0"
-                      disabled={batchAnalyzing}
+                      disabled={batchAnalyzing || !aiApiKey}
                       onClick={handleBatchAnalyze}
                     >
                       {batchAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -658,7 +666,9 @@ export function ApplicationsView({ applications, userId, properties }: Applicati
                         )}
                       </div>
                       
-                      {!selectedApp.aiAnalysis && !isAnalyzing ? (
+                      {!selectedApp.aiAnalysis && !aiConfigLoading && !aiApiKey ? (
+                        <AIKeyRequiredNotice feature="la evaluación de solicitudes con IA" />
+                      ) : !selectedApp.aiAnalysis && !isAnalyzing ? (
                         <div className="text-center py-6 space-y-4">
                           <p className="text-xs text-muted-foreground italic">Analiza la viabilidad financiera del candidato.</p>
                           <Button className="w-full bg-primary text-white font-bold h-12 gap-2 shadow-sm" onClick={() => handleAnalyzeWithAI(selectedApp)}>

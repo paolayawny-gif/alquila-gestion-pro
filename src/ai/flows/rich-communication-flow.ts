@@ -11,7 +11,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 import { fetchIndexResult } from '@/services/index-service';
 import type { IndexType } from '@/services/index-service';
 
@@ -341,7 +341,8 @@ function applyChannelFormatting(message: string, channel: string): string {
 // ── Export principal ──────────────────────────────────────────────────────────
 
 export async function richCommunication(
-  input: RichCommunicationInput
+  input: RichCommunicationInput,
+  aiOptions?: AIOptions,
 ): Promise<RichCommunicationOutput> {
   try {
     // 1. Resolver secuencia de mora si aplica
@@ -413,7 +414,8 @@ export async function richCommunication(
 
     // 4. Llamar al LLM
     const result = await generateJSON<{ subjectLine?: string; draftedMessage?: string; toneNote?: string }>(
-      buildPrompt(ctx)
+      buildPrompt(ctx),
+      aiOptions,
     );
 
     const drafted = result.draftedMessage ?? '';
@@ -481,7 +483,8 @@ export async function fetchIndexTicker(): Promise<IndexTicker> {
 // ── Utilidad: generar toda la secuencia de mora ───────────────────────────────
 
 export async function generateMoraSequence(
-  baseInput: Omit<RichCommunicationInput, 'moraSequenceStep' | 'communicationType'>
+  baseInput: Omit<RichCommunicationInput, 'moraSequenceStep' | 'communicationType'>,
+  aiOptions?: AIOptions,
 ): Promise<{ step: number; label: string; result: RichCommunicationOutput }[]> {
   const steps = [1, 5, 15, 30] as const;
   const results = await Promise.allSettled(
@@ -491,7 +494,7 @@ export async function generateMoraSequence(
         communicationType: step <= 5 ? 'rentOverdue' : step === 15 ? 'intimacionPago' : 'cartaDocumentoDesalojo',
         moraSequenceStep: step,
         channel: step <= 5 ? (baseInput.channel ?? 'whatsapp') : step === 15 ? 'email' : 'carta_documento',
-      } as RichCommunicationInput)
+      } as RichCommunicationInput, aiOptions)
     )
   );
 

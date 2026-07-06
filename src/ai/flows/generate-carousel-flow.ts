@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 const InputSchema = z.object({
   topic: z.string().describe('Tema o idea del carrusel.'),
@@ -58,7 +58,8 @@ Devolvé un JSON con exactamente esta estructura:
 }
 
 export async function generateCarousel(
-  input: GenerateCarouselInput
+  input: GenerateCarouselInput,
+  aiOptions?: AIOptions,
 ): Promise<GenerateCarouselOutput> {
-  return generateJSON<GenerateCarouselOutput>(buildPrompt(input));
+  return generateJSON<GenerateCarouselOutput>(buildPrompt(input), aiOptions);
 }

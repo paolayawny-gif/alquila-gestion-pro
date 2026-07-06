@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
-
-const APP_ID = 'alquilagestion-pro';
-const SUPER_ADMIN_EMAIL = 'paolayawny@gmail.com';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { requireFirebaseAuth, isSuperAdmin } from '@/lib/auth';
+import { APP_ID } from '@/lib/constants';
 
 async function requireSuperAdmin(req: NextRequest): Promise<string | null> {
-  const header = req.headers.get('authorization') ?? '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!token) return null;
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(token);
-    return decoded.email === SUPER_ADMIN_EMAIL ? decoded.uid : null;
-  } catch {
-    return null;
-  }
+  const auth = await requireFirebaseAuth(req);
+  if (auth instanceof NextResponse) return null;
+  return isSuperAdmin(auth) ? auth.userId : null;
 }
 
 export interface PortalListing {

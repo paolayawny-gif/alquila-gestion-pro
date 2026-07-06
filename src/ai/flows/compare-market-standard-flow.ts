@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER, AJUSTE } from '@/lib/argentine-law';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,10 +138,11 @@ ${input.contractText}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function compareMarketStandard(
-  input: CompareMarketStandardInput
+  input: CompareMarketStandardInput,
+  aiOptions?: AIOptions,
 ): Promise<CompareMarketStandardResult> {
   try {
-    const data = await generateJSON<CompareMarketStandardOutput>(buildPrompt(input));
+    const data = await generateJSON<CompareMarketStandardOutput>(buildPrompt(input), aiOptions);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

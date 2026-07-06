@@ -104,7 +104,8 @@ export function CommandPalette({ open, onOpenChange, items }: CommandPaletteProp
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Buscar propiedades, inquilinos, contratos..."
-            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+            aria-label="Búsqueda global"
+            className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:rounded-sm"
           />
           <kbd className="hidden sm:flex h-5 items-center gap-1 rounded border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
             Esc

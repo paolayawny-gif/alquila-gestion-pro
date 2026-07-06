@@ -279,9 +279,9 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Provincia</Label>
+                <Label className="text-xs" id="captacion-search-provincia-label">Provincia</Label>
                 <Select value={provincia} onValueChange={v => { setProvincia(v); setCiudad(''); }}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná..." /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs" aria-labelledby="captacion-search-provincia-label"><SelectValue placeholder="Seleccioná..." /></SelectTrigger>
                   <SelectContent>
                     {ARGENTINA_PROVINCES.map(p => (
                       <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
@@ -290,9 +290,9 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Ciudad</Label>
+                <Label className="text-xs" id="captacion-search-ciudad-label">Ciudad</Label>
                 <Select value={ciudad} onValueChange={setCiudad} disabled={!provincia}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná..." /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs" aria-labelledby="captacion-search-ciudad-label"><SelectValue placeholder="Seleccioná..." /></SelectTrigger>
                   <SelectContent>
                     {cities.map(c => (
                       <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
@@ -334,6 +334,13 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
             {isDemo && (
               <p className="text-[10px] text-muted-foreground italic">
                 Modo demo activo. Configurá SERPER_API_KEY en Vercel para búsquedas reales.
+              </p>
+            )}
+
+            {/* Sin resultados */}
+            {!isSearching && searchResults.length === 0 && !searchError && !setupHint && ciudad && (
+              <p className="text-xs text-muted-foreground text-center py-3 italic">
+                Sin resultados para "{ciudad}". El motor de búsqueda puede estar configurado para buscar solo en sitios específicos — verificá la configuración en programmablesearchengine.google.com.
               </p>
             )}
 
@@ -529,33 +536,33 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <div className="space-y-1">
-              <Label className="text-xs">Agencia / Nombre *</Label>
-              <Input placeholder="Ej: Inmobiliaria Pérez" value={manualForm.agencia ?? ''} onChange={e => setManualForm(f => ({ ...f, agencia: e.target.value }))} />
+              <Label className="text-xs" htmlFor="captacion-manual-agencia">Agencia / Nombre *</Label>
+              <Input id="captacion-manual-agencia" placeholder="Ej: Inmobiliaria Pérez" value={manualForm.agencia ?? ''} onChange={e => setManualForm(f => ({ ...f, agencia: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Email</Label>
-                <Input type="email" placeholder="contacto@..." value={manualForm.email ?? ''} onChange={e => setManualForm(f => ({ ...f, email: e.target.value }))} />
+                <Label className="text-xs" htmlFor="captacion-manual-email">Email</Label>
+                <Input id="captacion-manual-email" type="email" placeholder="contacto@..." value={manualForm.email ?? ''} onChange={e => setManualForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Teléfono</Label>
-                <Input placeholder="11 1234-5678" value={manualForm.phone ?? ''} onChange={e => setManualForm(f => ({ ...f, phone: e.target.value }))} />
+                <Label className="text-xs" htmlFor="captacion-manual-phone">Teléfono</Label>
+                <Input id="captacion-manual-phone" placeholder="11 1234-5678" value={manualForm.phone ?? ''} onChange={e => setManualForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Provincia</Label>
+                <Label className="text-xs" id="captacion-manual-provincia-label">Provincia</Label>
                 <Select value={manualForm.provincia ?? ''} onValueChange={v => setManualForm(f => ({ ...f, provincia: v, ciudad: '' }))}>
-                  <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Provincia..." /></SelectTrigger>
+                  <SelectTrigger className="text-xs h-8" aria-labelledby="captacion-manual-provincia-label"><SelectValue placeholder="Provincia..." /></SelectTrigger>
                   <SelectContent>
                     {ARGENTINA_PROVINCES.map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Ciudad</Label>
+                <Label className="text-xs" id="captacion-manual-ciudad-label">Ciudad</Label>
                 <Select value={manualForm.ciudad ?? ''} onValueChange={v => setManualForm(f => ({ ...f, ciudad: v }))} disabled={!manualForm.provincia}>
-                  <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Ciudad..." /></SelectTrigger>
+                  <SelectTrigger className="text-xs h-8" aria-labelledby="captacion-manual-ciudad-label"><SelectValue placeholder="Ciudad..." /></SelectTrigger>
                   <SelectContent>
                     {(manualForm.provincia ? ARGENTINA_CITIES[manualForm.provincia] ?? [] : []).map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
                   </SelectContent>
@@ -563,12 +570,12 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Sitio web</Label>
-              <Input placeholder="https://..." value={manualForm.website ?? ''} onChange={e => setManualForm(f => ({ ...f, website: e.target.value }))} />
+              <Label className="text-xs" htmlFor="captacion-manual-website">Sitio web</Label>
+              <Input id="captacion-manual-website" placeholder="https://..." value={manualForm.website ?? ''} onChange={e => setManualForm(f => ({ ...f, website: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Notas</Label>
-              <Textarea rows={2} placeholder="Contexto, referido por..." value={manualForm.notes ?? ''} onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))} />
+              <Label className="text-xs" htmlFor="captacion-manual-notes">Notas</Label>
+              <Textarea id="captacion-manual-notes" rows={2} placeholder="Contexto, referido por..." value={manualForm.notes ?? ''} onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
@@ -586,9 +593,9 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <div className="space-y-1">
-              <Label className="text-xs">Estado</Label>
+              <Label className="text-xs" id="captacion-edit-estado-label">Estado</Label>
               <Select value={editForm.status ?? 'Nuevo'} onValueChange={v => setEditForm(f => ({ ...f, status: v as LeadStatus }))}>
-                <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="text-xs" aria-labelledby="captacion-edit-estado-label"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {LEAD_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
                 </SelectContent>
@@ -596,17 +603,17 @@ export function CaptacionView({ userId }: CaptacionViewProps) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Email</Label>
-                <Input type="email" value={editForm.email ?? ''} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+                <Label className="text-xs" htmlFor="captacion-edit-email">Email</Label>
+                <Input id="captacion-edit-email" type="email" value={editForm.email ?? ''} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Teléfono</Label>
-                <Input value={editForm.phone ?? ''} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+                <Label className="text-xs" htmlFor="captacion-edit-phone">Teléfono</Label>
+                <Input id="captacion-edit-phone" value={editForm.phone ?? ''} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Notas internas</Label>
-              <Textarea rows={3} value={editForm.notes ?? ''} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+              <Label className="text-xs" htmlFor="captacion-edit-notes">Notas internas</Label>
+              <Textarea id="captacion-edit-notes" rows={3} value={editForm.notes ?? ''} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>

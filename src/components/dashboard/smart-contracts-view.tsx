@@ -1,6 +1,6 @@
 import { APP_ID } from '@/lib/constants';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,8 @@ import { AdvancePaymentPanel } from '@/components/dashboard/advance-payment-pane
 import { WhatsAppButton } from '@/components/ui/whatsapp-button';
 import { WA_TEMPLATES } from '@/lib/whatsapp';
 import { useAdminWhatsApp } from '@/components/dashboard/admin-settings-view';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 
 interface SmartContractsViewProps {
@@ -116,6 +118,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   const { canWrite } = useOrgPermissions();
 
   const { whatsappNumber } = useAdminWhatsApp(userId);
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
 
   const [selectedContractId, setSelectedContractId] = useState<string>(contracts[0]?.id ?? '');
   const [showNotifDialog, setShowNotifDialog] = useState(false);
@@ -133,6 +136,16 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   // Blockchain notarization
   const [notarizing, setNotarizing]   = useState(false);
   const [notarizedContracts, setNotarizedContracts] = useState<Record<string, string>>({});
+  const [notarizeConfigured, setNotarizeConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    authedFetch('/api/config/integrations-status')
+      .then(res => res.json())
+      .then(data => { if (!cancelled) setNotarizeConfigured(!!data.notarize); })
+      .catch(() => { if (!cancelled) setNotarizeConfigured(null); });
+    return () => { cancelled = true; };
+  }, []);
 
   async function handleNotarize() {
     if (!contract || !userId) return;
@@ -211,6 +224,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
   };
 
   const handleGenerateNotif = async (line: BatchAdjustmentLine) => {
+    if (!aiApiKey) return;
     setNotifLine(line);
     setNotifDraft('');
     setNotifDraftLoading(true);
@@ -226,7 +240,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
         currency: (contract?.currency ?? 'ARS') as 'ARS' | 'USD',
         adjustmentMonths: contract?.adjustmentFrequencyMonths ?? 3,
         autoEnrichIndex: false,
-      });
+      }, { apiKey: aiApiKey, provider: aiProvider });
       if (res.ok) setNotifDraft(res.data.channelFormattedMessage);
     } catch { /* best-effort */ }
     setNotifDraftLoading(false);
@@ -441,14 +455,18 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                   <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-dashed border-primary/40 bg-primary/5">
                     <div>
                       <p className="text-xs font-black text-foreground">Notarizar en Blockchain</p>
-                      <p className="text-[10px] text-muted-foreground">Disponible una vez firmado por propietario e inquilino. Ancla el hash en Polygon como prueba de fecha cierta.</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {notarizeConfigured === false
+                          ? 'Todavía no está activado en la plataforma.'
+                          : 'Disponible una vez firmado por propietario e inquilino. Ancla el hash en Polygon como prueba de fecha cierta.'}
+                      </p>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
                       className="shrink-0 gap-1.5 font-bold text-xs border-primary text-primary hover:bg-primary/10"
                       onClick={handleNotarize}
-                      disabled={notarizing}
+                      disabled={notarizing || notarizeConfigured === false}
                     >
                       {notarizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Anchor className="h-3.5 w-3.5" />}
                       {notarizing ? 'Enviando…' : 'Notarizar'}
@@ -654,6 +672,7 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                     startDate: contract.startDate,
                     endDate: contract.endDate,
                   }}
+                  userId={userId}
                 />
               )}
 
@@ -854,6 +873,8 @@ export function SmartContractsView({ contracts, invoices, people, properties, us
                           size="sm"
                           className="h-7 text-[10px] font-bold gap-1 px-2"
                           onClick={() => handleGenerateNotif(line)}
+                          disabled={!aiConfigLoading && !aiApiKey}
+                          title={!aiConfigLoading && !aiApiKey ? 'Cargá tu API key de Gemini en Configuración para redactar el aviso con IA' : undefined}
                         >
                           <FileText className="h-3 w-3" /> Aviso
                         </Button>

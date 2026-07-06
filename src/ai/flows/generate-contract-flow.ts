@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
 const GenerateContractInputSchema = z.object({
@@ -134,15 +134,16 @@ Devolvé un JSON con exactamente esta estructura:
 }
 
 export async function generateContract(
-  input: GenerateContractInput
+  input: GenerateContractInput,
+  aiOptions?: AIOptions,
 ): Promise<GenerateContractResult> {
   try {
-    const data = await generateJSON<GenerateContractOutput>(buildPrompt(input));
+    const data = await generateJSON<GenerateContractOutput>(buildPrompt(input), aiOptions);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';
-    if (msg.includes('API key') || msg.includes('GEMINI')) {
-      return { ok: false, error: 'La clave API de IA no está configurada (GEMINI_API_KEY).' };
+    if (msg.includes('API key') || msg.includes('GEMINI') || msg.includes('credentials')) {
+      return { ok: false, error: 'La clave API de IA no está configurada. Contactá al administrador.' };
     }
     return { ok: false, error: msg || 'No se pudo generar el contrato.' };
   }

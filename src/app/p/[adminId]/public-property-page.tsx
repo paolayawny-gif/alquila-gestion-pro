@@ -235,6 +235,7 @@ interface InquiryFormState {
   email: string;
   phone: string;
   message: string;
+  consent: boolean;
 }
 
 function InquiryModal({ prop, adminId, orgName, onClose }: {
@@ -243,15 +244,16 @@ function InquiryModal({ prop, adminId, orgName, onClose }: {
   orgName: string;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<InquiryFormState>({ name: '', email: '', phone: '', message: '' });
+  const [form, setForm] = useState<InquiryFormState>({ name: '', email: '', phone: '', message: '', consent: false });
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errors, setErrors] = useState<Partial<InquiryFormState>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof InquiryFormState, string>>>({});
 
   const validate = () => {
-    const e: Partial<InquiryFormState> = {};
+    const e: Partial<Record<keyof InquiryFormState, string>> = {};
     if (!form.name.trim()) e.name = 'Tu nombre es requerido';
     if (!form.email.trim() && !form.phone.trim()) e.email = 'Ingresá tu email o teléfono';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
+    if (!form.consent) e.consent = 'Necesitamos tu autorización para continuar';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -293,11 +295,11 @@ function InquiryModal({ prop, adminId, orgName, onClose }: {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-start justify-between mb-5">
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 className="font-bold text-gray-900 text-lg">Consultar propiedad</h2>
             <p className="text-sm text-gray-400 mt-0.5 line-clamp-1">{prop.name} — {prop.address}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 transition-colors">
+          <button onClick={onClose} className="w-11 h-11 -m-1 shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors" aria-label="Cerrar">
             <X size={20} />
           </button>
         </div>
@@ -359,6 +361,24 @@ function InquiryModal({ prop, adminId, orgName, onClose }: {
                 rows={3}
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#7DD3FC]"
               />
+            </div>
+
+            <div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.consent}
+                  onChange={e => setForm(f => ({ ...f, consent: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-[#7DD3FC] focus:ring-[#7DD3FC]"
+                />
+                <span className="text-xs text-gray-500 leading-snug">
+                  Autorizo el tratamiento de mis datos para que {orgName} me contacte, conforme a la{' '}
+                  <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700">
+                    Política de Privacidad
+                  </a>.
+                </span>
+              </label>
+              {errors.consent && <p className="text-xs text-red-500 mt-1">{errors.consent}</p>}
             </div>
 
             {status === 'error' && (
@@ -444,7 +464,7 @@ function ComparisonPanel({ properties, onClose }: {
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-900">Comparar propiedades</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="w-11 h-11 -m-1 shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors" aria-label="Cerrar">
             <X size={20} />
           </button>
         </div>
@@ -529,17 +549,17 @@ function PropertyCard({
               <>
                 <button
                   onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i - 1 + photos.length) % photos.length); }}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1 transition-colors z-10"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors z-10"
                   aria-label="Foto anterior"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={18} />
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i + 1) % photos.length); }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1 transition-colors z-10"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors z-10"
                   aria-label="Foto siguiente"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={18} />
                 </button>
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
                   {photos.map((_, i) => (
@@ -564,19 +584,19 @@ function PropertyCard({
         <div className="absolute top-3 right-3 flex gap-1.5 z-10">
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
-            className={`p-1.5 rounded-full backdrop-blur-sm transition-all ${
+            className={`w-11 h-11 flex items-center justify-center rounded-full backdrop-blur-sm transition-all ${
               isFavorite ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-500 hover:text-red-500'
             }`}
             aria-label={isFavorite ? 'Quitar de favoritos' : 'Guardar en favoritos'}
           >
-            <Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+            <Heart size={16} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
           <button
             onClick={e => {
               e.stopPropagation();
               if (!compareDisabled || isComparing) onToggleCompare();
             }}
-            className={`p-1.5 rounded-full backdrop-blur-sm transition-all ${
+            className={`w-11 h-11 flex items-center justify-center rounded-full backdrop-blur-sm transition-all ${
               isComparing
                 ? 'bg-[#0369A1] text-white'
                 : compareDisabled
@@ -586,7 +606,7 @@ function PropertyCard({
             aria-label={isComparing ? 'Quitar de comparación' : 'Agregar a comparación'}
             title={compareDisabled && !isComparing ? 'Máximo 3 propiedades' : 'Comparar'}
           >
-            <ArrowLeftRight size={14} />
+            <ArrowLeftRight size={16} />
           </button>
         </div>
       </div>
@@ -916,7 +936,7 @@ export function PublicPropertyPage({ adminId, profile, properties }: Props) {
           </button>
           <button
             onClick={() => setCompareIds([])}
-            className="text-gray-400 hover:text-white transition-colors ml-1"
+            className="w-11 h-11 -my-2 -mr-2 ml-1 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
             aria-label="Cancelar comparación"
           >
             <X size={16} />

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { requireFirebaseAuth, isSuperAdmin } from '@/lib/auth';
 import { getAdminAuth } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
@@ -7,11 +7,9 @@ export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/superadmin/set-custom-claims
- * Sets { superAdmin: true } as a custom claim on the caller's own account.
- * Only callable by the current SUPERADMIN_UID (UID-based check, pre-claims migration).
- *
- * After calling this endpoint once, the Firestore rule can drop the UID fallback
- * and rely solely on request.auth.token.superAdmin == true.
+ * (Re)sets { superAdmin: true } as a custom claim on the caller's own account.
+ * Only callable by an account that already holds the `superAdmin` claim — useful
+ * for re-issuing the claim after a Firebase Auth export/import or account migration.
  *
  * The caller must force-refresh their ID token to pick up the new claim:
  *   await auth.currentUser.getIdToken(true)
@@ -20,7 +18,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireFirebaseAuth(req);
   if (auth instanceof NextResponse) return auth;
 
-  if (!isSuperAdminUid(auth.userId)) {
+  if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

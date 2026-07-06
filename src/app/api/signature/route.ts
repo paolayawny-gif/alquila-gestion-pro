@@ -2,7 +2,7 @@ import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { ContractSignature, SignerRole } from '@/lib/types';
-import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { requireFirebaseAuth, isSuperAdmin } from '@/lib/auth';
 import { apiError } from '@/lib/api-error';
 
 export const runtime = 'nodejs';
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     // El firmante debe ser quien dice ser: el admin del contrato, o un usuario cuyo email
     // (verificado por Firebase) matchee con signerEmail. Bloquea forjar firmas ajenas.
     const isAdminOfContract = auth.userId === adminId;
-    const isSuper = isSuperAdminUid(auth.userId);
+    const isSuper = isSuperAdmin(auth);
     const isOwnSignature =
       !!auth.email && auth.email.toLowerCase() === signerEmail.toLowerCase();
     if (!isAdminOfContract && !isOwnSignature && !isSuper) {

@@ -13,7 +13,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -135,10 +135,11 @@ ${input.contractText}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function analyzeContractRisks(
-  input: AnalyzeContractRisksInput
+  input: AnalyzeContractRisksInput,
+  aiOptions?: AIOptions,
 ): Promise<AnalyzeContractRisksResult> {
   try {
-    const data = await generateJSON<AnalyzeContractRisksOutput>(buildPrompt(input));
+    const data = await generateJSON<AnalyzeContractRisksOutput>(buildPrompt(input), aiOptions);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

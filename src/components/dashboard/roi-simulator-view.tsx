@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useChartColors } from '@/lib/chart-colors';
 
 
 const SCENARIOS = [
@@ -30,14 +31,13 @@ const SCENARIOS = [
   { id: 'flipping', label: 'Flipping (Venta)', icon: Repeat },
 ];
 
-const PIE_COLORS = ['#16a34a', '#f97316', '#94a3b8'];
-
 interface ROISimulatorViewProps {
   userId?: string;
 }
 
 export function ROISimulatorView({ userId }: ROISimulatorViewProps) {
   const { toast } = useToast();
+  const chartColors = useChartColors();
   const db = useFirestore();
   const [isSaving, setIsSaving] = useState(false);
   const [purchasePrice, setPurchasePrice] = useState(150000);
@@ -247,23 +247,27 @@ export function ROISimulatorView({ userId }: ROISimulatorViewProps) {
                 <p className="text-xs text-muted-foreground">Recuperación de la inversión inicial</p>
               </CardHeader>
               <CardContent>
-                <div className="h-[200px]">
+                <div
+                  className="h-[200px]"
+                  role="img"
+                  aria-label={`Punto de equilibrio: recuperación de la inversión en el año ${Math.ceil(metrics.breakevenYear)}. Flujo acumulado por año: ${breakevenData.map(d => `año ${d.year}: $${Math.round(d.acumulado).toLocaleString('es-AR')}`).join(', ')}.`}
+                >
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={breakevenData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
                       <XAxis dataKey="year" axisLine={false} tickLine={false} fontSize={10}
-                        tick={{ fill: '#94a3b8' }} label={{ value: 'Año', position: 'insideBottomRight', fontSize: 10, fill: '#94a3b8', offset: -5 }} />
-                      <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#94a3b8' }}
+                        tick={{ fill: chartColors.axis }} label={{ value: 'Año', position: 'insideBottomRight', fontSize: 10, fill: chartColors.axis, offset: -5 }} />
+                      <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: chartColors.axis }}
                         tickFormatter={v => `$${Math.round(v / 1000)}k`} />
                       <Tooltip
-                        contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '11px' }}
+                        contentStyle={{ borderRadius: '10px', border: `1px solid ${chartColors.tooltipBorder}`, background: chartColors.tooltipBg, boxShadow: `0 8px 24px ${chartColors.tooltipShadow}`, fontSize: '11px' }}
                         formatter={(v: any) => [`$${Number(v).toLocaleString('es-AR')}`, 'Acumulado']}
                         labelFormatter={l => `Año ${l}`}
                       />
-                      <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2"
-                        label={{ value: 'Equilibrio', position: 'right', fontSize: 10, fill: '#ef4444' }} />
-                      <Line type="monotone" dataKey="acumulado" stroke="#16a34a" strokeWidth={2.5}
-                        dot={false} activeDot={{ r: 4, fill: '#16a34a' }} />
+                      <ReferenceLine y={0} stroke={chartColors.expense} strokeDasharray="4 2"
+                        label={{ value: 'Equilibrio', position: 'right', fontSize: 10, fill: chartColors.expense }} />
+                      <Line type="monotone" dataKey="acumulado" stroke={chartColors.positive} strokeWidth={2.5}
+                        dot={false} activeDot={{ r: 4, fill: chartColors.positive }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -280,12 +284,16 @@ export function ROISimulatorView({ userId }: ROISimulatorViewProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[160px]">
+                <div
+                  className="h-[160px]"
+                  role="img"
+                  aria-label={`Composición del gasto de la inversión. ${pieData.map(d => `${d.name}: $${d.value.toLocaleString('es-AR')}`).join(', ')}. Total: $${Math.round(metrics.totalInvestment).toLocaleString('es-AR')}.`}
+                >
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={68}
                         paddingAngle={3} dataKey="value" startAngle={90} endAngle={-270}>
-                        {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                        {pieData.map((_, i) => <Cell key={i} fill={chartColors.categorical[i]} />)}
                       </Pie>
                       <Tooltip formatter={(v: any) => [`$${Number(v).toLocaleString('es-AR')}`, '']} />
                     </PieChart>
@@ -298,7 +306,7 @@ export function ROISimulatorView({ userId }: ROISimulatorViewProps) {
                 <div className="flex justify-center gap-4">
                   {pieData.map((d, i) => (
                     <div key={i} className="flex items-center gap-1.5 text-xs">
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[i] }} />
+                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: chartColors.categorical[i] }} />
                       <span className="text-muted-foreground">{d.name}</span>
                     </div>
                   ))}

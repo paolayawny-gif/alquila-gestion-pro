@@ -1,4 +1,4 @@
-import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -268,7 +268,7 @@ function PortalModerationCard() {
 export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   const { toast } = useToast();
   const db = useFirestore();
-  const { user } = useUser();
+  const { user, isSuperAdmin } = useUser();
 
   // — Vista principal —
   const [mainView, setMainView] = useState<'orgs' | 'captacion' | 'config' | 'novedades'>('orgs');
@@ -459,7 +459,7 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
   }, [organizations, allStats, cancelRequests]);
 
   // Access guard
-  if (userEmail !== SUPER_ADMIN_EMAIL) {
+  if (!isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <div className="p-4 bg-red-50 rounded-full"><XCircle className="h-12 w-12 text-red-500" /></div>
@@ -792,9 +792,10 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
           </CardHeader>
           <CardContent className="space-y-5 max-w-lg">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase">Access Token</Label>
+              <Label htmlFor="mp-access-token" className="text-xs font-bold uppercase">Access Token</Label>
               <div className="relative">
                 <input
+                  id="mp-access-token"
                   type={showMpToken ? 'text' : 'password'}
                   placeholder="APP_USR-... o TEST-..."
                   value={mpConfigForm.mpAccessToken}
@@ -805,8 +806,9 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
                   type="button"
                   onClick={() => setShowMpToken(v => !v)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showMpToken ? 'Ocultar Access Token' : 'Mostrar Access Token'}
                 >
-                  {showMpToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showMpToken ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
                 </button>
               </div>
               <p className="text-[11px] text-muted-foreground">
@@ -815,9 +817,10 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase">Webhook Secret <span className="font-normal normal-case text-muted-foreground">(opcional)</span></Label>
+              <Label htmlFor="mp-webhook-secret" className="text-xs font-bold uppercase">Webhook Secret <span className="font-normal normal-case text-muted-foreground">(opcional)</span></Label>
               <div className="relative">
                 <input
+                  id="mp-webhook-secret"
                   type={showMpSecret ? 'text' : 'password'}
                   placeholder="Clave secreta para validar firma de webhooks"
                   value={mpConfigForm.mpWebhookSecret}
@@ -828,8 +831,9 @@ export function SuperAdminView({ userId, userEmail }: SuperAdminViewProps) {
                   type="button"
                   onClick={() => setShowMpSecret(v => !v)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showMpSecret ? 'Ocultar Webhook Secret' : 'Mostrar Webhook Secret'}
                 >
-                  {showMpSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showMpSecret ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
                 </button>
               </div>
               <p className="text-[11px] text-muted-foreground">

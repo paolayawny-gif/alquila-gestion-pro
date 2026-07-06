@@ -60,6 +60,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { aiCommunicationAssistant } from '@/ai/flows/ai-communication-assistant-flow';
 import { useOrgPermissions } from '@/contexts/org-permissions-context';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 import { sendEmail } from '@/services/email-service';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useStorage } from '@/firebase';
 import { doc, query, collection } from 'firebase/firestore';
@@ -147,6 +149,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
   const db = useFirestore();
   const storage = useStorage();
   const { canWrite, canDelete } = useOrgPermissions();
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
   const arcaInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   
@@ -178,8 +181,11 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
     });
   }, []);
 
+  const [confirmBulkPaid, setConfirmBulkPaid] = useState(false);
+
   const handleBulkMarkPaid = async () => {
     if (!userId || !db || selectedIds.size === 0) return;
+    setConfirmBulkPaid(false);
     setBulkProcessing(true);
     const now = new Date().toLocaleDateString('es-AR');
     for (const id of selectedIds) {
@@ -719,13 +725,17 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
 
   const handleSendFormalInvoice = async (inv: Invoice) => {
     if (!userId || !db) return;
+    if (!aiApiKey) {
+      toast({ title: "Falta tu API key de Gemini", description: "Cargá tu propia key en Configuración para usar el asistente de IA.", variant: "destructive" });
+      return;
+    }
     try {
       const draft = await aiCommunicationAssistant({
         communicationType: 'generalMessage',
         tenantName: inv.tenantName,
         propertyName: inv.propertyName,
         additionalContext: `Se remite el comprobante fiscal formal por ${inv.period} (${formatCurrency(inv.totalAmount, { currency: inv.currency ?? 'ARS' })}). El mismo ya se encuentra disponible en su portal.`
-      });
+      }, { apiKey: aiApiKey, provider: aiProvider });
 
       const tenant = people?.find(p => p.fullName === inv.tenantName);
       if (tenant?.email) {
@@ -798,7 +808,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
     toast({ title: "Cargo Generado", description: "El concepto ha sido registrado." });
 
     // Notify tenant by email if the charge is for them and we have their email
-    if (manualCharge.imputedTo === 'Inquilino' && contract.tenantEmail) {
+    if (manualCharge.imputedTo === 'Inquilino' && contract.tenantEmail && aiApiKey) {
       aiCommunicationAssistant({
         communicationType: 'generalMessage',
         tenantName: contract.tenantName ?? 'Inquilino',
@@ -806,7 +816,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
         amountDue: `${contract.currency} ${manualCharge.amount.toLocaleString('es-AR')}`,
         dueDate: manualCharge.dueDate,
         additionalContext: `Se ha registrado un nuevo cargo en tu cuenta: ${manualCharge.type}${manualCharge.description ? ` — ${manualCharge.description}` : ''} por ${contract.currency} ${manualCharge.amount.toLocaleString('es-AR')}. Vencimiento: ${manualCharge.dueDate}. El detalle ya está disponible en tu portal.`,
-      }).then(draft =>
+      }, { apiKey: aiApiKey, provider: aiProvider }).then(draft =>
         sendEmail({
           to: contract.tenantEmail!,
           subject: draft.subjectLine,
@@ -847,6 +857,10 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
     <div className="space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={arcaInputRef} className="hidden" accept=".pdf,image/*" onChange={handleArcaFileChange} />
       <input type="file" ref={receiptInputRef} className="hidden" accept=".pdf,image/*" onChange={handleReceiptFileChange} />
+
+      {!aiConfigLoading && !aiApiKey && (
+        <AIKeyRequiredNotice feature="la notificación formal de facturas por IA" />
+      )}
 
       {/* Pending cron approval banner */}
       {pendingApprovalInvoices.length > 0 && canWrite && (
@@ -922,7 +936,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
                   </div>
                   <div className="flex gap-1">
                     {p.arcaInvoiceUrl && <Button size="icon" variant="ghost" className="h-7 w-7 text-purple-600" onClick={() => window.open(p.arcaInvoiceUrl)} title="Ver Documento"><Eye className="h-4 w-4" /></Button>}
-                    <Button size="sm" variant="outline" className="h-7 border-purple-600 text-purple-600 text-[10px] gap-1 font-bold" onClick={() => handleSendFormalInvoice(p)}>Notificar</Button>
+                    <Button size="sm" variant="outline" className="h-7 border-purple-600 text-purple-600 text-[10px] gap-1 font-bold" disabled={!aiApiKey} title={!aiApiKey ? 'Cargá tu API key de Gemini en Configuración' : undefined} onClick={() => handleSendFormalInvoice(p)}>Notificar</Button>
                   </div>
                 </div>
               ))}
@@ -1059,6 +1073,24 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
       </div>
       </div>
 
+      <Dialog open={confirmBulkPaid} onOpenChange={setConfirmBulkPaid}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Marcar como pagadas?</DialogTitle>
+            <DialogDescription>
+              Vas a marcar {selectedIds.size} factura{selectedIds.size !== 1 ? 's' : ''} como pagada{selectedIds.size !== 1 ? 's' : ''}. Esta acción no se puede deshacer en lote.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmBulkPaid(false)}>Cancelar</Button>
+            <Button className="bg-primary font-bold" onClick={handleBulkMarkPaid} disabled={bulkProcessing}>
+              {bulkProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Floating bulk-action bar ─────────────────────────────────────────── */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-2xl shadow-xl border border-border/10">
@@ -1068,7 +1100,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
             size="sm"
             variant="ghost"
             className="text-background hover:bg-background/20 gap-1.5 text-xs font-bold h-7"
-            onClick={handleBulkMarkPaid}
+            onClick={() => setConfirmBulkPaid(true)}
             disabled={bulkProcessing}
           >
             {bulkProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
@@ -1227,7 +1259,7 @@ export function InvoicesView({ invoices, userId, contracts, properties = [], peo
                       )}
 
                       {i.arcaInvoiceUrl && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="Enviar Notificación" onClick={() => handleSendFormalInvoice(i)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" disabled={!aiApiKey} title={!aiApiKey ? 'Cargá tu API key de Gemini en Configuración' : 'Enviar Notificación'} onClick={() => handleSendFormalInvoice(i)}>
                           <Send className="h-4 w-4" />
                         </Button>
                       )}

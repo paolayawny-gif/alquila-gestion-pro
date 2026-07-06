@@ -11,16 +11,20 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
   Sparkles, Download, Loader2, Image as ImageIcon,
-  LayoutTemplate, Palette,
+  LayoutTemplate, Palette, ImagePlus,
 } from 'lucide-react';
 import { generateSocialContent } from '@/ai/flows/generate-social-content-flow';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 // ── Types & constants ─────────────────────────────────────────────────────────
 
 export type CardStyle = 'gradient' | 'solid' | 'dark' | 'minimal';
 export type CardFormat = 'Cuadrado' | 'Historia' | 'Paisaje';
+export type CardLayout = 'inferior' | 'centrado' | 'superior';
 
 export const ACCENT_COLORS = [
+  { label: 'Ocean Blue (marca)', value: '#0369A1' },
   { label: 'Violeta', value: '#7c3aed' },
   { label: 'Rosa', value: '#db2777' },
   { label: 'Naranja', value: '#ea580c' },
@@ -69,9 +73,11 @@ export function getCardBackground(style: CardStyle, accent: string, darkBg: stri
 export interface CardPreviewProps {
   format: CardFormat;
   style: CardStyle;
+  layout?: CardLayout;
   accent: string;
   darkBg: string;
   textColor: string;
+  eyebrow?: string;
   headline: string;
   subtext: string;
   brandTag: string;
@@ -80,16 +86,20 @@ export interface CardPreviewProps {
 }
 
 export function CardPreview({
-  format, style, accent, darkBg, textColor,
-  headline, subtext, brandTag, bgImage, previewRef,
+  format, style, layout = 'inferior', accent, darkBg, textColor,
+  eyebrow, headline, subtext, brandTag, bgImage, previewRef,
 }: CardPreviewProps) {
   const { w, h } = PREVIEW_DIMS[format];
   const bg = bgImage ? `url(${bgImage}) center/cover no-repeat` : getCardBackground(style, accent, darkBg);
   const isMinimal = !bgImage && style === 'minimal';
   const effectiveTextColor = bgImage ? '#ffffff' : (isMinimal ? undefined : textColor);
+  const bodyColor = isMinimal ? '#0f172a' : (effectiveTextColor ?? textColor);
   const headlineSize = format === 'Historia'
     ? (headline.length > 40 ? '1.05rem' : '1.3rem')
     : (headline.length > 40 ? '1rem' : '1.2rem');
+
+  const justify = layout === 'centrado' ? 'center' : layout === 'superior' ? 'flex-start' : 'flex-end';
+  const textAlign = layout === 'centrado' ? 'center' : 'left';
 
   return (
     <div
@@ -103,55 +113,96 @@ export function CardPreview({
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-end',
-        padding: 24,
+        justifyContent: justify,
+        alignItems: layout === 'centrado' ? 'center' : 'stretch',
+        padding: 26,
         boxSizing: 'border-box',
         border: isMinimal ? '1.5px solid #e5e7eb' : 'none',
         flexShrink: 0,
+        fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
       }}
     >
       {/* Dark gradient overlay when using a background image */}
       {bgImage && (
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 100%)',
-        }} />
-      )}
-      {/* Decorative circle for color styles */}
-      {!isMinimal && !bgImage && (
-        <div style={{
-          position: 'absolute', top: -40, right: -40,
-          width: 180, height: 180, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.08)',
-        }} />
-      )}
-      {/* Bottom gradient overlay for minimal */}
-      {isMinimal && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: `linear-gradient(180deg, transparent 40%, ${accent}18 100%)`,
+          background: layout === 'superior'
+            ? 'linear-gradient(0deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.6) 45%)'
+            : 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 100%)',
         }} />
       )}
 
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      {/* Decorative layered shapes for color styles (not minimal, not bg image) */}
+      {!isMinimal && !bgImage && (
+        <>
+          <div style={{
+            position: 'absolute', top: -60, right: -50,
+            width: 220, height: 220, borderRadius: '50%',
+            background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.16), rgba(255,255,255,0.02) 70%)',
+          }} />
+          <div style={{
+            position: 'absolute', bottom: -70, left: -40,
+            width: 160, height: 160, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.10)',
+          }} />
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 14px)',
+          }} />
+        </>
+      )}
+
+      {/* Corner-frame accent for minimal style */}
+      {isMinimal && (
+        <>
+          <div style={{
+            position: 'absolute', top: 0, left: 0,
+            width: 40, height: 4, background: accent, borderRadius: '0 0 4px 0',
+          }} />
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: `linear-gradient(180deg, transparent 40%, ${accent}18 100%)`,
+          }} />
+        </>
+      )}
+
+      <div style={{ position: 'relative', zIndex: 1, textAlign, width: '100%' }}>
+        {eyebrow && (
+          <div style={{
+            display: 'inline-block',
+            fontSize: '0.58rem',
+            fontWeight: 800,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: isMinimal ? accent : bodyColor,
+            opacity: isMinimal ? 1 : 0.85,
+            marginBottom: 6,
+          }}>
+            {eyebrow}
+          </div>
+        )}
         {headline && (
           <div style={{
-            color: isMinimal ? '#0f172a' : (effectiveTextColor ?? textColor),
+            color: bodyColor,
             fontSize: headlineSize,
             fontWeight: 900,
-            lineHeight: 1.2,
+            lineHeight: 1.18,
             marginBottom: subtext ? 8 : 0,
             letterSpacing: '-0.02em',
+            textWrap: 'balance' as any,
           }}>
             {headline}
           </div>
         )}
         {subtext && (
           <div style={{
-            color: isMinimal ? '#475569' : `${effectiveTextColor ?? textColor}cc`,
+            color: isMinimal ? '#475569' : `${bodyColor}cc`,
             fontSize: '0.72rem',
-            lineHeight: 1.4,
+            lineHeight: 1.45,
             marginBottom: brandTag ? 12 : 0,
+            maxWidth: layout === 'centrado' ? '85%' : undefined,
+            marginLeft: layout === 'centrado' ? 'auto' : undefined,
+            marginRight: layout === 'centrado' ? 'auto' : undefined,
           }}>
             {subtext}
           </div>
@@ -160,7 +211,7 @@ export function CardPreview({
           <div style={{
             display: 'inline-block',
             background: isMinimal ? accent : 'rgba(255,255,255,0.18)',
-            color: isMinimal ? '#fff' : (effectiveTextColor ?? textColor),
+            color: isMinimal ? '#fff' : bodyColor,
             fontSize: '0.6rem',
             fontWeight: 700,
             padding: '3px 10px',
@@ -220,22 +271,40 @@ const TONE_OPTIONS = [
 ] as const;
 
 interface SocialCardDesignerProps {
+  userId?: string;
   canWrite?: boolean;
   brandContext?: string;
 }
 
-export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCardDesignerProps) {
+export function SocialCardDesigner({ userId, canWrite = true, brandContext }: SocialCardDesignerProps) {
   const { toast } = useToast();
+  const { apiKey, provider, loading: aiConfigLoading } = useAIConfig(userId);
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [format, setFormat] = useState<CardFormat>('Cuadrado');
   const [style, setStyle] = useState<CardStyle>('gradient');
+  const [layout, setLayout] = useState<CardLayout>('inferior');
   const [accent, setAccent] = useState(ACCENT_COLORS[0].value);
   const [darkBg, setDarkBg] = useState(DARK_BG_COLORS[0].value);
   const [textColor, setTextColor] = useState(CARD_TEXT_COLORS[0].value);
+  const [eyebrow, setEyebrow] = useState('');
   const [headline, setHeadline] = useState('');
   const [subtext, setSubtext] = useState('');
   const [brandTag, setBrandTag] = useState('');
+  const [bgImage, setBgImage] = useState<string | undefined>(undefined);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Solo imágenes', variant: 'destructive' }); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setBgImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const [aiTopic, setAiTopic] = useState('');
   const [aiTone, setAiTone] = useState<'profesional' | 'cercano' | 'urgente' | 'inspiracional' | 'informativo'>('profesional');
@@ -255,7 +324,7 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
         contentType: 'post',
         tone: aiTone,
         brandContext,
-      });
+      }, { apiKey: apiKey ?? undefined, provider });
       // Use first sentence of mainText as headline, rest as subtext
       const sentences = r.mainText.split(/(?<=[.!?])\s+/);
       setHeadline(sentences[0]?.slice(0, 80) ?? aiTopic);
@@ -323,15 +392,19 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
                   </Select>
                 </div>
               </div>
-              <Button
-                className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                onClick={handleGenerate}
-                disabled={isGenerating || !canWrite}
-              >
-                {isGenerating
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
-                  : <><Sparkles className="h-4 w-4" /> Generar texto</>}
-              </Button>
+              {!aiConfigLoading && !apiKey ? (
+                <AIKeyRequiredNotice feature="la generación de texto con IA" />
+              ) : (
+                <Button
+                  className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !canWrite}
+                >
+                  {isGenerating
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
+                    : <><Sparkles className="h-4 w-4" /> Generar texto</>}
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -343,6 +416,15 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Categoría (opcional)</Label>
+                <Input
+                  placeholder="Ej: NOVEDAD, TIP, PROMO"
+                  value={eyebrow}
+                  onChange={e => setEyebrow(e.target.value)}
+                  maxLength={24}
+                />
+              </div>
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase font-black text-muted-foreground">Titular principal</Label>
                 <Textarea
@@ -370,6 +452,35 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
                   value={brandTag}
                   onChange={e => setBrandTag(e.target.value)}
                 />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Foto de fondo (opcional)</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  {bgImage ? 'Cambiar foto' : 'Agregar foto de fondo'}
+                </Button>
+                {bgImage && (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg mt-1.5">
+                    <img src={bgImage} alt="" className="h-10 w-14 object-cover rounded flex-shrink-0" />
+                    <p className="flex-1 text-[10px] text-muted-foreground">Se usa como fondo de la tarjeta.</p>
+                    <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive" onClick={() => setBgImage(undefined)}>
+                      Quitar
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -418,6 +529,25 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
                       )}
                     >
                       {s === 'gradient' ? 'Degradado' : s === 'solid' ? 'Sólido' : s === 'dark' ? 'Oscuro' : 'Minimal'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layout */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Composición del texto</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['inferior', 'centrado', 'superior'] as CardLayout[]).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setLayout(l)}
+                      className={cn(
+                        'text-xs font-semibold py-2 px-1 rounded-lg border transition-colors capitalize',
+                        layout === l ? 'border-primary bg-primary/10 text-primary' : 'border-muted text-muted-foreground hover:border-primary/40'
+                      )}
+                    >
+                      {l === 'inferior' ? 'Abajo' : l === 'centrado' ? 'Centrado' : 'Arriba'}
                     </button>
                   ))}
                 </div>
@@ -493,12 +623,15 @@ export function SocialCardDesigner({ canWrite = true, brandContext }: SocialCard
             <CardPreview
               format={format}
               style={style}
+              layout={layout}
               accent={accent}
               darkBg={darkBg}
               textColor={textColor}
+              eyebrow={eyebrow}
               headline={headline}
               subtext={subtext}
               brandTag={brandTag}
+              bgImage={bgImage}
               previewRef={previewRef}
             />
           </div>

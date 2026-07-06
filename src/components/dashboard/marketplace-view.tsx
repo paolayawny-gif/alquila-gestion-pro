@@ -1,4 +1,4 @@
-import { APP_ID, SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { APP_ID } from '@/lib/constants';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -121,9 +121,8 @@ function ImageCarousel({ images, title, onOpenGallery }: { images: string[]; tit
 export function MarketplaceView({ userId, userEmail, userName }: MarketplaceViewProps) {
   const { toast }    = useToast();
   const db           = useFirestore();
-  const { user }     = useUser();
+  const { user, isSuperAdmin } = useUser();
   const { canWrite } = useOrgPermissions();
-  const isSuperAdmin = (user?.email ?? userEmail) === SUPER_ADMIN_EMAIL;
 
   const uid      = user?.uid   ?? userId   ?? '';
   const uName    = user?.displayName ?? userName ?? 'Usuario';

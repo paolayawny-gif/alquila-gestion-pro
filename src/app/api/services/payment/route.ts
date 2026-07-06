@@ -1,6 +1,6 @@
 import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSessionForAdmin } from '@/lib/auth';
+import { requireSessionForAdminOrOwner } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { AdminPaymentConfig, ServiceRequest } from '@/lib/types';
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
 
-    const auth = await requireSessionForAdmin(req, adminId);
+    const auth = await requireSessionForAdminOrOwner(req, adminId);
     if (auth instanceof NextResponse) return auth;
 
     const db = getAdminDb();
@@ -56,6 +56,11 @@ export async function POST(req: NextRequest) {
 
     const cfg = cfgSnap.data() as AdminPaymentConfig;
     const serviceReq = { id: reqSnap.id, ...reqSnap.data() } as ServiceRequest;
+
+    // Si quien llama no es el admin/superadmin, solo puede pagar su propia solicitud.
+    if (auth.userId !== adminId && !auth.superAdmin && serviceReq.clientEmail?.toLowerCase() !== auth.email?.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     if (!cfg.mercadopago?.active || !cfg.mercadopago.accessToken) {
       return NextResponse.json({ error: 'MercadoPago no está configurado' }, { status: 422 });

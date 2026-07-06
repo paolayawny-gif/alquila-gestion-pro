@@ -71,7 +71,24 @@ async function loadPortalData(): Promise<{ properties: PortalProperty[]; admins:
       if (data.status !== 'Disponible' || data.publicarEnPortal !== true || data.portalBlocked === true) {
         return null;
       }
-      return { id: d.id, adminId, ...data } as PortalProperty;
+      // Whitelist explícito de campos — nunca spread del doc crudo (puede traer
+      // `owners`/contacto del propietario, notas internas, etc. que no son públicos).
+      const property: PortalProperty = {
+        id: d.id,
+        adminId,
+        name: data.name,
+        address: data.address,
+        type: data.type,
+        usage: data.usage,
+        squareMeters: data.squareMeters,
+        rooms: data.rooms,
+        amenities: data.amenities,
+        photos: data.photos,
+        currentRentAmount: data.currentRentAmount,
+        currency: data.currency,
+        status: data.status,
+      };
+      return property;
     })
     .filter((p): p is PortalProperty => p !== null);
 

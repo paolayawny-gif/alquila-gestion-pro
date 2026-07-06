@@ -17,6 +17,7 @@ import { setDocumentNonBlocking, setDocumentSafe } from '@/firebase/non-blocking
 import { Schemas } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { TenantRegistryEntry } from './tenant-portal';
+import { FileUpload } from '@/components/ui/file-upload';
 
 
 type TicketStatus   = 'Abierto' | 'En proceso' | 'Resuelto';
@@ -40,6 +41,7 @@ export interface MaintenanceTicket {
   ownerEmail?: string;     // set by admin when notifying the property owner
   ownerVisible?: boolean;  // true once admin has forwarded to owner
   ownerNotifiedAt?: string;
+  convertedToTaskId?: string; // set once an admin turns this ticket into a tracked mantenimiento task
   createdAt: string;
   updatedAt: string;
 }
@@ -246,14 +248,13 @@ export function TenantMaintenance({ tenantEntry }: TenantMaintenanceProps) {
             </div>
             <div className="space-y-1.5">
               <Label>Foto del problema (opcional)</Label>
-              <input
-                type="url"
-                placeholder="Pegá un link a la foto (Google Fotos, Drive, etc.)"
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              <FileUpload
                 value={photoUrl}
-                onChange={e => setPhotoUrl(e.target.value)}
+                onChange={setPhotoUrl}
+                storagePath={`mantenimiento/${tenantEntry.adminId}/${tenantEntry.tenantEmail}`}
+                accept="image/*"
+                label="Sacar o subir una foto"
               />
-              <p className="text-[10px] text-muted-foreground">Podés subir la foto a Google Fotos o Drive y pegar el enlace aquí.</p>
             </div>
           </div>
           <DialogFooter>

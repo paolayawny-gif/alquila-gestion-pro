@@ -1,7 +1,7 @@
 import { APP_ID } from '@/lib/constants';
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { requireFirebaseAuth, createSession, logout, isSuperAdminUid } from '@/lib/auth';
+import { requireFirebaseAuth, createSession, logout, isSuperAdmin } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 /**
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   // receiving a session cookie. This prevents anonymous spam registrations from
   // accessing the dashboard. Existing accounts are never blocked here.
   // The superadmin is always exempt regardless of email verification state.
-  if (!isSuperAdminUid(auth.userId)) {
+  if (!isSuperAdmin(auth)) {
     const userRef = db
       .collection('artifacts').doc(APP_ID)
       .collection('users').doc(auth.userId);

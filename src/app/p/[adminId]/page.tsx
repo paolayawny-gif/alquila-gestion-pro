@@ -1,5 +1,6 @@
 import { APP_ID } from '@/lib/constants';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { redactPropertyForPublic } from '@/lib/redact-public-property';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { PublicPropertyPage } from './public-property-page';
@@ -21,7 +22,7 @@ async function getAdminData(adminId: string) {
   if (!propertiesSnap.docs.length && !profileSnap.exists) return null;
 
   const profile = profileSnap.exists ? (profileSnap.data() as any) : {};
-  const properties = propertiesSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+  const properties = propertiesSnap.docs.map(d => redactPropertyForPublic({ id: d.id, ...d.data() })) as any[];
 
   return { profile, properties, adminId };
 }

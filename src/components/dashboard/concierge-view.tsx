@@ -588,22 +588,22 @@ export function ConciergeView({ people, properties, contracts, userId }: Concier
             {/* Name + category */}
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1.5">
-                <Label>Nombre del Servicio *</Label>
-                <Input placeholder="Ej: Limpieza Profunda" value={svcForm.name || ''} onChange={e => setSvcForm(f => ({ ...f, name: e.target.value }))} />
+                <Label htmlFor="svc-name">Nombre del Servicio *</Label>
+                <Input id="svc-name" placeholder="Ej: Limpieza Profunda" value={svcForm.name || ''} onChange={e => setSvcForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>Categoría</Label>
+                <Label id="svc-category-label">Categoría</Label>
                 <Select value={svcForm.category} onValueChange={v => setSvcForm(f => ({ ...f, category: v as ServiceCategory }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="svc-category-label"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Tipo de Servicio</Label>
+                <Label id="svc-type-label">Tipo de Servicio</Label>
                 <Select value={svcForm.type} onValueChange={v => setSvcForm(f => ({ ...f, type: v as ServiceType }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="svc-type-label"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fixed">Precio Fijo</SelectItem>
                     <SelectItem value="subscription">Suscripción / Por hora</SelectItem>
@@ -613,8 +613,8 @@ export function ConciergeView({ people, properties, contracts, userId }: Concier
                 </Select>
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label>Descripción</Label>
-                <Textarea placeholder="Describí el servicio brevemente…" className="min-h-[70px]" value={svcForm.description || ''} onChange={e => setSvcForm(f => ({ ...f, description: e.target.value }))} />
+                <Label htmlFor="svc-description">Descripción</Label>
+                <Textarea id="svc-description" placeholder="Describí el servicio brevemente…" className="min-h-[70px]" value={svcForm.description || ''} onChange={e => setSvcForm(f => ({ ...f, description: e.target.value }))} />
               </div>
             </div>
 
@@ -622,12 +622,12 @@ export function ConciergeView({ people, properties, contracts, userId }: Concier
             {(svcForm.type === 'fixed' || svcForm.type === 'subscription') && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Precio base ($)</Label>
-                  <Input type="number" placeholder="0" value={svcForm.basePrice || ''} onChange={e => setSvcForm(f => ({ ...f, basePrice: parseFloat(e.target.value) || 0 }))} />
+                  <Label htmlFor="svc-base-price">Precio base ($)</Label>
+                  <Input id="svc-base-price" type="number" placeholder="0" value={svcForm.basePrice || ''} onChange={e => setSvcForm(f => ({ ...f, basePrice: parseFloat(e.target.value) || 0 }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Unidad de precio</Label>
-                  <Input placeholder="Ej: /hora, /mes, por visita" value={svcForm.priceUnit || ''} onChange={e => setSvcForm(f => ({ ...f, priceUnit: e.target.value }))} />
+                  <Label htmlFor="svc-price-unit">Unidad de precio</Label>
+                  <Input id="svc-price-unit" placeholder="Ej: /hora, /mes, por visita" value={svcForm.priceUnit || ''} onChange={e => setSvcForm(f => ({ ...f, priceUnit: e.target.value }))} />
                 </div>
               </div>
             )}
@@ -657,12 +657,12 @@ export function ConciergeView({ people, properties, contracts, userId }: Concier
             {/* Badge + Image URL */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Badge (etiqueta)</Label>
-                <Input placeholder="Ej: Más Solicitado, Nuevo" value={svcForm.badge || ''} onChange={e => setSvcForm(f => ({ ...f, badge: e.target.value }))} />
+                <Label htmlFor="svc-badge">Badge (etiqueta)</Label>
+                <Input id="svc-badge" placeholder="Ej: Más Solicitado, Nuevo" value={svcForm.badge || ''} onChange={e => setSvcForm(f => ({ ...f, badge: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>URL de imagen</Label>
-                <Input placeholder="https://…" value={svcForm.imageUrl || ''} onChange={e => setSvcForm(f => ({ ...f, imageUrl: e.target.value }))} />
+                <Label htmlFor="svc-image-url">URL de imagen</Label>
+                <Input id="svc-image-url" placeholder="https://…" value={svcForm.imageUrl || ''} onChange={e => setSvcForm(f => ({ ...f, imageUrl: e.target.value }))} />
               </div>
             </div>
 

@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 const HelpAssistantInputSchema = z.object({
   question: z.string().describe('Pregunta del usuario sobre la aplicación.'),
@@ -59,9 +59,9 @@ Devolvé un JSON con exactamente esta estructura:
 }`;
 }
 
-export async function askHelpAssistant(input: HelpAssistantInput): Promise<HelpAssistantResult> {
+export async function askHelpAssistant(input: HelpAssistantInput, aiOptions?: AIOptions): Promise<HelpAssistantResult> {
   try {
-    const data = await generateJSON<HelpAssistantOutput>(buildPrompt(input));
+    const data = await generateJSON<HelpAssistantOutput>(buildPrompt(input), aiOptions);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

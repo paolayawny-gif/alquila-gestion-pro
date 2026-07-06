@@ -71,6 +71,16 @@ async function authHeaders() {
   };
 }
 
+/** True si hay credenciales de MercadoPago (Firestore o env var) — para que la UI no muestre botones "activos" que van a fallar. */
+export async function isMercadoPagoConfigured(): Promise<boolean> {
+  try {
+    await getPlatformConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Status mapping ───────────────────────────────────────────────────────────
 
 function mapStatus(mpStatus: string): BillingStatus {

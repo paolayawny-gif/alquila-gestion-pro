@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { requireFirebaseAuth, isSuperAdmin } from '@/lib/auth';
 import type { GoogleLeadResult } from '@/lib/types';
 
 const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   // Solo superadmin puede usar este endpoint — bloquea abuse de la API key de Google
   const auth = await requireFirebaseAuth(req);
   if (auth instanceof NextResponse) return auth;
-  if (!isSuperAdminUid(auth.userId)) {
+  if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

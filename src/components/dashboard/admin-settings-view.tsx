@@ -34,6 +34,8 @@ import {
   LogOut, Info, Globe, Copy, Lock, Gift, Sparkles, Building2,
 } from 'lucide-react';
 import { usePlan } from '@/hooks/use-plan';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AI_PROVIDERS, type AIProvider } from '@/ai/providers/types';
 import { BILLING_TIERS } from '@/lib/billing/tiers';
 import type {
   AdminService, AdminPaymentConfig, ServiceCategory, ServiceClientTarget,
@@ -87,6 +89,7 @@ export function AdminSettingsView({ userId }: AdminSettingsViewProps) {
           <PortalPlusCard userId={userId} />
           <WhatsAppCard userId={userId} />
           <WhatsAppApiCard userId={userId} />
+          <AIProCard userId={userId} />
           <BillingCard userId={userId} />
           <BajaCard userId={userId} />
         </TabsContent>
@@ -155,8 +158,9 @@ function WhatsAppCard({ userId }: { userId?: string }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold">Número de WhatsApp</Label>
+            <Label htmlFor="wa-number" className="text-xs font-bold">Número de WhatsApp</Label>
             <Input
+              id="wa-number"
               type="text"
               placeholder="+54 9 11 xxxx xxxx"
               value={whatsappInput}
@@ -199,6 +203,155 @@ function WhatsAppCard({ userId }: { userId?: string }) {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Análisis IA Pro Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AIProCard({ userId }: { userId?: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const { apiKey: savedKey, provider: savedProvider, loading } = useAIConfig(userId);
+  const [keyInput, setKeyInput] = useState('');
+  const [providerInput, setProviderInput] = useState<AIProvider>('gemini');
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setKeyInput(savedKey ?? '');
+      setProviderInput(savedProvider);
+    }
+  }, [loading, savedKey, savedProvider]);
+
+  const providerMeta = AI_PROVIDERS.find(p => p.value === providerInput) ?? AI_PROVIDERS[0];
+
+  const handleSave = async () => {
+    if (!db || !userId) return;
+    setSaving(true);
+    try {
+      if (keyInput.trim()) {
+        const validation = await authedFetch('/api/ai/validate-key', {
+          method: 'POST',
+          body: JSON.stringify({ apiKey: keyInput.trim(), provider: providerInput }),
+        }).then(r => r.json());
+        if (!validation.valid) {
+          toast({ title: 'Key inválida', description: validation.error || 'No se pudo validar la key.', variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+      }
+      await setDoc(
+        doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'aiConfig'),
+        { provider: providerInput, apiKey: keyInput.trim(), geminiApiKey: '', updatedAt: new Date().toISOString() },
+        { merge: true },
+      );
+      toast({ title: 'Guardado', description: keyInput.trim() ? `Key de ${providerMeta.label} validada y guardada.` : 'Key eliminada.' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar la key.', variant: 'destructive' });
+    }
+    setSaving(false);
+  };
+
+  const handleRemove = async () => {
+    setKeyInput('');
+    if (!db || !userId) return;
+    setSaving(true);
+    try {
+      await setDoc(
+        doc(db, 'artifacts', APP_ID, 'users', userId, 'config', 'aiConfig'),
+        { apiKey: '', geminiApiKey: '', updatedAt: new Date().toISOString() },
+        { merge: true },
+      );
+      toast({ title: 'Key eliminada', description: 'Las funciones de IA quedan deshabilitadas hasta que cargues una nueva.' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo quitar la key.', variant: 'destructive' });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <Card className="border-none shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-violet-100">
+            <Sparkles className="h-5 w-5 text-violet-600" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-black">Tu API key de IA</CardTitle>
+              {!loading && savedKey ? (
+                <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Activa</Badge>
+              ) : (
+                <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">Falta cargarla</Badge>
+              )}
+            </div>
+            <CardDescription className="text-xs mt-0.5">
+              Todas las funciones de Inteligencia Artificial (asistente de chat, análisis legal de
+              contratos, generador de redes sociales, etc.) necesitan tu propia API key — elegí el
+              proveedor que prefieras. Es gratuita y no se comparte con otros administradores, así
+              el costo de uso es siempre tuyo, nunca de AlquilaGestión Pro.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold">Proveedor de IA</Label>
+          <Select value={providerInput} onValueChange={v => setProviderInput(v as AIProvider)}>
+            <SelectTrigger className="text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AI_PROVIDERS.map(p => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ai-key" className="text-xs font-bold">API key de {providerMeta.label}</Label>
+          <div className="relative">
+            <Input
+              id="ai-key"
+              type={showKey ? 'text' : 'password'}
+              placeholder={providerMeta.keyHint}
+              value={keyInput}
+              onChange={e => setKeyInput(e.target.value)}
+              className="text-sm pr-9 font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(v => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={showKey ? 'Ocultar key' : 'Mostrar key'}
+            >
+              {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          <a
+            href={providerMeta.keyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+          >
+            <ExternalLink className="h-3 w-3" /> Conseguir una key gratis en {providerMeta.label}
+          </a>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={saving || loading || !keyInput.trim()} className="gap-2 font-bold">
+            {saving ? 'Guardando...' : 'Guardar'}
+          </Button>
+          {!loading && savedKey && (
+            <Button variant="outline" onClick={handleRemove} disabled={saving} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5">
+              <Trash2 className="h-3.5 w-3.5" /> Quitar
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -321,17 +474,18 @@ function BajaCard({ userId }: { userId?: string }) {
               </ul>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Email de la cuenta *</Label>
+              <Label htmlFor="baja-email" className="text-xs font-bold">Email de la cuenta *</Label>
               <Input
+                id="baja-email"
                 value={user?.email ?? ''}
                 readOnly
                 className="text-xs bg-muted/30 text-muted-foreground"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Motivo de la baja *</Label>
+              <Label id="baja-motivo-label" className="text-xs font-bold">Motivo de la baja *</Label>
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger className="text-xs h-9"><SelectValue placeholder="Seleccioná un motivo" /></SelectTrigger>
+                <SelectTrigger aria-labelledby="baja-motivo-label" className="text-xs h-9"><SelectValue placeholder="Seleccioná un motivo" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cambio_plataforma" className="text-xs">Me cambié a otra plataforma</SelectItem>
                   <SelectItem value="sin_uso" className="text-xs">Ya no necesito el servicio</SelectItem>
@@ -343,8 +497,9 @@ function BajaCard({ userId }: { userId?: string }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Comentarios adicionales</Label>
+              <Label htmlFor="baja-comentarios" className="text-xs font-bold">Comentarios adicionales</Label>
               <Textarea
+                id="baja-comentarios"
                 placeholder="Contanos más sobre tu experiencia o qué podríamos mejorar..."
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
@@ -689,35 +844,39 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                     <div className="shrink-0 flex items-center gap-1">
                       <button
                         title={s.activo ? 'Activo — clic para desactivar' : 'Inactivo — clic para activar'}
+                        aria-label={s.activo ? `Desactivar ${s.nombre}` : `Activar ${s.nombre}`}
                         onClick={() => toggleField(s, 'activo')}
                         className={`p-1.5 rounded-lg text-xs transition-colors ${
                           s.activo ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
                         }`}
                       >
-                        {s.activo ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                        {s.activo ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />}
                       </button>
                       <button
                         title={s.visible ? 'Visible en portal — clic para ocultar' : 'Oculto — clic para mostrar'}
+                        aria-label={s.visible ? `Ocultar ${s.nombre} del portal` : `Mostrar ${s.nombre} en el portal`}
                         onClick={() => toggleField(s, 'visible')}
                         className={`p-1.5 rounded-lg text-xs transition-colors ${
                           s.visible ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'
                         }`}
                       >
-                        {s.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        {s.visible ? <Eye className="h-3.5 w-3.5" aria-hidden="true" /> : <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />}
                       </button>
                       <button
                         title="Editar"
+                        aria-label={`Editar ${s.nombre}`}
                         onClick={() => openEdit(s)}
                         className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                       <button
                         title="Eliminar"
+                        aria-label={`Eliminar ${s.nombre}`}
                         onClick={() => setDeletingId(s.id)}
                         className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -773,8 +932,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                 {paymentConfig.mercadopago?.active && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">Access Token (privado)</Label>
+                      <Label htmlFor="mp-access-token" className="text-xs font-bold">Access Token (privado)</Label>
                       <Input
+                        id="mp-access-token"
                         type="password"
                         placeholder="APP_USR-..."
                         value={paymentConfig.mercadopago?.accessToken ?? ''}
@@ -783,8 +943,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">Public Key</Label>
+                      <Label htmlFor="mp-public-key" className="text-xs font-bold">Public Key</Label>
                       <Input
+                        id="mp-public-key"
                         placeholder="APP_USR-..."
                         value={paymentConfig.mercadopago?.publicKey ?? ''}
                         onChange={e => patchPayment('mercadopago', { publicKey: e.target.value })}
@@ -814,8 +975,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                 {paymentConfig.transferencia?.active && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">CBU</Label>
+                      <Label htmlFor="tr-cbu" className="text-xs font-bold">CBU</Label>
                       <Input
+                        id="tr-cbu"
                         placeholder="0000000000000000000000"
                         value={paymentConfig.transferencia?.cbu ?? ''}
                         onChange={e => patchPayment('transferencia', { cbu: e.target.value })}
@@ -823,8 +985,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">Alias</Label>
+                      <Label htmlFor="tr-alias" className="text-xs font-bold">Alias</Label>
                       <Input
+                        id="tr-alias"
                         placeholder="MI.ALIAS.CBU"
                         value={paymentConfig.transferencia?.alias ?? ''}
                         onChange={e => patchPayment('transferencia', { alias: e.target.value })}
@@ -832,8 +995,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">Banco</Label>
+                      <Label htmlFor="tr-banco" className="text-xs font-bold">Banco</Label>
                       <Input
+                        id="tr-banco"
                         placeholder="Ej: Santander, Galicia..."
                         value={paymentConfig.transferencia?.banco ?? ''}
                         onChange={e => patchPayment('transferencia', { banco: e.target.value })}
@@ -841,8 +1005,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">Titular de la cuenta</Label>
+                      <Label htmlFor="tr-titular" className="text-xs font-bold">Titular de la cuenta</Label>
                       <Input
+                        id="tr-titular"
                         placeholder="Nombre completo o razón social"
                         value={paymentConfig.transferencia?.titular ?? ''}
                         onChange={e => patchPayment('transferencia', { titular: e.target.value })}
@@ -872,8 +1037,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                 {paymentConfig.linkExterno?.active && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1 md:col-span-2">
-                      <Label className="text-xs font-bold">URL de pago</Label>
+                      <Label htmlFor="le-url" className="text-xs font-bold">URL de pago</Label>
                       <Input
+                        id="le-url"
                         placeholder="https://..."
                         value={paymentConfig.linkExterno?.url ?? ''}
                         onChange={e => patchPayment('linkExterno', { url: e.target.value })}
@@ -881,8 +1047,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold">Texto del botón</Label>
+                      <Label htmlFor="le-label" className="text-xs font-bold">Texto del botón</Label>
                       <Input
+                        id="le-label"
                         placeholder="Ej: Pagar con Getnet"
                         value={paymentConfig.linkExterno?.label ?? ''}
                         onChange={e => patchPayment('linkExterno', { label: e.target.value })}
@@ -951,8 +1118,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
               {(paymentConfig.estudioJuridico?.tipo === 'propio') && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
                   <div className="space-y-1">
-                    <Label className="text-xs font-bold">Nombre del estudio</Label>
+                    <Label htmlFor="ej-nombre" className="text-xs font-bold">Nombre del estudio</Label>
                     <Input
+                      id="ej-nombre"
                       placeholder="Estudio Jurídico..."
                       value={paymentConfig.estudioJuridico?.nombre ?? ''}
                       onChange={e => patchPayment('estudioJuridico', { nombre: e.target.value })}
@@ -960,8 +1128,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-bold">Email de contacto</Label>
+                    <Label htmlFor="ej-email" className="text-xs font-bold">Email de contacto</Label>
                     <Input
+                      id="ej-email"
                       type="email"
                       placeholder="estudio@..."
                       value={paymentConfig.estudioJuridico?.email ?? ''}
@@ -970,8 +1139,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-bold">Teléfono / WhatsApp</Label>
+                    <Label htmlFor="ej-telefono" className="text-xs font-bold">Teléfono / WhatsApp</Label>
                     <Input
+                      id="ej-telefono"
                       placeholder="+54 9 11..."
                       value={paymentConfig.estudioJuridico?.telefono ?? ''}
                       onChange={e => patchPayment('estudioJuridico', { telefono: e.target.value })}
@@ -1001,17 +1171,21 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <Label className="text-xs font-bold">Nombre del servicio *</Label>
+              <Label htmlFor="svc-nombre" className="text-xs font-bold">Nombre del servicio *</Label>
               <Input
+                id="svc-nombre"
                 placeholder="Ej: Consulta Legal"
+                required
+                aria-required="true"
                 value={serviceForm.nombre}
                 onChange={e => setServiceForm(p => ({ ...p, nombre: e.target.value }))}
                 className="text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-bold">Descripción</Label>
+              <Label htmlFor="svc-descripcion" className="text-xs font-bold">Descripción</Label>
               <Textarea
+                id="svc-descripcion"
                 placeholder="Breve descripción del servicio..."
                 value={serviceForm.descripcion}
                 onChange={e => setServiceForm(p => ({ ...p, descripcion: e.target.value }))}
@@ -1021,12 +1195,12 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs font-bold">Categoría</Label>
+                <Label id="svc-categoria-label" className="text-xs font-bold">Categoría</Label>
                 <Select
                   value={serviceForm.categoria}
                   onValueChange={v => setServiceForm(p => ({ ...p, categoria: v as ServiceCategory }))}
                 >
-                  <SelectTrigger className="text-xs h-9">
+                  <SelectTrigger aria-labelledby="svc-categoria-label" className="text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1037,12 +1211,12 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-bold">Cliente objetivo</Label>
+                <Label id="svc-cliente-label" className="text-xs font-bold">Cliente objetivo</Label>
                 <Select
                   value={serviceForm.clienteObjetivo}
                   onValueChange={v => setServiceForm(p => ({ ...p, clienteObjetivo: v as ServiceClientTarget }))}
                 >
-                  <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="svc-cliente-label" className="text-xs h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="propietario" className="text-xs">Propietario</SelectItem>
                     <SelectItem value="inquilino" className="text-xs">Inquilino</SelectItem>
@@ -1053,12 +1227,12 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs font-bold">Tipo de precio</Label>
+                <Label id="svc-tipoprecio-label" className="text-xs font-bold">Tipo de precio</Label>
                 <Select
                   value={serviceForm.tipoPrecio}
                   onValueChange={v => setServiceForm(p => ({ ...p, tipoPrecio: v as ServicePriceType }))}
                 >
-                  <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="svc-tipoprecio-label" className="text-xs h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fijo" className="text-xs">Precio fijo</SelectItem>
                     <SelectItem value="porcentaje" className="text-xs">Porcentaje</SelectItem>
@@ -1068,19 +1242,20 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
               </div>
               {serviceForm.tipoPrecio === 'fijo' && (
                 <div className="space-y-1">
-                  <Label className="text-xs font-bold">Precio</Label>
+                  <Label id="svc-precio-label" className="text-xs font-bold">Precio</Label>
                   <div className="flex gap-1.5">
                     <Select
                       value={serviceForm.moneda}
                       onValueChange={v => setServiceForm(p => ({ ...p, moneda: v as 'ARS' | 'USD' }))}
                     >
-                      <SelectTrigger className="text-xs h-9 w-20 shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-labelledby="svc-precio-label" className="text-xs h-9 w-20 shrink-0"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ARS" className="text-xs">ARS</SelectItem>
                         <SelectItem value="USD" className="text-xs">USD</SelectItem>
                       </SelectContent>
                     </Select>
                     <Input
+                      id="svc-precio"
                       type="number"
                       min={0}
                       placeholder="0"
@@ -1093,8 +1268,9 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
               )}
               {serviceForm.tipoPrecio === 'porcentaje' && (
                 <div className="space-y-1">
-                  <Label className="text-xs font-bold">Porcentaje (%)</Label>
+                  <Label htmlFor="svc-porcentaje" className="text-xs font-bold">Porcentaje (%)</Label>
                   <Input
+                    id="svc-porcentaje"
                     type="number"
                     min={0}
                     max={100}
@@ -1108,12 +1284,12 @@ function ServicesAndBillingTab({ userId }: { userId?: string }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs font-bold">Entregable</Label>
+                <Label id="svc-entregable-label" className="text-xs font-bold">Entregable</Label>
                 <Select
                   value={serviceForm.entregable}
                   onValueChange={v => setServiceForm(p => ({ ...p, entregable: v as ServiceDeliverable }))}
                 >
-                  <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="svc-entregable-label" className="text-xs h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="documento" className="text-xs">Documento</SelectItem>
                     <SelectItem value="informe" className="text-xs">Informe</SelectItem>
@@ -1507,8 +1683,9 @@ function WhatsAppApiCard({ userId }: { userId?: string }) {
           <span>Obtenés el <strong>Phone Number ID</strong> y el <strong>Access Token</strong> en <em>Meta for Developers → WhatsApp → API Setup</em>. Sin esto, los recordatorios se envían solo por email.</span>
         </div>
         <div className="space-y-2">
-          <Label className="text-xs font-bold">Phone Number ID</Label>
+          <Label htmlFor="wa-phone-number-id" className="text-xs font-bold">Phone Number ID</Label>
           <Input
+            id="wa-phone-number-id"
             placeholder="ej: 123456789012345"
             value={phoneId}
             onChange={e => setPhoneId(e.target.value)}
@@ -1517,9 +1694,10 @@ function WhatsAppApiCard({ userId }: { userId?: string }) {
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs font-bold">Access Token</Label>
+          <Label htmlFor="wa-access-token" className="text-xs font-bold">Access Token</Label>
           <div className="flex gap-2">
             <Input
+              id="wa-access-token"
               type={showToken ? 'text' : 'password'}
               placeholder="EAAxxxxx…"
               value={token}
@@ -1549,6 +1727,16 @@ function BillingCard({ userId }: { userId?: string }) {
   const { toast } = useToast();
   const plan = usePlan(userId);
   const [busy, setBusy] = useState<'checkout' | 'cancel' | 'sync' | null>(null);
+  const [providerConfigured, setProviderConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    authedFetch('/api/config/integrations-status')
+      .then(res => res.json())
+      .then(data => { if (!cancelled) setProviderConfigured(!!data.mercadoPago); })
+      .catch(() => { if (!cancelled) setProviderConfigured(null); });
+    return () => { cancelled = true; };
+  }, []);
 
   const status = plan.state?.status ?? 'trial';
 
@@ -1702,6 +1890,13 @@ function BillingCard({ userId }: { userId?: string }) {
               </div>
             )}
 
+            {providerConfigured === false && (
+              <div className="text-xs p-3 rounded-lg bg-gray-100 border border-gray-300 text-gray-700 flex items-center gap-2">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                El cobro automático todavía no está activado en la plataforma. Los botones de abajo no van a funcionar hasta que se configure MercadoPago.
+              </div>
+            )}
+
             <div>
               <p className="text-xs font-bold text-muted-foreground mb-2">Escala de precios</p>
               <div className="space-y-1.5">
@@ -1727,21 +1922,21 @@ function BillingCard({ userId }: { userId?: string }) {
 
             <div className="flex flex-wrap gap-2 pt-2">
               {(status === 'trial' || status === 'cancelled' || status === 'pending') && (
-                <Button onClick={handleCheckout} disabled={busy === 'checkout'} className="font-bold">
+                <Button onClick={handleCheckout} disabled={busy === 'checkout' || providerConfigured === false} className="font-bold">
                   {busy === 'checkout' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Activar suscripción'}
                 </Button>
               )}
               {status === 'past_due' && (
-                <Button onClick={handleCheckout} disabled={busy === 'checkout'} className="font-bold">
+                <Button onClick={handleCheckout} disabled={busy === 'checkout' || providerConfigured === false} className="font-bold">
                   {busy === 'checkout' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar tarjeta'}
                 </Button>
               )}
               {status === 'active' && (
                 <>
-                  <Button variant="outline" onClick={handleSync} disabled={busy === 'sync'} className="font-bold">
+                  <Button variant="outline" onClick={handleSync} disabled={busy === 'sync' || providerConfigured === false} className="font-bold">
                     {busy === 'sync' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sincronizar plan'}
                   </Button>
-                  <Button variant="ghost" onClick={handleCancel} disabled={busy === 'cancel'} className="font-bold text-destructive">
+                  <Button variant="ghost" onClick={handleCancel} disabled={busy === 'cancel' || providerConfigured === false} className="font-bold text-destructive">
                     {busy === 'cancel' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cancelar suscripción'}
                   </Button>
                 </>

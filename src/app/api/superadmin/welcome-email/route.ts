@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { requireFirebaseAuth, isSuperAdmin } from '@/lib/auth';
 import nodemailer from 'nodemailer';
 import { emailWelcomeAdmin } from '@/lib/email-templates';
 import { APP_ID } from '@/lib/constants';
@@ -9,10 +9,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  // Verify Firebase ID token and require superadmin UID — body fields are not trusted.
+  // Verify Firebase ID token and require the superAdmin custom claim — body fields are not trusted.
   const auth = await requireFirebaseAuth(req);
   if (auth instanceof NextResponse) return auth;
-  if (!isSuperAdminUid(auth.userId)) {
+  if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

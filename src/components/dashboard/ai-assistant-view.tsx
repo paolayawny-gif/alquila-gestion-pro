@@ -11,6 +11,8 @@ import { Loader2, Copy, Send, Sparkles, MessageSquareCode, Zap, ArrowRight } fro
 import { aiCommunicationAssistant, AiCommunicationAssistantInput, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
 import { sendEmail } from '@/services/email-service';
 import { useToast } from '@/hooks/use-toast';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 // ── Intent routing ────────────────────────────────────────────────────────────
 
@@ -32,8 +34,13 @@ function parseIntent(text: string): { type: AiCommunicationAssistantInput['commu
   return null;
 }
 
-export function AIAssistantView() {
+interface AIAssistantViewProps {
+  userId?: string;
+}
+
+export function AIAssistantView({ userId }: AIAssistantViewProps) {
   const { toast } = useToast();
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
   const [loading, setLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState('');
@@ -48,9 +55,13 @@ export function AIAssistantView() {
 
   const handleGenerate = async () => {
     if (!input.communicationType) return;
+    if (!aiApiKey) {
+      toast({ title: "Falta tu API key de Gemini", description: "Cargá tu propia key en Configuración para usar el asistente de IA.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      const output = await aiCommunicationAssistant(input as AiCommunicationAssistantInput);
+      const output = await aiCommunicationAssistant(input as AiCommunicationAssistantInput, { apiKey: aiApiKey, provider: aiProvider });
       setResult(output);
     } catch (error) {
       toast({
@@ -150,12 +161,12 @@ export function AIAssistantView() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Tipo de Comunicación</Label>
+            <Label id="ai-communication-type-label">Tipo de Comunicación</Label>
             <Select
               value={input.communicationType}
               onValueChange={(v) => setInput({...input, communicationType: v as any})}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-labelledby="ai-communication-type-label">
                 <SelectValue placeholder="Seleccione tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -169,15 +180,17 @@ export function AIAssistantView() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Nombre Inquilino / Dueño</Label>
+              <Label htmlFor="ai-tenant-owner-name">Nombre Inquilino / Dueño</Label>
               <Input
+                id="ai-tenant-owner-name"
                 placeholder="Ej: Carlos Sosa"
                 onChange={e => setInput({...input, tenantName: e.target.value, ownerName: e.target.value})}
               />
             </div>
             <div className="space-y-2">
-              <Label>Propiedad</Label>
+              <Label htmlFor="ai-property-name">Propiedad</Label>
               <Input
+                id="ai-property-name"
                 placeholder="Ej: Edificio Central 4B"
                 onChange={e => setInput({...input, propertyName: e.target.value})}
               />
@@ -187,33 +200,38 @@ export function AIAssistantView() {
           {input.communicationType === 'rentReminder' && (
              <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Monto Adeudado</Label>
-                <Input placeholder="$ 120.000" onChange={e => setInput({...input, amountDue: e.target.value})} />
+                <Label htmlFor="ai-amount-due">Monto Adeudado</Label>
+                <Input id="ai-amount-due" placeholder="$ 120.000" onChange={e => setInput({...input, amountDue: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>Fecha Vencimiento</Label>
-                <Input placeholder="10/10/2023" onChange={e => setInput({...input, dueDate: e.target.value})} />
+                <Label htmlFor="ai-due-date">Fecha Vencimiento</Label>
+                <Input id="ai-due-date" placeholder="10/10/2023" onChange={e => setInput({...input, dueDate: e.target.value})} />
               </div>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Contexto Adicional (Opcional)</Label>
+            <Label htmlFor="ai-additional-context">Contexto Adicional (Opcional)</Label>
             <Textarea
+              id="ai-additional-context"
               placeholder="Ej: Mencionar que se reparó el aire acondicionado este mes."
               className="h-24"
               onChange={e => setInput({...input, additionalContext: e.target.value})}
             />
           </div>
 
-          <Button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="w-full bg-primary hover:bg-primary/90 text-white mt-4"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            {result ? "Regenerar Mensaje" : "Redactar Mensaje"}
-          </Button>
+          {!aiConfigLoading && !aiApiKey ? (
+            <AIKeyRequiredNotice feature="el asistente de redacción de comunicaciones" className="mt-4" />
+          ) : (
+            <Button
+              onClick={handleGenerate}
+              disabled={loading}
+              className="w-full bg-primary hover:bg-primary/90 text-white mt-4"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {result ? "Regenerar Mensaje" : "Redactar Mensaje"}
+            </Button>
+          )}
         </CardContent>
       </Card>
 

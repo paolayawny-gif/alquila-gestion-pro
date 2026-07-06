@@ -6,8 +6,14 @@ import type { NextRequest } from 'next/server';
 const PUBLIC_PATHS = [
   '/login',
   '/landing',
+  '/privacidad',          // política de privacidad — debe ser pública
+  '/terminos',            // términos y condiciones — debe ser pública
+  '/politica-cancelacion', // política de cancelación — debe ser pública
+  '/apply',               // formulario público de postulación de alquiler
   '/portal',              // vidriera pública de propiedades
   '/p/',                  // página pública por administrador
+  '/api/public/',         // lookups públicos server-side (redactados) para /apply, etc.
+  '/api/inquiries',       // formulario público de consulta de propiedad
   '/api/auth/session',
   '/api/auth/passkey',
   '/api/billing/webhook',

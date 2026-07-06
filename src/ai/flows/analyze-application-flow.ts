@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 
 const AnalyzeApplicationInputSchema = z.object({
   applicantName: z.string().describe('Nombre completo del postulante.'),
@@ -133,7 +133,8 @@ Devolvé un JSON con exactamente esta estructura:
 }
 
 export async function analyzeApplication(
-  input: AnalyzeApplicationInput
+  input: AnalyzeApplicationInput,
+  aiOptions?: AIOptions,
 ): Promise<AnalyzeApplicationOutput> {
-  return generateJSON<AnalyzeApplicationOutput>(buildPrompt(input));
+  return generateJSON<AnalyzeApplicationOutput>(buildPrompt(input), aiOptions);
 }

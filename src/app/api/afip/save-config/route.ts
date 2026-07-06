@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { parsePfx } from '@/lib/afip-service';
 import { encrypt } from '@/lib/afip-crypto';
-import { requireFirebaseAuth, isSuperAdminUid } from '@/lib/auth';
+import { requireFirebaseAuth, isSuperAdmin } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     // Permitir: el admin del namespace, o el propio owner cuyo email coincide.
     const isAdmin = auth.userId === adminId;
     const isOwner = !!auth.email && !!ownerEmail && auth.email.toLowerCase() === ownerEmail.toLowerCase();
-    if (!isAdmin && !isOwner && !isSuperAdminUid(auth.userId)) {
+    if (!isAdmin && !isOwner && !isSuperAdmin(auth)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

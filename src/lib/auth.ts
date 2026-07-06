@@ -2,8 +2,8 @@ import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { SUPERADMIN_UID } from "@/lib/constants";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { APP_ID } from "@/lib/constants";
 
 // Resolved lazily so a missing JWT_SECRET only fails when a session is
 // actually signed/verified at runtime — not at module import time (which
@@ -40,6 +40,7 @@ export type FirebaseSessionPayload = {
   userId: string;       // Firebase UID
   email?: string;       // Email del token verificado
   emailVerified?: boolean;
+  superAdmin: boolean;  // Custom claim `superAdmin` del token — única fuente de verdad
 };
 
 export async function encrypt(payload: any) {
@@ -110,6 +111,7 @@ export async function requireFirebaseAuth(
       userId: decoded.uid,
       email: decoded.email,
       emailVerified: decoded.email_verified,
+      superAdmin: decoded.superAdmin === true,
     };
   } catch (err) {
     return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
@@ -129,12 +131,43 @@ export async function requireSessionForAdmin(
   if (!adminId) {
     return NextResponse.json({ error: "Falta adminId" }, { status: 400 });
   }
-  if (auth.userId !== adminId && auth.userId !== SUPERADMIN_UID) {
+  if (auth.userId !== adminId && !auth.superAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return auth;
 }
 
-export function isSuperAdminUid(uid: string | undefined): boolean {
-  return !!uid && uid === SUPERADMIN_UID;
+/**
+ * Como requireSessionForAdmin, pero también deja pasar a un propietario cuyo
+ * email figura en el ownerRegistry de ese adminId (ej: para que un propietario
+ * pueda pagar un servicio publicado por su administración).
+ */
+export async function requireSessionForAdminOrOwner(
+  req: NextRequest,
+  adminId: string | undefined | null,
+): Promise<FirebaseSessionPayload | NextResponse> {
+  const auth = await requireFirebaseAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  if (!adminId) {
+    return NextResponse.json({ error: "Falta adminId" }, { status: 400 });
+  }
+  if (auth.userId === adminId || auth.superAdmin) {
+    return auth;
+  }
+  if (auth.email) {
+    const docId = auth.email.toLowerCase().replace(/[@.+]/g, "_");
+    const ownerDoc = await getAdminDb()
+      .collection("artifacts").doc(APP_ID)
+      .collection("ownerRegistry").doc(docId)
+      .get();
+    if (ownerDoc.exists && ownerDoc.data()?.adminId === adminId) {
+      return auth;
+    }
+  }
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+
+/** Único mecanismo de superadmin: el custom claim `superAdmin` seteado vía /api/superadmin/set-custom-claims. */
+export function isSuperAdmin(session: Pick<FirebaseSessionPayload, "superAdmin">): boolean {
+  return session.superAdmin === true;
 }

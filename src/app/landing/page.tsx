@@ -9,6 +9,7 @@ import {
   Home, User, ArrowRight, Play, Check, Plus,
   ShieldCheck, LayoutDashboard, TrendingUp,
   AlertTriangle, DollarSign, Globe,
+  Users, Store, Vote, Warehouse, Anchor, Link2, Crown,
 } from 'lucide-react';
 import { BILLING_TIERS, TRIAL_TIER } from '@/lib/billing/tiers';
 import { cn } from '@/lib/utils';
@@ -181,6 +182,29 @@ function DashboardPreview() {
   );
 }
 
+// ── Adjustment reminder (floating) ───────────────────────────────────────
+function AdjustmentReminder() {
+  return (
+    <div
+      className="hidden lg:block absolute -bottom-7 -left-8 w-[236px] bg-card border border-border rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-700"
+      style={{ boxShadow: 'var(--shadow-lg)' }}
+    >
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="w-2 h-2 rounded-full bg-[hsl(var(--status-pending-fg))] animate-pulse flex-shrink-0" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Recordatorio de ajuste</span>
+      </div>
+      <p className="text-[13.5px] font-bold leading-tight mb-0.5">Bulnes 1150 · PB</p>
+      <p className="text-[12px] text-muted-foreground mb-3">Vence en 12 días</p>
+      <div className="flex items-center justify-between">
+        <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-[hsl(var(--status-pending-bg))] text-[hsl(var(--status-pending-fg))]">
+          ICL · BCRA
+        </span>
+        <span className="text-[11px] font-mono tabular text-muted-foreground">12 días</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Hero ──────────────────────────────────────────────────────────────────
 const TRUST = ['AFIP / ARCA', 'BCRA — ICL', 'MercadoPago', 'Firma Digital'];
 
@@ -198,7 +222,7 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
           <div>
             <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card text-[11.5px] font-semibold text-muted-foreground mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              Ajuste por ICL automático con datos del BCRA
+              Registrá ajustes por ICL con seguimiento de vencimientos
             </span>
             <h1
               className="text-[clamp(2.1rem,1.4rem+2.4vw,3.5rem)] font-extrabold tracking-[-0.025em] leading-[1.06] text-foreground mb-5"
@@ -207,7 +231,7 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
               La plataforma completa para gestionar tu cartera de alquileres
             </h1>
             <p className="text-[17px] leading-[1.6] text-muted-foreground mb-7 max-w-[52ch]">
-              Desde el contrato hasta la liquidación — todo en un solo lugar. Ajustes por ICL, IPC y CER al día, facturación AFIP integrada, firma digital y un asistente que se ocupa de los cálculos.
+              Desde el contrato hasta la liquidación — todo en un solo lugar. Registrá ajustes por ICL, IPC y CER, con recordatorios de vencimiento, facturación AFIP integrada, firma digital y un asistente que te ayuda con los cálculos.
             </p>
             <div className="flex flex-wrap gap-3 mb-7">
               <Link href="/login"
@@ -232,8 +256,9 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
               ))}
             </div>
           </div>
-          <div className="hidden lg:block">
+          <div className="hidden lg:block relative">
             <DashboardPreview />
+            <AdjustmentReminder />
           </div>
         </div>
       </div>
@@ -321,14 +346,14 @@ function Roles() {
 // ── Features ──────────────────────────────────────────────────────────────
 const FEATURES = [
   { Icon: FileText,      title: 'Generador de contratos',    desc: 'Plantillas locales con cláusulas ICL/IPC/CER, garantías y ajustes. Genera el PDF listo para firmar.' },
-  { Icon: TrendingUp,    title: 'Ajustes automáticos',       desc: 'Conexión directa al BCRA: el índice del mes se aplica al contrato y notifica a las partes el día exacto.' },
+  { Icon: TrendingUp,    title: 'Ajustes por índice',        desc: 'Registrá el ajuste ICL, IPC o CER de cada contrato y notificá a las partes el día exacto — con recordatorio de vencimiento.' },
   { Icon: CreditCard,    title: 'Cobranzas y MercadoPago',   desc: 'Link de pago automático con vencimiento, recordatorios y conciliación.' },
   { Icon: BarChart3,     title: 'Centro de liquidaciones',   desc: 'Reparto automático al propietario, descuentos de comisión, expensas e impuestos en un solo cierre.' },
   { Icon: Scale,         title: 'Casos legales',             desc: 'Cargá la mora, generá la intimación y seguí los pasos con tu mediador. Documentos versionados.' },
   { Icon: Wrench,        title: 'Mantenimiento',             desc: 'Tickets con foto, presupuesto, aprobación del propietario y red de proveedores propios.' },
   { Icon: BrainCircuit,  title: 'Asistente IA',             desc: 'Pregúntale a tu cartera. Resume morosos, sugiere ajustes y redacta intimaciones — siempre con cita.' },
   { Icon: Calendar,      title: 'Próximos vencimientos',    desc: 'Mirá de un vistazo qué contratos vencen, qué ajustes vienen y qué expensas se aprueban este mes.' },
-  { Icon: FileSpreadsheet, title: 'Reportes y AFIP',        desc: 'Exportá libro de IVA, facturación electrónica y reportes para tu contador en un click.' },
+  { Icon: FileSpreadsheet, title: 'Reportes y AFIP',        desc: 'Facturación electrónica AFIP y exportá tus liquidaciones e informes en PDF/Excel para tu contador.' },
 ];
 
 function Features() {
@@ -354,6 +379,48 @@ function Features() {
               </span>
               <h4 className="text-[16px] font-bold tracking-[-0.01em] mb-1.5">{title}</h4>
               <p className="text-[13.5px] text-muted-foreground leading-[1.55]">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Extras (comunidad y más) ──────────────────────────────────────────────
+const EXTRAS = [
+  { Icon: Users,     title: 'Cartelera y comunidad', desc: 'Avisos oficiales, posteos entre vecinos y moderación para el administrador.' },
+  { Icon: Store,     title: 'Marketplace vecinal',   desc: 'Compra-venta entre inquilinos y propietarios de un mismo edificio, con comisión trazable.' },
+  { Icon: Vote,      title: 'Votaciones del consorcio', desc: 'Propuestas con quórum, plazo de cierre y restricción de quién puede votar.' },
+  { Icon: ShieldCheck, title: 'Seguros y comisiones', desc: 'Gestión de pólizas junto a productores asesores, con comisión calculada por contrato.' },
+  { Icon: Warehouse, title: 'Monetización de espacios', desc: 'Cocheras, depósitos o carteleras digitales ociosas, convertidas en ingreso adicional.' },
+  { Icon: Link2,     title: 'Portal público',        desc: 'Vidriera de propiedades disponibles, con consulta directa para el interesado.' },
+  { Icon: Anchor,    title: 'Notarización blockchain', desc: 'Ancla el hash del contrato firmado en Polygon, como prueba adicional de fecha cierta.' },
+  { Icon: Crown,     title: 'Panel Super Admin',     desc: 'Vista de plataforma completa para quien administra la operación de punta a punta.' },
+];
+
+function Extras() {
+  return (
+    <section className="py-20 bg-card border-y border-border">
+      <div className="max-w-6xl mx-auto px-7">
+        <div className="mb-14">
+          <Eyebrow>Más allá del contrato</Eyebrow>
+          <h2 className="text-[clamp(1.7rem,1.2rem+1.4vw,2.4rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-foreground mb-3"
+            style={{ textWrap: 'balance' } as React.CSSProperties}>
+            Lo que pasa entre vecinos, también se gestiona.
+          </h2>
+          <p className="text-[16.5px] text-muted-foreground leading-[1.6] max-w-[56ch]">
+            Módulos pensados para consorcios y complejos con vida propia — no solo cobranza.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {EXTRAS.map(({ Icon, title, desc }) => (
+            <div key={title} className="bg-background border border-border rounded-xl p-5 hover:border-primary/25 transition-colors">
+              <span className="inline-flex w-8 h-8 rounded-[9px] items-center justify-center bg-secondary text-primary mb-3">
+                <Icon className="h-4 w-4" />
+              </span>
+              <h4 className="text-[14px] font-bold tracking-[-0.01em] mb-1 leading-snug">{title}</h4>
+              <p className="text-[12.5px] text-muted-foreground leading-[1.5]">{desc}</p>
             </div>
           ))}
         </div>
@@ -416,7 +483,7 @@ function ContractShowcase() {
                 { k: 'Inicio', v: '01 jul 2024' },
                 { k: 'Plazo', v: '36 meses' },
                 { k: 'Índice de ajuste', v: 'ICL (BCRA)' },
-                { k: 'Próximo ajuste', v: 'Automático', up: true },
+                { k: 'Próximo ajuste', v: 'Con aviso', up: true },
                 { k: 'Garantía', v: 'Seguro de caución' },
               ].map(({ k, v, up }) => (
                 <div key={k} className="grid grid-cols-[1fr_auto] gap-2 py-2 border-b border-dashed border-border last:border-0">
@@ -492,7 +559,7 @@ function HowItWorks() {
 // ── Pricing ───────────────────────────────────────────────────────────────
 const PLAN_FEATURES = [
   'Generador de contratos + plantillas',
-  'Ajustes ICL/IPC/CER automáticos',
+  'Registro de ajustes ICL/IPC/CER',
   'Cobranzas con MercadoPago',
   'Portal propietario e inquilino',
   'Centro de liquidaciones',
@@ -607,7 +674,7 @@ function Pricing() {
 const FAQS = [
   {
     q: '¿Cómo se aplica el ajuste por ICL?',
-    a: 'Tomamos el índice publicado por el BCRA el día que corresponde según el contrato (3, 6 o 12 meses). Calculamos el nuevo canon, generamos la notificación al locatario y el período empieza con el valor actualizado. Si alguna de las partes pide ver el detalle, mostramos la fórmula paso a paso.',
+    a: 'El sistema calcula la fecha del próximo ajuste según el contrato (3, 6 o 12 meses) y te avisa cuando se acerca. Vos cargás el índice ICL/IPC/CER publicado por el BCRA o INDEC y el nuevo canon; nosotros generamos la notificación al locatario y dejamos el detalle registrado en el historial del contrato.',
   },
   {
     q: '¿Funciona si todavía no facturo electrónicamente?',
@@ -786,7 +853,7 @@ function Footer() {
             </p>
             <div className="flex items-center gap-1.5 mt-3">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[11.5px] text-muted-foreground">Ley 25.326 · Datos en Argentina</span>
+              <a href="/privacidad" className="text-[11.5px] text-muted-foreground hover:text-primary transition-colors">Ley 25.326 · Datos en Argentina</a>
             </div>
             <div className="flex items-center gap-1.5 mt-1.5">
               <Globe className="h-3.5 w-3.5 text-primary" />
@@ -810,9 +877,9 @@ function Footer() {
           <div>
             <h5 className="eyebrow text-muted-foreground mb-4">Legal</h5>
             <ul className="grid gap-2.5">
-              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Términos y condiciones</a></li>
-              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de privacidad</a></li>
-              <li><a href="#" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de cancelación</a></li>
+              <li><a href="/terminos" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Términos y condiciones</a></li>
+              <li><a href="/privacidad" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de privacidad</a></li>
+              <li><a href="/politica-cancelacion" className="text-[13.5px] text-foreground hover:text-primary transition-colors">Política de cancelación</a></li>
               <li>
                 <a
                   href="mailto:arrepentimiento@alquilagestion.pro?subject=Solicitud%20de%20arrepentimiento%20—%20Ley%2024.240&body=Nombre%3A%0AEmail%20de%20la%20cuenta%3A%0AFecha%20de%20contrataci%C3%B3n%3A"
@@ -834,9 +901,9 @@ function Footer() {
             <span>·</span>
             <span>Ley 24.240</span>
             <span>·</span>
-            <a href="#" className="hover:text-primary transition-colors">Términos</a>
+            <a href="/terminos" className="hover:text-primary transition-colors">Términos</a>
             <span>·</span>
-            <a href="#" className="hover:text-primary transition-colors">Privacidad</a>
+            <a href="/privacidad" className="hover:text-primary transition-colors">Privacidad</a>
             <span>·</span>
             <a
               href="mailto:arrepentimiento@alquilagestion.pro?subject=Solicitud%20de%20arrepentimiento%20—%20Ley%2024.240&body=Nombre%3A%0AEmail%20de%20la%20cuenta%3A%0AFecha%20de%20contrataci%C3%B3n%3A"
@@ -870,6 +937,7 @@ export default function LandingPage() {
       <Hero onOpenDemo={() => setDemoOpen(true)} />
       <Roles />
       <Features />
+      <Extras />
       <ContractShowcase />
       <HowItWorks />
       <Pricing />

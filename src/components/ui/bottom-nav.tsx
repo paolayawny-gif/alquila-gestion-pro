@@ -25,11 +25,12 @@ export function BottomNav({ items, activeId, onSelect, activeColor = 'text-prima
             key={item.id}
             onClick={() => onSelect(item.id)}
             className={cn(
-              'flex-1 flex flex-col items-center justify-center gap-1 transition-colors',
+              'flex-1 flex flex-col items-center justify-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
               activeId === item.id ? activeColor : 'text-muted-foreground',
             )}
+            aria-current={activeId === item.id ? 'page' : undefined}
           >
-            <item.icon className="h-5 w-5 shrink-0" />
+            <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
             <span className="text-[10px] font-semibold leading-none tracking-tight">{item.label}</span>
           </button>
         ))}

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { adminId, propertyId, propertyName, propertyAddress, name, email, phone, message } = body;
+    const { adminId, propertyId, propertyName, propertyAddress, name, email, phone, message, consent } = body;
 
     if (!name?.trim() || !adminId || !propertyId) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
@@ -50,6 +50,10 @@ export async function POST(req: NextRequest) {
 
     if (!email?.trim() && !phone?.trim()) {
       return NextResponse.json({ error: 'Se requiere email o teléfono' }, { status: 400 });
+    }
+
+    if (!consent) {
+      return NextResponse.json({ error: 'Se requiere autorización para el tratamiento de tus datos' }, { status: 400 });
     }
 
     const db = getAdminDb();
@@ -94,6 +98,8 @@ export async function POST(req: NextRequest) {
         phone: phone?.trim() || null,
         message: message?.trim() || '',
         status: 'NUEVO',
+        consentGiven: true,
+        consentAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       });
 

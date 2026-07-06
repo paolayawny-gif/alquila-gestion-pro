@@ -149,8 +149,20 @@ export function OwnerLiquidations({ ownerEntry }: OwnerLiquidationsProps) {
                           </span>
                         )}
                       </div>
+                      {/* Breakdown — visible en mobile como segunda línea, ya que en el bloque
+                          de la derecha (desktop) queda oculto por espacio */}
+                      <div className="flex sm:hidden items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-[10px] text-muted-foreground">
+                          Alquiler: {fmt(l.ingresoAlquiler ?? 0)}
+                        </span>
+                        {l.adminFeeDeduction !== undefined && (
+                          <span className="text-[10px] text-muted-foreground">
+                            · Honorarios: -{fmt(l.adminFeeDeduction)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {/* Breakdown */}
+                    {/* Breakdown (desktop) */}
                     <div className="hidden sm:flex flex-col items-end gap-0.5 shrink-0 mr-4">
                       <span className="text-[10px] text-muted-foreground">
                         Alquiler: {fmt(l.ingresoAlquiler ?? 0)}

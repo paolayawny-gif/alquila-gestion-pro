@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useChartColors } from '@/lib/chart-colors';
 
 
 interface PredictiveMaintenanceViewProps {
@@ -44,6 +45,7 @@ type RiskLevel = keyof typeof RISK_CONFIG;
 
 export function PredictiveMaintenanceView({ properties, tasks, userId }: PredictiveMaintenanceViewProps) {
   const { toast } = useToast();
+  const chartColors = useChartColors();
   const db = useFirestore();
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showSensorDialog, setShowSensorDialog] = useState(false);
@@ -231,19 +233,23 @@ export function PredictiveMaintenanceView({ properties, tasks, userId }: Predict
               <span className="text-4xl font-black text-primary">${projectedAnnualSaving.toLocaleString('es-AR')}</span>
               <span className="text-sm text-muted-foreground ml-2">/ ahorro proyectado anual</span>
             </div>
-            <div className="h-[180px]">
+            <div
+              className="h-[180px]"
+              role="img"
+              aria-label={`Ahorro estimado por mantenimiento preventivo vs. reactivo. Ahorro proyectado anual: $${projectedAnnualSaving.toLocaleString('es-AR')}. ${savingsData.map((d: any) => `${d.name}: preventivo $${Math.round(d.preventivo).toLocaleString('es-AR')}, reactivo estimado $${Math.round(d.reactivo).toLocaleString('es-AR')}`).join('. ')}.`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={savingsData} barSize={20} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} />
-                  <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: '#94a3b8' }} tickFormatter={v => `$${v / 1000}k`} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: chartColors.axis }} />
+                  <YAxis axisLine={false} tickLine={false} fontSize={11} tick={{ fill: chartColors.axis }} tickFormatter={v => `$${v / 1000}k`} />
                   <Tooltip
-                    contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                    contentStyle={{ borderRadius: '10px', border: `1px solid ${chartColors.tooltipBorder}`, background: chartColors.tooltipBg, boxShadow: `0 8px 24px ${chartColors.tooltipShadow}`, fontSize: '12px' }}
                     formatter={(v: any, n: string) => [`$${Number(v).toLocaleString('es-AR')}`, n === 'preventivo' ? 'Preventivo' : 'Reactivo estimado']}
                   />
-                  <Bar dataKey="preventivo" fill="#16a34a" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="reactivo" fill="#dcfce7" radius={[4, 4, 0, 0]} />
-                  <ReferenceLine x="Oct" stroke="#16a34a" strokeDasharray="4 2" label={{ value: 'Actual', position: 'top', fontSize: 10, fill: '#16a34a' }} />
+                  <Bar dataKey="preventivo" fill={chartColors.positive} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="reactivo" fill={chartColors.positiveSoft} radius={[4, 4, 0, 0]} />
+                  <ReferenceLine x="Oct" stroke={chartColors.positive} strokeDasharray="4 2" label={{ value: 'Actual', position: 'top', fontSize: 10, fill: chartColors.positive }} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

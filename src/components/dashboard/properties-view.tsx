@@ -5,7 +5,7 @@ import { APP_ID } from '@/lib/constants';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, TrendingUp, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink, Share2, Copy, Link2, CheckCheck } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Landmark, X, PlusCircle, Sparkles, Loader2, Send, MessageSquare, Building2, Users, Wrench, LayoutGrid, List, MapPin, Globe, BookOpen, History, BarChart3, ExternalLink, Share2, Copy, Link2, CheckCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Property, PropertyStatus, PropertyOwner, PropertyManual, Contract, Invoice, MaintenanceTask, RentalApplication, Liquidation, LegalCase, ReserveFund } from '@/lib/types';
@@ -37,8 +37,11 @@ import { doc, collection, query, where } from 'firebase/firestore';
 import { setDocumentNonBlocking, setDocumentSafe, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Schemas } from '@/lib/schemas';
 import { aiCommunicationAssistant, AiCommunicationAssistantOutput } from '@/ai/flows/ai-communication-assistant-flow';
+import { sendEmail } from '@/services/email-service';
 import { PropertyTimeline } from '@/components/ui/property-timeline';
 import { normalizeAddress } from '@/lib/format';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 interface PropertiesViewProps {
   properties: Property[];
@@ -60,6 +63,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
   const { toast } = useToast();
   const db = useFirestore();
   const { canWrite, canDelete } = useOrgPermissions();
+  const { apiKey: aiApiKey, provider: aiProvider, loading: aiConfigLoading } = useAIConfig(userId);
 
   // Cuento dependencias de cada propiedad para bloquear deletes peligrosos.
   // Los contratos llegan por props desde app-client — no hace falta re-suscribir.
@@ -91,6 +95,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
   const [invitingOwner, setInvitingOwner] = useState<{name: string, email: string} | null>(null);
   const [isDraftingInvite, setIsDraftingInvite] = useState(false);
   const [invitationDraft, setInvitationDraft] = useState<AiCommunicationAssistantOutput | null>(null);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   const [shareProperty, setShareProperty] = useState<Property | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -269,8 +274,14 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
     setInvitingOwner({ name: owner.name, email: owner.email });
     setIsInviteDialogOpen(true);
     setInvitationDraft(null);
+
+    if (!aiApiKey) {
+      // Sin key propia no se puede redactar — el diálogo va a mostrar el aviso
+      // de AIKeyRequiredNotice en lugar del loader/borrador.
+      return;
+    }
+
     setIsDraftingInvite(true);
-    
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const draft = await aiCommunicationAssistant({
@@ -279,7 +290,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
         role: 'Propietario',
         portalUrl: origin,
         additionalContext: `Le invitamos a ver el rendimiento de su propiedad. Debe registrarse con este email: ${owner.email}`
-      });
+      }, { apiKey: aiApiKey, provider: aiProvider });
       setInvitationDraft(draft);
     } catch (e) {
       toast({ title: "Error", description: "No se pudo redactar la invitación.", variant: "destructive" });
@@ -288,9 +299,30 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
     }
   };
 
-  const handleSendOwnerInvitation = () => {
-    toast({ title: "Invitación Enviada", description: `Acceso enviado a ${invitingOwner?.email}` });
-    setIsInviteDialogOpen(false);
+  const handleSendOwnerInvitation = async () => {
+    if (!invitingOwner?.email || !invitationDraft) return;
+    setIsSendingInvite(true);
+    try {
+      const result = await sendEmail({
+        to: invitingOwner.email,
+        subject: invitationDraft.subjectLine,
+        html: `<div style="white-space:pre-wrap;text-align:left;">${invitationDraft.draftedMessage.replace(/\n/g, '<br/>')}</div>`,
+      });
+      if (!result.success) {
+        toast({ title: "No se pudo enviar", description: result.error || "Falló el envío del email. Reintentá en unos minutos.", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Invitación Enviada",
+        description: result.simulated
+          ? `Sin credenciales de email configuradas: la invitación quedó simulada, no llegó a ${invitingOwner.email}.`
+          : `Acceso enviado a ${invitingOwner.email}`,
+        variant: result.simulated ? "destructive" : undefined,
+      });
+      setIsInviteDialogOpen(false);
+    } finally {
+      setIsSendingInvite(false);
+    }
   };
 
   const addOwner = () => {
@@ -378,7 +410,6 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Total de Propiedades</p>
               <p className="text-2xl font-black">{totalProperties}</p>
-              {totalProperties > 0 && <p className="text-[10px] text-green-600 font-bold flex items-center gap-0.5"><TrendingUp className="h-3 w-3" /> +2 este mes</p>}
             </div>
           </CardContent>
         </Card>
@@ -390,7 +421,7 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Tasa de Ocupación</p>
               <p className="text-2xl font-black">{occupancyRate}%</p>
-              <p className="text-[10px] text-muted-foreground">{occupancyRate >= 90 ? '95% Objetivo cumplido' : `${occupiedCount} de ${totalProperties} ocupadas`}</p>
+              <p className="text-[10px] text-muted-foreground">{occupiedCount} de {totalProperties} ocupadas</p>
             </div>
           </CardContent>
         </Card>
@@ -600,8 +631,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {/* Fila 1: Nombre + Dirección */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Nombre / Referencia *</Label>
+                  <Label htmlFor="property-name">Nombre / Referencia *</Label>
                   <Input
+                    id="property-name"
                     placeholder="Ej: Las Heras 4B"
                     value={formData.name || ''}
                     onChange={e => { setFormData({ ...formData, name: e.target.value }); if (formErrors.name) setFormErrors(p => ({ ...p, name: undefined })); }}
@@ -610,8 +642,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                   {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Dirección *</Label>
+                  <Label htmlFor="property-address">Dirección *</Label>
                   <AddressAutocomplete
+                    id="property-address"
                     placeholder="Calle y número"
                     value={formData.address || ''}
                     onChange={val => { setFormData({ ...formData, address: val }); if (formErrors.address) setFormErrors(p => ({ ...p, address: undefined })); }}
@@ -623,27 +656,29 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {/* Fila 2: Tipo + Uso + Estado */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Tipo</Label>
+                  <Label id="property-type-label">Tipo</Label>
                   <SelectWithOther
                     value={formData.type ?? ''}
                     onValueChange={v => setFormData({ ...formData, type: v as any })}
                     options={['Departamento','Casa','Local','Cochera','Oficina','Depósito','Terreno']}
                     otherPlaceholder="Ej: Galpón, Penthouse..."
+                    ariaLabelledby="property-type-label"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Uso</Label>
+                  <Label id="property-usage-label">Uso</Label>
                   <SelectWithOther
                     value={formData.usage ?? ''}
                     onValueChange={v => setFormData({ ...formData, usage: v as any })}
                     options={['Vivienda','Comercial','Profesional','Industrial']}
                     otherPlaceholder="Ej: Mixto, Uso especial..."
+                    ariaLabelledby="property-usage-label"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Estado</Label>
+                  <Label id="property-status-label">Estado</Label>
                   <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v as any })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-labelledby="property-status-label"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {['Disponible','Reservada','Alquilada','En Mantenimiento'].map(s => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -656,8 +691,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {/* Fila 3: m² + habitaciones */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Superficie (m²)</Label>
+                  <Label htmlFor="property-square-meters">Superficie (m²)</Label>
                   <Input
+                    id="property-square-meters"
                     type="number"
                     placeholder="0"
                     value={formData.squareMeters || ''}
@@ -665,8 +701,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Habitaciones</Label>
+                  <Label htmlFor="property-rooms">Habitaciones</Label>
                   <Input
+                    id="property-rooms"
                     type="number"
                     placeholder="0"
                     value={formData.rooms || ''}
@@ -720,30 +757,33 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
               {(formData.owners || []).map((owner, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-muted/20 rounded-lg">
                   <div className="md:col-span-4 space-y-1">
-                    <Label className="text-[10px]">Nombre</Label>
-                    <Input 
-                      value={owner.name} 
-                      onChange={(e) => updateOwner(index, 'name', e.target.value)} 
-                      placeholder="Nombre Completo" 
-                      className="h-8" 
+                    <Label className="text-[10px]" htmlFor={`owner-name-${index}`}>Nombre</Label>
+                    <Input
+                      id={`owner-name-${index}`}
+                      value={owner.name}
+                      onChange={(e) => updateOwner(index, 'name', e.target.value)}
+                      placeholder="Nombre Completo"
+                      className="h-8"
                     />
                   </div>
                   <div className="md:col-span-5 space-y-1">
-                    <Label className="text-[10px]">Email Acceso</Label>
-                    <Input 
-                      value={owner.email} 
-                      onChange={(e) => updateOwner(index, 'email', e.target.value)} 
-                      placeholder="ejemplo@correo.com" 
-                      className="h-8" 
+                    <Label className="text-[10px]" htmlFor={`owner-email-${index}`}>Email Acceso</Label>
+                    <Input
+                      id={`owner-email-${index}`}
+                      value={owner.email}
+                      onChange={(e) => updateOwner(index, 'email', e.target.value)}
+                      placeholder="ejemplo@correo.com"
+                      className="h-8"
                     />
                   </div>
                   <div className="md:col-span-2 space-y-1">
-                    <Label className="text-[10px]">% Part.</Label>
-                    <Input 
-                      type="number" 
-                      value={owner.percentage} 
-                      onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value) || 0)} 
-                      className="h-8" 
+                    <Label className="text-[10px]" htmlFor={`owner-percentage-${index}`}>% Part.</Label>
+                    <Input
+                      id={`owner-percentage-${index}`}
+                      type="number"
+                      value={owner.percentage}
+                      onChange={(e) => updateOwner(index, 'percentage', parseInt(e.target.value) || 0)}
+                      className="h-8"
                     />
                   </div>
                   <div className="md:col-span-1 flex justify-center">
@@ -812,8 +852,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                 {(formData.manuals || []).map((m, i) => (
                   <div key={i} className="grid grid-cols-12 gap-2 items-center p-3 bg-muted/20 rounded-lg">
                     <div className="col-span-4 space-y-1">
-                      <Label className="text-[10px]">Nombre</Label>
+                      <Label className="text-[10px]" htmlFor={`manual-name-${i}`}>Nombre</Label>
                       <Input
+                        id={`manual-name-${i}`}
                         className="h-8 text-xs"
                         placeholder="Ej: Refrigerador Smart"
                         value={m.name}
@@ -825,8 +866,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                       />
                     </div>
                     <div className="col-span-3 space-y-1">
-                      <Label className="text-[10px]">Tamaño / tipo</Label>
+                      <Label className="text-[10px]" htmlFor={`manual-size-${i}`}>Tamaño / tipo</Label>
                       <Input
+                        id={`manual-size-${i}`}
                         className="h-8 text-xs"
                         placeholder="PDF · 2.4 MB"
                         value={m.sizeLabel}
@@ -838,8 +880,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                       />
                     </div>
                     <div className="col-span-4 space-y-1">
-                      <Label className="text-[10px]">URL del archivo</Label>
+                      <Label className="text-[10px]" htmlFor={`manual-url-${i}`}>URL del archivo</Label>
                       <Input
+                        id={`manual-url-${i}`}
                         className="h-8 text-xs"
                         placeholder="https://..."
                         value={m.url || ''}
@@ -896,7 +939,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
           </DialogHeader>
           
           <div className="py-6 space-y-4">
-            {isDraftingInvite ? (
+            {!aiConfigLoading && !aiApiKey ? (
+              <AIKeyRequiredNotice feature="la redacción de invitaciones al propietario" />
+            ) : isDraftingInvite ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-muted-foreground">Redactando invitación para el Propietario...</p>
@@ -916,12 +961,13 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancelar</Button>
-            <Button 
-              className="bg-primary text-white gap-2 font-bold px-8" 
+            <Button
+              className="bg-primary text-white gap-2 font-bold px-8"
               onClick={handleSendOwnerInvitation}
-              disabled={isDraftingInvite || !invitationDraft}
+              disabled={isDraftingInvite || !invitationDraft || isSendingInvite}
             >
-              <Send className="h-4 w-4" /> Enviar Invitación
+              {isSendingInvite ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {isSendingInvite ? 'Enviando...' : 'Enviar Invitación'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1099,8 +1145,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                 {/* Inputs de búsqueda */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-muted-foreground">Ciudad</label>
+                    <label className="text-xs font-bold text-muted-foreground" htmlFor="market-city">Ciudad</label>
                     <Input
+                      id="market-city"
                       placeholder="Ej: Buenos Aires"
                       value={marketCity}
                       onChange={e => setMarketCity(e.target.value)}
@@ -1108,8 +1155,9 @@ export function PropertiesView({ properties, userId, contracts = [], invoices = 
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-muted-foreground">Barrio / Zona (opcional)</label>
+                    <label className="text-xs font-bold text-muted-foreground" htmlFor="market-neighborhood">Barrio / Zona (opcional)</label>
                     <Input
+                      id="market-neighborhood"
                       placeholder="Ej: Palermo"
                       value={marketNeigh}
                       onChange={e => setMarketNeigh(e.target.value)}

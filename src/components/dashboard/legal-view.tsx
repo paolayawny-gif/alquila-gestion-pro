@@ -853,9 +853,18 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
                       {r.descripcion && (
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{r.descripcion}</p>
                       )}
-                      {r.archivos?.comprobanteName && (
+                      {r.archivos?.comprobanteUrl ? (
+                        <a
+                          href={r.archivos.comprobanteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-amber-700 font-semibold mt-0.5 underline underline-offset-2 inline-block"
+                        >
+                          Ver comprobante adjunto →
+                        </a>
+                      ) : r.archivos?.comprobanteName && (
                         <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
-                          Comprobante: {r.archivos.comprobanteName}
+                          Comprobante: {r.archivos.comprobanteName} (sin archivo — solicitud anterior a la carga real)
                         </p>
                       )}
                     </div>
@@ -879,7 +888,7 @@ export function LegalView({ legalCases, userId, properties }: LegalViewProps) {
                           Procesar
                         </Button>
                       )}
-                      {(r.estado === 'en_proceso' || r.estado === 'pago_pendiente') && r.archivos?.comprobanteName && (
+                      {(r.estado === 'en_proceso' || r.estado === 'pago_pendiente') && (r.archivos?.comprobanteUrl || r.archivos?.comprobanteName) && (
                         <Button
                           size="sm"
                           className="text-xs h-7 font-bold bg-green-600 hover:bg-green-700"

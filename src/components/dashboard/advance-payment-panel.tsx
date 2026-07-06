@@ -161,8 +161,9 @@ export function AdvancePaymentPanel({ contract, userId, db, invoices: _invoices 
           {/* Campos numéricos */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Descuento al inquilino (%)</Label>
+              <Label htmlFor="advance-discount-pct" className="text-xs font-bold">Descuento al inquilino (%)</Label>
               <Input
+                id="advance-discount-pct"
                 type="number"
                 min={0}
                 max={100}
@@ -175,8 +176,9 @@ export function AdvancePaymentPanel({ contract, userId, db, invoices: _invoices 
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Comisión del admin (%)</Label>
+              <Label htmlFor="advance-commission-pct" className="text-xs font-bold">Comisión del admin (%)</Label>
               <Input
+                id="advance-commission-pct"
                 type="number"
                 min={0}
                 max={100}
@@ -189,13 +191,13 @@ export function AdvancePaymentPanel({ contract, userId, db, invoices: _invoices 
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Máximo meses a adelantar</Label>
+              <Label id="advance-max-months-label" className="text-xs font-bold">Máximo meses a adelantar</Label>
               <Select
                 value={maxMonths}
                 onValueChange={setMaxMonths}
                 disabled={!canWrite}
               >
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 text-sm" aria-labelledby="advance-max-months-label">
                   <SelectValue placeholder="Seleccioná" />
                 </SelectTrigger>
                 <SelectContent>

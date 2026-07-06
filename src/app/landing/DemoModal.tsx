@@ -37,7 +37,7 @@ function AreaChart({ data, color = '#38bdf8', h = 48 }: { data: number[]; color?
   const linePath = `M ${pts.join(' L ')}`;
   const areaPath = `${linePath} L ${w},${h} L 0,${h} Z`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} aria-hidden="true">
       <defs>
         <linearGradient id={`g${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.35" />
@@ -53,7 +53,7 @@ function AreaChart({ data, color = '#38bdf8', h = 48 }: { data: number[]; color?
 function MiniBarChart({ data }: { data: { label: string; ing: number; eg: number }[] }) {
   const max = Math.max(...data.map(d => d.ing));
   return (
-    <div className="flex items-end gap-1 h-14">
+    <div className="flex items-end gap-1 h-14" aria-hidden="true">
       {data.map((d, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
           <div className="w-full flex flex-col-reverse gap-0.5">

@@ -24,7 +24,7 @@ import {
   Sparkles, Copy, ExternalLink, Plus, Trash2, Save,
   Loader2, Hash, FileText, Layers, Send, Edit3,
   RefreshCw, Link2, Globe, CalendarDays, ChevronLeft, ChevronRight,
-  BarChart2, Clock, ImageIcon, GalleryHorizontal, UserCircle2,
+  BarChart2, Clock, ImageIcon, GalleryHorizontal, UserCircle2, BellRing,
 } from 'lucide-react';
 import { format as dateFnsFormat, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -139,6 +139,7 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
   const [status, setStatus] = useState<SocialPost['status']>('Borrador');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduledAt, setScheduledAt] = useState<string | undefined>(undefined);
+  const [remindMe, setRemindMe] = useState(true);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // AI
@@ -213,6 +214,7 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
     setTitle(''); setMainText(''); setHashtags(''); setCta('');
     setEditingId(null); setStatus('Borrador');
     setTargetNets(['Instagram']); setTone('profesional'); setScheduledAt(undefined);
+    setRemindMe(true);
   };
 
   const loadPost = (p: SocialPost) => {
@@ -220,6 +222,7 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
     setCta(p.callToAction ?? ''); setTone(p.tone); setTargetNets(p.targetNetworks);
     setStatus(p.status); setEditingId(p.id); setActiveTab(p.contentType);
     setScheduledAt(p.scheduledAt);
+    setRemindMe(p.remindMe !== false);
   };
 
   const handleSave = () => {
@@ -229,6 +232,8 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
     }
     const now = new Date().toISOString();
     const id = editingId ?? Math.random().toString(36).substr(2, 9);
+    const original = editingId ? posts.find(p => p.id === editingId) : undefined;
+    const dateChanged = (original?.scheduledAt ?? undefined) !== (scheduledAt || undefined);
     const docRef = doc(collection(db, 'artifacts', APP_ID, 'users', userId, 'socialPosts'), id);
     const data: SocialPost = {
       id, contentType: contentTab ?? 'Publicación',
@@ -236,7 +241,10 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
       hashtags: hashtags.trim(), callToAction: cta.trim(), targetNetworks: targetNets,
       tone, aiGenerated: false, status,
       scheduledAt: scheduledAt || undefined,
-      ownerId: userId, createdAt: editingId ? (posts.find(p => p.id === editingId)?.createdAt ?? now) : now,
+      remindMe,
+      // Si se cambió la fecha, habilita un nuevo recordatorio para la nueva fecha.
+      reminderSentAt: dateChanged ? undefined : original?.reminderSentAt,
+      ownerId: userId, createdAt: editingId ? (original?.createdAt ?? now) : now,
       updatedAt: now,
     };
     setDocumentNonBlocking(docRef, data, { merge: true });
@@ -471,6 +479,20 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
                         )}
                       </PopoverContent>
                     </Popover>
+
+                    {scheduledAt && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn('h-7 text-[11px] gap-1.5', remindMe ? 'text-primary border-primary/40' : 'text-muted-foreground')}
+                        onClick={() => setRemindMe(v => !v)}
+                        aria-pressed={remindMe}
+                        title={remindMe ? 'Se te va a recordar el día de la publicación' : 'Recordatorio desactivado'}
+                      >
+                        <BellRing className="h-3 w-3" />
+                        {remindMe ? 'Recordarme' : 'Sin recordatorio'}
+                      </Button>
+                    )}
 
                     <Select value={status} onValueChange={v => setStatus(v as SocialPost['status'])}>
                       <SelectTrigger className="h-7 text-[11px] w-28"><SelectValue /></SelectTrigger>
@@ -717,12 +739,12 @@ export function SocialMediaView({ posts, networkLinks, userId }: SocialMediaView
 
           {/* ── Tarjeta ── */}
           <TabsContent value="Tarjeta" className="mt-0">
-            <SocialCardDesigner canWrite={canWrite} brandContext={brandContext} />
+            <SocialCardDesigner userId={userId} canWrite={canWrite} brandContext={brandContext} />
           </TabsContent>
 
           {/* ── Carrusel ── */}
           <TabsContent value="Carrusel" className="mt-0">
-            <SocialCarousel canWrite={canWrite} brandContext={brandContext} />
+            <SocialCarousel userId={userId} canWrite={canWrite} brandContext={brandContext} />
           </TabsContent>
 
           {/* ── Perfil de marca ── */}

@@ -1,6 +1,8 @@
 import { getAdminDb } from '@/lib/firebase-admin';
+import { redactPropertyForPublic } from '@/lib/redact-public-property';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import type { Property } from '@/lib/types';
 import { PropertyDetail } from './property-detail';
 
 const APP_ID = 'alquilagestion-pro';
@@ -42,7 +44,9 @@ async function loadPropertyData(adminId: string, propertyId: string) {
 
   const profile = profileSnap.exists ? (profileSnap.data() as any) : {};
 
-  const property = { id: propSnap.id, ...(propSnap.data() as any) };
+  // Redactado (sin owners/contacto del propietario) — PropertyDetail nunca lee esos
+  // campos, el cast solo asegura al compilador que el resto del shape coincide.
+  const property = redactPropertyForPublic({ id: propSnap.id, ...(propSnap.data() as any) }) as Property;
   // Disponible, habilitada por el admin, no bloqueada y sin contrato vigente.
   if (property.status !== 'Disponible') return null;
   if (property.publicarEnPortal !== true || property.portalBlocked === true) return null;

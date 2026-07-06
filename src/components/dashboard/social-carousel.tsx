@@ -13,11 +13,13 @@ import {
   ChevronLeft, ChevronRight, GalleryHorizontal, ImagePlus,
 } from 'lucide-react';
 import {
-  CardPreview, CardFormat, CardStyle,
+  CardPreview, CardFormat, CardStyle, CardLayout,
   ACCENT_COLORS, DARK_BG_COLORS, CARD_TEXT_COLORS,
   PREVIEW_DIMS, EXPORT_DIMS, exportCardToPng,
 } from './social-card-designer';
 import { generateCarousel } from '@/ai/flows/generate-carousel-flow';
+import { useAIConfig } from '@/hooks/use-ai-config';
+import { AIKeyRequiredNotice } from '@/components/ui/ai-key-required-notice';
 
 interface Slide {
   title: string;
@@ -40,6 +42,7 @@ const DEFAULT_SLIDES: Slide[] = [
 ];
 
 interface SocialCarouselProps {
+  userId?: string;
   canWrite?: boolean;
   brandContext?: string;
   initialSlides?: Slide[];
@@ -49,10 +52,11 @@ interface SocialCarouselProps {
 }
 
 export function SocialCarousel({
-  canWrite = true, brandContext,
+  userId, canWrite = true, brandContext,
   initialSlides, initialTopic = '', initialContext = '', initialBrandTag = '',
 }: SocialCarouselProps) {
   const { toast } = useToast();
+  const { apiKey, provider, loading: aiConfigLoading } = useAIConfig(userId);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -78,6 +82,7 @@ export function SocialCarousel({
   // Design
   const [format, setFormat] = useState<CardFormat>('Cuadrado');
   const [style, setStyle] = useState<CardStyle>('gradient');
+  const [layout, setLayout] = useState<CardLayout>('inferior');
   const [accent, setAccent] = useState(ACCENT_COLORS[0].value);
   const [darkBg, setDarkBg] = useState(DARK_BG_COLORS[0].value);
   const [textColor, setTextColor] = useState(CARD_TEXT_COLORS[0].value);
@@ -121,7 +126,7 @@ export function SocialCarousel({
         tone: aiTone,
         context: aiContext.trim() || undefined,
         brandContext,
-      });
+      }, { apiKey: apiKey ?? undefined, provider });
       setSlides(r.slides.map((s, i) => ({
         title: s.title,
         subtitle: s.subtitle,
@@ -219,15 +224,19 @@ export function SocialCarousel({
                   </Select>
                 </div>
               </div>
-              <Button
-                className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
-                onClick={handleGenerate}
-                disabled={isGenerating || !canWrite}
-              >
-                {isGenerating
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
-                  : <><GalleryHorizontal className="h-4 w-4" /> Generar carrusel</>}
-              </Button>
+              {!aiConfigLoading && !apiKey ? (
+                <AIKeyRequiredNotice feature="la generación de carruseles" />
+              ) : (
+                <Button
+                  className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !canWrite}
+                >
+                  {isGenerating
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</>
+                    : <><GalleryHorizontal className="h-4 w-4" /> Generar carrusel</>}
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -373,6 +382,17 @@ export function SocialCarousel({
                 </div>
               </div>
               <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Composición del texto</Label>
+                <Select value={layout} onValueChange={v => setLayout(v as CardLayout)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inferior">Abajo</SelectItem>
+                    <SelectItem value="centrado">Centrado</SelectItem>
+                    <SelectItem value="superior">Arriba</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase font-black text-muted-foreground">Color de acento</Label>
                 <div className="flex gap-2 flex-wrap">
                   {ACCENT_COLORS.map(c => (
@@ -418,6 +438,7 @@ export function SocialCarousel({
             <CardPreview
               format={format}
               style={style}
+              layout={layout}
               accent={accent}
               darkBg={darkBg}
               textColor={textColor}

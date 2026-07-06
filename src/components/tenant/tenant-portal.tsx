@@ -131,14 +131,14 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
     switch (activeTab) {
       case 'Inicio':        return <TenantHome         tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
       case 'Recibos':       return <TenantInvoices     tenantEntry={tenantEntry} />;
-      case 'Pagos':         return <TenantPaymentPlans tenantEntry={tenantEntry} />;
+      case 'Pagos':         return <TenantPaymentPlans tenantEntry={tenantEntry} onGoToRecibos={() => setActiveTab('Recibos')} />;
       case 'Mensajes':      return <TenantMessages     tenantEntry={tenantEntry} />;
       case 'Mantenimiento': return <TenantMaintenance  tenantEntry={tenantEntry} />;
       case 'Espacios':      return <TenantSpaces       tenantEntry={tenantEntry} />;
       case 'Comunidad':     return <TenantCommunity    tenantEntry={tenantEntry} />;
       case 'Marketplace':   return <TenantMarketplace  tenantEntry={tenantEntry} />;
       case 'Seguros':       return <TenantInsurance    tenantEntry={tenantEntry} />;
-      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as TenantTab)} currentSection={activeTab} portalRole="inquilino" />;
+      case 'Ayuda':         return <HelpView onNavigate={(t) => setActiveTab(t as TenantTab)} currentSection={activeTab} portalRole="inquilino" userId={tenantEntry.adminId} />;
       default:              return <TenantHome         tenantEntry={tenantEntry} onNavigate={setActiveTab} />;
     }
   };
@@ -272,7 +272,7 @@ export function TenantPortal({ tenantEntry, onSwitchToAdmin }: TenantPortalProps
           { id: 'Recibos',       icon: FileText,        label: 'Recibos'   },
           { id: 'Mensajes',      icon: MessageSquare,   label: 'Mensajes'  },
           { id: 'Mantenimiento', icon: Wrench,          label: 'Reparac.'  },
-          { id: 'Seguros',       icon: Shield,          label: 'Seguros'   },
+          { id: 'Ayuda',         icon: HelpCircle,      label: 'Ayuda'     },
         ]}
       />
     </div>

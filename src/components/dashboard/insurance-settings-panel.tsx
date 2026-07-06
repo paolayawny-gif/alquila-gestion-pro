@@ -402,23 +402,23 @@ export function InsuranceSettingsPanel({
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1.5">
-                <Label>Nombre / Razón Social *</Label>
-                <Input placeholder="Ej: Estudio Seguros SA" value={pasForm.name}
+                <Label htmlFor="pas-name">Nombre / Razón Social *</Label>
+                <Input id="pas-name" placeholder="Ej: Estudio Seguros SA" value={pasForm.name}
                   onChange={e => setPasForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input type="email" placeholder="broker@ejemplo.com" value={pasForm.email}
+                <Label htmlFor="pas-email">Email</Label>
+                <Input id="pas-email" type="email" placeholder="broker@ejemplo.com" value={pasForm.email}
                   onChange={e => setPasForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>Teléfono</Label>
-                <Input placeholder="+54 11 1234-5678" value={pasForm.phone}
+                <Label htmlFor="pas-phone">Teléfono</Label>
+                <Input id="pas-phone" placeholder="+54 11 1234-5678" value={pasForm.phone}
                   onChange={e => setPasForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label>Matrícula SSN</Label>
-                <Input placeholder="Nº de matrícula ante SSN" value={pasForm.matricula}
+                <Label htmlFor="pas-matricula">Matrícula SSN</Label>
+                <Input id="pas-matricula" placeholder="Nº de matrícula ante SSN" value={pasForm.matricula}
                   onChange={e => setPasForm(f => ({ ...f, matricula: e.target.value }))} />
               </div>
             </div>
@@ -447,8 +447,8 @@ export function InsuranceSettingsPanel({
 
             {/* Notes */}
             <div className="space-y-1.5">
-              <Label>Notas del acuerdo</Label>
-              <Textarea placeholder="Condiciones especiales, contacto clave, vigencia del acuerdo…"
+              <Label htmlFor="pas-notes">Notas del acuerdo</Label>
+              <Textarea id="pas-notes" placeholder="Condiciones especiales, contacto clave, vigencia del acuerdo…"
                 className="min-h-[60px]" value={pasForm.notes}
                 onChange={e => setPasForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
@@ -485,9 +485,9 @@ export function InsuranceSettingsPanel({
           <div className="space-y-4 py-2">
             {/* PAS select */}
             <div className="space-y-1.5">
-              <Label>PAS Partner *</Label>
+              <Label id="cfg-pas-label">PAS Partner *</Label>
               <Select value={cfgForm.pasId} onValueChange={v => setCfgForm(f => ({ ...f, pasId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Seleccioná el PAS…" /></SelectTrigger>
+                <SelectTrigger aria-labelledby="cfg-pas-label"><SelectValue placeholder="Seleccioná el PAS…" /></SelectTrigger>
                 <SelectContent>
                   {pasPartners.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
@@ -496,11 +496,11 @@ export function InsuranceSettingsPanel({
 
             {/* Policy type */}
             <div className="space-y-1.5">
-              <Label>Tipo de seguro</Label>
+              <Label id="cfg-policy-type-label">Tipo de seguro</Label>
               <Select
                 value={cfgForm.policyType}
                 onValueChange={v => setCfgForm(f => ({ ...f, policyType: v as PolicyType | 'Todos' }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-labelledby="cfg-policy-type-label"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Todos">📋 Todos (default para este PAS)</SelectItem>
                   {(['Incendio','Responsabilidad Civil','Integral Hogar','Caución','Granizo','Robo y Hurto','Otro'] as PolicyType[]).map(t => (

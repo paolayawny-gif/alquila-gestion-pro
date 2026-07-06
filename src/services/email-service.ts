@@ -117,6 +117,92 @@ export async function buildInvitationEmail(opts: {
 }
 
 /**
+ * Genera HTML de confirmación para quien completó una postulación de alquiler
+ * en /apply — antes no se enviaba ninguna confirmación y el postulante no
+ * tenía ningún número de referencia para hacer seguimiento.
+ */
+export async function buildApplicationReceivedEmail(opts: {
+  applicantName: string;
+  propertyLabel: string;
+  solicitudId: string;
+  orgName?: string;
+}) {
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+    <div style="background:#0b3b5c;padding:32px 40px;text-align:center;">
+      <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:800;">AlquilaGestión Pro</h1>
+    </div>
+    <div style="padding:40px;">
+      <h2 style="color:#1e293b;font-size:20px;margin:0 0 12px;">Recibimos tu postulación</h2>
+      <p style="color:#475569;line-height:1.6;margin:0 0 20px;">
+        Hola ${opts.applicantName}, ${opts.orgName || 'la administración'} recibió tu postulación para
+        <strong>${opts.propertyLabel}</strong>. Te van a contactar directamente ante cualquier novedad.
+      </p>
+      <div style="background:#f1f5f9;border-radius:8px;padding:16px 20px;margin-bottom:8px;">
+        <p style="margin:0;font-size:12px;color:#64748b;">Número de referencia</p>
+        <p style="margin:2px 0 0;font-weight:700;color:#1e293b;font-size:15px;font-family:monospace;">${opts.solicitudId}</p>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;margin:12px 0 0;">
+        Guardá este número por si necesitás hacer referencia a tu postulación.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Genera HTML para el email que avisa a un inquilino o propietario que ya
+ * tiene acceso a su portal (se dispara la primera vez que su email aparece
+ * en un contrato/propiedad y se crea su registro — ver app-client.tsx).
+ */
+export async function buildPortalAccessEmail(opts: {
+  recipientName: string;
+  role: 'Inquilino' | 'Propietario';
+  orgName?: string;
+  propertyName: string;
+  loginUrl: string;
+  recipientEmail: string;
+}) {
+  const roleLower = opts.role === 'Inquilino' ? 'inquilino' : 'propietario';
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+    <div style="background:#0b3b5c;padding:32px 40px;text-align:center;">
+      <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:800;">AlquilaGestión Pro</h1>
+      <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:13px;">${opts.orgName || 'Tu administración'}</p>
+    </div>
+    <div style="padding:40px;">
+      <h2 style="color:#1e293b;font-size:20px;margin:0 0 12px;">Ya tenés acceso a tu portal de ${roleLower}</h2>
+      <p style="color:#475569;line-height:1.6;margin:0 0 24px;">
+        Hola ${opts.recipientName || ''}, ${opts.orgName || 'tu administración'} te dio de alta como <strong>${roleLower}</strong> de <strong>${opts.propertyName}</strong> en AlquilaGestión Pro.
+        Desde ahí vas a poder ver tu contrato, ${opts.role === 'Inquilino' ? 'informar pagos y hacer reclamos de mantenimiento' : 'tus liquidaciones y aprobar presupuestos'}.
+      </p>
+      <div style="background:#f1f5f9;border-radius:8px;padding:16px 20px;margin-bottom:28px;">
+        <p style="margin:0;font-size:12px;color:#64748b;">Iniciá sesión con este email:</p>
+        <p style="margin:2px 0 0;font-weight:700;color:#1e293b;font-size:15px;">${opts.recipientEmail}</p>
+      </div>
+      <a href="${opts.loginUrl}"
+         style="display:block;background:#0b3b5c;color:#ffffff;text-align:center;padding:14px 28px;border-radius:8px;font-weight:700;font-size:15px;text-decoration:none;margin-bottom:28px;">
+        Ir a mi portal →
+      </a>
+      <p style="color:#94a3b8;font-size:12px;margin:0;">
+        Si todavía no creaste tu cuenta, registrate con este mismo email en ese link — el sistema te va a llevar directo a tu portal de ${roleLower}.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
  * Genera HTML para notificaciones de mora.
  */
 export async function buildMoraNotificationEmail(opts: {

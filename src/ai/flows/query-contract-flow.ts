@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSON } from '@/ai/gemini';
+import { generateJSON, type AIOptions } from '@/ai/gemini';
 import { MARCO_LEGAL_ALQUILER } from '@/lib/argentine-law';
 
 const QueryContractInputSchema = z.object({
@@ -78,9 +78,9 @@ PREGUNTA DEL USUARIO:
 ${input.question}`;
 }
 
-export async function queryContract(input: QueryContractInput): Promise<QueryContractResult> {
+export async function queryContract(input: QueryContractInput, aiOptions?: AIOptions): Promise<QueryContractResult> {
   try {
-    const data = await generateJSON<QueryContractOutput>(buildPrompt(input));
+    const data = await generateJSON<QueryContractOutput>(buildPrompt(input), aiOptions);
     return { ok: true, data };
   } catch (err: any) {
     const msg: string = err?.message ?? '';

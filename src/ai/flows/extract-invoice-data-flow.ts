@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import { generateJSONWithMedia } from '@/ai/gemini';
+import { generateJSONWithMedia, type AIOptions } from '@/ai/gemini';
 
 const ExtractInvoiceDataInputSchema = z.object({
   documentDataUri: z
@@ -56,10 +56,12 @@ Return a JSON object with exactly this structure:
 }
 
 export async function extractInvoiceData(
-  input: ExtractInvoiceDataInput
+  input: ExtractInvoiceDataInput,
+  aiOptions?: AIOptions,
 ): Promise<ExtractInvoiceDataOutput> {
   return generateJSONWithMedia<ExtractInvoiceDataOutput>(
     buildPrompt(),
     input.documentDataUri,
+    aiOptions,
   );
 }
