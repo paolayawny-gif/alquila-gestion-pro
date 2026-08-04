@@ -386,6 +386,11 @@ service cloud.firestore {
       allow update, delete: if false; // eventos son inmutables
     }
 
+    // Config del admin (incluye aiConfig: provider/apiKey de IA propia).
+    match /artifacts/{appId}/users/{userId}/config/{docId} {
+      allow read, write: if isOwner(userId);
+    }
+
     // ── Comodín por usuario: cualquier OTRA subcolección bajo users/{uid} ──────
     // FIX: solo read — write eliminado para evitar que este comodín anule reglas
     // de inmutabilidad de colecciones específicas (como propertyEvents).
