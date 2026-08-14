@@ -119,7 +119,7 @@ function VisualBienvenida() {
             { icon: '📊', label: 'Reportes' },
             { icon: '🏛️', label: 'AFIP' },
             { icon: '🤖', label: 'Asistente IA' },
-            { icon: '✍️', label: 'Firma digital' },
+            { icon: '✍️', label: 'Firma electrónica' },
             { icon: '🌐', label: 'Portal' },
             { icon: '📱', label: 'MercadoPago' },
             { icon: '⚖️', label: 'Legal' },
@@ -606,11 +606,11 @@ function VisualFirmaDigital() {
   return (
     <AppChrome url="app.alquilagestion.pro/contratos/firmar">
       <div className="p-3 flex flex-col gap-2.5 h-full">
-        <div className="text-white text-[9px] font-bold flex-shrink-0">Firma Digital — Contrato #CON-2024-001</div>
+        <div className="text-white text-[9px] font-bold flex-shrink-0">Firma Electrónica — Contrato #CON-2024-001</div>
         <div className="rounded-lg bg-white/5 border border-white/8 p-3 flex-1 flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-white/40 text-[8px]">Contrato de Locación</span>
-            <span className="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 text-[7px] border border-purple-500/25">Ley 27.551</span>
+            <span className="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 text-[7px] border border-purple-500/25">Normativa vigente</span>
           </div>
           <div className="text-white/25 text-[7px] leading-relaxed line-clamp-3">
             Entre CARLOS FERNÁNDEZ (propietario) y JUAN PÉREZ (locatario), se acuerda el alquiler de Av. Libertador 1234, CABA, por $380.000 mensuales con ajuste anual ICL según resolución BCRA...
@@ -650,8 +650,8 @@ function VisualIntegraciones() {
           {[
             { name: 'AFIP / ARCA', desc: 'Facturación electrónica', icon: '🏛️', color: 'border-blue-500/25 bg-blue-500/8' },
             { name: 'BCRA — ICL', desc: 'Índices de ajuste en tiempo real', icon: '📊', color: 'border-sky-500/25 bg-sky-500/8' },
-            { name: 'MercadoPago', desc: 'Links de cobro instantáneos', icon: '💳', color: 'border-[#009ee3]/25 bg-[#009ee3]/8' },
-            { name: 'Firma Digital', desc: 'Contratos con validez legal', icon: '✍️', color: 'border-purple-500/25 bg-purple-500/8' },
+            { name: 'MercadoPago', desc: 'Suscripción y servicios', icon: '💳', color: 'border-[#009ee3]/25 bg-[#009ee3]/8' },
+            { name: 'Firma Electrónica', desc: 'Contratos firmados online', icon: '✍️', color: 'border-purple-500/25 bg-purple-500/8' },
           ].map((item) => (
             <div key={item.name} className={cn('rounded-xl border p-2 flex items-center gap-2', item.color)}>
               <span className="text-base flex-shrink-0">{item.icon}</span>
@@ -687,8 +687,8 @@ const SCENES = [
     id: 'bienvenida',
     title: 'Todo lo que necesitás para administrar alquileres',
     subtitle: 'Una plataforma, todas las herramientas',
-    description: 'AlquilaGestión Pro integra contratos, cobranzas, ajustes de alquiler, AFIP, MercadoPago, firma digital y un asistente inteligente — todo en un solo lugar, sin hojas de cálculo ni papeles.',
-    narration: 'AlquilaGestión Pro es la plataforma completa para administrar tu cartera de alquileres. Contratos, cobranzas, ajustes automáticos, AFIP, MercadoPago, firma digital y asistente inteligente, todo en un solo lugar.',
+    description: 'AlquilaGestión Pro integra contratos, cobranzas, ajustes de alquiler, AFIP, firma electrónica y un asistente inteligente — todo en un solo lugar, sin hojas de cálculo ni papeles.',
+    narration: 'AlquilaGestión Pro es la plataforma completa para administrar tu cartera de alquileres. Contratos, cobranzas, ajustes automáticos, AFIP, firma electrónica y asistente inteligente, todo en un solo lugar.',
     tags: ['Visión general'],
     Visual: VisualBienvenida,
   },
@@ -713,10 +713,10 @@ const SCENES = [
   {
     id: 'contratos',
     title: 'Generación de contratos legales',
-    subtitle: 'Ley 27.551 lista para usar',
+    subtitle: 'Cláusulas según la normativa vigente',
     description: 'Generás contratos completos con todas las cláusulas legales argentinas. Elegís el tipo de ajuste (ICL, IPC o CER), la duración, las partes, y el PDF queda listo para firmar.',
-    narration: 'Generás contratos de locación completos con todas las cláusulas de la Ley 27.551. Elegís el tipo de ajuste, la duración, propietario e inquilino, y el PDF queda listo en segundos para enviar a firmar.',
-    tags: ['Contratos', 'Ley 27.551', 'PDF'],
+    narration: 'Generás contratos de locación completos con todas las cláusulas exigidas por la normativa vigente. Elegís el tipo de ajuste, la duración, propietario e inquilino, y el PDF queda listo en segundos para enviar a firmar.',
+    tags: ['Contratos', 'Locación', 'PDF'],
     Visual: VisualContratos,
   },
   {
@@ -730,11 +730,11 @@ const SCENES = [
   },
   {
     id: 'pagos',
-    title: 'Cobranzas con MercadoPago',
+    title: 'Cobranzas al día',
     subtitle: 'Del vencimiento al recibo en segundos',
-    description: 'Generás links de pago MercadoPago con un clic. Al acreditarse, el sistema registra el cobro, actualiza el estado y genera el recibo. Siempre sabés quién pagó, quién está pendiente y quién tiene deuda.',
-    narration: 'Con un clic generás el link de pago MercadoPago para el inquilino. Al acreditarse, el sistema registra el cobro, actualiza el estado automáticamente y genera el recibo descargable. Sabés en todo momento quién pagó, quién tiene deuda y cuánto se acumula.',
-    tags: ['MercadoPago', 'Cobros', 'Recibos'],
+    description: 'El inquilino informa su pago y sube el comprobante desde su portal. Confirmás el cobro en un clic, el estado se actualiza y se genera el recibo. Siempre sabés quién pagó, quién está pendiente y quién tiene deuda.',
+    narration: 'El inquilino informa su pago y sube el comprobante desde su portal. Confirmás el cobro en un clic, el estado se actualiza automáticamente y se genera el recibo descargable. Sabés en todo momento quién pagó, quién tiene deuda y cuánto se acumula.',
+    tags: ['Comprobantes', 'Cobros', 'Recibos'],
     Visual: VisualPagos,
   },
   {
@@ -802,20 +802,20 @@ const SCENES = [
   },
   {
     id: 'firma-digital',
-    title: 'Firma digital con validez legal',
+    title: 'Firma electrónica de contratos',
     subtitle: 'Contratos firmados en minutos',
-    description: 'El contrato se envía por email a todas las partes. Propietario, inquilino y garante firman digitalmente desde cualquier dispositivo. El PDF firmado tiene validez legal y queda guardado en el sistema.',
-    narration: 'El contrato se envía por email a todas las partes. Cada uno firma digitalmente desde su celular o computadora. El PDF firmado tiene plena validez legal y queda archivado automáticamente. Sin presencia física, sin traslados.',
-    tags: ['Firma digital', 'Legal', 'PDF'],
+    description: 'El contrato se envía por email a todas las partes. Propietario, inquilino y garante firman electrónicamente desde cualquier dispositivo. El PDF firmado queda guardado en el sistema con el registro de cada firma.',
+    narration: 'El contrato se envía por email a todas las partes. Cada uno firma electrónicamente desde su celular o computadora. El PDF firmado queda archivado automáticamente con el registro de cada firma. Sin presencia física, sin traslados.',
+    tags: ['Firma electrónica', 'Contratos', 'PDF'],
     Visual: VisualFirmaDigital,
   },
   {
     id: 'integraciones',
     title: 'Todo conectado desde el día 1',
-    subtitle: 'AFIP, BCRA, MercadoPago, Firma Digital',
+    subtitle: 'AFIP, BCRA, MercadoPago, Firma Electrónica',
     description: 'Cuatro integraciones clave listas para usar desde el primer día. Sin configuraciones técnicas, sin APIs manuales. Empezás en minutos y operás con todas las herramientas que necesita una inmobiliaria moderna.',
-    narration: 'AFIP, BCRA, MercadoPago y firma digital, todo conectado y listo para usar desde el primer día. Sin configuraciones técnicas ni integraciones manuales. Probá AlquilaGestión Pro 7 días gratis, sin tarjeta. Empezá ahora.',
-    tags: ['AFIP', 'BCRA', 'MercadoPago', 'Firma digital'],
+    narration: 'AFIP, BCRA, MercadoPago y firma electrónica, todo conectado y listo para usar desde el primer día. Sin configuraciones técnicas ni integraciones manuales. Probá AlquilaGestión Pro 7 días gratis, sin tarjeta. Empezá ahora.',
+    tags: ['AFIP', 'BCRA', 'MercadoPago', 'Firma electrónica'],
     Visual: VisualIntegraciones,
   },
 ];

@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const [contractsSnap, existingInvSnap, propertiesSnap] = await Promise.all([
       usersRef.doc(adminId).collection('contratos').where('status', '==', 'Vigente').get(),
       usersRef.doc(adminId).collection('facturas').where('period', '==', nextMonth).get(),
-      usersRef.doc(adminId).collection('inmuebles').get(),
+      usersRef.doc(adminId).collection('propiedades').get(),
     ]);
 
     const alreadyDone = new Set(
