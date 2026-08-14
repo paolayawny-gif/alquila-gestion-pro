@@ -206,7 +206,7 @@ function AdjustmentReminder() {
 }
 
 // ── Hero ──────────────────────────────────────────────────────────────────
-const TRUST = ['AFIP / ARCA', 'BCRA — ICL', 'MercadoPago', 'Firma Digital'];
+const TRUST = ['AFIP / ARCA', 'BCRA — ICL', 'MercadoPago', 'Firma Electrónica'];
 
 function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
   return (
@@ -231,7 +231,7 @@ function Hero({ onOpenDemo }: { onOpenDemo: () => void }) {
               La plataforma completa para gestionar tu cartera de alquileres
             </h1>
             <p className="text-[17px] leading-[1.6] text-muted-foreground mb-7 max-w-[52ch]">
-              Desde el contrato hasta la liquidación — todo en un solo lugar. Registrá ajustes por ICL, IPC y CER, con recordatorios de vencimiento, facturación AFIP integrada, firma digital y un asistente que te ayuda con los cálculos.
+              Desde el contrato hasta la liquidación — todo en un solo lugar. Registrá ajustes por ICL, IPC y CER, con recordatorios de vencimiento, facturación AFIP integrada, firma electrónica y un asistente que te ayuda con los cálculos.
             </p>
             <div className="flex flex-wrap gap-3 mb-7">
               <Link href="/login"
@@ -274,7 +274,7 @@ const ROLES = [
     desc: 'Un panel central para tu cartera completa: contratos, cobranzas, liquidaciones y reportes en un solo lugar.',
     items: [
       'Sidebar con módulos financieros, legales y de comunidad',
-      'Generador de contratos con cláusulas locales (Ley 27.551)',
+      'Generador de contratos con cláusulas adaptadas a la normativa vigente',
       'Centro de liquidaciones con reparto automático',
     ],
   },
@@ -293,7 +293,7 @@ const ROLES = [
     title: 'Inquilinos',
     desc: 'Una cuenta corriente clara, recordatorios antes del vencimiento y un canal directo para mantenimiento.',
     items: [
-      'Pago online con MercadoPago',
+      'Informá tu pago y subí el comprobante',
       'Reclamos con foto y tracking del estado',
       'Próximo ajuste y cálculo paso a paso',
     ],
@@ -347,7 +347,7 @@ function Roles() {
 const FEATURES = [
   { Icon: FileText,      title: 'Generador de contratos',    desc: 'Plantillas locales con cláusulas ICL/IPC/CER, garantías y ajustes. Genera el PDF listo para firmar.' },
   { Icon: TrendingUp,    title: 'Ajustes por índice',        desc: 'Registrá el ajuste ICL, IPC o CER de cada contrato y notificá a las partes el día exacto — con recordatorio de vencimiento.' },
-  { Icon: CreditCard,    title: 'Cobranzas y MercadoPago',   desc: 'Link de pago automático con vencimiento, recordatorios y conciliación.' },
+  { Icon: CreditCard,    title: 'Cobranzas al día',          desc: 'Recordatorios de vencimiento, pago informado con comprobante y confirmación en un clic.' },
   { Icon: BarChart3,     title: 'Centro de liquidaciones',   desc: 'Reparto automático al propietario, descuentos de comisión, expensas e impuestos en un solo cierre.' },
   { Icon: Scale,         title: 'Casos legales',             desc: 'Cargá la mora, generá la intimación y seguí los pasos con tu mediador. Documentos versionados.' },
   { Icon: Wrench,        title: 'Mantenimiento',             desc: 'Tickets con foto, presupuesto, aprobación del propietario y red de proveedores propios.' },
@@ -439,10 +439,10 @@ function ContractShowcase() {
             <Eyebrow>Caso de uso · Contratos</Eyebrow>
             <h3 className="text-[clamp(1.45rem,1.1rem+0.9vw,2rem)] font-extrabold tracking-[-0.02em] leading-[1.15] mb-4"
               style={{ textWrap: 'balance' } as React.CSSProperties}>
-              Del primer borrador a la firma digital en menos de una tarde.
+              Del primer borrador a la firma electrónica en menos de una tarde.
             </h3>
             <p className="text-[15px] text-muted-foreground leading-[1.6] mb-6">
-              Cargá los datos del locador, locatario y la propiedad. AlquilaGestión arma el contrato con la plantilla correcta — Ley 27.551 o esquemas previos —, calcula garantías y abre la firma electrónica al cliente.
+              Cargá los datos del locador, locatario y la propiedad. AlquilaGestión arma el contrato con la plantilla correcta según el régimen aplicable, calcula garantías y abre la firma electrónica al cliente.
             </p>
             <ul className="grid gap-3 mb-6">
               {[
@@ -515,7 +515,7 @@ const STEPS = [
   {
     num: '02',
     title: 'Conectá tus cuentas',
-    desc: 'AFIP y MercadoPago. Las cobranzas se concilian solas y la facturación electrónica se emite cuando toca.',
+    desc: 'Conectá AFIP para la facturación electrónica y definí tu método de cobro. El cierre del mes corre solo.',
   },
   {
     num: '03',
@@ -535,7 +535,7 @@ function HowItWorks() {
             Migrar tu cartera lleva una mañana, no un trimestre.
           </h2>
           <p className="text-[16.5px] text-muted-foreground leading-[1.6] max-w-[52ch] mx-auto">
-            Importás tus contratos, conectás MercadoPago y AFIP, y el primer cierre del mes corre solo.
+            Importás tus contratos, conectás AFIP, y el primer cierre del mes corre solo.
           </p>
         </div>
         <div className="bg-card border border-border rounded-[20px] overflow-hidden">
@@ -560,7 +560,7 @@ function HowItWorks() {
 const PLAN_FEATURES = [
   'Generador de contratos + plantillas',
   'Registro de ajustes ICL/IPC/CER',
-  'Cobranzas con MercadoPago',
+  'Cobranzas y recordatorios',
   'Portal propietario e inquilino',
   'Centro de liquidaciones',
   'Facturación AFIP / ARCA',

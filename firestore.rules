@@ -267,10 +267,11 @@ service cloud.firestore {
     // acceso directo del cliente queda restringido a usuarios autenticados.
     match /artifacts/{appId}/users/{userId}/propiedades/{propiedadId} {
       // Inquilinos y propietarios leen la propiedad de su contrato por ID
-      // (tenant-home.tsx, tenant-insurance.tsx, owner-home.tsx) — cualquier
-      // usuario autenticado puede alcanzar. Ya no hay lectura anónima.
+      // (tenant-home.tsx, tenant-insurance.tsx, owner-home.tsx) — get autenticado.
+      // list restringido al dueño: un usuario autenticado de otra inmobiliaria
+      // no puede enumerar la cartera completa ajena.
       allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow list: if isOwner(userId) || isSuperAdmin();
       allow create, update, delete: if isOwner(userId);
     }
 
@@ -338,10 +339,14 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
-    // Ofertas de monetización: admin full access; cualquier autenticado puede leerlas
+    // Ofertas de monetización: admin full access; inquilinos y propietarios del
+    // admin las leen (tenant-spaces, owner-opportunities); el propietario puede
+    // proponer una oferta propia (owner-opportunities handleSubmitOffer).
     match /artifacts/{appId}/users/{userId}/monetizationOffers/{offerId} {
       allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      allow create: if isOwner(userId) ||
+        (isSignedIn() && request.resource.data.ownerEmail == request.auth.token.email);
+      allow update, delete: if isOwner(userId);
     }
 
     // Pedidos de monetización: admin full access; el inquilino puede crear el suyo
@@ -391,12 +396,52 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // Catálogo de servicios del admin: el portal del propietario lo lee
+    // (owner-services.tsx); solo el admin lo edita.
+    match /artifacts/{appId}/users/{userId}/adminServiceCatalog/{svcId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // Solicitudes de servicio: el propietario/inquilino del admin crea y sigue
+    // las suyas por clientEmail (owner-services.tsx); el admin gestiona todas.
+    match /artifacts/{appId}/users/{userId}/serviceRequests/{reqId} {
+      allow read: if isOwner(userId) ||
+        (isSignedIn() && resource.data.clientEmail == request.auth.token.email) ||
+        isSuperAdmin();
+      allow create: if isOwner(userId) ||
+        (isSignedIn() && request.resource.data.clientEmail == request.auth.token.email);
+      allow update: if isOwner(userId) ||
+        (isSignedIn() && resource.data.clientEmail == request.auth.token.email);
+      allow delete: if isOwner(userId);
+    }
+
+    // Sugerencias de monetización: el cron (Admin SDK) y el admin las crean;
+    // el propietario destinatario las lee y responde (owner-opportunities.tsx),
+    // pudiendo tocar solo los campos de estado/vista/respuesta.
+    match /artifacts/{appId}/users/{userId}/monetizationSuggestions/{sugId} {
+      allow read: if isOwner(userId) ||
+        (isSignedIn() && resource.data.ownerEmail == request.auth.token.email) ||
+        isSuperAdmin();
+      allow create, delete: if isOwner(userId);
+      allow update: if isOwner(userId) || (
+        isSignedIn() &&
+        resource.data.ownerEmail == request.auth.token.email &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'seenAt', 'repliedAt'])
+      );
+    }
+
     // ── Comodín por usuario: cualquier OTRA subcolección bajo users/{uid} ──────
-    // FIX: solo read — write eliminado para evitar que este comodín anule reglas
-    // de inmutabilidad de colecciones específicas (como propertyEvents).
-    // Todas las subcolecciones con acceso write tienen sus propias reglas arriba.
+    // El dueño puede leer y escribir sus propias subcolecciones (inquilinos,
+    // indices, rentAdjustments, proveedores, visitas, depositos, seguros, etc.).
+    // Se excluye propertyEvents para no anular su inmutabilidad: en Firestore
+    // las reglas se combinan con OR, y un write acá pisaría el "update: false"
+    // del bloque específico. Las colecciones con acceso de terceros (inquilino/
+    // propietario) tienen sus propias reglas arriba.
     match /artifacts/{appId}/users/{userId}/{collection}/{docId} {
       allow read: if isOwner(userId) || isSuperAdmin();
+      allow create, update, delete: if isOwner(userId) && collection != 'propertyEvents';
     }
   }
 }
